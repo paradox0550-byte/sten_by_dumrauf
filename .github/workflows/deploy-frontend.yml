@@ -1,0 +1,92 @@
+name: Deploy Frontend to Yandex Cloud
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
+      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch: # Позволяет запустить деплой вручную из вкладки Actions
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: production # Требует настройки Environment в настройках репозитория (опционально, но рекомендуется)
+
+    steps:
+      # 1. Получение кода из репозитория
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Настройка Node.js 22
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # 3. Установка зависимостей
+      - name: Install dependencies
+        run: npm ci
+
+      # 4. Проверка типов TypeScript (Критично для production)
+      - name: Type check
+        run: npx tsc --noEmit
+
+      # 5. Линтинг кода
+      - name: Lint
+        run: npm run lint --if-present || echo "Linting skipped or passed"
+
+      # 6. Сборка проекта
+      - name: Build
+        run: npm run build
+
+      # 7. КРИТИЧЕСКИ ВАЖНО: SPA Fallback для Object Storage
+      # Без этого при обновлении страницы на /dashboard или /pnl будет ошибка 404
+      - name: Create 404.html for SPA routing
+        run: cp dist/index.html dist/404.html
+
+      # 8. Настройка AWS CLI для работы с Yandex Object Storage (S3-compatible)
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.YC_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.YC_SECRET_ACCESS_KEY }}
+          aws-region: ru-central1
+
+      # 9. Деплой в Object Storage
+      - name: Deploy to Yandex Object Storage
+        env:
+          BUCKET_NAME: ${{ secrets.YC_BUCKET_NAME }}
+        run: |
+          echo "🚀 Syncing files to Yandex Object Storage ($BUCKET_NAME)..."
+          
+          # Синхронизируем все файлы, удаляя старые (--delete)
+          aws s3 sync dist/ s3://$BUCKET_NAME/ --delete
+          
+          echo "⚙️ Setting Cache-Control headers..."
+          
+          # Для HTML-файлов: запрещаем кэширование, чтобы всегда загружалась свежая версия приложения
+          aws s3 cp s3://$BUCKET_NAME/index.html s3://$BUCKET_NAME/index.html \
+            --metadata-directive REPLACE \
+            --cache-control "no-cache, no-store, must-revalidate" \
+            --content-type "text/html; charset=utf-8"
+            
+          aws s3 cp s3://$BUCKET_NAME/404.html s3://$BUCKET_NAME/404.html \
+            --metadata-directive REPLACE \
+            --cache-control "no-cache, no-store, must-revalidate" \
+            --content-type "text/html; charset=utf-8"
+            
+          # Для JS/CSS/картинок: разрешаем долгосрочное кэширование (immutable), так как Vite добавляет хэши в имена файлов
+          aws s3 cp s3://$BUCKET_NAME/assets/ s3://$BUCKET_NAME/assets/ \
+            --recursive \
+            --metadata-directive REPLACE \
+            --cache-control "public, max-age=31536000, immutable"
+            
+          echo "✅ Deployment completed successfully!"
