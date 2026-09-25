@@ -1,0 +1,82 @@
+name: YandexGPT Audit Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      skill:
+        description: 'Что проверить'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - audit
+          - operations
+          - finance
+          - optimization
+          - css
+          - routes
+
+concurrency:
+  group: yandexgpt-audit-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: YandexGPT engineering audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    env:
+      SKILL: ${{ inputs.skill || 'full' }}
+      YANDEXGPT_BASE_URL: ${{ secrets.YANDEXGPT_BASE_URL || 'https://ai.api.cloud.yandex.net/v1' }}
+      YANDEXGPT_MODEL_NAME: ${{ secrets.YANDEXGPT_MODEL_NAME }}
+      YANDEXGPT_API_KEY: ${{ secrets.YANDEXGPT_API_KEY }}
+      YANDEXGPT_FOLDER_ID: ${{ secrets.YANDEXGPT_FOLDER_ID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Validate configuration
+        run: |
+          set -euo pipefail
+          case "$SKILL" in
+            full|audit|operations|finance|optimization|css|routes) ;;
+            *) echo "::error::Недопустимый skill: $SKILL"; exit 1 ;;
+          esac
+          test -n "$YANDEXGPT_API_KEY" || { echo "::error::YANDEXGPT_API_KEY не настроен"; exit 1; }
+          test -n "$YANDEXGPT_FOLDER_ID" || { echo "::error::YANDEXGPT_FOLDER_ID не настроен"; exit 1; }
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Run YandexGPT audit
+        env:
+          SKILL: ${{ inputs.skill || 'full' }}
+        run: |
+          set -euo pipefail
+          python3 .github/agent/yandexgpt_auditor.py
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: yandexgpt-audit-${{ github.run_id }}
+          path: .github/agent/AUDIT_REPORT.md
+          if-no-files-found: error

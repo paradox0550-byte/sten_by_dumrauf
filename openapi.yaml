@@ -1,0 +1,134 @@
+name: Deploy STEN backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # Критично для OIDC-аутентификации в Yandex Cloud
+
+env:
+  FOLDER_ID: ${{ vars.YC_FOLDER_ID }}
+  FUNCTION_NAME: smenavkarmane-api
+  FUNCTION_RUNTIME: nodejs22
+  FUNCTION_ENTRYPOINT: index.handler
+  FUNCTION_MEMORY: 256Mb
+  FUNCTION_TIMEOUT: "90"
+  FUNCTION_NETWORK_ID: ${{ vars.YC_NETWORK_ID }}
+
+jobs:
+  validate:
+    name: Validate backend
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      
+      - name: Syntax check
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          node --check index.js
+          node --check documentProcessor.js
+          node --check core/skills.js
+      
+      - name: Validate required deployment configuration
+        env:
+          FOLDER_ID: ${{ vars.YC_FOLDER_ID }}
+          DEPLOY_SA_ID: ${{ vars.YC_DEPLOY_SA_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$FOLDER_ID" || { echo "❌ YC_FOLDER_ID is not configured in GitHub Variables"; exit 1; }
+          test -n "$DEPLOY_SA_ID" || { echo "❌ YC_DEPLOY_SA_ID is not configured in GitHub Variables"; exit 1; }
+          echo "✅ Target: $FOLDER_ID / github-deployer / $FUNCTION_NAME"
+
+  deploy:
+    name: Deploy Cloud Function
+    needs: validate
+    runs-on: ubuntu-24.04
+    environment: production # Требует ручного подтверждения, если настроено в GitHub
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy function version
+        id: deploy
+        uses: yc-actions/yc-sls-function@v5
+        with:
+          yc-sa-id: ${{ vars.YC_DEPLOY_SA_ID }}
+          folder-id: ${{ vars.YC_FOLDER_ID }}
+          function-name: ${{ env.FUNCTION_NAME }}
+          runtime: ${{ env.FUNCTION_RUNTIME }}
+          memory: ${{ env.FUNCTION_MEMORY }}
+          entrypoint: ${{ env.FUNCTION_ENTRYPOINT }}
+          execution-timeout: ${{ env.FUNCTION_TIMEOUT }}
+          source-root: backend
+          service-account-name: github-deployer # SA, от имени которой будет работать функция
+          network-id: ${{ env.FUNCTION_NETWORK_ID }}
+          include: |
+            ./*.js
+            ./core/**/*.js
+            ./package.json
+            ./package-lock.json
+          exclude: |
+            ./function.zip
+            ./node_modules/**
+          tags: |
+            ${{ github.sha }}
+          environment: |
+            NODE_ENV=production
+            ALLOWED_ORIGINS=https://smenavkarmane-business.website.yandexcloud.net
+            OBJECT_STORAGE_BUCKET=smenavkarmane-business
+            OBJECT_STORAGE_ENDPOINT=https://storage.yandexcloud.net
+            OBJECT_STORAGE_REGION=ru-central1
+            YANDEXGPT_MODEL=yandexgpt
+            YANDEXGPT_BASE_URL=https://llm.api.cloud.yandex.net/foundationModels/v1
+            YANDEXGPT_TIMEOUT_MS=60000
+            YANDEXGPT_MAX_TOKENS=8000
+            YANDEXGPT_TEMPERATURE=0.2
+            VISION_OCR_URL=https://ocr.api.cloud.yandex.net/ocr/v1/recognizeText
+            DB_HOST=${{ vars.YC_DB_HOST }}
+            DB_PORT=${{ vars.YC_DB_PORT }}
+            DB_NAME=${{ vars.YC_DB_NAME }}
+            DB_USER=${{ vars.YC_DB_USER }}
+            YC_FOLDER_ID=${{ vars.YC_FOLDER_ID }}
+            DEBUG=0
+          # 🔒 ИСПРАВЛЕНО: Используем secrets, а не vars для чувствительных данных
+          secrets: |
+            JWT_SECRET=${{ secrets.YC_LOCKBOX_JWT_SECRET }}
+            UNLOCK_CODE_HASH=${{ secrets.YC_LOCKBOX_UNLOCK_CODE }}
+            DB_PASSWORD=${{ secrets.YC_LOCKBOX_DB_PASSWORD }}
+            YANDEXGPT_API_KEY=${{ secrets.YC_LOCKBOX_YANDEXGPT_API_KEY }}
+            AWS_ACCESS_KEY_ID=${{ secrets.YC_LOCKBOX_AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.YC_LOCKBOX_AWS_SECRET_ACCESS_KEY }}
+
+      - name: Production smoke test
+        env:
+          API_URL: ${{ vars.YC_API_GATEWAY_URL }} # Вынесли в переменную, чтобы не хардкодить
+        run: |
+          set -euo pipefail
+          echo "🔍 Running smoke test on $API_URL/healthz..."
+          for i in 1 2 3 4 5; do
+            if curl -fsS "$API_URL/healthz" >/tmp/health.json; then
+              echo "✅ Backend is healthy:"
+              cat /tmp/health.json
+              exit 0
+            fi
+            echo "⏳ Attempt $i failed, retrying in 4s..."
+            sleep 4
+          done
+          echo "❌ Backend smoke test failed after 5 attempts"
+          exit 1

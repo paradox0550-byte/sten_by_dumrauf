@@ -1,0 +1,49 @@
+{
+  "name": "smenavkarmane-kabinet",
+  "private": true,
+  "version": "1.1.0",
+  "type": "module",
+  "description": "Личный кабинет управляющего — Смена в кармане",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:strict": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.59.0",
+    "@xyflow/react": "12.11.6",
+    "framer-motion": "13.2.0",
+    "jspdf": "2.5.2",
+    "jspdf-autotable": "3.8.4",
+    "lucide-react": "0.460.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-router-dom": "6.28.0",
+    "xlsx": "0.18.5",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@types/node": "22.12.0",
+    "@types/react": "19.0.0",
+    "@types/react-dom": "19.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "@vitest/coverage-v8": "^2.1.8",
+    "eslint": "^8.57.1",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.16",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.7.2",
+    "vite": "8.2.2",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}
