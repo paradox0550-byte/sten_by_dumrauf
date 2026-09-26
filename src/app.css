@@ -3089,3 +3089,40 @@ h3, .h3 {
 .bar-track rect {
   fill: currentColor;
 }
+
+/* === Impeccable: Motion Tokens === */
+:root {
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 200ms;
+  --duration-normal: 300ms;
+}
+
+/* === Pegboard: Improved Focus States === */
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* === Pegboard: Touch Targets (min 44px) === */
+.scope-bar select, .scope-input, .icon-button {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* === Impeccable: Skeleton Loader === */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface2) 25%, var(--line) 50%, var(--surface2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* === Pegboard: Dark theme contrast fix === */
+:root[data-theme="dark"] {
+  --muted: #B0B0B0;
+}

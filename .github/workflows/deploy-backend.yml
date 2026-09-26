@@ -90,10 +90,12 @@ jobs:
             ${{ github.sha }}
           environment: |
             NODE_ENV=production
-            ALLOWED_ORIGINS=https://smenavkarmane-business.website.yandexcloud.net
+            ALLOWED_ORIGINS=https://smenavkarmane-business.website.yandexcloud.net,https://cabinet.smenavkarmane.ru,https://smenavkarmane.ru,http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:5173,https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net
+            CORS_ORIGIN=https://smenavkarmane-business.website.yandexcloud.net
             OBJECT_STORAGE_BUCKET=smenavkarmane-business
             OBJECT_STORAGE_ENDPOINT=https://storage.yandexcloud.net
             OBJECT_STORAGE_REGION=ru-central1
+            YC_BUCKET_NAME=smenavkarmane-business
             YANDEXGPT_MODEL=yandexgpt
             YANDEXGPT_BASE_URL=https://llm.api.cloud.yandex.net/foundationModels/v1
             YANDEXGPT_TIMEOUT_MS=60000
@@ -105,6 +107,12 @@ jobs:
             DB_NAME=${{ vars.YC_DB_NAME }}
             DB_USER=${{ vars.YC_DB_USER }}
             YC_FOLDER_ID=${{ vars.YC_FOLDER_ID }}
+            JWT_TTL_SECONDS=2592000
+            PNL_APPROVER_ROLES=super_admin,admin,director,owner
+            DEFAULT_ORG_ID=${{ vars.YC_DEFAULT_ORG_ID }}
+            ADMIN_ROLE=super_admin
+            ADMIN_EMAIL=${{ vars.YC_ADMIN_EMAIL }}
+            ADMIN_ID=${{ vars.YC_ADMIN_ID }}
             DEBUG=0
           # 🔒 ИСПРАВЛЕНО: Используем secrets, а не vars для чувствительных данных
           secrets: |

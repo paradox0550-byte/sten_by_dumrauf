@@ -3,3 +3,29 @@ dist/
 
 # Dependencies
 node_modules/
+
+# Env files (secrets)
+.env
+.env.local
+.env.*.local
+_deploy/env.yc
+
+# Deploy artifacts
+_deploy/
+backend/function.zip
+*.zip
+
+# Backups / temp
+*.bak
+backend/index.js.bak
+_backend_original.js
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

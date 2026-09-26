@@ -69,7 +69,6 @@ function assertProductionSecrets() {
     throw err;
   }
 }
-}
 assertProductionSecrets();
 
 /* ----------------------------- utils -------------------------------------- */
@@ -160,7 +159,7 @@ async function ensureSchemaNow() {
     await query(`CREATE TABLE IF NOT EXISTS ai_skill_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
     await query(`CREATE TABLE IF NOT EXISTS auth_unlock_attempts (ip TEXT PRIMARY KEY, window_started_at TIMESTAMPTZ NOT NULL DEFAULT now(), failed_attempts INTEGER NOT NULL DEFAULT 0, blocked_until TIMESTAMPTZ);`);
     // Ежедневные отчёты (/reports контракт OpenAPI).
-    await query(`CREATE TABLE IF NOT EXISTS daily_reports (id UUID PRIMARY KEY, organization_id UUID NOT NULL, date DATE NOT NULL, values JSONB NOT NULL DEFAULT '{}'::jsonb, note TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (organization_id, date));`);
+    await query(`CREATE TABLE IF NOT EXISTS daily_reports (id UUID PRIMARY KEY, organization_id UUID NOT NULL, report_date DATE NOT NULL, values_json JSONB NOT NULL DEFAULT '{}'::jsonb, note TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (organization_id, report_date));`);
     _schemaReady = true; log('schema: ready'); return true;
   } catch (e) { log('schema attempt failed:', e.message); return false; }
 }
@@ -318,7 +317,9 @@ function calculatePnl(input = {}) {
   return {
     ...r,
     foodCost: { revenue: r.revenue, cogs: r.cogs, amount: r.cogs, percent: r.foodCostPercent },
-    personnelCost: { revenue: r.revenue, personnel: r.personnel, overtime: r.overtime, labor: r.labor, percent: r.personnelPercent },`n    overtimeAmount: r.overtime,`n    primeCost: { percent: r.primeCostPercent, status: r.primeCostStatus, formula: '(COGS + Labor) / Revenue * 100' },
+    personnelCost: { revenue: r.revenue, personnel: r.personnel, overtime: r.overtime, labor: r.labor, percent: r.personnelPercent },
+    overtimeAmount: r.overtime,
+    primeCost: { percent: r.primeCostPercent, status: r.primeCostStatus, formula: '(COGS + Labor) / Revenue * 100' },
     review: { otherOperatingRequiresReview: r.otherOperatingRequiresReview, otherOperatingPercent: r.otherOperatingPercent },
     margins: {
       foodCostPercent: r.foodCostPercent, personnelPercent: r.personnelPercent,
