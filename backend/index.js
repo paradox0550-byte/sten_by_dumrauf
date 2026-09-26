@@ -560,7 +560,7 @@ async function parseSalesReportWithFunctionCalling(text){
  },required:['date','revenue','cash','card','discounts','checks','restaurant']}}}],toolChoice:{type:'function',function:{name:'parse_sales_report'}}};
  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),ENV.YANDEXGPT_TIMEOUT_MS);
  try{
-  const r=await fetch(ENV.YANDEXGPT_BASE_URL+'/textGenerations:stream',{method:'POST',headers:{Authorization:'Api-Key '+ENV.YANDEXGPT_API_KEY,'Content-Type':'application/json','X-Request-Id':uuid()},signal:controller.signal,body:JSON.stringify(body)});
+  const r=await fetch(ENV.YANDEXGPT_BASE_URL+'/completion',{method:'POST',headers:{Authorization:'Api-Key '+ENV.YANDEXGPT_API_KEY,'Content-Type':'application/json','X-Request-Id':uuid()},signal:controller.signal,body:JSON.stringify(body)});
   if(!r.ok)throw httpError(502,'YandexGPT не вернул structured tool call','AI_UPSTREAM_ERROR');
   const decoder=new TextDecoder('utf-8');let buf='';let tool=null;
   for await(const chunk of r.body){buf+=decoder.decode(chunk,{stream:true});let nl;while((nl=buf.indexOf('\n'))>=0){const line=buf.slice(0,nl).trim();buf=buf.slice(nl+1);if(!line)continue;try{const evt=JSON.parse(line);tool=evt?.result?.alternatives?.[0]?.message?.toolCallList?.[0]||evt?.result?.alternatives?.[0]?.message?.ToolCallList?.[0]||tool}catch{}}}
@@ -579,7 +579,7 @@ async function callYandexGPT(messages) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ENV.YANDEXGPT_TIMEOUT_MS);
   try {
-    const res = await fetch(ENV.YANDEXGPT_BASE_URL + '/textGenerations:stream', {
+    const res = await fetch(ENV.YANDEXGPT_BASE_URL + '/completion', {
       method: 'POST',
       headers: {
         'Authorization': `Api-Key ${ENV.YANDEXGPT_API_KEY}`,
