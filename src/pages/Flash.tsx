@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Activity, AlertTriangle, RefreshCw } from 'lucide-react';
 import { api } from '../lib/api';
-import ScopeBar from '../components/ScopeBar';
+
 import { useScope } from '../lib/useScope';
 
 type Calc = {
@@ -71,7 +71,7 @@ export default function Flash() {
         </button>
       </div>
       
-      <ScopeBar value={scope} onChange={setScope} />
+      
       
       <section className="panel flash-date">
         <label className="settings-field">
