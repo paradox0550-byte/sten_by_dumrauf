@@ -1,4 +1,4 @@
-export type FinancialRow={article:string;plan:number|null|undefined;fact:number|null|undefined;source?:string};
+export type FinancialRow={article:string;plan?:number|null;fact?:number|null;source?:string};
 
 const aliases:Record<string,string>={
   revenue:'revenue',выручка:'revenue',
