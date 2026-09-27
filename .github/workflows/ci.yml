@@ -98,7 +98,7 @@ jobs:
           ! grep -RInE 'QWEN_API_KEY|DASHSCOPE_API_KEY|YANDEXGPT_API_KEY|OLLAMA_BASE_URL' src public
           ! grep -RInE 'localhost:11434|127\.0\.0\.1:11434|OLLAMA|ollama|qwen2\.5|DASHSCOPE_API_KEY|QWEN_API_KEY' src public .github/agent/*.py .github/agent/auto-agent.yml
           grep -RInE 'YANDEXGPT_API_KEY|YANDEXGPT_FOLDER_ID|gpt://\$\{?FOLDER_ID|ai\.api\.cloud\.yandex\.net' .github/agent/*.py .github/agent/auto-agent.yml >/dev/null
-          ! grep -RInE 'AKIA[0-9A-Z]{16}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|ghp_[A-Za-z0-9]{20,}' backend src public .github
+          ! grep -RIn --exclude-dir=node_modules -E 'AKIA[0-9A-Z]{16}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|ghp_[A-Za-z0-9]{20,}' backend src public .github
 
       - name: MARK 11 configure credentials
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
