@@ -1651,6 +1651,80 @@ h3, .h3 {
   gap: 12px;
 }
 
+.workspace-settings {
+  grid-column: 1 / -1;
+}
+.workspace-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+.workspace-heading h2 {
+  margin: 4px 0 6px;
+}
+.workspace-heading p {
+  margin: 0;
+  max-width: 760px;
+}
+.workspace-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--good);
+  background: var(--surface2);
+  white-space: nowrap;
+  font-size: 11px;
+}
+.workspace-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+.workspace-select {
+  min-width: 0;
+}
+.workspace-select > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.workspace-select input,
+.workspace-select select {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 7px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface2);
+  color: var(--text);
+}
+.workspace-select select:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+@media (max-width: 1000px) {
+  .workspace-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .workspace-heading {
+    flex-direction: column;
+  }
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+  .workspace-status {
+    align-self: flex-start;
+  }
+}
+
 .choice-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
