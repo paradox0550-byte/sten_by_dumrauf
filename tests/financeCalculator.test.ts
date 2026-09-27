@@ -11,6 +11,7 @@ describe('finance domain', () => {
       depreciation: 50_000,
       interest: 20_000,
       tax: 30_000,
+      other: 0,
     });
 
     expect(result.grossProfit).toBe(700_000);
