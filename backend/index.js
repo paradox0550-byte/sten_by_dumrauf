@@ -147,6 +147,8 @@ async function ensureSchemaNow() {
     await query(`CREATE INDEX IF NOT EXISTS idx_secretary_notes_org ON secretary_notes(organization_id, created_at DESC);`);
     // P&L ручного ввода: scope (project/branch/restaurant/department) + период + строки статей.
     await query(`CREATE TABLE IF NOT EXISTS pnl_entries (organization_id UUID NOT NULL, period TEXT NOT NULL, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', rows JSONB NOT NULL DEFAULT '[]'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT, PRIMARY KEY (organization_id, period, project_id, branch_id, restaurant_id, department_id));`);
+    await query(`CREATE TABLE IF NOT EXISTS pnl_transactions (id UUID PRIMARY KEY, organization_id UUID NOT NULL, period TEXT NOT NULL, transaction_date DATE NOT NULL, type TEXT NOT NULL, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', article TEXT NOT NULL, amount NUMERIC(18,2) NOT NULL, comment TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by TEXT);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_pnl_transactions_scope ON pnl_transactions(organization_id, period, project_id, branch_id, restaurant_id, department_id, transaction_date);`);
     await query(`CREATE TABLE IF NOT EXISTS pnl_approvals (organization_id UUID NOT NULL, period TEXT NOT NULL, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'draft', approved_by UUID, approved_at TIMESTAMPTZ, PRIMARY KEY (organization_id, period, project_id, branch_id, restaurant_id, department_id));`);
     // Журнал аудита всех записей (финансовый контур обязан иметь provenance).
     await query(`CREATE TABLE IF NOT EXISTS audit_log (id UUID PRIMARY KEY, organization_id UUID, user_id TEXT, action TEXT NOT NULL, entity TEXT NOT NULL, entity_id TEXT, details JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
@@ -355,6 +357,14 @@ const PnlRowSchema = z.object({
 
 const PnlWriteSchema = ScopeSchema.extend({
   rows: z.array(PnlRowSchema).min(1).max(2000),
+}).strict();
+
+const PnlTransactionSchema = ScopeSchema.extend({
+  date: z.string().regex(DATE_RE, 'date должен быть ГГГГ-ММ-ДД'),
+  type: z.enum(['expense','income']),
+  article: z.string().trim().min(1).max(240),
+  amount: z.number().finite().positive(),
+  comment: z.string().trim().max(2000).nullable().optional(),
 }).strict();
 
 const PnlCalculateSchema = z.object({
@@ -924,6 +934,59 @@ function rollupAgg(agg) {
   };
 }
 
+/* ---- P&L transactions: отдельный журнал фактических доходов/расходов ---- */
+app.get('/api/pnl/transactions', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const q = scopeFromQuery(req.query);
+    if (!YM_RE.test(q.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
+    const rows = await safeQuery(
+      `SELECT id, transaction_date, type, article, amount, comment, created_at
+       FROM pnl_transactions
+       WHERE organization_id=$1::uuid AND period=$2
+         AND ($3::text='' OR project_id=$3)
+         AND ($4::text='' OR branch_id=$4)
+         AND ($5::text='' OR restaurant_id=$5)
+         AND ($6::text='' OR department_id=$6)
+       ORDER BY transaction_date DESC, created_at DESC LIMIT 1000`,
+      [req.user.organizationId,q.period,q.project_id,q.branch_id,q.restaurant_id,q.department_id], []
+    );
+    ok(res,{period:q.period,scope:q,transactions:rows.map(x=>({...x,amount:Number(x.amount)})),count:rows.length});
+  } catch(e){next(e);}
+});
+
+app.post('/api/pnl/transactions', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const body=parseOr400(PnlTransactionSchema,req.body??{});
+    if(body.date.slice(0,7)!==body.period) throw httpError(400,'Дата операции не относится к выбранному периоду','DATE_PERIOD_MISMATCH');
+    const scope=[body.project_id||'',body.branch_id||'',body.restaurant_id||'',body.department_id||''];
+    const existing=await safeQuery(
+      `SELECT rows FROM pnl_entries
+       WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1`,
+      [req.user.organizationId,body.period,...scope],[]
+    );
+    let rows=[];
+    try{rows=existing[0]?.rows?JSON.parse(existing[0].rows):[]}catch{rows=[]}
+    const articleKey=canonicalArticleKey(body.article);
+    const articleExists=rows.some(r=>canonicalArticleKey(r.article)===articleKey);
+    if(!articleExists) throw httpError(422,'Статья не найдена в P&L выбранного рабочего контура. Сначала добавьте её в основной P&L.','ARTICLE_NOT_IN_PNL');
+    const id=uuid();
+    await queryWithRetry(
+      `INSERT INTO pnl_transactions(id,organization_id,period,transaction_date,type,project_id,branch_id,restaurant_id,department_id,article,amount,comment,created_by)
+       VALUES($1::uuid,$2::uuid,$3,$4::date,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      [id,req.user.organizationId,body.period,body.date,body.type,body.project_id||'',body.branch_id||'',body.restaurant_id||'',body.department_id||'',body.article.trim(),body.amount,body.comment||null,req.user.id],
+      {orgId:req.user.organizationId}
+    );
+    const verify=await safeQuery(
+      `SELECT id,transaction_date,type,article,amount,comment,created_at FROM pnl_transactions WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1`,
+      [id,req.user.organizationId],null
+    );
+    const confirmed=Boolean(verify?.[0]);
+    await audit(req.user,confirmed?'pnl.transaction.confirmed':'pnl.transaction.unconfirmed','pnl_transactions',id,{period:body.period,type:body.type,article:body.article,amount:body.amount,scope});
+    if(!confirmed) return res.status(500).json({error:{message:'Операция сохранена не подтверждена сервером (readback failed)',code:'TRANSACTION_NOT_CONFIRMED',requestId:req.requestId}});
+    ok(res,{saved:true,confirmed:true,transaction:{...verify[0],amount:Number(verify[0].amount)}},201);
+  } catch(e){next(e);}
+});
+
 /* ---- GET /api/pnl — readback по scope (All = все дочерние внутри родителя) ---- */
 app.get('/api/pnl', requireAuth, requireOrg, async (req, res, next) => {
   try {
@@ -940,7 +1003,24 @@ app.get('/api/pnl', requireAuth, requireOrg, async (req, res, next) => {
     );
     const all = [];
     for (const r of rows) { try { const parsed = JSON.parse(r.rows); if (Array.isArray(parsed)) all.push(...parsed); } catch { /* ignore broken json row */ } }
-    const aggregated = aggregateRows(all);
+    let aggregated = aggregateRows(all);
+    const txRows = await safeQuery(
+      `SELECT article, SUM(amount) AS total, COUNT(*)::int AS count
+       FROM pnl_transactions
+       WHERE organization_id=$1::uuid AND period=$2
+         AND ($3::text='' OR project_id=$3)
+         AND ($4::text='' OR branch_id=$4)
+         AND ($5::text='' OR restaurant_id=$5)
+         AND ($6::text='' OR department_id=$6)
+       GROUP BY article`,
+      [req.user.organizationId,s.period,s.project_id,s.branch_id,s.restaurant_id,s.department_id],[]
+    );
+    const txByKey=new Map(txRows.map(x=>[canonicalArticleKey(x.article),{total:Number(x.total||0),count:Number(x.count||0)}]));
+    aggregated=aggregated.map(x=>{
+      const tx=txByKey.get(canonicalArticleKey(x.article));
+      if(!tx)return x;
+      return {...x,fact:x.fact===null||x.fact===undefined?tx.total:Number(x.fact)+tx.total,transaction_total:tx.total,transaction_count:tx.count,source:[x.source,'transactions'].filter(Boolean).join(',')};
+    });
     const filled = aggregated.filter(x => x.plan !== null || x.fact !== null).length;
     const fact = rollupAgg(aggregated);
     const planRows = aggregated.map(x => ({ ...x, fact: x.plan, plan: null }));
