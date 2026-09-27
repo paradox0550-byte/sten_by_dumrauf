@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bot, Copy, FileText, Paperclip, Send, Sparkles, Trash2, UploadCloud, Eye, X } from 'lucide-react';
 import { api } from '../lib/api';
-import ScopeBar from '../components/ScopeBar';
+
 import { useScope } from '../lib/useScope';
 import { hasScopeId } from '../lib/scope';
 
@@ -102,7 +102,7 @@ export default function AI() {
       <div><span className="eyebrow"><span className="status-dot" /> ЛИЧНЫЙ АНАЛИТИЧЕСКИЙ КОНТУР</span><h1>STEN</h1><p>Документы, цифры и управленческие решения — в одном рабочем окне. STEN отвечает только по данным выбранной области и загруженным документам.</p></div>
       <button className="secondary-button" onClick={() => { setMessages([]); localStorage.removeItem(KEY) }}>Новый диалог</button>
     </div>
-    <ScopeBar value={scope} onChange={setScope} />
+    
     {!hasScopeId(scope) && <div className="import-result warn">Область не выбрана: STEN анализирует все проекты сразу. Для точного ответа выберите проект, филиал или ресторан.</div>}
     <div className="ai-grid">
       <aside className="docs-panel">
