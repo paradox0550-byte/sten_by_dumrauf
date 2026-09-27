@@ -1,4 +1,4 @@
-import{useEffect,useMemo,useState}from'react';
+import{useEffect,useState}from'react';
 import{CheckCircle2,Copy,Download,Plus,RefreshCw,Save,Upload}from'lucide-react';
 import{useNavigate}from'react-router-dom';
 import*as XLSX from'xlsx';
@@ -10,10 +10,23 @@ import{writePnlAndVerify}from'../lib/saveVerify';
 import{formatMoney,formatMoneyInput,parseMoneyInput,percent,variance,PnlDraftRow,PnlScale}from'../lib/pnl';
 import{formatDeltaPct}from'../lib/format';
 import{aggregateFinancialRows,canonicalArticleKey}from'../lib/financialRows';
-import{useAuth}from'../contexts/AuthContext';
 
 type ApiRow={id?:string;article?:string;label?:string;name?:string;plan?:number;plan_rub?:number;fact?:number;fact_rub?:number;source?:string;status?:string;values?:Record<string,unknown>};
-const canonical=[['revenue','Выручка'],['cogs','Себестоимость'],['payroll','ФОТ'],['opex','OPEX'],['depreciation','Амортизация'],['interest','Проценты'],['tax','Налоги'],['other','Прочее']] as const;
+type ServerCalc={
+  primeCostPercent?:number|null;
+  primeCostStatus?:string;
+  overtime?:number|null;
+  otherOperatingRequiresReview?:boolean;
+};
+type PnlEnvelope={
+  rows?:ApiRow[];
+  summary?:{
+    calculated?:{
+      fact:ServerCalc;
+      plan:ServerCalc;
+    }|null;
+  };
+};
 const num=(v:unknown)=>typeof v==='number'&&Number.isFinite(v)?v:undefined;
 const readNum=(o:Record<string,unknown>,keys:string[])=>{for(const k of keys){const v=num(o[k]);if(v!==undefined)return v}return undefined};
 function fromApi(item:ApiRow,index:number):PnlDraftRow{const src=(item.values&&typeof item.values==='object'?item.values:{}) as Record<string,unknown>;return{id:item.id||'row-'+index,article:item.article||item.label||item.name||'Без названия',plan:num(item.plan)??num(item.plan_rub)??readNum(src,['plan','plan_rub']),fact:num(item.fact)??num(item.fact_rub)??readNum(src,['fact','fact_rub']),source:item.source||item.status}};
@@ -22,11 +35,22 @@ const moneyOrEmpty=(v:number|undefined|null)=>has(v)?formatMoney(v):'Нет да
 const pctOrEmpty=(v:number|undefined|null)=>has(v)?`${v.toFixed(1).replace('.',',')} %`:'Нет данных';
 
 export default function PnL(){
- const{user}=useAuth();const[rows,setRows]=useState<PnlDraftRow[]>([]);const[serverCalc,setServerCalc]=useState<{fact:ServerCalc;plan:ServerCalc}|null>(null);const[scope,setScope]=useScope();const[scale,setScale]=useState<PnlScale>('RUB');const[loading,setLoading]=useState(true);const[saving,setSaving]=useState(false);const[message,setMessage]=useState('');const[messageKind,setMessageKind]=useState<'info'|'ok'|'warn'>('info');const[approval,setApproval]=useState<'draft'|'approved'>('draft');const[canApprove,setCanApprove]=useState(false);const nav=useNavigate();
+ const[rows,setRows]=useState<PnlDraftRow[]>([]);const[serverCalc,setServerCalc]=useState<{fact:ServerCalc;plan:ServerCalc}|null>(null);const[scope,setScope]=useScope();const[scale,setScale]=useState<PnlScale>('RUB');const[loading,setLoading]=useState(true);const[saving,setSaving]=useState(false);const[message,setMessage]=useState('');const[messageKind,setMessageKind]=useState<'info'|'ok'|'warn'>('info');const[approval,setApproval]=useState<'draft'|'approved'>('draft');const[canApprove,setCanApprove]=useState(false);const nav=useNavigate();
  async function load(){setLoading(true);setMessage('');setMessageKind('info');try{const x=await api.get<unknown>('/api/pnl?'+scopeQuery(scope));const envelope=typeof x==='object'&&x!==null?x as PnlEnvelope:{};const raw=Array.isArray(envelope.rows)?envelope.rows:[];setServerCalc(envelope.summary?.calculated??null);const mapped=raw.map(fromApi);const normalized=aggregateFinancialRows(mapped);setRows(normalized.map((r,i)=>({...r,id:canonicalArticleKey(r.article)||'row-'+i})) as PnlDraftRow[]);const a=await api.get<any>('/api/pnl/approval?'+scopeQuery(scope)).catch(()=>null);if(a){setApproval(a.status==='approved'?'approved':'draft');setCanApprove(Boolean(a.canApprove))}return normalized}catch{setRows([]);setServerCalc(null);setMessage('Нет данных за выбранный период. Измените период или область в фильтрах.');setMessageKind('warn');return null}finally{setLoading(false)}}
  useEffect(()=>{void load()},[scope.period,scope.projectId,scope.branchId,scope.restaurantId,scope.departmentId]);
  const revenue=rows.find(r=>canonicalArticleKey(r.article)==='revenue');const cogs=rows.find(r=>canonicalArticleKey(r.article)==='cogs');const payroll=rows.find(r=>canonicalArticleKey(r.article)==='payroll');const opex=rows.find(r=>canonicalArticleKey(r.article)==='opex');
- const ebitdaPlan=has(revenue?.plan)&&has(cogs?.plan)&&has(payroll?.plan)&&has(opex?.plan)?revenue!.plan!-cogs!.plan!-payroll!.plan!-opex!.plan!:undefined;const ebitdaFact=has(revenue?.fact)&&has(cogs?.fact)&&has(payroll?.fact)&&has(opex?.fact)?revenue!.fact!-cogs!.fact!-payroll!.fact!-opex!.fact!:undefined;const marginPlan=has(ebitdaPlan)&&has(revenue?.plan)&&revenue!.plan!==0?ebitdaPlan/revenue!.plan*100:undefined;const marginFact=has(ebitdaFact)&&has(revenue?.fact)&&revenue!.fact!==0?ebitdaFact/revenue!.fact*100:undefined;
+ const planRevenue=revenue?.plan;
+ const planCogs=cogs?.plan;
+ const planPayroll=payroll?.plan;
+ const planOpex=opex?.plan;
+ const factRevenue=revenue?.fact;
+ const factCogs=cogs?.fact;
+ const factPayroll=payroll?.fact;
+ const factOpex=opex?.fact;
+ const ebitdaPlan=has(planRevenue)&&has(planCogs)&&has(planPayroll)&&has(planOpex)?planRevenue-planCogs-planPayroll-planOpex:undefined;
+ const ebitdaFact=has(factRevenue)&&has(factCogs)&&has(factPayroll)&&has(factOpex)?factRevenue-factCogs-factPayroll-factOpex:undefined;
+ const marginPlan=has(ebitdaPlan)&&has(planRevenue)&&planRevenue!==0?ebitdaPlan/planRevenue*100:undefined;
+ const marginFact=has(ebitdaFact)&&has(factRevenue)&&factRevenue!==0?ebitdaFact/factRevenue*100:undefined;
  const canSave=rows.some(r=>r.plan!==undefined||r.fact!==undefined);
  function update(id:string,field:'plan'|'fact',value:string){const parsed=parseMoneyInput(value,scale);setRows(prev=>prev.map(r=>r.id===id?{...r,[field]:parsed}:r));setMessage('')}
  function addRow(){setRows(prev=>[...prev,{id:'draft-'+Date.now(),article:'Новая статья'}])}
