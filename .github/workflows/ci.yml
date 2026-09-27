@@ -103,8 +103,8 @@ jobs:
       - name: MARK 11 configure credentials
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.YC_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_SECRET_ACCESS_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           echo "STEN CI MARK 10 - credentials"
           set -euo pipefail
@@ -124,8 +124,8 @@ jobs:
       - name: MARK 13 upload frontend
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.YC_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_SECRET_ACCESS_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           echo "STEN CI MARK 12 - upload frontend"
           set -euo pipefail
