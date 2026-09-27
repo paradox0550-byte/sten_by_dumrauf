@@ -1,4 +1,4 @@
-import{useState}from'react';import{ArrowLeft,CheckCircle2,FileSpreadsheet,UploadCloud,X,Save,AlertTriangle}from'lucide-react';import{useNavigate}from'react-router-dom';import*as XLSX from'xlsx';import{api}from'../lib/api';import ScopeBar from'../components/ScopeBar';import{useScope}from'../lib/useScope';import{writePnlAndVerify}from'../lib/saveVerify';
+import{useState}from'react';import{ArrowLeft,CheckCircle2,FileSpreadsheet,UploadCloud,X,Save,AlertTriangle}from'lucide-react';import{useNavigate}from'react-router-dom';import*as XLSX from'xlsx';import{api}from'../lib/api';import{useScope}from'../lib/useScope';import{writePnlAndVerify}from'../lib/saveVerify';
 
 type Row={id:string;article:string;label:string;plan:number|null;fact:number|null;source:string;sheet?:string;sourceRow?:number;sourceCellPlan?:string|null;sourceCellFact?:string|null;confidence?:number;requiresReview?:boolean};
 function read64(f:File){return new Promise<string>((ok,no)=>{const r=new FileReader();r.onload=()=>{const s=String(r.result);ok(s.split(',')[1]||s)};r.onerror=()=>no(r.error);r.readAsDataURL(f)})}
