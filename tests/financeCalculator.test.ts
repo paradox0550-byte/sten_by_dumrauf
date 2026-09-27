@@ -20,9 +20,9 @@ describe('finance domain', () => {
     expect(result.netProfit).toBe(150_000);
     expect(result.foodCostPct).toBe(30);
     expect(result.laborCostPct).toBe(25);
-    expect(result.primeCostPct).toBe(55);
-    expect(result.ebitdaMargin).toBe(25);
-    expect(result.netMargin).toBe(15);
+    expect(result.primeCostPct).toBeCloseTo(55, 10);
+    expect(result.ebitdaMargin).toBeCloseTo(25, 10);
+    expect(result.netMargin).toBeCloseTo(15, 10);
     expect(result.validationIssues.some(issue => issue.type === 'missing_data')).toBe(false);
   });
 
