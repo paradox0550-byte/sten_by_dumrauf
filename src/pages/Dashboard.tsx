@@ -168,7 +168,7 @@ export default function Dashboard() {
                   ? 'Prime Cost выше плана. Проверьте рост COGS или переработки персонала.' 
                   : 'Критических отклонений не выявлено. Продолжайте мониторинг.'}
               </div>
-              {fact?.overtime !== null && fact.overtime > 0 && (
+              {fact?.overtime != null && fact.overtime > 0 && (
                 <div className="dashboard-note">
                   <AlertTriangle size={14} /> 
                   Переработки: {formatMoneyAuto(fact.overtime)} ₽ в структуре Labor Cost.
