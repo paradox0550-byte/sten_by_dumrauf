@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, AlertTriangle, ArrowDownRight, ArrowUpRight, BarChart3, RefreshCw, TrendingUp } from 'lucide-react';
 import { api } from '../lib/api';
-import ScopeBar from '../components/ScopeBar';
+
 import { useScope } from '../lib/useScope';
 import { hasScopeId } from '../lib/scope';
 import { formatDeltaPct, formatMoneyAuto } from '../lib/format';
@@ -93,7 +93,7 @@ export default function Dashboard() {
         </button>
       </div>
       
-      <ScopeBar value={scope} onChange={setScope} />
+      
       
       {!hasScopeId(scope) && (
         <div className="import-result warn">Выберите ресторан или филиал, чтобы увидеть корректные данные.</div>
