@@ -262,15 +262,17 @@ export function aggregateFinance(rows: FinanceInput[]): FinanceInput {
 }
 
 // Helper for aggregating breakdown objects
-function aggregateBreakdown<T extends Record<string, number | undefined>>(
+function aggregateBreakdown<T extends object>(
   breakdowns: (T | undefined)[],
   keys: (keyof T)[]
 ): T {
-  const result: Record<string, number> = {};
+  const result: Partial<Record<keyof T, number>> = {};
   for (const key of keys) {
-    const values = breakdowns.map(b => b?.[key]).filter(finite) as number[];
+    const values = breakdowns
+      .map(b => b?.[key])
+      .filter((value): value is number => finite(value));
     if (values.length > 0) {
-      result[key as string] = values.reduce((s, v) => s + v, 0);
+      result[key] = values.reduce((sum, value) => sum + value, 0);
     }
   }
   return result as T;
