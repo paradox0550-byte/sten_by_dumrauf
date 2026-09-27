@@ -118,8 +118,8 @@ export function calculateFinance(input: FinanceInput): FinanceResult {
 
   // 1. Core P&L calculations
   const grossProfit = safeSub(input.revenue, input.cogs);
-  const primeCost = safeSub(input.cogs, undefined) !== undefined && input.payroll !== undefined
-    ? (input.cogs as number) + (input.payroll as number)
+  const primeCost = finite(input.cogs) && finite(input.payroll)
+    ? input.cogs + input.payroll
     : undefined;
   const ebitda = safeSub(input.revenue, input.cogs, input.payroll, input.opex);
   const netProfit = safeSub(ebitda, input.depreciation, input.interest, input.tax, input.other);
