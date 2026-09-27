@@ -270,7 +270,7 @@ function aggregateBreakdown<T extends object>(
   for (const key of keys) {
     const values = breakdowns
       .map(b => b?.[key])
-      .filter((value): value is number => finite(value));
+      .filter(finite);
     if (values.length > 0) {
       result[key] = values.reduce((sum, value) => sum + value, 0);
     }
