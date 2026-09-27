@@ -2,7 +2,6 @@ import{useEffect,useMemo,useState}from'react';
 import{BarChart3,CheckCircle2,Copy,Download,RefreshCw}from'lucide-react';
 import*as XLSX from'xlsx';
 import{api}from'../lib/api';
-import ScopeBar from'../components/ScopeBar';
 import{useScope}from'../lib/useScope';
 import{scopeQuery}from'../lib/scope';
 import{aggregateFinancialRows,canonicalArticleKey,canonicalArticleLabel,FinancialRow}from'../lib/financialRows';
