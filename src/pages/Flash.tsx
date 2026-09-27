@@ -125,7 +125,7 @@ export default function Flash() {
             <div className="empty">
               {prime === null 
                 ? 'Нет данных для расчета Prime Cost. Проверьте ввод выручки и затрат.' 
-                : calc?.overtime !== null && calc.overtime > 0 
+                : calc?.overtime != null && calc.overtime > 0 
                   ? 'Выявлены переработки персонала. Проверьте график смен и Labor Cost.' 
                   : 'Prime Cost рассчитан корректно. Нет критических отклонений по структуре COGS и ФОТ.'}
             </div>
