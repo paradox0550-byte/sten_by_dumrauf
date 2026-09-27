@@ -29,7 +29,7 @@ type PnlEnvelope={
 };
 const num=(v:unknown)=>typeof v==='number'&&Number.isFinite(v)?v:undefined;
 const readNum=(o:Record<string,unknown>,keys:string[])=>{for(const k of keys){const v=num(o[k]);if(v!==undefined)return v}return undefined};
-function fromApi(item:ApiRow,index:number):PnlDraftRow{const src=(item.values&&typeof item.values==='object'?item.values:{}) as Record<string,unknown>;return{id:item.id||'row-'+index,article:item.article||item.label||item.name||'Без названия',plan:num(item.plan)??num(item.plan_rub)??readNum(src,['plan','plan_rub']),fact:num(item.fact)??num(item.fact_rub)??readNum(src,['fact','fact_rub']),source:item.source||item.status}};
+function fromApi(item:ApiRow,index:number):PnlDraftRow{const src=(item.values&&typeof item.values==='object'?item.values:{}) as Record<string,unknown>;return{id:item.id||'row-'+index,article:item.article||item.label||item.name||'Без названия',plan:num(item.plan)??num(item.plan_rub)??readNum(src,['plan','plan_rub']),fact:num(item.fact)??num(item.fact_rub)??readNum(src,['fact','fact_rub']),source:item.source||item.status}}
 const has=(v:number|undefined|null):v is number=>typeof v==='number'&&Number.isFinite(v);
 const moneyOrEmpty=(v:number|undefined|null)=>has(v)?formatMoney(v):'Нет данных';
 const pctOrEmpty=(v:number|undefined|null)=>has(v)?`${v.toFixed(1).replace('.',',')} %`:'Нет данных';
