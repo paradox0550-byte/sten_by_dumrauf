@@ -34,3 +34,13 @@ Required server fields:
 - audit event
 
 No fake defaults, no localStorage as a financial database, no missing-to-zero coercion.
+
+## Transaction entry
+
+P&L also has a separate confirmed operation flow for daily income/expenses. The operation form is opened from the main P&L, and the article is selected only from articles already present in the current P&L scope.
+
+Required fields: transaction date, type (expense/income), P&L article, amount in RUB, optional comment. The UI shows a review step before the final save.
+
+Transactions are stored separately in `pnl_transactions`, have server-owned timestamps/user/audit metadata, and are read back after insert. Their amounts are rolled into the selected article's actual for the same period and scope. The P&L row exposes the number of contributing operations so the source of the actual is visible.
+
+The transaction amount is added to the current article fact; therefore users should not also enter the same transaction into the manual fact/import for the same scope and period.
