@@ -79,7 +79,17 @@ jobs:
           npm test
           test -f package-lock.json
 
-      - name: MARK 09 static integrity
+      - name: MARK 09 architecture integrity
+        run: |
+          echo "STEN CI MARK 09 - architecture integrity"
+          set -euo pipefail
+          test ! -d node_modules/.cache/stencil
+          ! grep -RInE 'process\.env\.(JWT_SECRET|UNLOCK_CODE_HASH|YANDEXGPT_API_KEY|DB_PASSWORD|AWS_SECRET_ACCESS_KEY)' src public
+          ! grep -RInE 'from .*(pg|sequelize|mysql2|knex)|require\(.{0,20}(pg|sequelize|mysql2|knex)' src
+          ! grep -RInE 'fetch\(.{0,200}(yandexgpt|foundationModels|llm\.api|ai\.api\.cloud)' src
+          ! grep -RInE 'localhost:11434|127\.0\.0\.1:11434|OLLAMA|ollama|qwen2\.5|DASHSCOPE_API_KEY|QWEN_API_KEY' src public .github/agent/*.py .github/agent/auto-agent.yml
+
+      - name: MARK 10 static integrity
         run: |
           echo "STEN CI MARK 09 - static integrity"
           set -euo pipefail
@@ -90,7 +100,7 @@ jobs:
           grep -RInE 'YANDEXGPT_API_KEY|YANDEXGPT_FOLDER_ID|gpt://\$\{?FOLDER_ID|ai\.api\.cloud\.yandex\.net' .github/agent/*.py .github/agent/auto-agent.yml >/dev/null
           ! grep -RInE 'AKIA[0-9A-Z]{16}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|ghp_[A-Za-z0-9]{20,}' backend src public .github
 
-      - name: MARK 10 configure credentials
+      - name: MARK 11 configure credentials
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.YC_ACCESS_KEY_ID }}
@@ -104,14 +114,14 @@ jobs:
           aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
           aws configure set region ru-central1
 
-      - name: MARK 11 configure SPA hosting
+      - name: MARK 12 configure SPA hosting
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           echo "STEN CI MARK 11 - SPA hosting"
           set -euo pipefail
           aws s3api put-bucket-website --bucket "$BUCKET" --endpoint-url "$STORAGE_ENDPOINT" --website-configuration '{"IndexDocument":{"Suffix":"index.html"},"ErrorDocument":{"Key":"404.html"}}'
 
-      - name: MARK 12 upload frontend
+      - name: MARK 13 upload frontend
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.YC_ACCESS_KEY_ID }}
@@ -135,7 +145,7 @@ jobs:
             aws s3 cp "$file" "s3://$BUCKET/$key" --endpoint-url "$STORAGE_ENDPOINT" --content-type "$ct" --cache-control "$cc" --metadata-directive REPLACE
           done < <(find dist -type f -print0)
 
-      - name: MARK 13 production smoke
+      - name: MARK 14 production smoke
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           echo "STEN CI MARK 13 - production smoke"
@@ -152,5 +162,5 @@ jobs:
           curl -fsSI "$SITE_URL/manifest.json" | grep -Eiq 'content-type:.*(application/json|application/manifest)'
           curl -fsSI "$API_URL/healthz" | grep -Eiq '^HTTP/.* 200'
 
-      - name: MARK 14 complete
+      - name: MARK 15 complete
         run: echo "STEN CI MARK 14 - workflow complete"
