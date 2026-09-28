@@ -102,7 +102,7 @@ function db() {
   _pool = new Pool({
     host: ENV.DB_HOST, port: ENV.DB_PORT, database: ENV.DB_NAME, user: ENV.DB_USER, password: ENV.DB_PASSWORD,
     ssl: { rejectUnauthorized: false }, max: 10, idleTimeoutMillis: 30000, connectionTimeoutMillis: 15000,
-    statement_timeout: 25000, query_timeout: 25000, keepAlive: true,
+    statement_timeout: 25000, query_timeout: 25000, keepAlive: true, statement_cache_size: 0, application_name: 'sten-api',
   });
   _pool.on('error', e => log('db pool error:', e.message));
   return _pool;
@@ -180,12 +180,14 @@ function kickSchema() {
 function resolveOrigin(reqOrigin) {
   if (ENV.ALLOWED_ORIGINS.includes('*')) return '*';
   if (reqOrigin && ENV.ALLOWED_ORIGINS.includes(reqOrigin)) return reqOrigin;
-  return ENV.ALLOWED_ORIGINS[0] || '*';
+  return null; // unknown origin: do not echo a foreign origin
 }
 function corsMiddleware(req, res, next) {
   const origin = resolveOrigin(req.headers.origin);
-  res.header('Access-Control-Allow-Origin', origin);
-  if (origin !== '*') res.header('Access-Control-Allow-Credentials', 'true');
+  if (origin) {
+    if (origin) res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Request-ID');
   res.header('Access-Control-Expose-Headers', 'Content-Type, X-Request-ID');
