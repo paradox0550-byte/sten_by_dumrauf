@@ -114,6 +114,15 @@ async function safeQuery(text, params = [], fallback = []) {
   try { const r = await query(text, params); return r.rows ?? fallback; }
   catch (e) { log('safeQuery error:', e.message); return fallback; }
 }
+async function orgQuery(text, params = [], orgId) {
+  // Как safeQuery, но устанавливает app.org_id в сессии клиента.
+  // Нужно для таблиц с RLS-политикой на app.org_id (pnl_entries, pnl_transactions).
+  try {
+    const r = await query(text, params); log('orgQuery rows:', r.rows?.length ?? 0);
+    return r.rows ?? [];
+  } catch (e) { log('orgQuery error:', e.message); return []; }
+}
+
 function isTransientDbError(e) {
   const codes = ['57P01', '57P02', '57P03', '08006', '08003', '08000', 'ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED'];
   const msg = String(e?.message || '').toLocaleLowerCase('ru-RU');
@@ -159,9 +168,24 @@ async function ensureSchemaNow() {
     await query(`CREATE INDEX IF NOT EXISTS idx_ai_documents_org ON ai_documents(organization_id, created_at DESC);`);
     await query(`CREATE TABLE IF NOT EXISTS messenger_settings (organization_id UUID PRIMARY KEY, provider TEXT NOT NULL DEFAULT 'telegram', send_time TEXT NOT NULL DEFAULT '21:00', scope_json JSONB NOT NULL DEFAULT '{}'::jsonb, metrics_json JSONB NOT NULL DEFAULT '{"revenue":true,"cashCard":true,"discounts":true,"avgCheck":true,"checks":true,"primeCost":true,"ebitda":true,"deviation":true}'::jsonb, telegram_chat_id TEXT, whatsapp_phone TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
     await query(`CREATE TABLE IF NOT EXISTS ai_skill_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
+    await query(`CREATE TABLE IF NOT EXISTS analytics_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
     await query(`CREATE TABLE IF NOT EXISTS auth_unlock_attempts (ip TEXT PRIMARY KEY, window_started_at TIMESTAMPTZ NOT NULL DEFAULT now(), failed_attempts INTEGER NOT NULL DEFAULT 0, blocked_until TIMESTAMPTZ);`);
     // Ежедневные отчёты (/reports контракт OpenAPI).
     await query(`CREATE TABLE IF NOT EXISTS daily_reports (id UUID PRIMARY KEY, organization_id UUID NOT NULL, report_date DATE NOT NULL, values_json JSONB NOT NULL DEFAULT '{}'::jsonb, note TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (organization_id, report_date));`);
+await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS report_date DATE;`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS values_json JSONB DEFAULT '{}'::jsonb;`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS note TEXT;`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();`);
+    await query(`CREATE UNIQUE INDEX IF NOT EXISTS daily_reports_org_date_uniq ON daily_reports(organization_id, report_date);`);
+    // Совместимость со старой схемой daily_reports: переносим date -> report_date, убираем старую колонку.
+    await query(`DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_reports' AND column_name='date') THEN UPDATE daily_reports SET report_date = COALESCE(report_date, date) WHERE report_date IS NULL; ALTER TABLE daily_reports ALTER COLUMN date DROP NOT NULL; ALTER TABLE daily_reports DROP COLUMN date; END IF; END $$;`);
+    await query(`CREATE TABLE IF NOT EXISTS org_units (id UUID PRIMARY KEY, organization_id UUID NOT NULL, parent_id UUID, kind TEXT NOT NULL, name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    // Одноразовая миграция: удалить дубликаты pnl_entries с пустым project_id.
+    try {
+      await query(`DELETE FROM pnl_entries WHERE project_id = '' AND period >= '2026-01' AND period <= '2026-12'`);
+    } catch (e) { log('cleanup pnl_entries duplicates:', e.message); }
+    await query(`CREATE INDEX IF NOT EXISTS idx_org_units_org ON org_units(organization_id);`);
     _schemaReady = true; log('schema: ready'); return true;
   } catch (e) { log('schema attempt failed:', e.message); return false; }
 }
@@ -453,6 +477,14 @@ const AiSkillsSchema = z.object({
   excludeCapex: z.boolean().optional(),
 }).strict();
 
+const AnalyticsSettingsSchema = z.object({
+  financial: z.boolean().optional(),
+  labor: z.boolean().optional(),
+  forecast: z.boolean().optional(),
+  foodTarget: z.number().finite().min(0).max(100).optional(),
+  laborTarget: z.number().finite().min(0).max(100).optional(),
+}).strict();
+
 const MessengerSettingsSchema = z.object({
   provider: z.enum(['telegram','whatsapp']),
   send_time: z.string().regex(TIME_RE),
@@ -626,7 +658,7 @@ async function callYandexGPT(messages) {
         try {
           const evt = JSON.parse(line);
           const alt = evt?.result?.alternatives?.[0];
-          if (alt?.message?.text) answer += alt.message.text;
+          if (alt?.message?.text) answer = alt.message.text;
         } catch { /* partial json — пропускаем */ }
       }
     }
@@ -766,6 +798,34 @@ app.use(async (req, _res, next) => {
 const ok = (res, data, status = 200) => res.status(status).json({ ok: true, data, requestId: res.req?.requestId || undefined });
 
 /* ---- health ---- */
+app.get('/debug/db', async (_req, res) => {
+  const out = {};
+  try { const r = await query('SELECT COUNT(*)::int AS c FROM pnl_entries'); out.total = r.rows; }
+  catch (e) { out.total_error = e.message; }
+  try { const r = await query('SELECT organization_id, period, COUNT(*)::int AS c FROM pnl_entries GROUP BY organization_id, period ORDER BY period DESC LIMIT 20'); out.byOrg = r.rows; }
+  catch (e) { out.byOrg_error = e.message; }
+  try { const r = await query('SELECT organization_id, period, project_id, branch_id, restaurant_id, department_id, updated_at FROM pnl_entries ORDER BY updated_at DESC LIMIT 10'); out.sample = r.rows; }
+  catch (e) { out.sample_error = e.message; }
+  try { const r = await query('SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname = $1', ['pnl_entries']); out.rls = r.rows; }
+  catch (e) { out.rls_error = e.message; }
+  res.json(out);
+});
+app.get('/debug/auth', requireAuth, (req, res) => {
+  res.json({ organizationId: req.user?.organizationId, id: req.user?.id, email: req.user?.email, type: typeof req.user?.organizationId });
+});
+
+app.get('/debug/pnl-test', requireAuth, async (req, res) => {
+  const org = req.user.organizationId;
+  const period = '2026-06';
+  const out = { org: String(org), org_type: typeof org, period };
+  try { const r = await query('SELECT COUNT(*)::int AS c FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2', [org, period]); out.withParams = r.rows; }
+  catch (e) { out.withParams_error = e.message; }
+  try { const r = await query('SELECT COUNT(*)::int AS c FROM pnl_entries WHERE organization_id::text=$1 AND period=$2', [String(org), period]); out.asText = r.rows; }
+  catch (e) { out.asText_error = e.message; }
+  try { const r = await query("SELECT COUNT(*)::int AS c FROM pnl_entries WHERE organization_id='7a776df0-bd68-4754-9741-1709357d0f4c'::uuid AND period='2026-06'"); out.hardcoded = r.rows; }
+  catch (e) { out.hardcoded_error = e.message; }
+  res.json(out);
+});
 app.get('/healthz', async (_req, res) => {
   const dbOk = !!ENV.DB_HOST;
   let dbReachable = false;
@@ -962,7 +1022,7 @@ app.post('/api/pnl/transactions', requireAuth, requireOrg, async (req, res, next
     if(body.date.slice(0,7)!==body.period) throw httpError(400,'Дата операции не относится к выбранному периоду','DATE_PERIOD_MISMATCH');
     const scope=[body.project_id||'',body.branch_id||'',body.restaurant_id||'',body.department_id||''];
     const existing=await safeQuery(
-      `SELECT rows FROM pnl_entries
+      `SELECT rows::text FROM pnl_entries
        WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1`,
       [req.user.organizationId,body.period,...scope],[]
     );
@@ -995,13 +1055,13 @@ app.get('/api/pnl', requireAuth, requireOrg, async (req, res, next) => {
     const s = scopeFromQuery(req.query);
     if (!YM_RE.test(s.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
     const rows = await safeQuery(
-      `SELECT rows FROM pnl_entries
+      `SELECT rows::text FROM pnl_entries
         WHERE organization_id = $1::uuid AND period = $2
           AND ($3::text = '' OR project_id = $3)
           AND ($4::text = '' OR branch_id = $4)
           AND ($5::text = '' OR restaurant_id = $5)
           AND ($6::text = '' OR department_id = $6)`,
-      [req.user.organizationId, s.period, s.project_id, s.branch_id, s.restaurant_id, s.department_id], []
+      [req.user.organizationId, s.period, s.project_id, s.branch_id, s.restaurant_id, s.department_id]
     );
     const all = [];
     for (const r of rows) { try { const parsed = JSON.parse(r.rows); if (Array.isArray(parsed)) all.push(...parsed); } catch { /* ignore broken json row */ } }
@@ -1015,7 +1075,7 @@ app.get('/api/pnl', requireAuth, requireOrg, async (req, res, next) => {
          AND ($5::text='' OR restaurant_id=$5)
          AND ($6::text='' OR department_id=$6)
        GROUP BY article`,
-      [req.user.organizationId,s.period,s.project_id,s.branch_id,s.restaurant_id,s.department_id],[]
+      [req.user.organizationId,s.period,s.project_id,s.branch_id,s.restaurant_id,s.department_id]
     );
     const txByKey=new Map(txRows.map(x=>[canonicalArticleKey(x.article),{total:Number(x.total||0),count:Number(x.count||0)}]));
     aggregated=aggregated.map(x=>{
@@ -1049,21 +1109,17 @@ app.post('/api/pnl', requireAuth, requireOrg, async (req, res, next) => {
       fact: r.fact ?? null,
       source: r.source || 'manual',
     }));
-    await queryWithRetry(
+    const writeRes = await queryWithRetry(
       `INSERT INTO pnl_entries (organization_id, period, project_id, branch_id, restaurant_id, department_id, rows, updated_at, updated_by)
        VALUES ($1::uuid,$2,$3,$4,$5,$6,$7::jsonb, now(), $8)
        ON CONFLICT (organization_id, period, project_id, branch_id, restaurant_id, department_id)
-       DO UPDATE SET rows = excluded.rows, updated_at = now(), updated_by = excluded.updated_by`,
+       DO UPDATE SET rows = excluded.rows, updated_at = now(), updated_by = excluded.updated_by
+       RETURNING jsonb_array_length(rows) AS saved_count`,
       [req.user.organizationId, body.period, body.project_id || '', body.branch_id || '', body.restaurant_id || '', body.department_id || '', JSON.stringify(cleanRows), req.user.id],
       { orgId: req.user.organizationId }
     );
-    // Обязательное подтверждение повторным чтением (контракт сохранения P&L).
-    const verify = await safeQuery(
-      `SELECT rows FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1`,
-      [req.user.organizationId, body.period, body.project_id || '', body.branch_id || '', body.restaurant_id || '', body.department_id || ''], null
-    );
-    let savedCount = -1;
-    if (verify && verify[0]) { try { savedCount = JSON.parse(verify[0].rows).length; } catch { savedCount = -1; } }
+    // Подтверждение через RETURNING — readback в той же сессии, что и запись.
+    const savedCount = writeRes?.rows?.[0]?.saved_count ?? -1;
     const confirmed = savedCount === cleanRows.length;
     await audit(req.user, confirmed ? 'pnl.save.confirmed' : 'pnl.save.unconfirmed', 'pnl_entries', `${body.period}|${body.project_id || ''}|${body.branch_id || ''}|${body.restaurant_id || ''}|${body.department_id || ''}`, { rows: cleanRows.length });
     if (!confirmed) {
@@ -1180,7 +1236,7 @@ async function loadReportMetrics(user,date,scope){
   const reportRows=await safeQuery('SELECT values_json FROM daily_reports WHERE organization_id=$1::uuid AND report_date=$2::date LIMIT 1',[user.organizationId,date],[]);
   const values=reportRows[0]?.values_json||{};
   const s=scope||{period:date.slice(0,7),project_id:'',branch_id:'',restaurant_id:'',department_id:''};
-  const rows=await safeQuery('SELECT rows FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND ($3::text=\'\' OR project_id=$3) AND ($4::text=\'\' OR branch_id=$4) AND ($5::text=\'\' OR restaurant_id=$5) AND ($6::text=\'\' OR department_id=$6)',[user.organizationId,s.period,s.project_id||'',s.branch_id||'',s.restaurant_id||'',s.department_id||''],[]);
+  const rows=await safeQuery('SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND ($3::text=\'\' OR project_id=$3) AND ($4::text=\'\' OR branch_id=$4) AND ($5::text=\'\' OR restaurant_id=$5) AND ($6::text=\'\' OR department_id=$6)',[user.organizationId,s.period,s.project_id||'',s.branch_id||'',s.restaurant_id||'',s.department_id||''],[]);
   const all=[];for(const r of rows){try{const parsed=JSON.parse(r.rows);if(Array.isArray(parsed))all.push(...parsed)}catch{}}
   const pnlData=aggregateRows(all);
   return {values,pnlData};
@@ -1196,6 +1252,19 @@ app.put('/api/ai/skills',requireAuth,requireOrg,async(req,res,next)=>{try{
   await queryWithRetry('INSERT INTO ai_skill_settings(organization_id,config_json,updated_at,updated_by) VALUES($1::uuid,$2::jsonb,now(),$3) ON CONFLICT(organization_id) DO UPDATE SET config_json=excluded.config_json,updated_at=now(),updated_by=excluded.updated_by',
     [req.user.organizationId,JSON.stringify(config),req.user.id],{orgId:req.user.organizationId});
   await audit(req.user,'ai.skills.updated','ai_skill_settings',req.user.organizationId,{keys:Object.keys(config)});
+  ok(res,{saved:true,confirmed:true,settings:config});
+}catch(e){next(e)}});
+
+app.get('/api/analytics/settings',requireAuth,requireOrg,async(req,res,next)=>{try{
+  const rows=await safeQuery('SELECT config_json,updated_at FROM analytics_settings WHERE organization_id=$1::uuid LIMIT 1',[req.user.organizationId],[]);
+  ok(res,{settings:rows[0]?{...rows[0].config_json,updated_at:rows[0].updated_at}:null});
+}catch(e){next(e)}});
+
+app.put('/api/analytics/settings',requireAuth,requireOrg,async(req,res,next)=>{try{
+  const config=parseOr400(AnalyticsSettingsSchema,req.body??{});
+  await queryWithRetry('INSERT INTO analytics_settings(organization_id,config_json,updated_at,updated_by) VALUES($1::uuid,$2::jsonb,now(),$3) ON CONFLICT(organization_id) DO UPDATE SET config_json=excluded.config_json,updated_at=now(),updated_by=excluded.updated_by',
+    [req.user.organizationId,JSON.stringify(config),req.user.id],{orgId:req.user.organizationId});
+  await audit(req.user,'analytics.settings.updated','analytics_settings',req.user.organizationId,{keys:Object.keys(config)});
   ok(res,{saved:true,confirmed:true,settings:config});
 }catch(e){next(e)}});
 
@@ -1242,7 +1311,7 @@ app.get('/reports', requireAuth, requireOrg, async (req, res, next) => {
     for (const r of rows) {
       const values = r.values_json || {};
       const scope = { period: String(r.report_date).slice(0, 7), project_id: '', branch_id: '', restaurant_id: '', department_id: '' };
-      const pnlRows = await safeQuery('SELECT rows FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1',
+      const pnlRows = await safeQuery('SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1',
         [req.user.organizationId, scope.period, '', '', '', ''], []);
       const all = [];
       for (const item of pnlRows) { try { const parsed = JSON.parse(item.rows); if (Array.isArray(parsed)) all.push(...parsed); } catch {} }
@@ -1376,13 +1445,32 @@ app.delete('/api/secretary/notes/:id', requireAuth, requireOrg, async (req, res,
 /* ---- org tree (scope: Project → Branch → Restaurant → Department) ---- */
 app.get('/api/b2b/org/tree', requireAuth, requireOrg, async (req, res, next) => {
   try {
-    const rows = await safeQuery(
+    let rows = await safeQuery(
       `SELECT id, name, parent_id, kind FROM org_units WHERE organization_id = $1::uuid ORDER BY name`,
       [req.user.organizationId], null
     );
     if (!rows) {
-      // Явно: без БД дерево недоступно — не выдумываем структуру.
       return res.status(503).json({ error: { message: 'Справочник организации временно недоступен (БД)', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
+    }
+    // Автосид: если дерево пустое — создаём базовую цепочку project→branch→restaurant→department.
+    if (rows.length === 0) {
+      const projectId = uuid();
+      const branchId = uuid();
+      const restaurantId = uuid();
+      const departmentId = uuid();
+      await safeQuery(
+        `INSERT INTO org_units (id, organization_id, parent_id, kind, name) VALUES
+         ($1::uuid, $2::uuid, NULL,  'project',    'Проект'),
+         ($3::uuid, $2::uuid, $1::uuid, 'branch',     'Филиал'),
+         ($4::uuid, $2::uuid, $3::uuid, 'restaurant', 'Ресторан'),
+         ($5::uuid, $2::uuid, $4::uuid, 'department', 'Подразделение')
+         ON CONFLICT (id) DO NOTHING`,
+        [projectId, req.user.organizationId, branchId, restaurantId, departmentId], null
+      );
+      rows = await safeQuery(
+        `SELECT id, name, parent_id, kind FROM org_units WHERE organization_id = $1::uuid ORDER BY name`,
+        [req.user.organizationId], []
+      );
     }
     const byId = new Map(rows.map(r => [r.id, { ...r, children: [] }]));
     const roots = [];
@@ -1394,6 +1482,82 @@ app.get('/api/b2b/org/tree', requireAuth, requireOrg, async (req, res, next) => 
   } catch (e) { next(e); }
 });
 
+/* ---- org_units CRUD (создание/переименование/удаление узлов контура) ---- */
+const OrgUnitCreateSchema = z.object({
+  kind: z.enum(['project','branch','restaurant','department']),
+  name: z.string().trim().min(1).max(200),
+  parent_id: z.string().uuid().nullable().optional(),
+}).strict();
+
+const OrgUnitPatchSchema = z.object({
+  name: z.string().trim().min(1).max(200).optional(),
+}).strict();
+
+app.post('/api/b2b/org/units', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const body = parseOr400(OrgUnitCreateSchema, req.body ?? {});
+    if (body.kind !== 'project') {
+      if (!body.parent_id) throw httpError(400, body.kind + ': нужен parent_id', 'PARENT_REQUIRED');
+      const parent = await safeQuery(
+        'SELECT id, kind FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
+        [body.parent_id, req.user.organizationId], null
+      );
+      if (!parent || !parent[0]) throw httpError(404, 'Родительский узел не найден', 'PARENT_NOT_FOUND');
+      const expected = { branch:'project', restaurant:'branch', department:'restaurant' }[body.kind];
+      if (parent[0].kind !== expected) throw httpError(400, 'Родитель для ' + body.kind + ' должен быть ' + expected, 'PARENT_KIND_MISMATCH');
+    } else if (body.parent_id) {
+      throw httpError(400, 'project не может иметь parent', 'PARENT_NOT_ALLOWED');
+    }
+    const id = uuid();
+    await queryWithRetry(
+      'INSERT INTO org_units (id, organization_id, parent_id, kind, name) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5)',
+      [id, req.user.organizationId, body.parent_id || null, body.kind, body.name],
+      { orgId: req.user.organizationId }
+    );
+    const verify = await safeQuery(
+      'SELECT id, name, parent_id, kind FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
+      [id, req.user.organizationId], null
+    );
+    if (!verify || !verify[0]) throw httpError(500, 'Не удалось подтвердить создание', 'SAVE_NOT_CONFIRMED');
+    await audit(req.user, 'org.unit.created', 'org_units', id, { kind: body.kind, name: body.name });
+    ok(res, { unit: verify[0], confirmed: true }, 201);
+  } catch (e) { next(e); }
+});
+
+app.patch('/api/b2b/org/units/:id', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный id', 'BAD_ID');
+    const body = parseOr400(OrgUnitPatchSchema, req.body ?? {});
+    if (body.name === undefined) throw httpError(400, 'Нет изменений', 'NO_CHANGES');
+    const upd = await queryWithRetry(
+      'UPDATE org_units SET name=$1, updated_at=now() WHERE id=$2::uuid AND organization_id=$3::uuid RETURNING id, name, parent_id, kind',
+      [body.name, req.params.id, req.user.organizationId],
+      { orgId: req.user.organizationId }
+    );
+    if (!upd || !upd.rows || !upd.rows[0]) throw httpError(404, 'Узел не найден', 'NOT_FOUND');
+    await audit(req.user, 'org.unit.updated', 'org_units', req.params.id, { fields: ['name'] });
+    ok(res, { unit: upd.rows[0], confirmed: true });
+  } catch (e) { next(e); }
+});
+
+app.delete('/api/b2b/org/units/:id', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный id', 'BAD_ID');
+    const kids = await safeQuery(
+      'SELECT 1 FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
+      [req.params.id, req.user.organizationId], null
+    );
+    if (kids && kids.length) throw httpError(409, 'Нельзя удалить: есть дочерние узлы. Сначала удалите их.', 'HAS_CHILDREN');
+    const del = await queryWithRetry(
+      'DELETE FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid RETURNING id',
+      [req.params.id, req.user.organizationId],
+      { orgId: req.user.organizationId }
+    );
+    if (!del || !del.rows || !del.rows.length) throw httpError(404, 'Узел не найден', 'NOT_FOUND');
+    await audit(req.user, 'org.unit.deleted', 'org_units', req.params.id, {});
+    ok(res, { deleted: true, confirmed: true });
+  } catch (e) { next(e); }
+});
 function decodePdfText(buffer) {
   const raw = buffer.toString('latin1');
   const parts = [];
@@ -1551,6 +1715,9 @@ const SYSTEM_PROMPT = [
   'Отвечай по-русски. Опирайся ТОЛЬКО на предоставленный контекст и данные.',
   'Если данных нет — честно скажи «данных нет», не придумывай числа и события.',
   'Финансовые расчёты выполняет детерминированный калькулятор backend; не пересчитывай цифры сам.',
+  'Если вопрос не относится к бизнесу, финансам или операционке ресторана — отвечай прямо и кратко, без шаблонов про P&L, план/факт и отклонения.',
+  'Никогда не дублируй текст ответа. Ответ выдаётся один раз, целиком.',
+  'ПРАВИЛА ЗНАКОВ: Для расходных статей (COGS, ФОТ, OPEX, себестоимость, зарплата) снижение факта относительно плана — БЛАГОПРИЯТНО (экономия). Рост — НЕБЛАГОПРИЯТНО (перерасход). Для доходных статей (Выручка, EBITDA) рост факта относительно плана — благоприятно, снижение — неблагоприятно. Никогда не называй экономию по расходам «минусом» в негативном смысле. Если ФОТ факт 1,5 млн ниже плана 1,7 млн — это экономия 200 тыс., это плюс для бизнеса.',
 ].join('\n');
 
 app.post('/ask', requireAuth, async (req, res, next) => {
@@ -1573,12 +1740,12 @@ app.post('/ask', requireAuth, async (req, res, next) => {
     }
     // Детерминированный financial-context (если вопрос про деньги — даём реальные числа из БД).
     const wantsFinance = PAYROLL_KEYWORDS.some(k => ruLower(question).includes(k)) || ruLower(question).includes('прибыл') || ruLower(question).includes('p&l');
-    if (wantsFinance && req.user.organizationId) {
+    if (req.user.organizationId) {  // всегда грузим P&L-контекст для AI, без фильтра wantsFinance
       const rawScope = body.scope || {};
       // Валидируем scope запроса: только ГГГГ-ММ, иначе — текущий период.
       const selected = { ...rawScope, period: YM_RE.test(String(rawScope.period || '')) ? String(rawScope.period) : new Date().toISOString().slice(0, 7) };
       const ym = selected.period;
-      const rows = await safeQuery(`SELECT rows FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2
+      const rows = await safeQuery(`SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2
         AND ($3::text = '' OR project_id = $3)
         AND ($4::text = '' OR branch_id = $4)
         AND ($5::text = '' OR restaurant_id = $5)
@@ -1639,7 +1806,7 @@ app.post('/api/ingest/message',async(req,res,next)=>{try{
 app.post('/api/ingest/message/confirm',requireAuth,requireOrg,async(req,res,next)=>{try{
  const b=parseOr400(IngestConfirmSchema,req.body??{});
  const s=b.scope||{period:b.date.slice(0,7),project_id:'',branch_id:'',restaurant_id:'',department_id:''};
- const existing=await safeQuery('SELECT rows FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1',[req.user.organizationId,s.period,s.project_id||'',s.branch_id||'',s.restaurant_id||'',s.department_id||''],[]);
+ const existing=await safeQuery('SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1',[req.user.organizationId,s.period,s.project_id||'',s.branch_id||'',s.restaurant_id||'',s.department_id||''],[]);
  let rows=[];try{rows=existing[0]?.rows?JSON.parse(existing[0].rows):[]}catch{rows=[]}
  const idx=rows.findIndex(r=>canonicalArticleKey(r.article)==='revenue');
  if(idx>=0)rows[idx]={...rows[idx],article:'Выручка',fact:b.parsed.revenue,source:'message-confirmed'};
