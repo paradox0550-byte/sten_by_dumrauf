@@ -1561,12 +1561,14 @@ app.post('/ask', requireAuth, async (req, res, next) => {
 
     const messages = [];
     messages.push({ role: 'system', text: (body.system ? String(body.system) + '\n\n' : '') + SYSTEM_PROMPT });
-    if (Array.isArray(body.messages)) {
+    if (Array.isArray(body.messages) && body.messages.length) {
       for (const m of body.messages.slice(-20)) {
         if (m.role === 'system') continue;
         messages.push({ role: m.role === 'assistant' ? 'assistant' : 'user', text: String(m.content || '').slice(0, 8000) });
       }
-    } else {
+    }
+    const _last = messages[messages.length - 1];
+    if (!_last || _last.role !== 'user' || _last.text !== question) {
       messages.push({ role: 'user', text: question });
     }
     // Детерминированный financial-context (если вопрос про деньги — даём реальные числа из БД).
