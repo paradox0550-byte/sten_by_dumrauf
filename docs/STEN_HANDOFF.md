@@ -49,6 +49,7 @@ Yandex Cloud AI Studio / YandexGPT. Браузер напрямую к AI не �
 - src/pages/Unlock.tsx — персональная разблокировка;
 - src/contexts/AuthContext.tsx — серверная JWT-сессия без offline-auth;
 - src/lib/api.ts — API Gateway client;
+- src/lib/useAnalyticsSettings.ts — серверный источник настроек аналитики;
 - src/lib/backend.ts — named API adapter;
 - src/lib/operationalModel.ts — frontend-модель финансовых понятий;
 - src/pages/PnL.tsx — P&L;
@@ -155,6 +156,8 @@ POST /ask
 GET /ai/documents
 POST /ai/documents/upload
 POST /api/pnl/calculate
+GET /api/analytics/settings
+PUT /api/analytics/settings
 
 OpenAPI:
 openapi.yaml.
@@ -228,3 +231,14 @@ API Gateway → Cloud Function → PostgreSQL → Yandex AI Studio/YandexGPT →
 
 Актуальная подробная инструкция:
 docs/STEN_USER_GUIDE.md
+
+<!-- 2026-09-29 analytics-settings -->
+## 2026-09-29 - Analytics / Settings on server
+
+- Настройки аналитики (пороги Food Cost / Labor Cost, тумблеры financial/labor/forecast) перенесены из localStorage в backend.
+- Хук src/lib/useAnalyticsSettings.ts - источник правды. localStorage используется только как кэш.
+- API Gateway получил путь /api/analytics/settings (GET / PUT / OPTIONS) с интеграцией на Cloud Function d4epijnhj7h9sd5ppa66.
+- src/pages/Settings.tsx сохраняет через useAnalyticsSettings().save().
+- src/pages/Analytics.tsx читает через тот же хук; пороги отображаются как "Порог N%".
+- .env.production должен содержать VITE_API_URL=https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net. Без этого build не считается валидным.
+- Контракт: GET -> { ok: true, data: { settings: null | AnalyticsSettings } }; PUT <- { foodTarget, laborTarget, financial, labor, forecast } -> { ok: true, data: { saved: true, confirmed: true, settings: {...} } }.

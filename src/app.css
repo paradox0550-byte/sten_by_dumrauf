@@ -3564,3 +3564,615 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     padding-top: 14px;
   }
 }
+
+/* === Глобальные стили settings-field: AI Skills, Аналитика и др. панели === */
+.settings-field {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+}
+.settings-field > span {
+  font-size: 11px;
+  font-weight: 750;
+  color: var(--muted);
+}
+.settings-field input,
+.settings-field select {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface2);
+  color: var(--text);
+  padding: 8px 10px;
+  font: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+.analytics-settings .settings-field { margin: 2px 0; }
+
+/* === Workspace button + popover (шапка) === */
+.top-workspace {
+  margin-left: 12px;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.workspace-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 380px;
+  transition: border-color 0.15s ease;
+}
+.workspace-btn:hover { border-color: var(--accent); }
+.workspace-btn-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 280px;
+}
+.workspace-popover-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+  border: 0;
+  z-index: 40;
+  cursor: default;
+}
+.workspace-popover {
+  position: fixed;
+  top: 58px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100vh - 90px);
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 18px;
+  z-index: 41;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+}
+.workspace-popover-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.workspace-popover-head b { font-size: 14px; }
+.workspace-popover .settings-field { margin: 10px 0; }
+
+/* === Workspace full: строка с select и кнопками === */
+.workspace-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.workspace-row select,
+.workspace-row input[type="month"] {
+  flex: 1;
+  min-width: 0;
+}
+.workspace-row .icon-button.compact {
+  width: 34px;
+  height: 40px;
+  flex: none;
+}
+
+@media (max-width: 700px) {
+  .workspace-btn-label { display: none; }
+  .workspace-btn { padding: 6px 8px; }
+  .top-workspace { margin-left: 6px; }
+}
+
+/* === Типографика: +1px для комфортного чтения === */
+body { font-size: 14px; }
+.page-head p { font-size: 13px; line-height: 1.55; }
+.eyebrow { font-size: 11px; letter-spacing: 0.08em; }
+.dashboard-note { font-size: 12px; }
+.muted, .page-head small { font-size: 12px; }
+.settings-field > span,
+.toggle-row small,
+.docs-panel small,
+.doc-row small { font-size: 11.5px; }
+.toggle-row span { font-size: 13px; }
+
+/* === Компактная кнопка контура === */
+.top-workspace { margin-left: auto; margin-right: 12px; min-width: 0; }
+.workspace-btn { max-width: 320px; padding: 6px 12px; }
+.workspace-btn-label { max-width: 230px; font-size: 12.5px; }
+.workspace-btn svg:last-child { flex: none; opacity: .6; }
+
+/* === Адаптив: планшет и телефон === */
+@media (max-width: 1100px) {
+  .settings-grid { grid-template-columns: 1fr; }
+  .two-col { grid-template-columns: 1fr; }
+  .analytics-summary { grid-template-columns: 1fr; }
+  .ai-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .workspace-grid { grid-template-columns: 1fr 1fr; }
+  .workspace-btn { max-width: 220px; }
+  .workspace-btn-label { max-width: 140px; }
+}
+@media (max-width: 700px) {
+  .workspace-grid { grid-template-columns: 1fr; }
+  .workspace-btn-label { display: none; }
+  .workspace-btn { padding: 6px 8px; max-width: 44px; }
+  .top-workspace { margin-left: 6px; margin-right: 6px; }
+  .page-head h1 { font-size: 22px; }
+}
+@media (max-width: 600px) {
+  .page-head { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .settings-field { margin: 12px 0; }
+  body { font-size: 14px; }
+}
+
+/* === Popover: bottom-sheet на телефоне === */
+@media (max-width: 700px) {
+  .workspace-popover {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    transform: none;
+    width: 100%;
+    max-height: 80vh;
+    border-radius: 18px 18px 0 0;
+    padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  }
+}
+
+/* === Таблицы: горизонтальный скролл на узких экранах === */
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+@media (max-width: 900px) {
+  .page table { display: block; overflow-x: auto; white-space: nowrap; }
+}
+
+/* === Расширенная палитра: смысловые цвета, не только gold === */
+:root {
+  --success: #16a34a;
+  --success-bg: rgba(22,163,74,0.10);
+  --warning: #d97706;
+  --warning-bg: rgba(217,119,6,0.10);
+  --danger: #dc2626;
+  --danger-bg: rgba(220,38,38,0.10);
+  --info: #2563eb;
+  --info-bg: rgba(37,99,235,0.10);
+  --violet: #7c3aed;
+  --violet-bg: rgba(124,58,237,0.10);
+  --cyan: #0891b2;
+  --cyan-bg: rgba(8,145,178,0.10);
+  --neutral: #6b7280;
+  --neutral-bg: rgba(107,114,128,0.10);
+}
+[data-theme='dark'] {
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+  --violet: #a78bfa;
+  --cyan: #22d3ee;
+  --neutral: #9ca3af;
+}
+
+/* === Смысловое применение === */
+.pnl-message.ok    { color: var(--success); background: var(--success-bg); border-color: var(--success); }
+.pnl-message.warn  { color: var(--warning); background: var(--warning-bg); border-color: var(--warning); }
+.pnl-message.error { color: var(--danger);  background: var(--danger-bg);  border-color: var(--danger); }
+.import-result.warn { color: var(--warning); background: var(--warning-bg); border-color: var(--warning); }
+
+.status-dot { background: var(--success); }
+.assistant-chip i { background: var(--success); }
+
+/* Бейджи в тексте */
+.badge-success { color: var(--success); background: var(--success-bg); }
+.badge-warn    { color: var(--warning); background: var(--warning-bg); }
+.badge-danger  { color: var(--danger);  background: var(--danger-bg); }
+.badge-info    { color: var(--info);    background: var(--info-bg); }
+.badge-violet  { color: var(--violet);  background: var(--violet-bg); }
+.badge-cyan    { color: var(--cyan);    background: var(--cyan-bg); }
+
+/* Заголовки и акценты — не всё золотое */
+.eyebrow { color: var(--info); }
+.page-head h1 { color: var(--text); }
+.dashboard-note svg { color: var(--info); }
+
+/* Вкладки и активные элементы — чуть разные */
+.toggle-row input:checked + i { background: var(--success); border-color: var(--success); }
+.toggle-row input:not(:checked) + i { background: var(--neutral-bg); }
+
+/* Кнопки */
+.danger-button { color: var(--danger); border-color: var(--danger); }
+.danger-button:hover { background: var(--danger-bg); }
+
+/* Метрики и цифры */
+.metric-positive { color: var(--success); }
+.metric-negative { color: var(--danger); }
+.metric-neutral  { color: var(--neutral); }
+
+/* === Скрытие бокового меню === */
+.shell { transition: grid-template-columns 0.2s ease; }
+.sidebar { transition: transform 0.2s ease, width 0.2s ease; }
+
+body.sidebar-collapsed .sidebar {
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border-right: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+body.sidebar-collapsed .main {
+  margin-left: 0;
+  width: 100%;
+}
+
+/* Кнопка скрытия в шапке */
+.sidebar-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sidebar-toggle:hover { background: var(--surface2); color: var(--text); }
+.sidebar-toggle svg { width: 17px; height: 17px; }
+
+@media (max-width: 950px) {
+  .sidebar-toggle { display: none; }
+}
+
+/* === STEN: документы как выдвижная шторка === */
+.ai-grid { transition: grid-template-columns 0.25s ease; }
+
+.docs-panel {
+  position: relative;
+  transition: width 0.25s ease, padding 0.25s ease, opacity 0.2s ease;
+}
+.ai-grid.docs-collapsed {
+  grid-template-columns: 56px 1fr;
+}
+.ai-grid.docs-collapsed .docs-panel {
+  padding: 12px 8px;
+  overflow: hidden;
+}
+.ai-grid.docs-collapsed .docs-panel > *:not(.docs-toggle) {
+  opacity: 0;
+  pointer-events: none;
+  height: 0;
+  overflow: hidden;
+}
+
+.docs-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.docs-toggle:hover { background: var(--surface2); color: var(--text); }
+
+/* Шапка docs-panel с кнопкой справа */
+.docs-panel .panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.docs-panel .panel-title .docs-toggle { margin-left: auto; }
+
+@media (max-width: 1100px) {
+  .ai-grid { grid-template-columns: 1fr; }
+  .ai-grid.docs-collapsed { grid-template-columns: 1fr; }
+  .ai-grid.docs-collapsed .docs-panel { display: none; }
+}
+
+/* === Charts === */
+.chart-wrap {
+  width: 100%;
+  margin-top: 8px;
+}
+.chart-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  background: var(--surface2);
+  border-radius: 10px;
+  margin-top: 8px;
+}
+.sparkline {
+  margin-top: 6px;
+}
+.metric-card .sparkline { opacity: 0.85; }
+
+img.brand-mark { width: 40px; height: 40px; border-radius: 10px; flex: none; object-fit: contain; }
+
+/* === Дашборд: KPI-стрип как карточки === */
+.analytics-kpi-strip {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)) !important;
+  gap: 10px !important;
+  border-bottom: 0 !important;
+  margin-bottom: 16px !important;
+}
+.analytics-kpi-strip > article {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.analytics-kpi-strip > article small {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.analytics-kpi-strip > article strong {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.analytics-kpi-strip > article span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* === Дашборд: верхний блок «Что произошло» === */
+.analytics-summary {
+  grid-template-columns: minmax(0, 1fr) 240px !important;
+  gap: 20px !important;
+  padding: 16px 0 18px !important;
+  margin-bottom: 4px !important;
+}
+.analytics-summary p {
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  margin-top: 6px !important;
+}
+.analytics-summary-delta strong {
+  font-size: 22px !important;
+}
+
+/* === PnL: KPI карточки компактнее === */
+.pnl-kpis {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;
+}
+.pnl-kpi > div {
+  gap: 14px !important;
+}
+.pnl-kpi b {
+  display: block;
+  font-size: 15px !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pnl-kpi span {
+  min-width: 0;
+}
+
+/* === PnL: Prime Cost без зелёного фона === */
+.pnl-prime-control {
+  background: transparent !important;
+  border-top: 1px solid var(--line) !important;
+  border-bottom: 1px solid var(--line) !important;
+  padding: 14px 0 !important;
+}
+.pnl-prime-control strong {
+  font-size: 28px !important;
+}
+
+@media (max-width: 700px) {
+  .analytics-kpi-strip {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .analytics-kpi-strip > article strong {
+    font-size: 16px !important;
+  }
+  .analytics-summary {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* === Отклонения в таблице «ПОЧЕМУ» === */
+.analytics-report-table strong.positive { color: var(--good); font-weight: 700; }
+.analytics-report-table strong.negative { color: var(--danger); font-weight: 700; }
+
+/* === Точечная правка: типографика === */
+/* Базовые размеры */
+body { font-size: 14px; }
+
+/* Карточки: подписи и значения */
+.metric-card span,
+.metric-card small,
+.analytics-kpi-strip > article small,
+.pnl-kpi small,
+.pnl-kpi span,
+.analytics-report-head span,
+.pnl-edit-head span {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+/* Крупные цифры в карточках */
+.metric-card strong { font-size: 22px; }
+.analytics-kpi-strip > article strong { font-size: 22px; }
+.pnl-kpi b { font-size: 16px; }
+.analytics-summary-delta strong { font-size: 24px; }
+.pnl-prime-control strong { font-size: 30px; }
+.flash-prime strong { font-size: 40px; }
+
+/* Заголовки секций */
+.page-head h1 { font-size: 28px; letter-spacing: -0.02em; }
+.panel-title { font-size: 13px; letter-spacing: 0.04em; }
+.page-head p { font-size: 13px; }
+
+/* Мелкие подписи */
+.eyebrow { font-size: 11px; letter-spacing: 0.1em; }
+.dashboard-note { font-size: 12px; line-height: 1.55; }
+
+/* Таблицы: строки */
+.analytics-report-table > div:not(.analytics-report-head) {
+  padding: 12px 0;
+  font-size: 13px;
+}
+.analytics-report-table b { font-size: 13px; font-weight: 600; }
+.analytics-report-table strong { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* === Точечная правка: карточки и воздух === */
+/* KPI-стрип дашборда */
+.analytics-kpi-strip {
+  gap: 12px !important;
+  margin: 16px 0 20px !important;
+}
+.analytics-kpi-strip > article {
+  padding: 16px 18px !important;
+  gap: 8px !important;
+  border-radius: 12px !important;
+  transition: border-color 0.15s ease;
+}
+.analytics-kpi-strip > article:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+}
+.analytics-kpi-strip > article strong {
+  margin-bottom: 2px;
+}
+.analytics-kpi-strip > article span {
+  padding-top: 2px;
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+  padding-top: 6px;
+}
+
+/* PnL KPI карточки */
+.pnl-kpis {
+  gap: 12px !important;
+  margin-bottom: 16px !important;
+}
+.pnl-kpi {
+  padding: 16px 18px !important;
+  border-radius: 12px !important;
+}
+.pnl-kpi > div {
+  margin-top: 12px !important;
+  gap: 14px !important;
+}
+.pnl-kpi em {
+  margin-top: 12px !important;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Общие панели */
+.panel {
+  padding: 20px 22px !important;
+  border-radius: 14px !important;
+}
+.panel-title {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* Две колонки на дашборде */
+.dashboard-columns {
+  gap: 12px !important;
+  margin-top: 12px;
+}
+
+/* Отступы между секциями */
+.page > section:not(:last-child),
+.page > div:not(:last-child):not(.page-head) {
+  margin-bottom: 12px;
+}
+
+/* === Точечная правка: цвета === */
+/* Prime Cost — убрать заливку, оставить цветной индикатор слева */
+.pnl-prime-control {
+  background: transparent !important;
+  border-top: 1px solid var(--line) !important;
+  border-bottom: 1px solid var(--line) !important;
+  border-left: 3px solid currentColor !important;
+  border-radius: 0 12px 12px 0 !important;
+  padding: 16px 20px !important;
+  position: relative;
+}
+.pnl-prime-control.normal { color: var(--good); }
+.pnl-prime-control.attention { color: var(--warning); }
+.pnl-prime-control.critical { color: var(--danger); }
+.pnl-prime-control.is-empty { color: var(--muted); }
+.pnl-prime-control strong { font-weight: 700 !important; }
+
+/* Prime Cost в дашборде (если есть) */
+.flash-prime {
+  background: transparent !important;
+  border: 1px solid var(--line) !important;
+  border-left: 3px solid var(--accent) !important;
+  border-radius: 0 12px 12px 0 !important;
+  padding: 18px 22px !important;
+}
+
+/* Positive/Negative в таблицах */
+.analytics-report-table strong.positive,
+.pnl-edit-row strong.positive {
+  color: var(--good) !important;
+}
+.analytics-report-table strong.negative,
+.pnl-edit-row strong.negative {
+  color: var(--danger) !important;
+}
+
+/* Убрать яркие border'ы у блоков статистики */
+.import-result, .pnl-message {
+  border-radius: 10px !important;
+  padding: 12px 14px !important;
+  font-size: 12px;
+}
+.pnl-message.ok {
+  border-color: color-mix(in srgb, var(--good) 40%, var(--line)) !important;
+  background: color-mix(in srgb, var(--good) 6%, var(--surface)) !important;
+}
+.pnl-message.warn {
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--line)) !important;
+  background: color-mix(in srgb, var(--danger) 6%, var(--surface)) !important;
+}
+
+/* Positive/Negative в PnL и Budget */
+.pnl-edit-row strong.positive { color: var(--good); }
+.pnl-edit-row strong.negative { color: var(--danger); }
+.budget-grid-row .num.positive { color: var(--good); }
+.budget-grid-row .num.negative { color: var(--danger); }

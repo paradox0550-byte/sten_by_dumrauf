@@ -29,3 +29,24 @@ npm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+# env
+.env
+.env.*
+!.env.example
+
+# backups
+*.bak_*
+docs/*.bak_*
+
+# temp artifacts
+ask*.json
+dbg*.json
+debug*.json
+cleanup.json
+flash.json
+newproj.json
+pnl-test.json
+
+# one-off scripts
+patch-*.mjs
+patch-*.ps1

@@ -39,6 +39,7 @@ Financial values are calculated by deterministic backend code; YandexGPT is used
 
 ## Authentication
 
+Analytics thresholds and the analytics composition are persisted via GET/PUT /api/analytics/settings through the same Gateway/Function.
 The personal workspace uses POST /auth/unlock with a 4-digit code. The backend compares it only against a bcrypt cost-12 hash stored as UNLOCK_CODE_HASH and returns a JWT. Legacy email/password UX is not part of the product.
 
 ## CI gate
@@ -78,3 +79,14 @@ The last six values are **Lockbox secret references**, not secret values. The de
 The workflow validates the backend, deploys `nodejs22 / index.handler / 256Mb / 90s`, attaches the configured VPC network, and then checks the API Gateway `/healthz` endpoint.
 
 This workflow does not copy `backend/function.zip`; it packages the authoritative `backend/` source at deploy time so the deployed version cannot silently lag behind `main`.
+
+<!-- 2026-09-29 analytics-settings -->
+## 2026-09-29 - Analytics / Settings on server
+
+- Настройки аналитики (пороги Food Cost / Labor Cost, тумблеры financial/labor/forecast) перенесены из localStorage в backend.
+- Хук src/lib/useAnalyticsSettings.ts - источник правды. localStorage используется только как кэш.
+- API Gateway получил путь /api/analytics/settings (GET / PUT / OPTIONS) с интеграцией на Cloud Function d4epijnhj7h9sd5ppa66.
+- src/pages/Settings.tsx сохраняет через useAnalyticsSettings().save().
+- src/pages/Analytics.tsx читает через тот же хук; пороги отображаются как "Порог N%".
+- .env.production должен содержать VITE_API_URL=https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net. Без этого build не считается валидным.
+- Контракт: GET -> { ok: true, data: { settings: null | AnalyticsSettings } }; PUT <- { foodTarget, laborTarget, financial, labor, forecast } -> { ok: true, data: { saved: true, confirmed: true, settings: {...} } }.

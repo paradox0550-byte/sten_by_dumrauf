@@ -1,0 +1,3292 @@
+openapi: 3.0.3
+info:
+  title: ╨б╨в╨Х╨Э API
+  version: 4.3.0
+  description: |
+    API ╨║╨░╨▒╨╕╨╜╨╡╤В╨░ ╤Г╨┐╤А╨░╨▓╨╗╤П╤О╤Й╨╡╨│╨╛ ┬л╨б╨в╨Х╨Э┬╗.
+    ╨б╨╕╨╜╤Е╤А╨╛╨╜╨╕╨╖╨╕╤А╨╛╨▓╨░╨╜╨╛ ╤Б backend/index.js v4.3.0 (YandexGPT + skills routing + P&L CRUD).
+
+    Function: d4epijnhj7h9sd5ppa66
+    AI: YandexGPT (production)
+  contact:
+    name: STEN Team
+
+servers:
+- url: https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net
+tags:
+  - name: Health
+    description: ╨Я╤А╨╛╨▓╨╡╤А╨║╨░ ╨┤╨╛╤Б╤В╤Г╨┐╨╜╨╛╤Б╤В╨╕ ╤Б╨╡╤А╨▓╨╕╤Б╨░
+  - name: Auth
+    description: ╨Р╤Г╤В╨╡╨╜╤В╨╕╤Д╨╕╨║╨░╤Ж╨╕╤П ╨╕ ╤А╨░╨╖╨▒╨╗╨╛╨║╨╕╤А╨╛╨▓╨║╨░
+  - name: STEN
+    description: AI-╨░╨│╨╡╨╜╤В (YandexGPT + ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В╤Л)
+  - name: Documents
+    description: ╨Ф╨╛╨║╤Г╨╝╨╡╨╜╤В╤Л ╨╛╤А╨│╨░╨╜╨╕╨╖╨░╤Ж╨╕╨╕
+  - name: PnL
+    description: ╨а╨░╤Б╤З╤С╤В P&L, CRUD ╤А╤Г╤З╨╜╤Л╤Е ╨╛╤В╤З╤С╤В╨╛╨▓, ╤А╨░╨╖╨▒╨╛╤А ╤В╨░╨▒╨╡╨╗╤П
+  - name: Secretary
+    description: ╨Ч╨░╨╝╨╡╤В╨║╨╕ ╤Б╨╡╨║╤А╨╡╤В╨░╤А╤П
+  - name: Settings
+    description: ╨Э╨░╤Б╤В╤А╨╛╨╣╨║╨╕ ╨╛╤А╨│╨░╨╜╨╕╨╖╨░╤Ж╨╕╨╕
+  - name: Organization
+    description: ╨Ю╤А╨│╨░╨╜╨╕╨╖╨░╤Ж╨╕╨╛╨╜╨╜╨░╤П ╤Б╤В╤А╤Г╨║╤В╤Г╤А╨░
+  - name: Reports
+    description: ╨Х╨╢╨╡╨┤╨╜╨╡╨▓╨╜╤Л╨╡ ╨╛╤В╤З╤С╤В╤Л
+  - name: Staff
+    description: ╨б╨╛╤В╤А╤Г╨┤╨╜╨╕╨║╨╕ ╨╕ ╤А╨╛╨╗╨╕
+  - name: Schedule
+    description: ╨б╨╝╨╡╨╜╤Л
+  - name: Analytics
+    description: ╨Р╨╜╨░╨╗╨╕╤В╨╕╨║╨░ ╨д╨Ю╨в ╨╕ ╨┤╤А╤Г╨│╨╕╤Е ╨╝╨╡╤В╤А╨╕╨║
+  - name: CORS
+    description: Preflight-╨╖╨░╨┐╤А╨╛╤Б╤Л (OPTIONS)
+
+security:
+  - bearerAuth: []
+
+x-yc-apigateway-cors:
+  allow_origins:
+    - https://smenavkarmane-business.website.yandexcloud.net
+    - https://cabinet.smenavkarmane.ru
+    - https://smenavkarmane.ru
+    - http://localhost:3000
+    - http://localhost:5173
+    - http://localhost:3001
+    - http://localhost:3002
+  allow_methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+  allow_headers: [Authorization, Content-Type, X-Request-ID]
+  expose_headers: [Content-Type, X-Request-ID]
+  max_age: 86400
+
+paths:
+
+  # ===========================================================================
+  # SYSTEM
+  # ===========================================================================
+  /:
+    get:
+      tags: [Health]
+      operationId: rootInfo
+      summary: ╨Ъ╨╛╤А╨╜╨╡╨▓╨╛╨╣ ╨╝╨░╤А╤И╤А╤Г╤В
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 200
+        content:
+          application/json: |
+            {"status":"ok","service":"sten-api"}
+      responses:
+        '200':
+          description: ╨б╨╡╤А╨▓╨╕╤Б ╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:  { type: string }
+                  service: { type: string }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /healthz:
+    get:
+      tags: [Health]
+      operationId: healthCheck
+      summary: ╨Я╤А╨╛╨▓╨╡╤А╨║╨░ ╨┤╨╛╤Б╤В╤Г╨┐╨╜╨╛╤Б╤В╨╕ ╤Б╨╡╤А╨▓╨╕╤Б╨░ ╨╕ ╨С╨Ф
+      security: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨б╨╡╤А╨▓╨╕╤Б ╨╕ ╨С╨Ф ╨┤╨╛╤Б╤В╤Г╨┐╨╜╤Л
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthStatus' }
+        '503':
+          description: ╨С╨Ф ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╜╨░
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+  /debug/db:
+    get:
+      tags: [Health]
+      operationId: debugDb
+      summary: ╨Ф╨╕╨░╨│╨╜╨╛╤Б╤В╨╕╨║╨░ ╨С╨Ф
+      security: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: OK
+  # ===========================================================================
+  # AUTH
+  # ===========================================================================
+  /auth/unlock:
+    post:
+      tags: [Auth]
+      operationId: authUnlock
+      summary: ╨Я╨╡╤А╤Б╨╛╨╜╨░╨╗╤М╨╜╨░╤П ╤А╨░╨╖╨▒╨╗╨╛╨║╨╕╤А╨╛╨▓╨║╨░ ╨┐╨╛ ╨║╨╛╨┤╤Г
+      security: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, minLength: 4, maxLength: 8 }
+      responses:
+        '200':
+          description: ╨Ъ╨╛╨┤ ╨┐╤А╨╕╨╜╤П╤В
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthSuccess' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          description: ╨Э╨╡╨▓╨╡╤А╨╜╤Л╨╣ ╨║╨╛╨┤ ╨┤╨╛╤Б╤В╤Г╨┐╨░
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: authLogin
+      summary: ╨Т╤Е╨╛╨┤ ╨┐╨╛ email ╨╕ ╨┐╨░╤А╨╛╨╗╤О
+      security: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:    { type: string, format: email }
+                password: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: ╨г╤Б╨┐╨╡╤И╨╜╤Л╨╣ ╨▓╤Е╨╛╨┤
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthSuccess' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401':
+          description: ╨Э╨╡╨▓╨╡╤А╨╜╤Л╨╡ ╤Г╤З╤С╤В╨╜╤Л╨╡ ╨┤╨░╨╜╨╜╤Л╨╡
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      operationId: authMe
+      summary: ╨в╨╡╨║╤Г╤Й╨╕╨╣ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨Я╤А╨╛╤Д╨╕╨╗╤М ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤П
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      operationId: authRegister
+      summary: ╨а╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╤П (╨╖╨░╨║╤А╤Л╤В╨░)
+      security: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '403':
+          description: ╨а╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╤П ╨┤╨╛╤Б╤В╤Г╨┐╨╜╨░ ╤В╨╛╨╗╤М╨║╨╛ ╨┐╨╛ ╨┐╤А╨╕╨│╨╗╨░╤И╨╡╨╜╨╕╤О
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      operationId: authForgotPassword
+      summary: ╨Ч╨░╨┐╤А╨╛╤Б ╨║╨╛╨┤╨░ ╤Б╨▒╤А╨╛╤Б╨░ ╨┐╨░╤А╨╛╨╗╤П
+      security: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '200':
+          description: ╨Ч╨░╨┐╤А╨╛╤Б ╨┐╤А╨╕╨╜╤П╤В
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /auth/verify-code:
+    post:
+      tags: [Auth]
+      operationId: authVerifyCode
+      summary: ╨Я╤А╨╛╨▓╨╡╤А╨║╨░ ╨║╨╛╨┤╨░ ╤Б╨▒╤А╨╛╤Б╨░
+      security: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email: { type: string, format: email }
+                code:  { type: string }
+      responses:
+        '200':
+          description: ╨Ъ╨╛╨┤ ╨▓╨╡╤А╨╜╤Л╨╣
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      operationId: authResetPassword
+      summary: ╨г╤Б╤В╨░╨╜╨╛╨▓╨║╨░ ╨╜╨╛╨▓╨╛╨│╨╛ ╨┐╨░╤А╨╛╨╗╤П ╨┐╨╛ ╨║╨╛╨┤╤Г
+      security: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code, newPassword]
+              properties:
+                email:       { type: string, format: email }
+                code:        { type: string }
+                newPassword: { type: string, minLength: 8 }
+      responses:
+        '200':
+          description: ╨Я╨░╤А╨╛╨╗╤М ╨╕╨╖╨╝╨╡╨╜╤С╨╜
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /auth/change-password:
+    post:
+      tags: [Auth]
+      operationId: authChangePassword
+      summary: ╨б╨╝╨╡╨╜╨░ ╨┐╨░╤А╨╛╨╗╤П ╨░╨▓╤В╨╛╤А╨╕╨╖╨╛╨▓╨░╨╜╨╜╤Л╨╝ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╨╡╨╝
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [oldPassword, newPassword]
+              properties:
+                oldPassword: { type: string }
+                newPassword: { type: string, minLength: 8 }
+      responses:
+        '200':
+          description: ╨Я╨░╤А╨╛╨╗╤М ╨╕╨╖╨╝╨╡╨╜╤С╨╜
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /auth/consent:
+    post:
+      tags: [Auth]
+      operationId: authConsentGive
+      summary: ╨Ч╨░╤Д╨╕╨║╤Б╨╕╤А╨╛╨▓╨░╤В╤М ╤Б╨╛╨│╨╗╨░╤Б╨╕╨╡
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                consentType: { type: string, default: personal_data }
+                version:     { type: string, default: '1.0' }
+      responses:
+        '201':
+          description: ╨б╨╛╨│╨╗╨░╤Б╨╕╨╡ ╨╖╨░╤Д╨╕╨║╤Б╨╕╤А╨╛╨▓╨░╨╜╨╛
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /auth/consent/revoke:
+    post:
+      tags: [Auth]
+      operationId: authConsentRevoke
+      summary: ╨Ю╤В╨╛╨╖╨▓╨░╤В╤М ╤Б╨╛╨│╨╗╨░╤Б╨╕╨╡
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                consentType: { type: string, default: personal_data }
+                reason:      { type: string }
+      responses:
+        '200':
+          description: ╨б╨╛╨│╨╗╨░╤Б╨╕╨╡ ╨╛╤В╨╛╨╖╨▓╨░╨╜╨╛
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /auth/consents:
+    get:
+      tags: [Auth]
+      operationId: authConsentList
+      summary: ╨б╨┐╨╕╤Б╨╛╨║ ╤Б╨╛╨│╨╗╨░╤Б╨╕╨╣ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤П
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨б╨┐╨╕╤Б╨╛╨║ ╤Б╨╛╨│╨╗╨░╤Б╨╕╨╣
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  consents:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  # ===========================================================================
+  # STEN AI CORE
+  # ===========================================================================
+  /ask:
+    post:
+      tags: [STEN]
+      operationId: stenAsk
+      summary: ╨Ч╨░╨┐╤А╨╛╤Б ╨║ AI-╨░╨│╨╡╨╜╤В╤Г ╨б╨в╨Х╨Э
+      description: |
+        ╨Я╤А╨╕╨╜╨╕╨╝╨░╨╡╤В ╨▓╨╛╨┐╤А╨╛╤Б, ╨╕╤Б╤В╨╛╤А╨╕╤О ╨┤╨╕╨░╨╗╨╛╨│╨░ ╨╕ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В skills.
+        ╨Т╨╛╨╖╨▓╤А╨░╤Й╨░╨╡╤В ╨╛╤В╨▓╨╡╤В YandexGPT ╤Б ╨╕╤Б╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╨╜╨╜╤Л╨╝╨╕ ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В╨░╨╝╨╕ ╨╕ ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨░╨╝╨╕.
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AskRequest' }
+            examples:
+              simple:
+                value:
+                  question: "╨Я╨╛╤З╨╡╨╝╤Г ╨▓╤Л╤А╨╛╤Б food cost?"
+              withSkills:
+                value:
+                  question: "╨Я╨╛╤З╨╡╨╝╤Г ╨▓╤Л╤А╨╛╤Б food cost?"
+                  scenario: food_cost_up
+                  group_ids: ['GRP-03']
+                  skill_ids: ['SK-11', 'SK-09', 'SK-10']
+      responses:
+        '200':
+          description: ╨Ю╤В╨▓╨╡╤В ╨░╨│╨╡╨╜╤В╨░
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AskResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '502':
+          description: ╨Ю╤И╨╕╨▒╨║╨░ YandexGPT
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: YandexGPT ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ ╨╕╨╗╨╕ ╨╜╨╡ ╨╜╨░╤Б╤В╤А╨╛╨╡╨╜
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  # ===========================================================================
+  # DOCUMENTS
+  # ===========================================================================
+  /ai/documents:
+    get:
+      tags: [Documents]
+      operationId: listDocuments
+      summary: ╨б╨┐╨╕╤Б╨╛╨║ ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╨╛╨▓ ╨╛╤А╨│╨░╨╜╨╕╨╖╨░╤Ж╨╕╨╕
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨б╨┐╨╕╤Б╨╛╨║ ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╨╛╨▓
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items: { $ref: '#/components/schemas/Document' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503':
+          description: Object Storage ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /ai/documents/upload:
+    post:
+      tags: [Documents]
+      operationId: uploadDocument
+      summary: ╨Ч╨░╨│╤А╤Г╨╖╨║╨░ ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╨░ (base64)
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, dataBase64]
+              properties:
+                name:       { type: string }
+                mimeType:   { type: string }
+                dataBase64: { type: string, format: byte }
+      responses:
+        '202':
+          description: ╨Ф╨╛╨║╤Г╨╝╨╡╨╜╤В ╨┐╤А╨╕╨╜╤П╤В ╨▓ ╨╛╨▒╤А╨░╨▒╨╛╤В╨║╤Г
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:      { type: string }
+                  name:    { type: string }
+                  size:    { type: integer }
+                  key:     { type: string }
+                  status:  { type: string, enum: [processing, ready, failed] }
+                  message: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '413':
+          description: ╨а╨░╨╖╨╝╨╡╤А ╤Д╨░╨╣╨╗╨░ ╨┐╤А╨╡╨▓╤Л╤И╨░╨╡╤В 8 ╨Ь╨С
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: Object Storage ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  # ===========================================================================
+  # P&L: ╤А╨░╤Б╤З╤С╤В
+  # ===========================================================================
+  /api/pnl/calculate:
+    post:
+      tags: [PnL]
+      operationId: pnlCalculate
+      summary: ╨а╨░╤Б╤З╤С╤В P&L ╨╖╨░ ╨┐╨╡╤А╨╕╨╛╨┤ ╨╕╨╗╨╕ ╨┐╨╛ ╨┐╤А╨╛╨╕╨╖╨▓╨╛╨╗╤М╨╜╤Л╨╝ ╤З╨╕╤Б╨╗╨░╨╝
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/PnlPeriodRequest'
+                - $ref: '#/components/schemas/PnlFlatRequest'
+            examples:
+              byPeriod:
+                value: { period: "2025-03" }
+              flat:
+                value: { revenue: 1000000, cogs: 300000, opex: 200000, tax: 50000 }
+      responses:
+        '200':
+          description: ╨а╨╡╨╖╤Г╨╗╤М╤В╨░╤В ╤А╨░╤Б╤З╤С╤В╨░
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PnlResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: ╨Э╨╡╤В ╨┤╨╛╤Б╤В╤Г╨┐╨░ ╨║ ╨╛╤А╨│╨░╨╜╨╕╨╖╨░╤Ж╨╕╨╕
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  # ===========================================================================
+  # P&L: ╨╕╨╝╨┐╨╛╤А╤В Excel
+  # ===========================================================================
+  /api/pnl/import:
+    post:
+      tags: [PnL]
+      operationId: importPnlReport
+      summary: ╨Ш╨╝╨┐╨╛╤А╤В P&L ╨╕╨╖ Excel/CSV (base64)
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dataBase64]
+              properties:
+                projectId:   { type: string, default: default }
+                name:        { type: string, default: '╨Ш╨╝╨┐╨╛╤А╤В P&L' }
+                dataBase64:  { type: string, format: byte }
+      responses:
+        '201':
+          description: ╨Ю╤В╤З╤С╤В ╤Б╨╛╨╖╨┤╨░╨╜ ╨╕╨╖ Excel
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PnlReport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: ╨Э╨╡╤В ╨╛╤А╨│╨░╨╜╨╕╨╖╨░╤Ж╨╕╨╕
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  # ===========================================================================
+  # P&L: CRUD ╤А╤Г╤З╨╜╤Л╤Е ╨╛╤В╤З╤С╤В╨╛╨▓
+  # ===========================================================================
+  /api/pnl:
+    get:
+      tags: [PnL]
+      operationId: listPnlReports
+      summary: ╨б╨┐╨╕╤Б╨╛╨║ ╤А╤Г╤З╨╜╤Л╤Е P&L ╨╛╤В╤З╤С╤В╨╛╨▓
+      description: ╨Т╨╛╨╖╨▓╤А╨░╤Й╨░╨╡╤В ╨▓╤Б╨╡ P&L-╨╛╤В╤З╤С╤В╤Л ╨╛╤А╨│╨░╨╜╨╕╨╖╨░╤Ж╨╕╨╕. ╨Ю╨┐╤Ж╨╕╨╛╨╜╨░╨╗╤М╨╜╤Л╨╣ ╤Д╨╕╨╗╤М╤В╤А ╨┐╨╛ ╨┐╤А╨╛╨╡╨║╤В╤Г.
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      parameters:
+        - in: query
+          name: projectId
+          required: false
+          schema: { type: string }
+          example: "default"
+      responses:
+        '200':
+          description: ╨б╨┐╨╕╤Б╨╛╨║ P&L
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PnlReport' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [PnL]
+      operationId: createPnlReport
+      summary: ╨б╨╛╨╖╨┤╨░╤В╤М ╤А╤Г╤З╨╜╨╛╨╣ P&L
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PnlReportCreate' }
+      responses:
+        '201':
+          description: ╨Ю╤В╤З╤С╤В ╤Б╨╛╨╖╨┤╨░╨╜
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PnlReport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: ╨Э╨╡╤В ╨╛╤А╨│╨░╨╜╨╕╨╖╨░╤Ж╨╕╨╕
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /api/pnl/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [PnL]
+      operationId: getPnlReport
+      summary: ╨Ю╨┤╨╕╨╜ P&L-╨╛╤В╤З╤С╤В
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨Ю╤В╤З╤С╤В
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PnlReport' }
+        '404':
+          description: ╨Э╨╡ ╨╜╨░╨╣╨┤╨╡╨╜
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    patch:
+      tags: [PnL]
+      operationId: updatePnlReport
+      summary: ╨Ю╨▒╨╜╨╛╨▓╨╕╤В╤М P&L
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PnlReportUpdate' }
+      responses:
+        '200':
+          description: ╨Ю╨▒╨╜╨╛╨▓╨╗╤С╨╜╨╜╤Л╨╣ ╨╛╤В╤З╤С╤В
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PnlReport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404':
+          description: ╨Э╨╡ ╨╜╨░╨╣╨┤╨╡╨╜
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    delete:
+      tags: [PnL]
+      operationId: deletePnlReport
+      summary: ╨г╨┤╨░╨╗╨╕╤В╤М P&L
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨г╨┤╨░╨╗╨╡╨╜╨╛
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        '404':
+          description: ╨Э╨╡ ╨╜╨░╨╣╨┤╨╡╨╜
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  # ===========================================================================
+  # SECRETARY NOTES
+  # ===========================================================================
+  /api/secretary/notes:
+    get:
+      tags: [Secretary]
+      operationId: listSecretaryNotes
+      summary: ╨б╨┐╨╕╤Б╨╛╨║ ╨╖╨░╨╝╨╡╤В╨╛╨║ ╤Б╨╡╨║╤А╨╡╤В╨░╤А╤П
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨Ч╨░╨╝╨╡╤В╨║╨╕
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notes:
+                    type: array
+                    items: { $ref: '#/components/schemas/SecretaryNote' }
+    post:
+      tags: [Secretary]
+      operationId: createSecretaryNote
+      summary: ╨б╨╛╨╖╨┤╨░╤В╤М ╨╖╨░╨╝╨╡╤В╨║╤Г
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SecretaryNoteCreate' }
+      responses:
+        '201':
+          description: ╨Ч╨░╨╝╨╡╤В╨║╨░ ╤Б╨╛╨╖╨┤╨░╨╜╨░
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  note: { $ref: '#/components/schemas/SecretaryNote' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /api/secretary/notes/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [Secretary]
+      operationId: updateSecretaryNote
+      summary: ╨Ю╨▒╨╜╨╛╨▓╨╕╤В╤М ╨╖╨░╨╝╨╡╤В╨║╤Г
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:   { type: string }
+                content: { type: string }
+      responses:
+        '200':
+          description: ╨Ч╨░╨╝╨╡╤В╨║╨░ ╨╛╨▒╨╜╨╛╨▓╨╗╨╡╨╜╨░
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  note: { $ref: '#/components/schemas/SecretaryNote' }
+        '404':
+          description: ╨Э╨╡ ╨╜╨░╨╣╨┤╨╡╨╜╨░
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    delete:
+      tags: [Secretary]
+      operationId: deleteSecretaryNote
+      summary: ╨г╨┤╨░╨╗╨╕╤В╤М ╨╖╨░╨╝╨╡╤В╨║╤Г
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨г╨┤╨░╨╗╨╡╨╜╨╛
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        '404':
+          description: ╨Э╨╡ ╨╜╨░╨╣╨┤╨╡╨╜╨░
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  # ===========================================================================
+  # PAYROLL IMPORT (╤А╨░╨╖╨▒╨╛╤А ╤В╨░╨▒╨╡╨╗╤П)
+  # ===========================================================================
+  /api/payroll/parse:
+    post:
+      tags: [PnL]
+      operationId: payrollParse
+      summary: ╨а╨░╨╖╨▒╨╛╤А ╤В╨░╨▒╨╡╨╗╤П (XLSX/XLS)
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:       { type: string }
+                dataBase64: { type: string, format: byte }
+      responses:
+        '200':
+          description: ╨а╨╡╨╖╤Г╨╗╤М╤В╨░╤В ╤А╨░╨╖╨▒╨╛╤А╨░
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detected:   { type: boolean }
+                  parsed:     { type: boolean }
+                  status:     { type: string }
+                  rowsCount:  { type: integer }
+                  errorCount: { type: integer }
+                  sheets:     { type: array, items: { type: string } }
+                  rows:       { type: array, items: { type: object, additionalProperties: true } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  # ===========================================================================
+  # SETTINGS
+  # ===========================================================================
+  /settings/org:
+    get:
+      tags: [Settings]
+      operationId: getOrgSettings
+      summary: ╨Э╨░╤Б╤В╤А╨╛╨╣╨║╨╕ ╨╛╤А╨│╨░╨╜╨╕╨╖╨░╤Ж╨╕╨╕
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨Э╨░╤Б╤В╤А╨╛╨╣╨║╨╕
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrgSettings' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      tags: [Settings]
+      operationId: patchOrgSettings
+      summary: ╨Ю╨▒╨╜╨╛╨▓╨╕╤В╤М ╨╜╨░╤Б╤В╤А╨╛╨╣╨║╨╕ ╨╛╤А╨│╨░╨╜╨╕╨╖╨░╤Ж╨╕╨╕
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrgSettingsPatch' }
+      responses:
+        '200':
+          description: ╨Ю╨▒╨╜╨╛╨▓╨╗╨╡╨╜╨╛
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrgSettings' }
+        '403':
+          description: ╨Э╨╡╤В ╨┐╤А╨░╨▓
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /settings/kpi:
+    get:
+      tags: [Settings]
+      operationId: getKpiSettings
+      summary: KPI-╨╜╨░╤Б╤В╤А╨╛╨╣╨║╨╕
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨Э╨░╤Б╤В╤А╨╛╨╣╨║╨╕ KPI
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+    put:
+      tags: [Settings]
+      operationId: putKpiSettings
+      summary: ╨Ю╨▒╨╜╨╛╨▓╨╕╤В╤М KPI-╨╜╨░╤Б╤В╤А╨╛╨╣╨║╨╕
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: ╨Ю╨▒╨╜╨╛╨▓╨╗╨╡╨╜╨╛
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+    patch:
+      tags: [Settings]
+      operationId: patchKpiSettings
+      summary: ╨з╨░╤Б╤В╨╕╤З╨╜╨╛ ╨╛╨▒╨╜╨╛╨▓╨╕╤В╤М KPI-╨╜╨░╤Б╤В╤А╨╛╨╣╨║╨╕
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: ╨Ю╨▒╨╜╨╛╨▓╨╗╨╡╨╜╨╛
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /settings/departments:
+    get:
+      tags: [Settings]
+      operationId: listDepartments
+      summary: ╨б╨┐╨╕╤Б╨╛╨║ ╨╛╤В╨┤╨╡╨╗╨╛╨▓
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨б╨┐╨╕╤Б╨╛╨║ ╨╛╤В╨┤╨╡╨╗╨╛╨▓
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  departments:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+    post:
+      tags: [Settings]
+      operationId: createDepartment
+      summary: ╨б╨╛╨╖╨┤╨░╤В╤М ╨╛╤В╨┤╨╡╨╗
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:        { type: string }
+                description: { type: string }
+      responses:
+        '201':
+          description: ╨Ю╤В╨┤╨╡╨╗ ╤Б╨╛╨╖╨┤╨░╨╜
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  department: { type: object, additionalProperties: true }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /settings/integrations:
+    get:
+      tags: [Settings]
+      operationId: getIntegrations
+      summary: ╨Ш╨╜╤В╨╡╨│╤А╨░╤Ж╨╕╨╕ ╨╛╤А╨│╨░╨╜╨╕╨╖╨░╤Ж╨╕╨╕
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨Ш╨╜╤В╨╡╨│╤А╨░╤Ж╨╕╨╕
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  integrations: { type: object, additionalProperties: true }
+    post:
+      tags: [Settings]
+      operationId: saveIntegrations
+      summary: ╨б╨╛╤Е╤А╨░╨╜╨╕╤В╤М ╨╕╨╜╤В╨╡╨│╤А╨░╤Ж╨╕╨╕
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: ╨б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╛
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /settings/restaurants:
+    get:
+      tags: [Settings]
+      operationId: listRestaurants
+      summary: ╨б╨┐╨╕╤Б╨╛╨║ ╨╖╨░╨▓╨╡╨┤╨╡╨╜╨╕╨╣
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨б╨┐╨╕╤Б╨╛╨║ ╨╖╨░╨▓╨╡╨┤╨╡╨╜╨╕╨╣
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  restaurants:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+    post:
+      tags: [Settings]
+      operationId: createRestaurant
+      summary: ╨б╨╛╨╖╨┤╨░╤В╤М ╨╖╨░╨▓╨╡╨┤╨╡╨╜╨╕╨╡
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:     { type: string }
+                type:     { type: string, default: restaurant }
+                address:  { type: string }
+                phone:    { type: string }
+                email:    { type: string, format: email }
+                timezone: { type: string, default: Europe/Moscow }
+      responses:
+        '201':
+          description: ╨Ч╨░╨▓╨╡╨┤╨╡╨╜╨╕╨╡ ╤Б╨╛╨╖╨┤╨░╨╜╨╛
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  restaurant: { type: object, additionalProperties: true }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  # ===========================================================================
+  # ORGANIZATION
+  # ===========================================================================
+  /api/b2b/org/tree:
+    get:
+      tags: [Organization]
+      operationId: getOrgTree
+      summary: ╨Ф╨╡╤А╨╡╨▓╨╛ ╨╛╤А╨│╨░╨╜╨╕╨╖╨░╤Ж╨╕╨╕
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨Ф╨╡╤А╨╡╨▓╨╛ ╨╛╤А╨│╨░╨╜╨╕╨╖╨░╤Ж╨╕╨╕
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrgTree' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+  /api/b2b/org/units:
+    post:
+      tags: [Organization]
+      operationId: createOrgUnit
+      summary: ╨б╨╛╨╖╨┤╨░╤В╤М ╤Г╨╖╨╡╨╗ ╨║╨╛╨╜╤В╤Г╤А╨░ (project/branch/restaurant/department)
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, name]
+              properties:
+                kind:      { type: string, enum: [project, branch, restaurant, department] }
+                name:      { type: string, minLength: 1, maxLength: 200 }
+                parent_id: { type: string, format: uuid, nullable: true }
+      responses:
+        '201':
+          description: ╨г╨╖╨╡╨╗ ╤Б╨╛╨╖╨┤╨░╨╜
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: ╨а╨╛╨┤╨╕╤В╨╡╨╗╤М╤Б╨║╨╕╨╣ ╤Г╨╖╨╡╨╗ ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /api/b2b/org/units/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [Organization]
+      operationId: updateOrgUnit
+      summary: ╨Я╨╡╤А╨╡╨╕╨╝╨╡╨╜╨╛╨▓╨░╤В╤М ╤Г╨╖╨╡╨╗ ╨║╨╛╨╜╤В╤Г╤А╨░
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        '200':
+          description: ╨Ю╨▒╨╜╨╛╨▓╨╗╨╡╨╜╨╛
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: ╨г╨╖╨╡╨╗ ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    delete:
+      tags: [Organization]
+      operationId: deleteOrgUnit
+      summary: ╨г╨┤╨░╨╗╨╕╤В╤М ╤Г╨╖╨╡╨╗ ╨║╨╛╨╜╤В╤Г╤А╨░
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨г╨┤╨░╨╗╨╡╨╜╨╛
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: ╨г╨╖╨╡╨╗ ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: ╨Э╨╡╨╗╤М╨╖╤П ╤Г╨┤╨░╨╗╨╕╤В╤М тАФ ╨╡╤Б╤В╤М ╨┤╨╛╤З╨╡╤А╨╜╨╕╨╡ ╤Г╨╖╨╗╤Л
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  # ===========================================================================
+  # REPORTS
+  # ===========================================================================
+  /reports:
+    get:
+      tags: [Reports]
+      operationId: listReports
+      summary: ╨Х╨╢╨╡╨┤╨╜╨╡╨▓╨╜╤Л╨╡ ╨╛╤В╤З╤С╤В╤Л ╨╖╨░ ╨╝╨╡╤Б╤П╤Ж
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      parameters:
+        - in: query
+          name: ym
+          required: true
+          description: ╨Ь╨╡╤Б╤П╤Ж ╨▓ ╤Д╨╛╤А╨╝╨░╤В╨╡ YYYY-MM
+          schema: { type: string, pattern: '^\d{4}-\d{2}$' }
+          example: "2025-03"
+      responses:
+        '200':
+          description: ╨б╨┐╨╕╤Б╨╛╨║ ╨╛╤В╤З╤С╤В╨╛╨▓
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reports:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Reports]
+      operationId: upsertReport
+      summary: ╨б╨╛╨╖╨┤╨░╤В╤М/╨╛╨▒╨╜╨╛╨▓╨╕╤В╤М ╨╡╨╢╨╡╨┤╨╜╨╡╨▓╨╜╤Л╨╣ ╨╛╤В╤З╤С╤В
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, values]
+              properties:
+                date:   { type: string, format: date }
+                values: { type: object, additionalProperties: true }
+                note:   { type: string }
+      responses:
+        '200':
+          description: ╨Ю╤В╤З╤С╤В ╤Б╨╛╤Е╤А╨░╨╜╤С╨╜
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  report:  { type: object, additionalProperties: true }
+        '403':
+          description: ╨Э╨╡╤В ╨┐╤А╨░╨▓
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /reports/{date}:
+    parameters:
+      - in: path
+        name: date
+        required: true
+        schema: { type: string, format: date }
+    delete:
+      tags: [Reports]
+      operationId: deleteReport
+      summary: ╨г╨┤╨░╨╗╨╕╤В╤М ╨╛╤В╤З╤С╤В ╨╖╨░ ╨┤╨░╤В╤Г
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨г╨┤╨░╨╗╨╡╨╜╨╛
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        '404':
+          description: ╨Ю╤В╤З╤С╤В ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  # ===========================================================================
+  # STAFF
+  # ===========================================================================
+  /api/b2b/staff/roles:
+    get:
+      tags: [Staff]
+      operationId: listRoles
+      summary: ╨Ф╨╛╨╗╨╢╨╜╨╛╤Б╤В╨╕
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨б╨┐╨╕╤Б╨╛╨║ ╨┤╨╛╨╗╨╢╨╜╨╛╤Б╤В╨╡╨╣
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  roles:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+    post:
+      tags: [Staff]
+      operationId: createRole
+      summary: ╨б╨╛╨╖╨┤╨░╤В╤М ╨┤╨╛╨╗╨╢╨╜╨╛╤Б╤В╤М
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '201':
+          description: ╨Ф╨╛╨╗╨╢╨╜╨╛╤Б╤В╤М ╤Б╨╛╨╖╨┤╨░╨╜╨░
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  role: { type: object, additionalProperties: true }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /api/b2b/staff/employees:
+    get:
+      tags: [Staff]
+      operationId: listEmployees
+      summary: ╨б╨╛╤В╤А╤Г╨┤╨╜╨╕╨║╨╕
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [active, inactive, archived] }
+      responses:
+        '200':
+          description: ╨б╨┐╨╕╤Б╨╛╨║ ╤Б╨╛╤В╤А╤Г╨┤╨╜╨╕╨║╨╛╨▓
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  employees:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+    post:
+      tags: [Staff]
+      operationId: createEmployee
+      summary: ╨б╨╛╨╖╨┤╨░╤В╤М ╤Б╨╛╤В╤А╤Г╨┤╨╜╨╕╨║╨░
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '201':
+          description: ╨б╨╛╤В╤А╤Г╨┤╨╜╨╕╨║ ╤Б╨╛╨╖╨┤╨░╨╜
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  employee: { type: object, additionalProperties: true }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  # ===========================================================================
+  # SCHEDULE / SHIFTS
+  # ===========================================================================
+  /api/b2b/staff/shifts:
+    get:
+      tags: [Schedule]
+      operationId: listShifts
+      summary: ╨б╨╝╨╡╨╜╤Л
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      parameters:
+        - in: query
+          name: start_date
+          schema: { type: string, format: date }
+        - in: query
+          name: end_date
+          schema: { type: string, format: date }
+        - in: query
+          name: employee_id
+          schema: { type: string }
+        - in: query
+          name: status
+          schema: { type: string }
+      responses:
+        '200':
+          description: ╨б╨┐╨╕╤Б╨╛╨║ ╤Б╨╝╨╡╨╜
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shifts:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+    post:
+      tags: [Schedule]
+      operationId: createShift
+      summary: ╨б╨╛╨╖╨┤╨░╤В╤М ╤Б╨╝╨╡╨╜╤Г
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '201':
+          description: ╨б╨╝╨╡╨╜╨░ ╤Б╨╛╨╖╨┤╨░╨╜╨░
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shift: { type: object, additionalProperties: true }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  /api/b2b/staff/shifts/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    put:
+      tags: [Schedule]
+      operationId: updateShift
+      summary: ╨Ю╨▒╨╜╨╛╨▓╨╕╤В╤М ╤Б╨╝╨╡╨╜╤Г
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨Ю╨▒╨╜╨╛╨▓╨╗╨╡╨╜╨╛
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  shift:   { type: object, additionalProperties: true }
+        '404':
+          description: ╨б╨╝╨╡╨╜╨░ ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜╨░
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    delete:
+      tags: [Schedule]
+      operationId: deleteShift
+      summary: ╨г╨┤╨░╨╗╨╕╤В╤М ╤Б╨╝╨╡╨╜╤Г
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: ╨г╨┤╨░╨╗╨╡╨╜╨╛
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        '404':
+          description: ╨б╨╝╨╡╨╜╨░ ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜╨░
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+
+  # ===========================================================================
+  # ANALYTICS
+  # ===========================================================================
+  /fot-analytics:
+    get:
+      tags: [Analytics]
+      operationId: fotAnalytics
+      summary: ╨Р╨╜╨░╨╗╨╕╤В╨╕╨║╨░ ╨д╨Ю╨в ╨╖╨░ ╨┐╨╡╤А╨╕╨╛╨┤
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      parameters:
+        - in: query
+          name: start
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: end
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: ╨Р╨╜╨░╨╗╨╕╤В╨╕╨║╨░ ╨д╨Ю╨в
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  period:     { type: object }
+                  totalKop:   { type: integer }
+                  revenueKop: { type: integer }
+                  fotPercent: { type: number, nullable: true }
+                  byEmployee: { type: array, items: { type: object, additionalProperties: true } }
+                  byDay:      { type: array, items: { type: object, additionalProperties: true } }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204':
+          description: No Content
+  # ===========================================================================
+  # P&L APPROVAL
+  # ===========================================================================
+  /api/pnl/approval:
+    get:
+      tags: [PnL]
+      operationId: pnlApprovalStatus
+      summary: ╨б╤В╨░╤В╤Г╤Б ╤Г╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╕╤П P&L ╨╖╨░ ╨┐╨╡╤А╨╕╨╛╨┤
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      parameters:
+        - { in: query, name: period, required: true, schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' } }
+        - { in: query, name: project_id, schema: { type: string } }
+        - { in: query, name: branch_id, schema: { type: string } }
+        - { in: query, name: restaurant_id, schema: { type: string } }
+        - { in: query, name: department_id, schema: { type: string } }
+      responses:
+        '200': { description: OK }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204': { description: No Content }
+
+  /api/pnl/approve:
+    post:
+      tags: [PnL]
+      operationId: pnlApprove
+      summary: ╨г╤В╨▓╨╡╤А╨┤╨╕╤В╤М P&L
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: Approved }
+        '403': { description: Forbidden }
+        '409': { description: PnL not found }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204': { description: No Content }
+
+  # ===========================================================================
+  # AI SKILLS
+  # ===========================================================================
+  /api/ai/skills:
+    get:
+      tags: [STEN]
+      operationId: getAiSkills
+      summary: ╨Э╨░╤Б╤В╤А╨╛╨╣╨║╨╕ ╤Б╨║╨╕╨╗╨╗╨╛╨▓ AI
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: OK }
+    put:
+      tags: [STEN]
+      operationId: putAiSkills
+      summary: ╨Ю╨▒╨╜╨╛╨▓╨╕╤В╤М ╨╜╨░╤Б╤В╤А╨╛╨╣╨║╨╕ ╤Б╨║╨╕╨╗╨╗╨╛╨▓
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: Saved }
+        '400': { description: Bad Request }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204': { description: No Content }
+
+  # ===========================================================================
+  # MESSENGER SETTINGS
+  # ===========================================================================
+  # ===========================================================================
+  # ANALYTICS SETTINGS
+  # ===========================================================================
+  /api/analytics/settings:
+    get:
+      tags: [Analytics]
+      operationId: getAnalyticsSettings
+      summary: РќР°СЃС‚СЂРѕР№РєРё Р°РЅР°Р»РёС‚РёРєРё РѕСЂРіР°РЅРёР·Р°С†РёРё
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: OK }
+        '401': { description: Unauthorized }
+    put:
+      tags: [Analytics]
+      operationId: putAnalyticsSettings
+      summary: РћР±РЅРѕРІРёС‚СЊ РЅР°СЃС‚СЂРѕР№РєРё Р°РЅР°Р»РёС‚РёРєРё
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: Saved }
+        '400': { description: Bad Request }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204': { description: No Content }
+  /api/messenger/settings:
+    get:
+      tags: [Settings]
+      operationId: getMessengerSettings
+      summary: ╨Э╨░╤Б╤В╤А╨╛╨╣╨║╨╕ ╨╝╨╡╤Б╤Б╨╡╨╜╨┤╨╢╨╡╤А╨░
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: OK }
+    post:
+      tags: [Settings]
+      operationId: saveMessengerSettings
+      summary: ╨б╨╛╤Е╤А╨░╨╜╨╕╤В╤М ╨╜╨░╤Б╤В╤А╨╛╨╣╨║╨╕ ╨╝╨╡╤Б╤Б╨╡╨╜╨┤╨╢╨╡╤А╨░
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: Saved }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204': { description: No Content }
+
+  # ===========================================================================
+  # REPORTS SEND
+  # ===========================================================================
+  /api/reports/send:
+    post:
+      tags: [Reports]
+      operationId: sendReport
+      summary: ╨Ю╤В╨┐╤А╨░╨▓╨╕╤В╤М ╨╛╤В╤З╤С╤В ╨▓ ╨╝╨╡╤Б╤Б╨╡╨╜╨┤╨╢╨╡╤А
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: Sent }
+        '400': { description: Bad Request }
+        '503': { description: Messenger not configured }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204': { description: No Content }
+
+  # ===========================================================================
+  # SECRETARY EVENTS
+  # ===========================================================================
+  /api/secretary/events:
+    get:
+      tags: [Secretary]
+      operationId: listSecretaryEvents
+      summary: ╨б╨┐╨╕╤Б╨╛╨║ ╤Б╨╛╨▒╤Л╤В╨╕╨╣ ╨║╨░╨╗╨╡╨╜╨┤╨░╤А╤П
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      parameters:
+        - { in: query, name: from, schema: { type: string } }
+        - { in: query, name: to, schema: { type: string } }
+      responses:
+        '200': { description: OK }
+    post:
+      tags: [Secretary]
+      operationId: createSecretaryEvent
+      summary: ╨б╨╛╨╖╨┤╨░╤В╤М ╤Б╨╛╨▒╤Л╤В╨╕╨╡
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '201': { description: Created }
+        '400': { description: Bad Request }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204': { description: No Content }
+
+  /api/secretary/events/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [Secretary]
+      operationId: updateSecretaryEvent
+      summary: ╨Ю╨▒╨╜╨╛╨▓╨╕╤В╤М ╤Б╨╛╨▒╤Л╤В╨╕╨╡
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: OK }
+        '404': { description: Not found }
+    delete:
+      tags: [Secretary]
+      operationId: deleteSecretaryEvent
+      summary: ╨г╨┤╨░╨╗╨╕╤В╤М ╤Б╨╛╨▒╤Л╤В╨╕╨╡
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: Deleted }
+        '404': { description: Not found }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204': { description: No Content }
+
+  # ===========================================================================
+  # DOCUMENTS: PREVIEW & DELETE
+  # ===========================================================================
+  /ai/documents/{id}/preview:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Documents]
+      operationId: previewDocument
+      summary: ╨Я╤А╨╡╨┤╨┐╤А╨╛╤Б╨╝╨╛╤В╤А ╤Б╨╛╨┤╨╡╤А╨╢╨╕╨╝╨╛╨│╨╛ ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╨░
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: OK }
+        '404': { description: Not found }
+        '503': { description: DB unavailable }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204': { description: No Content }
+
+  /ai/documents/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [Documents]
+      operationId: deleteDocument
+      summary: ╨г╨┤╨░╨╗╨╕╤В╤М ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В (meta + ╤В╨╡╨╗╨╛ ╨╕╨╖ Object Storage)
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: Deleted }
+        '404': { description: Not found }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204': { description: No Content }
+
+  # ===========================================================================
+  # INGEST MESSAGE (Telegram / WhatsApp webhook)
+  # ===========================================================================
+  /api/ingest/message:
+    get:
+      tags: [Reports]
+      operationId: verifyWebhook
+      summary: ╨Т╨╡╤А╨╕╤Д╨╕╨║╨░╤Ж╨╕╤П webhook (WhatsApp)
+      security: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      parameters:
+        - { in: query, name: hub.verify_token, schema: { type: string } }
+        - { in: query, name: hub.challenge, schema: { type: string } }
+      responses:
+        '200': { description: OK }
+        '403': { description: Verification failed }
+    post:
+      tags: [Reports]
+      operationId: ingestMessage
+      summary: ╨Я╤А╨╕╨╜╤П╤В╤М ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡ ╨╛╤В Telegram/WhatsApp ╨┤╨╗╤П ╨┐╨░╤А╤Б╨╕╨╜╨│╨░
+      security: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: Parsed }
+        '400': { description: Bad Request }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204': { description: No Content }
+
+  /api/ingest/message/confirm:
+    post:
+      tags: [Reports]
+      operationId: ingestMessageConfirm
+      summary: ╨Я╨╛╨┤╤В╨▓╨╡╤А╨┤╨╕╤В╤М ╨╕ ╨╖╨░╨┐╨╕╤Б╨░╤В╤М ╤А╨░╤Б╨┐╨░╤А╤Б╨╡╨╜╨╜╤Л╨╣ ╨╛╤В╤З╤С╤В
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: Confirmed }
+        '400': { description: Bad Request }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204': { description: No Content }
+
+  # ===========================================================================
+  # PAYROLL: SALARY CALCULATION
+  # ===========================================================================
+  /calculate-salary:
+    post:
+      tags: [Analytics]
+      operationId: calculateSalary
+      summary: ╨а╨░╤Б╤З╤С╤В ╨╖╨░╤А╨┐╨╗╨░╤В╤Л ╨┐╨╛ ╤Б╤В╤А╨╛╨║╨░╨╝ ╤В╨░╨▒╨╡╨╗╤П
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: OK }
+        '400': { description: Bad Request }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204': { description: No Content }
+
+  /my-earnings:
+    get:
+      tags: [Analytics]
+      operationId: myEarnings
+      summary: ╨Э╨░╤З╨╕╤Б╨╗╨╡╨╜╨╕╤П ╤В╨╡╨║╤Г╤Й╨╡╨│╨╛ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤П ╨┐╨╛ ╨┐╨╡╤А╨╕╨╛╨┤╨░╨╝
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: OK }
+        '503': { description: DB unavailable }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204': { description: No Content }
+
+# =============================================================================
+# COMPONENTS
+# =============================================================================
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT-╤В╨╛╨║╨╡╨╜, ╨┐╨╛╨╗╤Г╤З╨╡╨╜╨╜╤Л╨╣ ╤З╨╡╤А╨╡╨╖ /auth/unlock ╨╕╨╗╨╕ /auth/login
+
+  responses:
+    BadRequest:
+      description: ╨Э╨╡╨║╨╛╤А╤А╨╡╨║╤В╨╜╤Л╨╣ ╨╖╨░╨┐╤А╨╛╤Б
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: ╨в╤А╨╡╨▒╤Г╨╡╤В╤Б╤П ╨░╨▓╤В╨╛╤А╨╕╨╖╨░╤Ж╨╕╤П
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          oneOf:
+            - type: string
+            - type: object
+              properties:
+                message: { type: string }
+                code:    { type: string }
+
+    HealthStatus:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        db:     { type: string, enum: [connected, disconnected] }
+        ai:     { type: string, enum: [configured, 'no-key'] }
+        ts:     { type: string, format: date-time }
+
+    User:
+      type: object
+      properties:
+        id:                 { type: string }
+        email:              { type: string, format: email }
+        firstName:          { type: string }
+        lastName:           { type: string }
+        first_name:         { type: string }
+        last_name:          { type: string }
+        role:               { type: string, enum: [super_admin, owner, manager, staff, viewer] }
+        companyId:          { type: string, nullable: true }
+        organizationId:     { type: string, nullable: true }
+        permissions:        { type: object, additionalProperties: true }
+        mustChangePassword: { type: boolean }
+
+    AuthSuccess:
+      type: object
+      required: [success, token]
+      properties:
+        success:   { type: boolean, example: true }
+        token:     { type: string }
+        expiresIn: { type: string, example: 30d }
+        user:      { $ref: '#/components/schemas/User' }
+
+    AskRequest:
+      type: object
+      properties:
+        question: { type: string, description: ╨Ю╨┤╨╕╨╜╨╛╤З╨╜╤Л╨╣ ╨▓╨╛╨┐╤А╨╛╤Б }
+        prompt:   { type: string, description: ╨Р╨╗╤М╤В╨╡╤А╨╜╨░╤В╨╕╨▓╨░ question }
+        messages:
+          type: array
+          description: ╨Ш╤Б╤В╨╛╤А╨╕╤П ╨┤╨╕╨░╨╗╨╛╨│╨░
+          items:
+            type: object
+            properties:
+              role:    { type: string, enum: [system, user, assistant, tool] }
+              content: { type: string }
+        context:  { type: string, description: ╨Ф╨╛╨┐. ╨║╨╛╨╜╤В╨╡╨║╤Б╤В ╨╛╤В ╤Д╤А╨╛╨╜╤В╨░ }
+        sources:
+          type: array
+          items: { type: object, additionalProperties: true }
+        scenario:
+          type: string
+          nullable: true
+          description: |
+            ╨б╤Ж╨╡╨╜╨░╤А╨╕╨╣, ╨╛╨┐╤А╨╡╨┤╨╡╨╗╤С╨╜╨╜╤Л╨╣ ╤Д╤А╨╛╨╜╤В╨╛╨╝.
+            ╨Я╤А╨╕╨╝╨╡╤А╤Л: food_cost_up, revenue_down, payroll_up, pnl_analysis.
+          example: food_cost_up
+        group_ids:
+          type: array
+          description: ╨Т╤Л╨▒╤А╨░╨╜╨╜╤Л╨╡ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╨╡╨╝ ╨│╤А╤Г╨┐╨┐╤Л ╤Б╨║╨╕╨╗╨╗╨╛╨▓
+          items: { type: string, pattern: '^GRP-\\d{2}$' }
+          example: ['GRP-03']
+        skill_ids:
+          type: array
+          description: ╨Р╨║╤В╨╕╨▓╨╜╤Л╨╡ ╤Б╨║╨╕╨╗╨╗╤Л
+          items: { type: string, pattern: '^SK-\\d{2}$' }
+          example: ['SK-11', 'SK-09', 'SK-10']
+
+    AskResponse:
+      type: object
+      properties:
+        answer:  { type: string, description: ╨Ю╤В╨▓╨╡╤В ╨б╨в╨Х╨Э }
+        model:   { type: string, example: yandexgpt-lite }
+        mode:    { type: string, enum: [yandexgpt, yandexgpt-agent] }
+        tools:
+          type: array
+          items:
+            type: object
+            properties:
+              name:      { type: string }
+              arguments: { type: object, additionalProperties: true }
+              error:     { type: boolean }
+        scenario:  { type: string, nullable: true }
+        group_ids: { type: array, items: { type: string } }
+        skill_ids: { type: array, items: { type: string } }
+        sources:
+          type: array
+          items:
+            type: object
+            properties:
+              id:      { type: string }
+              uri:     { type: string }
+              title:   { type: string }
+              kind:    { type: string }
+              excerpt: { type: string }
+        memoryHits:
+          type: array
+          items:
+            type: object
+            properties:
+              id:         { type: string }
+              kind:       { type: string }
+              createdAt:  { type: string, format: date-time }
+              relevance:  { type: integer }
+        organizationId: { type: string, nullable: true }
+
+    Document:
+      type: object
+      properties:
+        id:          { type: string }
+        name:        { type: string }
+        size:        { type: integer }
+        type:        { type: string }
+        status:      { type: string, enum: [uploaded, processing, ready, failed] }
+        createdAt:   { type: string, format: date-time }
+        processedAt: { type: string, format: date-time, nullable: true }
+        chunks:      { type: integer }
+        error:       { type: string, nullable: true }
+
+    PnlPeriodRequest:
+      type: object
+      required: [period]
+      properties:
+        period:          { type: string, pattern: '^\\d{4}-(0[1-9]|1[0-2])$', example: '2025-03' }
+        organization_id: { type: string }
+      description: ╨а╨░╤Б╤З╤С╤В P&L ╨┐╨╛ ╨┤╨░╨╜╨╜╤Л╨╝ ╨С╨Ф ╨╖╨░ ╨┐╨╡╤А╨╕╨╛╨┤
+
+    PnlFlatRequest:
+      type: object
+      required: [revenue]
+      description: ╨а╨░╤Б╤З╤С╤В P&L ╨┐╨╛ ╨┐╤А╨╛╨╕╨╖╨▓╨╛╨╗╤М╨╜╤Л╨╝ ╤З╨╕╤Б╨╗╨░╨╝
+      properties:
+        period:       { type: string }
+        revenue:      { type: number }
+        cogs:         { type: number }
+        personnel:    { type: number }
+        opex:         { type: number }
+        depreciation: { type: number }
+        interest:     { type: number }
+        tax:          { type: number }
+        other:        { type: number }
+
+    PnlResponse:
+      type: object
+      properties:
+        period:       { type: string }
+        organizationId: { type: string }
+        plan:         { type: object, additionalProperties: true }
+        fact:         { type: object, additionalProperties: true }
+        variance:     { type: object, additionalProperties: true }
+        calculation:
+          type: object
+          properties:
+            revenue:           { type: number }
+            cogs:              { type: number }
+            personnel:         { type: number }
+            opex:              { type: number }
+            other:             { type: number }
+            depreciation:      { type: number }
+            interest:          { type: number }
+            tax:               { type: number }
+            ebitda:            { type: number }
+            netProfit:         { type: number }
+            foodCostPercent:   { type: number, nullable: true }
+            personnelPercent:  { type: number, nullable: true }
+            opexPercent:       { type: number, nullable: true }
+            ebitdaMargin:      { type: number, nullable: true }
+            netMargin:         { type: number, nullable: true }
+        source: { type: string }
+        calculationEngine: { type: string }
+
+    PnlLine:
+      type: object
+      required: [id, kind, category, values]
+      properties:
+        id:       { type: string, example: "550e8400-e29b-41d4-a716-446655440000" }
+        kind:     { type: string, enum: [revenue, cost, expense, tax, other] }
+        category: { type: string, maxLength: 200 }
+        values:
+          type: object
+          additionalProperties: { type: number }
+          description: "╨Ъ╨╗╤О╤З тАФ YYYY-MM, ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╡ тАФ ╤Б╤Г╨╝╨╝╨░"
+
+    PnlReport:
+      type: object
+      properties:
+        id:          { type: string, format: uuid }
+        projectId:   { type: string, example: default }
+        name:        { type: string }
+        periodStart: { type: string, pattern: '^\\d{4}-(0[1-9]|1[0-2])$', example: '2026-01' }
+        periodEnd:   { type: string, pattern: '^\\d{4}-(0[1-9]|1[0-2])$', example: '2026-12' }
+        currency:    { type: string, enum: [RUB, USD, EUR, KZT, BYN] }
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/PnlLine' }
+        source:      { type: string, enum: [manual, import] }
+        createdAt:   { type: string, format: date-time }
+        updatedAt:   { type: string, format: date-time }
+
+    PnlReportCreate:
+      type: object
+      required: [name, periodStart, periodEnd]
+      properties:
+        projectId:   { type: string, default: default }
+        name:        { type: string, minLength: 1, maxLength: 200 }
+        periodStart: { type: string, pattern: '^\\d{4}-(0[1-9]|1[0-2])$' }
+        periodEnd:   { type: string, pattern: '^\\d{4}-(0[1-9]|1[0-2])$' }
+        currency:    { type: string, enum: [RUB, USD, EUR, KZT, BYN], default: RUB }
+        lines:
+          type: array
+          maxItems: 2000
+          items: { $ref: '#/components/schemas/PnlLine' }
+
+    PnlReportUpdate:
+      type: object
+      properties:
+        projectId:   { type: string }
+        name:        { type: string }
+        periodStart: { type: string }
+        periodEnd:   { type: string }
+        currency:    { type: string, enum: [RUB, USD, EUR, KZT, BYN] }
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/PnlLine' }
+
+    SecretaryNote:
+      type: object
+      properties:
+        id:         { type: string, format: uuid }
+        title:      { type: string, nullable: true }
+        content:    { type: string, nullable: true }
+        source:     { type: string, example: manual }
+        audio_url:  { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    SecretaryNoteCreate:
+      type: object
+      properties:
+        title:     { type: string, maxLength: 300 }
+        content:   { type: string, maxLength: 50000 }
+        source:    { type: string, default: manual }
+        audio_url: { type: string, maxLength: 500 }
+
+    OrgSettings:
+      type: object
+      properties:
+        id:            { type: string }
+        name:          { type: string }
+        inn:           { type: string, nullable: true }
+        timezone:      { type: string, example: Europe/Moscow }
+        currency:      { type: string, example: RUB }
+        type:          { type: string, nullable: true }
+        address:       { type: string, nullable: true }
+        phone:         { type: string, nullable: true }
+        email:         { type: string, nullable: true }
+        working_hours: { type: string, nullable: true }
+
+    OrgSettingsPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        name:          { type: string }
+        type:          { type: string }
+        address:       { type: string }
+        phone:         { type: string }
+        email:         { type: string, format: email }
+        inn:           { type: string }
+        timezone:      { type: string }
+        working_hours: { type: string }
+
+    OrgTree:
+      type: object
+      properties:
+        id:            { type: string }
+        name:          { type: string }
+        revenueToday:  { type: number, nullable: true }
+        children:
+          type: array
+          items:
+            type: object
+            properties:
+              id:     { type: string }
+              name:   { type: string }
+              status: { type: string, enum: [ok, warn, crit] }
+              metrics:
+                type: object
+                properties:
+                  activeEmployees: { type: integer }
+                  shiftsToday:     { type: integer }
+                  positionsCount:  { type: integer }
+              children:
+                type: array
+                items: { type: object, additionalProperties: true }

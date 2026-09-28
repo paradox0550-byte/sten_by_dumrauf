@@ -25,6 +25,7 @@ export default defineConfig({
           if (id.includes('/lucide-react/')) return 'vendor-icons';
           if (id.includes('/xlsx/') || id.includes('/jspdf/')) return 'vendor-export';
           if (id.includes('/@tanstack/react-query/')) return 'vendor-query';
+          if (id.includes('/recharts/') || id.includes('/d3-') || id.includes('/victory-vendor/')) return 'vendor-charts';
           return undefined;
         },
       },

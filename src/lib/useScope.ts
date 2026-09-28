@@ -1,11 +1,11 @@
 /* Единый рабочий контекст (scope) для всех страниц: период + проект → филиал →
-   ресторан → отдел. Выбранный scope сохраняется локально (это настройка
-   рабочего пространства, а не финансовые данные) и восстанавливается при
-   переходе между разделами — все страницы работают в одном контексте. */
+   ресторан → отдел. Выбранный scope сохраняется локально и синхронизируется
+   между всеми компонентами (Layout, Настройки) через кастомное событие. */
 import { useEffect, useState } from 'react';
-import { DEFAULT_PERIOD, Scope, hasScopeId, scopeKey } from './scope';
+import { DEFAULT_PERIOD, Scope, scopeKey } from './scope';
 
 const KEY = 'sten_scope_v5';
+const EVT = 'sten-scope-change';
 
 function readSaved(): Scope {
   try {
@@ -20,10 +20,28 @@ function readSaved(): Scope {
 
 export function useScope(): [Scope, (next: Scope) => void] {
   const [scope, setScope] = useState<Scope>(readSaved);
+
+  useEffect(() => {
+    const onChange = () => setScope(readSaved());
+    window.addEventListener(EVT, onChange);
+    window.addEventListener('storage', onChange);
+    return () => {
+      window.removeEventListener(EVT, onChange);
+      window.removeEventListener('storage', onChange);
+    };
+  }, []);
+
+  const update = (next: Scope) => {
+    setScope(next);
+    try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* приватный режим */ }
+    window.dispatchEvent(new Event(EVT));
+  };
+
   useEffect(() => {
     try { localStorage.setItem(KEY, JSON.stringify(scope)); } catch { /* приватный режим */ }
   }, [scopeKey(scope)]);
-  return [scope, setScope];
+
+  return [scope, update];
 }
 
-export { hasScopeId };
+export { hasScopeId } from './scope';

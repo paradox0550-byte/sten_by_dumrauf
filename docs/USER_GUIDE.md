@@ -219,6 +219,8 @@ Excel можно использовать как источник исходны
 - скрывать ненужные рабочие блоки;
 - вернуть все блоки;
 - очистить локальный кэш;
+- задать пороги Food Cost / Labor Cost для аналитики (сохраняются на сервере);
+- включить/выключить разделы аналитики (Финансовая, ФОТ, Run-rate);
 - выйти из рабочего контура;
 - открыть справочную информацию.
 
@@ -299,3 +301,14 @@ Excel можно использовать как источник исходны
 **увидеть проблему → проверить цифры → найти источник → разобрать документ → получить анализ → принять решение → поставить действие → проверить результат.**
 
 То есть приложение постепенно становится не набором отдельных страниц, а единым рабочим кабинетом руководителя ресторана.
+
+<!-- 2026-09-29 analytics-settings -->
+## 2026-09-29 - Analytics / Settings on server
+
+- Настройки аналитики (пороги Food Cost / Labor Cost, тумблеры financial/labor/forecast) перенесены из localStorage в backend.
+- Хук src/lib/useAnalyticsSettings.ts - источник правды. localStorage используется только как кэш.
+- API Gateway получил путь /api/analytics/settings (GET / PUT / OPTIONS) с интеграцией на Cloud Function d4epijnhj7h9sd5ppa66.
+- src/pages/Settings.tsx сохраняет через useAnalyticsSettings().save().
+- src/pages/Analytics.tsx читает через тот же хук; пороги отображаются как "Порог N%".
+- .env.production должен содержать VITE_API_URL=https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net. Без этого build не считается валидным.
+- Контракт: GET -> { ok: true, data: { settings: null | AnalyticsSettings } }; PUT <- { foodTarget, laborTarget, financial, labor, forecast } -> { ok: true, data: { saved: true, confirmed: true, settings: {...} } }.

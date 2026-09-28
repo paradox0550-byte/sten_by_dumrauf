@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useAnalyticsSettings } from '../lib/useAnalyticsSettings';
 import { AlertTriangle, BarChart3, Database, RefreshCw, Settings2, GitBranch } from 'lucide-react';
 import { api } from '../lib/api';
 import { useScope } from '../lib/useScope';
@@ -6,20 +7,15 @@ import { scopeQuery } from '../lib/scope';
 
 type Row = { article?: string; plan?: number | null; fact?: number | null; source?: string };
 type Labor = { period: string; department: string; hours: number; amount: number };
-type AnalyticsSettings = { financial: boolean; labor: boolean; forecast: boolean; laborTarget: number; foodTarget: number };
-const KEY = 'sten_analytics_settings_v1';
-const DEFAULTS: AnalyticsSettings = { financial: true, labor: true, forecast: true, laborTarget: 30, foodTarget: 35 };
 const finite = (v: unknown) => typeof v === 'number' && Number.isFinite(v) ? v : undefined;
 const money = (v: number | undefined) => finite(v) == null ? 'Нет данных' : new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(v!);
 const pct = (v: number | undefined) => finite(v) == null ? 'Нет данных' : v!.toFixed(1).replace('.', ',') + ' %';
 const delta = (v: number | undefined) => finite(v) == null ? '—' : (v! > 0 ? '+' : '') + new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(v!);
 const pick = (rows: Row[], terms: string[]) => rows.find(row => terms.some(term => String(row.article || '').toLowerCase().replace(/ё/g, 'е').includes(term)));
-function readSettings(): AnalyticsSettings { try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return DEFAULTS; } }
 
 export default function Analytics() {
   const [scope] = useScope(); const [rows, setRows] = useState<Row[]>([]); const [labor, setLabor] = useState<Labor[]>([]);
-  const [settings, setSettings] = useState<AnalyticsSettings>(readSettings); const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [updatedAt, setUpdatedAt] = useState<string>('');
-  useEffect(() => { const sync=()=>setSettings(readSettings()); window.addEventListener('sten-analytics-settings',sync); return()=>window.removeEventListener('sten-analytics-settings',sync); },[]);
+  const { settings } = useAnalyticsSettings(); const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [updatedAt, setUpdatedAt] = useState<string>('');
   async function load(){setLoading(true);setError('');try{const q=scopeQuery(scope);const [pnl,fot]=await Promise.all([api.get<any>('/api/pnl?'+q),api.get<any>('/fot-analytics?'+q)]);setRows(Array.isArray(pnl?.rows)?pnl.rows:[]);setLabor(Array.isArray(fot?.records)?fot.records.filter((x:Labor)=>x.period===scope.period):[]);setUpdatedAt(new Date().toISOString())}catch(e){setRows([]);setLabor([]);setError(e instanceof Error?e.message:'Не удалось загрузить аналитику.')}finally{setLoading(false)}}
   useEffect(()=>{void load()},[scope.period,scope.projectId,scope.branchId,scope.restaurantId,scope.departmentId]);
   const metrics=useMemo(()=>{const revenue=pick(rows,['выруч','revenue']),cogs=pick(rows,['себестоим','cogs']),laborRow=pick(rows,['фот','фонд оплаты','зарплат','payroll']),opex=pick(rows,['операцион','opex']);const r=finite(revenue?.fact),rp=finite(revenue?.plan),c=finite(cogs?.fact),cp=finite(cogs?.plan),l=finite(laborRow?.fact),lp=finite(laborRow?.plan),o=finite(opex?.fact),op=finite(opex?.plan);return{r,rp,c,cp,l,lp,o,op,revenueDelta:r!=null&&rp!=null?r-rp:undefined,cogsDelta:c!=null&&cp!=null?c-cp:undefined,laborDelta:l!=null&&lp!=null?l-lp:undefined,opexDelta:o!=null&&op!=null?o-op:undefined,ebitda:r!=null&&c!=null&&l!=null&&o!=null?r-c-l-o:undefined,ebitdaPlan:rp!=null&&cp!=null&&lp!=null&&op!=null?rp-cp-lp-op:undefined,foodCost:r!=null&&c!=null?c/r*100:undefined,laborCost:r!=null&&l!=null?l/r*100:undefined};},[rows]);
@@ -28,7 +24,7 @@ export default function Analytics() {
   const revenuePerHour=metrics.r!=null&&totalHours>0?metrics.r/totalHours:undefined; const laborPerHour=totalHours>0?totalPayroll/totalHours:undefined;
   const forecast=useMemo(()=>{if(!settings.forecast||metrics.r==null)return undefined;const now=new Date(),[y,m]=scope.period.split('-').map(Number);if(now.getFullYear()!==y||now.getMonth()+1!==m)return undefined;const days=new Date(y,m,0).getDate();return metrics.r/now.getDate()*days},[metrics.r,scope.period,settings.forecast]);
   const gaps=[metrics.c==null?'COGS / себестоимость':null,metrics.l==null?'ФОТ':null,metrics.o==null?'OPEX':null,!laborRows.length?'ФОТ по часам':null,'Продажи по гостям/чекам','Daypart и каналы','Menu Engineering'].filter(Boolean) as string[];
-  const driver=(label:string,f:number|undefined,p:number|undefined,sign=-1)=>{const d=f!=null&&p!=null?f-p:undefined;const impact=d==null?undefined:label==='Выручка'?d:sign*d;return <div key={label}><b>{label}</b><span>{money(f)} ₽</span><span>{money(p)} ₽</span><strong>{delta(d)} ₽</strong><small>{impact==null?'Нет расчёта':(impact>=0?'+':'')+money(impact)+' ₽ к EBITDA'}</small></div>};
+  const driver=(label:string,f:number|undefined,p:number|undefined,sign=-1)=>{const d=f!=null&&p!=null?f-p:undefined;const impact=d==null?undefined:label==='Выручка'?d:sign*d;return <div key={label}><b>{label}</b><span>{money(f)} ₽</span><span>{money(p)} ₽</span><strong className={impact==null ? '' : impact > 0 ? 'positive' : 'negative'}>{impact==null ? '—' : (impact>=0?'+':'') + money(impact) + ' ₽'}</strong><small>{d==null?'Нет расчёта':'факт-план: '+delta(d)+' ₽'}</small></div>};
   return <div className="page analytics-page">
     <div className="page-head"><div><span className="eyebrow"><BarChart3 size={12}/> АНАЛИТИЧЕСКИЙ КОНТУР</span><h1>Аналитика</h1><p>Что произошло → почему → где деньги → какое действие следует проверить.</p></div><button className="secondary-button"onClick={()=>void load()}disabled={loading}><RefreshCw size={15}/>Обновить</button></div>
     {error&&<div className="panel empty-state"><b>Не удалось обновить отчёт</b><span>{error}</span></div>}

@@ -12,6 +12,8 @@
 Project → Branch → Restaurant → Department + Period одинаково используется в P&L, Budget, Dashboard, Finances, Analytics и STEN. Никаких default и скрытых fallback.
 
 ## 04. P&L Core
+Примечание 2026-09-29: пороги аналитики (Food Cost / Labor Cost) и её состав (financial/labor/forecast) — единый контракт через /api/analytics/settings. UI не хранит их в localStorage как источник истины.
+
 P&L — единственный финансовый источник управленческого слоя. Статьи, plan/fact, provenance, source, author, timestamp, formulaVersion, readback и audit.
 
 ## 05. Excel ingestion
@@ -52,3 +54,14 @@ TypeScript → build → backend syntax/dependency check → OpenAPI consistency
 
 ## 2026-09-24 — Next gate
 Excel import must be verified end-to-end: preview → mapping → explicit confirmation → P&L write → exact readback. No save claim without readback.
+
+<!-- 2026-09-29 analytics-settings -->
+## 2026-09-29 - Analytics / Settings on server
+
+- Настройки аналитики (пороги Food Cost / Labor Cost, тумблеры financial/labor/forecast) перенесены из localStorage в backend.
+- Хук src/lib/useAnalyticsSettings.ts - источник правды. localStorage используется только как кэш.
+- API Gateway получил путь /api/analytics/settings (GET / PUT / OPTIONS) с интеграцией на Cloud Function d4epijnhj7h9sd5ppa66.
+- src/pages/Settings.tsx сохраняет через useAnalyticsSettings().save().
+- src/pages/Analytics.tsx читает через тот же хук; пороги отображаются как "Порог N%".
+- .env.production должен содержать VITE_API_URL=https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net. Без этого build не считается валидным.
+- Контракт: GET -> { ok: true, data: { settings: null | AnalyticsSettings } }; PUT <- { foodTarget, laborTarget, financial, labor, forecast } -> { ok: true, data: { saved: true, confirmed: true, settings: {...} } }.
