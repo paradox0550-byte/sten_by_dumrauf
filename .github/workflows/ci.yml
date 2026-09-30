@@ -152,30 +152,33 @@ jobs:
           set -euo pipefail
           sleep 5
 
-          check_content_type() {
-            local label="$1"
-            local url="$2"
-            local expected="$3"
-            echo "SMOKE $label: $url"
-            local headers
-            headers="$(curl -fsSL --retry 3 --retry-delay 2 -D - -o /dev/null "$url")"
-            printf '%s
-' "$headers" | sed -n '1,20p'
-            printf '%s
-' "$headers" | grep -Eiq "content-type:.*$expected"
-          }
+          curl -fsSL --retry 3 --retry-delay 2 -D /tmp/index.headers -o /dev/null "$SITE_URL/index.html"
+          cat /tmp/index.headers
+          grep -Eiq 'content-type:.*text/html' /tmp/index.headers
 
-          check_content_type "index.html" "$SITE_URL/index.html" 'text/html'
-          js=$(grep -oE 'src="./assets/[^"]+.js"' dist/index.html | head -1 | sed 's/^src="//;s/"$//;s#^./##')
-          css=$(grep -oE 'href="./assets/[^"]+.css"' dist/index.html | head -1 | sed 's/^href="//;s/"$//;s#^./##')
+          js=$(grep -oE 'src="./assets/[^"]+\.js"' dist/index.html | head -1 | sed 's/^src="//;s/"$//;s#^./##')
+          css=$(grep -oE 'href="./assets/[^"]+\.css"' dist/index.html | head -1 | sed 's/^href="//;s/"$//;s#^./##')
           test -n "$js"
           test -n "$css"
-          check_content_type "main JS" "$SITE_URL/$js" '(text/javascript|application/javascript)'
-          check_content_type "main CSS" "$SITE_URL/$css" 'text/css'
-          check_content_type "root" "$SITE_URL/" 'text/html'
-          check_content_type "manifest" "$SITE_URL/manifest.json" '(application/json|application/manifest)'
+
+          curl -fsSL --retry 3 --retry-delay 2 -D /tmp/js.headers -o /dev/null "$SITE_URL/$js"
+          cat /tmp/js.headers
+          grep -Eiq 'content-type:.*(text/javascript|application/javascript)' /tmp/js.headers
+
+          curl -fsSL --retry 3 --retry-delay 2 -D /tmp/css.headers -o /dev/null "$SITE_URL/$css"
+          cat /tmp/css.headers
+          grep -Eiq 'content-type:.*text/css' /tmp/css.headers
+
+          curl -fsSL --retry 3 --retry-delay 2 -D /tmp/root.headers -o /dev/null "$SITE_URL/"
+          cat /tmp/root.headers
+          grep -Eiq 'content-type:.*text/html' /tmp/root.headers
+
+          curl -fsSL --retry 3 --retry-delay 2 -D /tmp/manifest.headers -o /dev/null "$SITE_URL/manifest.json"
+          cat /tmp/manifest.headers
+          grep -Eiq 'content-type:.*(application/json|application/manifest)' /tmp/manifest.headers
+
           echo "SMOKE API: $API_URL/healthz"
-          api_status="$(curl -fsSL --retry 3 --retry-delay 2 -o /dev/null -w '%{http_code}' "$API_URL/healthz")"
+          api_status=$(curl -fsSL --retry 3 --retry-delay 2 -o /dev/null -w '%{http_code}' "$API_URL/healthz")
           echo "SMOKE API status: $api_status"
           test "$api_status" = "200"
 
