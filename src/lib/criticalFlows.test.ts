@@ -43,9 +43,10 @@ describe('Scope', () => {
 });
 
 describe('P&L save/readback', () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 
   it('подтверждает запись только после повторного чтения и совпадения', async () => {
+    vi.stubEnv('VITE_API_URL', 'http://test-api.local');
     const rows = [{ article:'Выручка', plan:1000000, fact:900000 }];
     vi.stubGlobal('fetch', vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ data:{ saved:true, confirmed:true } }), { status:200 }))
