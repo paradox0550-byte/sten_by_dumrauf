@@ -152,6 +152,22 @@ jobs:
             aws s3 cp "$file" "s3://$BUCKET/$key" --endpoint-url "$STORAGE_ENDPOINT" --content-type "$ct" --cache-control "$cc" --metadata-directive REPLACE
           done < <(find dist -type f -print0)
 
+      - name: MARK 13a verify deployed analytics settings route
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          echo "VERIFY GET/PUT /api/analytics/settings on current Gateway"
+          get_status=$(curl -sS -o /tmp/analytics-get.json -w '%{http_code}' --max-time 20 "$API_URL/api/analytics/settings")
+          put_status=$(curl -sS -o /tmp/analytics-put.json -w '%{http_code}' --max-time 20 -X PUT -H 'Content-Type: application/json' --data '{"financial":true}' "$API_URL/api/analytics/settings")
+          options_status=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 -X OPTIONS -H 'Origin: https://smenavkarmane-business.website.yandexcloud.net' "$API_URL/api/analytics/settings")
+          echo "GET status: $get_status"
+          echo "PUT status: $put_status"
+          echo "OPTIONS status: $options_status"
+          test "$get_status" = "401" || test "$get_status" = "403"
+          test "$put_status" = "401" || test "$put_status" = "403"
+          test "$options_status" = "204"
+          echo "Analytics settings route is present and protected; OPTIONS is wired."
+          
       - name: MARK 14 synchronize API Gateway
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
