@@ -3,7 +3,7 @@ import { Activity, AlertTriangle, BarChart3, CheckCircle2, Clock3, RefreshCw, Tr
 import { api } from '../lib/api';
 import { useScope } from '../lib/useScope';
 import { hasScopeId, scopeQuery } from '../lib/scope';
-import { formatDeltaPct, formatMoneyAuto } from '../lib/format';
+import { formatMoneyAuto } from '../lib/format';
 import TrendLine from '../components/TrendLine';
 
 type Row = { article: string; plan: number | null; fact: number | null; source?: string };
@@ -12,7 +12,6 @@ type PnlResp = { period: string; rows: Row[]; calculated?: { fact: Calc; plan: C
 
 const monthOf = (p: string, d: number) => { const [y, m] = p.split('-').map(Number); const x = new Date(y, m - 1 + d, 1); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); };
 const monthLabel = (p: string) => new Date(p + '-01T00:00:00').toLocaleDateString('ru-RU', { month: 'short', year: '2-digit' });
-const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
 // Расходные статьи: для них снижение факта относительно плана благоприятно.
 const EXPENSE_KEYWORDS = ['cogs', 'labor', 'payroll', 'opex', 'personnel', 'other', 'себестоим', 'фот', 'персонал', 'расход', 'затрат'];
