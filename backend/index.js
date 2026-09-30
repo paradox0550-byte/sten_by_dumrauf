@@ -1420,9 +1420,9 @@ async function sendWhatsApp(phone,textBody){
   return {provider:'whatsapp',sent:true};
 }
 async function loadReportMetrics(user,date,scope){
-  const reportRows=await safeQuery('SELECT values_json FROM daily_reports WHERE organization_id=$1::uuid AND report_date=$2::date LIMIT 1',[user.organizationId,date],[]);
-  const values=reportRows[0]?.values_json||{};
   const s=scope||{period:date.slice(0,7),project_id:'',branch_id:'',restaurant_id:'',department_id:''};
+  const reportRows=await safeQuery('SELECT values_json FROM daily_reports WHERE organization_id=$1::uuid AND report_date=$2::date AND ($3::text=\'\' OR project_id=$3) AND ($4::text=\'\' OR branch_id=$4) AND ($5::text=\'\' OR restaurant_id=$5) AND ($6::text=\'\' OR department_id=$6) LIMIT 1',[user.organizationId,date,s.project_id||'',s.branch_id||'',s.restaurant_id||'',s.department_id||''],[]);
+  const values=reportRows[0]?.values_json||{};
   const rows=await safeQuery('SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND ($3::text=\'\' OR project_id=$3) AND ($4::text=\'\' OR branch_id=$4) AND ($5::text=\'\' OR restaurant_id=$5) AND ($6::text=\'\' OR department_id=$6)',[user.organizationId,s.period,s.project_id||'',s.branch_id||'',s.restaurant_id||'',s.department_id||''],[]);
   const all=[];for(const r of rows){try{const parsed=JSON.parse(r.rows);if(Array.isArray(parsed))all.push(...parsed)}catch{}}
   const pnlData=aggregateRows(all);
