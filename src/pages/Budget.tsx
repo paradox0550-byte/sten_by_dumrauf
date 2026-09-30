@@ -4,9 +4,8 @@ import*as XLSX from'xlsx';
 import{api}from'../lib/api';import{writePnlAndVerify}from'../lib/saveVerify';
 import{useScope}from'../lib/useScope';
 import{scopeQuery}from'../lib/scope';
-import{aggregateFinancialRows,canonicalArticleKey,canonicalArticleLabel,FinancialRow}from'../lib/financialRows';
+import{aggregateFinancialRows,canonicalArticleKey,FinancialRow}from'../lib/financialRows';
 import{formatMoney,formatDeltaPct}from'../lib/format';
-import{useAuth}from'../contexts/AuthContext';
 
 type Row=FinancialRow;
 const canonical=[['revenue','Выручка'],['cogs','Себестоимость'],['payroll','ФОТ'],['opex','OPEX'],['depreciation','Амортизация'],['interest','Проценты'],['tax','Налоги'],['other','Прочее']] as const;
@@ -18,8 +17,8 @@ const moneyOrEmpty=(v:number|null|undefined)=>has(v)?formatMoney(v):'Нет да
 const pctOrEmpty=(v:number|null|undefined)=>has(v)?`${v.toFixed(1).replace('.',',')} %`:'Нет данных';
 
 export default function Budget(){
- const{user}=useAuth();
- const[scope,setScope]=useScope(),[rows,setRows]=useState<Row[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[approval,setApproval]=useState<'draft'|'approved'>('draft'),[canApprove,setCanApprove]=useState(false),[action,setAction]=useState('');
+
+ const[scope]=useScope(),[rows,setRows]=useState<Row[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[approval,setApproval]=useState<'draft'|'approved'>('draft'),[canApprove,setCanApprove]=useState(false),[action,setAction]=useState('');
  const load=async()=>{setLoading(true);setError('');try{const r=await api.get<any>('/api/pnl?'+scopeQuery(scope));const d=r?.rows?r:r?.data??r;setRows(aggregateFinancialRows(Array.isArray(d.rows)?d.rows:[]));const a=await api.get<any>('/api/pnl/approval?'+scopeQuery(scope)).catch(()=>null);if(a){setApproval(a.status==='approved'?'approved':'draft');setCanApprove(Boolean(a.canApprove))}}catch(e){setRows([]);setError(e instanceof Error?e.message:'P&L недоступен')}finally{setLoading(false)}};
  useEffect(()=>{void load()},[scope.period,scope.projectId,scope.branchId,scope.restaurantId,scope.departmentId]);
  const view=useMemo(()=>canonical.map(([key,label])=>{const row=rows.find(r=>canonicalArticleKey(r.article)===key);return row||{article:label,plan:null,fact:null}}),[rows]);
