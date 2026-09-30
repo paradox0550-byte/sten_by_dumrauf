@@ -186,6 +186,11 @@ await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS report_date DATE
       await query(`DELETE FROM pnl_entries WHERE project_id = '' AND period >= '2026-01' AND period <= '2026-12'`);
     } catch (e) { log('cleanup pnl_entries duplicates:', e.message); }
     await query(`CREATE INDEX IF NOT EXISTS idx_org_units_org ON org_units(organization_id);`);
+    await query(`CREATE TABLE IF NOT EXISTS workspace_contexts (organization_id UUID NOT NULL, user_id TEXT NOT NULL, restaurant_id UUID, project_id UUID, branch_id UUID, department_id UUID, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (organization_id, user_id));`);
+    await query(`CREATE TABLE IF NOT EXISTS org_unit_access (organization_id UUID NOT NULL, user_id TEXT NOT NULL, unit_id UUID NOT NULL, access_level TEXT NOT NULL DEFAULT 'manage', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (organization_id, user_id, unit_id));`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_org_unit_access_user ON org_unit_access(organization_id, user_id, unit_id);`);
+    await query(`CREATE TABLE IF NOT EXISTS workspace_bindings (id UUID PRIMARY KEY, organization_id UUID NOT NULL, channel TEXT NOT NULL, subject_id TEXT NOT NULL, unit_id UUID NOT NULL, is_default BOOLEAN NOT NULL DEFAULT false, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (organization_id, channel, subject_id));`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_workspace_bindings_lookup ON workspace_bindings(organization_id, channel, subject_id);`);
     _schemaReady = true; log('schema: ready'); return true;
   } catch (e) { log('schema attempt failed:', e.message); return false; }
 }
@@ -516,7 +521,7 @@ const IngestMessageSchema = z.object({
 const IngestConfirmSchema = z.object({
  date:z.string().regex(DATE_RE),
  parsed:z.object({
-  date:z.string().regex(DATE_RE),revenue:z.number().finite().nullable(),cash:z.number().finite().nullable(),card:z.number().finite().nullable(),
+  date:z.string().regex(DATE_RE).nullable(),revenue:z.number().finite().nullable(),cash:z.number().finite().nullable(),card:z.number().finite().nullable(),
   discounts:z.number().finite().nullable(),checks:z.number().finite().nullable(),restaurant:z.string().nullable()
  }).strict(),
  scope:ScopeSchema.optional()
@@ -594,7 +599,7 @@ async function parseSalesReportWithFunctionCalling(text){
   {role:'system',text:'Ты — парсер отчётов о выручке ресторана. Извлеки date, revenue, cash, card, discounts, checks, restaurant. Если поле не найдено — null. Не выдумывай. Верни только вызов функции parse_sales_report.'},
   {role:'user',text}
  ],tools:[{function:{name:'parse_sales_report',description:'Извлекает поля отчёта о выручке ресторана из сообщения менеджера.',parameters:{type:'object',properties:{
-  date:{type:'string',description:'Дата YYYY-MM-DD. Если не указана, используй текущую дату.'},
+  date:{type:['string','null'],description:'Дата YYYY-MM-DD или null, если дата отсутствует в сообщении.'},
   revenue:{type:['number','null'],description:'Общая выручка в рублях или null.'},
   cash:{type:['number','null'],description:'Наличные в рублях или null.'},
   card:{type:['number','null'],description:'Безнал/карта в рублях или null.'},
@@ -611,7 +616,7 @@ async function parseSalesReportWithFunctionCalling(text){
   const args=tool?.functionCall?.arguments||tool?.function_call?.arguments;
   if(!args)throw httpError(502,'YandexGPT не вернул parse_sales_report','AI_TOOL_CALL_MISSING');
   const parsed=typeof args==='string'?JSON.parse(args):args;
-  const clean={date:DATE_RE.test(String(parsed.date||''))?String(parsed.date):new Date().toISOString().slice(0,10),revenue:numOrNull(parsed.revenue),cash:numOrNull(parsed.cash),card:numOrNull(parsed.card),discounts:numOrNull(parsed.discounts),checks:numOrNull(parsed.checks),restaurant:parsed.restaurant?String(parsed.restaurant):null};
+  const clean={date:DATE_RE.test(String(parsed.date||''))?String(parsed.date):null,revenue:numOrNull(parsed.revenue),cash:numOrNull(parsed.cash),card:numOrNull(parsed.card),discounts:numOrNull(parsed.discounts),checks:numOrNull(parsed.checks),restaurant:parsed.restaurant?String(parsed.restaurant):null};
   return clean;
  }catch(e){if(e?.status)throw e;if(e?.name==='AbortError')throw httpError(504,'Превышен таймаут YandexGPT','AI_TIMEOUT');throw httpError(502,'Не удалось распознать сообщение','AI_UNREACHABLE')}finally{clearTimeout(timer)}
 }
@@ -952,26 +957,167 @@ function aggregateRows(rows) {
   return [...byArticle.values()].map(x => ({ ...x, source: [...x.sources].join(',') || null }));
 }
 function rollupAgg(agg) {
-  const get = (a) => agg.find(x => normKey(x.article) === normKey(a)) || {};
-  const pick = (a, f) => { const o = get(a); return (o[f] === undefined ? null : o[f]); };
-  return {
-    revenue: pick('revenue', 'fact') ?? pick('выручка', 'fact'),
-    cogs: pick('cogs', 'fact') ?? pick('себестоимость', 'fact'),
-    personnel: pick('personnel', 'fact') ?? pick('фот', 'fact'),
-    overtime: pick('overtime', 'fact') ?? pick('переработки', 'fact'),
-    opex: pick('opex', 'fact') ?? pick('opex', 'fact'),
-    other_operating: pick('other_operating', 'fact'),
-    depreciation: pick('depreciation', 'fact') ?? pick('амортизация', 'fact'),
-    interest: pick('interest', 'fact') ?? pick('проценты', 'fact'),
-    tax: pick('tax', 'fact') ?? pick('налоги', 'fact'),
-    other: pick('other', 'fact') ?? pick('прочее', 'fact'),
+  const byKey = new Map((agg || []).map(x => [canonicalArticleKey(x.article), x]));
+  const pick = (key, field = 'fact') => {
+    const row = byKey.get(canonicalArticleKey(key));
+    return row && row[field] !== undefined ? row[field] : null;
   };
+  return {
+    revenue: pick('revenue'),
+    cogs: pick('cogs'),
+    personnel: pick('payroll'),
+    overtime: pick('overtime'),
+    opex: pick('opex'),
+    other_operating: pick('other_operating'),
+    depreciation: pick('depreciation'),
+    interest: pick('interest'),
+    tax: pick('tax'),
+    other: pick('other'),
+  };
+}
+
+/* ---- authoritative workspace context / chat-room binding ------------------ */
+const WorkspaceContextSchema = z.object({
+  restaurant_id: z.string().uuid(),
+  project_id: z.string().uuid().nullable().optional(),
+  branch_id: z.string().uuid().nullable().optional(),
+  department_id: z.string().uuid().nullable().optional(),
+}).strict();
+
+const BindingSchema = z.object({
+  channel: z.enum(['telegram','whatsapp','web']),
+  subject_id: z.string().trim().min(1).max(160),
+  unit_id: z.string().uuid(),
+  is_default: z.boolean().optional(),
+}).strict();
+
+async function getAccessibleRestaurants(user) {
+  const explicit = await safeQuery(
+    `SELECT u.id,u.name,u.parent_id,u.kind
+       FROM org_units u
+       JOIN org_unit_access a ON a.unit_id=u.id AND a.organization_id=u.organization_id
+      WHERE u.organization_id=$1::uuid AND a.user_id=$2
+        AND u.kind='restaurant'
+      ORDER BY u.name`,
+    [user.organizationId, user.id], null
+  );
+  if (explicit && explicit.length) return explicit;
+  if (['super_admin','owner'].includes(String(user.role || '').toLowerCase())) {
+    return safeQuery(
+      `SELECT id,name,parent_id,kind FROM org_units WHERE organization_id=$1::uuid AND kind='restaurant' ORDER BY name`,
+      [user.organizationId], []
+    );
+  }
+  return [];
+}
+
+async function assertRestaurantAccess(user, restaurantId) {
+  if (!restaurantId) return true;
+  const r = await safeQuery(
+    'SELECT id, parent_id, kind FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' LIMIT 1',
+    [restaurantId, user.organizationId], null
+  );
+  if (!r?.[0]) throw httpError(404, 'Ресторан не найден в текущей организации.', 'RESTAURANT_NOT_FOUND');
+  const explicit = await safeQuery(
+    'SELECT 1 FROM org_unit_access WHERE organization_id=$1::uuid AND user_id=$2 AND unit_id=$3::uuid LIMIT 1',
+    [user.organizationId, user.id, restaurantId], []
+  );
+  if (explicit.length || ['super_admin','owner'].includes(String(user.role || '').toLowerCase())) return true;
+  throw httpError(403, 'Нет доступа к выбранному ресторану.', 'RESTAURANT_FORBIDDEN');
+}
+
+async function resolveWorkspaceContext(user, supplied = {}, persist = false) {
+  const requestedRestaurant = supplied.restaurant_id ? String(supplied.restaurant_id) : null;
+  if (requestedRestaurant) await assertRestaurantAccess(user, requestedRestaurant);
+  let current = null;
+  const saved = await safeQuery(
+    'SELECT restaurant_id,project_id,branch_id,department_id FROM workspace_contexts WHERE organization_id=$1::uuid AND user_id=$2 LIMIT 1',
+    [user.organizationId, user.id], []
+  );
+  if (saved[0]) current = saved[0];
+  const restaurantId = requestedRestaurant || current?.restaurant_id || null;
+  if (restaurantId) await assertRestaurantAccess(user, restaurantId);
+  if (persist && restaurantId) {
+    await queryWithRetry(
+      `INSERT INTO workspace_contexts(organization_id,user_id,restaurant_id,project_id,branch_id,department_id,updated_at)
+       VALUES($1::uuid,$2,$3::uuid,$4::uuid,$5::uuid,$6::uuid,now())
+       ON CONFLICT(organization_id,user_id) DO UPDATE SET restaurant_id=excluded.restaurant_id,project_id=excluded.project_id,branch_id=excluded.branch_id,department_id=excluded.department_id,updated_at=now()`,
+      [user.organizationId,user.id,restaurantId,supplied.project_id||null,supplied.branch_id||null,supplied.department_id||null],
+      {orgId:user.organizationId}
+    );
+  }
+  return {
+    restaurant_id: restaurantId,
+    project_id: supplied.project_id ?? current?.project_id ?? null,
+    branch_id: supplied.branch_id ?? current?.branch_id ?? null,
+    department_id: supplied.department_id ?? current?.department_id ?? null,
+  };
+}
+
+app.get('/api/b2b/context', requireAuth, requireOrg, async (req,res,next)=>{try{
+  const restaurants=await getAccessibleRestaurants(req.user);
+  const saved=await safeQuery('SELECT restaurant_id,project_id,branch_id,department_id,updated_at FROM workspace_contexts WHERE organization_id=$1::uuid AND user_id=$2 LIMIT 1',[req.user.organizationId,req.user.id],[]);
+  ok(res,{context:saved[0]||{restaurant_id:null,project_id:null,branch_id:null,department_id:null},restaurants});
+}catch(e){next(e)}});
+
+app.put('/api/b2b/context', requireAuth, requireOrg, async (req,res,next)=>{try{
+  const body=parseOr400(WorkspaceContextSchema,req.body??{});
+  const context=await resolveWorkspaceContext(req.user,body,true);
+  await audit(req.user,'workspace.context.changed','workspace_contexts',req.user.id,{restaurant_id:context.restaurant_id});
+  ok(res,{context,confirmed:true});
+}catch(e){next(e)}});
+
+app.get('/api/b2b/bindings', requireAuth, requireOrg, async (req,res,next)=>{try{
+  const rows=await safeQuery(
+    `SELECT b.id,b.channel,b.subject_id,b.unit_id,u.name AS unit_name,b.is_default,b.created_at,b.updated_at
+       FROM workspace_bindings b JOIN org_units u ON u.id=b.unit_id AND u.organization_id=b.organization_id
+      WHERE b.organization_id=$1::uuid ORDER BY b.channel,b.subject_id`,
+    [req.user.organizationId], []
+  );
+  ok(res,{bindings:rows});
+}catch(e){next(e)}});
+
+app.post('/api/b2b/bindings', requireAuth, requireOrg, async (req,res,next)=>{try{
+  const body=parseOr400(BindingSchema,req.body??{});
+  await assertRestaurantAccess(req.user,body.unit_id);
+  const unit=await safeQuery('SELECT id,kind FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',[body.unit_id,req.user.organizationId],[]);
+  if(unit[0]?.kind!=='restaurant') throw httpError(400,'Связать канал можно только с рестораном.','BINDING_UNIT_INVALID');
+  if(body.is_default) await queryWithRetry('UPDATE workspace_bindings SET is_default=false,updated_at=now() WHERE organization_id=$1::uuid AND channel=$2',[req.user.organizationId,body.channel],{orgId:req.user.organizationId});
+  const id=uuid();
+  await queryWithRetry(
+    `INSERT INTO workspace_bindings(id,organization_id,channel,subject_id,unit_id,is_default,updated_at)
+     VALUES($1::uuid,$2::uuid,$3,$4,$5::uuid,$6,now())
+     ON CONFLICT(organization_id,channel,subject_id) DO UPDATE SET unit_id=excluded.unit_id,is_default=excluded.is_default,updated_at=now()`,
+    [id,req.user.organizationId,body.channel,body.subject_id,body.unit_id,Boolean(body.is_default)],
+    {orgId:req.user.organizationId}
+  );
+  await audit(req.user,'workspace.binding.saved','workspace_bindings',id,{channel:body.channel,subject_id:body.subject_id,unit_id:body.unit_id});
+  const saved=await safeQuery('SELECT b.id,b.channel,b.subject_id,b.unit_id,u.name AS unit_name,b.is_default FROM workspace_bindings b JOIN org_units u ON u.id=b.unit_id WHERE b.id=$1::uuid AND b.organization_id=$2::uuid LIMIT 1',[id,req.user.organizationId],null);
+  ok(res,{binding:saved?.[0]||null,confirmed:Boolean(saved?.[0])},201);
+}catch(e){next(e)}});
+
+app.delete('/api/b2b/bindings/:id', requireAuth, requireOrg, async(req,res,next)=>{try{
+  if(!UUID_RE.test(req.params.id)) throw httpError(400,'Некорректный id связи','BAD_ID');
+  const del=await queryWithRetry('DELETE FROM workspace_bindings WHERE id=$1::uuid AND organization_id=$2::uuid RETURNING id',[req.params.id,req.user.organizationId],{orgId:req.user.organizationId});
+  if(!del.rows.length) throw httpError(404,'Связь не найдена','NOT_FOUND');
+  await audit(req.user,'workspace.binding.deleted','workspace_bindings',req.params.id,{});
+  ok(res,{deleted:true,confirmed:true});
+}catch(e){next(e)}});
+
+async function resolveInboundBinding(user, channel, subjectId) {
+  if (!subjectId) return null;
+  const rows=await safeQuery(
+    'SELECT b.id,b.unit_id,b.is_default,u.name AS unit_name FROM workspace_bindings b JOIN org_units u ON u.id=b.unit_id AND u.organization_id=b.organization_id WHERE b.organization_id=$1::uuid AND b.channel=$2 AND b.subject_id=$3 LIMIT 1',
+    [user?.organizationId,channel,String(subjectId)],[]
+  );
+  return rows[0]||null;
 }
 
 /* ---- P&L transactions: отдельный журнал фактических доходов/расходов ---- */
 app.get('/api/pnl/transactions', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const q = scopeFromQuery(req.query);
+    if (q.restaurant_id) await assertRestaurantAccess(req.user, q.restaurant_id);
     if (!YM_RE.test(q.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
     const rows = await safeQuery(
       `SELECT id, transaction_date, type, article, amount, comment, created_at
@@ -991,6 +1137,7 @@ app.get('/api/pnl/transactions', requireAuth, requireOrg, async (req, res, next)
 app.post('/api/pnl/transactions', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const body=parseOr400(PnlTransactionSchema,req.body??{});
+    if (body.restaurant_id) await assertRestaurantAccess(req.user, body.restaurant_id);
     if(body.date.slice(0,7)!==body.period) throw httpError(400,'Дата операции не относится к выбранному периоду','DATE_PERIOD_MISMATCH');
     const scope=[body.project_id||'',body.branch_id||'',body.restaurant_id||'',body.department_id||''];
     const existing=await safeQuery(
@@ -1025,6 +1172,7 @@ app.post('/api/pnl/transactions', requireAuth, requireOrg, async (req, res, next
 app.get('/api/pnl', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const s = scopeFromQuery(req.query);
+    if (s.restaurant_id) await assertRestaurantAccess(req.user, s.restaurant_id);
     if (!YM_RE.test(s.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
     const rows = await safeQuery(
       `SELECT rows::text FROM pnl_entries
@@ -1074,6 +1222,7 @@ app.get('/api/pnl', requireAuth, requireOrg, async (req, res, next) => {
 app.post('/api/pnl', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const body = parseOr400(PnlWriteSchema, req.body ?? {});
+    if (body.restaurant_id) await assertRestaurantAccess(req.user, body.restaurant_id);
     const cleanRows = body.rows.map(r => ({
       id: r.id || null,
       article: String(r.article).normalize('NFC').trim(),
@@ -1106,6 +1255,7 @@ const APPROVER_ROLES = new Set((process.env.PNL_APPROVER_ROLES || 'super_admin,a
 app.get('/api/pnl/approval', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const s = scopeFromQuery(req.query);
+    if (s.restaurant_id) await assertRestaurantAccess(req.user, s.restaurant_id);
     if (!YM_RE.test(s.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
     const rows = await safeQuery(
       `SELECT status, approved_by, approved_at FROM pnl_approvals WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1`,
@@ -1118,6 +1268,7 @@ app.post('/api/pnl/approve', requireAuth, requireOrg, async (req, res, next) => 
   try {
     if (!APPROVER_ROLES.has(String(req.user.role || '').toLowerCase())) throw httpError(403, 'У Вас нет права утверждать план.', 'FORBIDDEN_APPROVAL');
     const s = scopeFromQuery(req.body || {});
+    if (s.restaurant_id) await assertRestaurantAccess(req.user, s.restaurant_id);
     if (!YM_RE.test(s.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
     const exists = await safeQuery(
       `SELECT 1 FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1`,
@@ -1166,6 +1317,18 @@ app.post('/api/pnl/import', requireAuth, requireOrg, async (req, res, next) => {
     }, 202);
   } catch (e) { next(e); }
 });
+
+function buildPlanFactAnalysis(agg) {
+  const expenseKeys = new Set(['cogs','payroll','overtime','opex','other_operating','depreciation','interest','tax','other']);
+  return (agg || []).map(row => {
+    const plan = numOrNull(row.plan), fact = numOrNull(row.fact);
+    const absolute = plan !== null && fact !== null ? fact - plan : null;
+    const percent = plan !== null && fact !== null && plan !== 0 ? (absolute / Math.abs(plan)) * 100 : null;
+    const key = canonicalArticleKey(row.article);
+    const favorable = absolute === null ? null : expenseKeys.has(key) ? absolute <= 0 : absolute >= 0;
+    return { article: row.article, key, plan, fact, absolute, percent, favorable, source: row.source ?? null };
+  });
+}
 
 function metricValue(values,key){const v=values?.[key];return typeof v==='number'&&Number.isFinite(v)?v:null;}
 function fmtRub(v){return v===null||v===undefined?'Нет данных':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(v)+' ₽';}
@@ -1261,6 +1424,7 @@ app.post('/api/reports/send',requireAuth,requireOrg,async(req,res,next)=>{try{
  const recipient=b.recipient||(provider==='telegram'?settings.telegram_chat_id:settings.whatsapp_phone);
  if(!provider||!recipient)throw httpError(400,'Не выбран мессенджер или получатель','MESSENGER_RECIPIENT_REQUIRED');
  const scope=b.scope||settings.scope_json||{};
+ if(scope.restaurant_id) await assertRestaurantAccess(req.user,scope.restaurant_id);
  const data=await loadReportMetrics(req.user,b.date,scope);
  const restaurant=scope.restaurant_id||data.values.restaurant||null;
  const textBody=reportText(b.date,restaurant,data.values,data.pnlData,metrics);
@@ -1714,8 +1878,10 @@ app.post('/ask', requireAuth, async (req, res, next) => {
     const wantsFinance = PAYROLL_KEYWORDS.some(k => ruLower(question).includes(k)) || ruLower(question).includes('прибыл') || ruLower(question).includes('p&l');
     if (req.user.organizationId) {  // всегда грузим P&L-контекст для AI, без фильтра wantsFinance
       const rawScope = body.scope || {};
-      // Валидируем scope запроса: только ГГГГ-ММ, иначе — текущий период.
-      const selected = { ...rawScope, period: YM_RE.test(String(rawScope.period || '')) ? String(rawScope.period) : new Date().toISOString().slice(0, 7) };
+      const selectedContext = await resolveWorkspaceContext(req.user, rawScope, false);
+      if (selectedContext.restaurant_id) await assertRestaurantAccess(req.user, selectedContext.restaurant_id);
+      // Период валидируем отдельно; ресторан/проект/филиал/отдел берём из server-authoritative context.
+      const selected = { ...selectedContext, period: YM_RE.test(String(rawScope.period || '')) ? String(rawScope.period) : new Date().toISOString().slice(0, 7) };
       const ym = selected.period;
       const rows = await safeQuery(`SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2
         AND ($3::text = '' OR project_id = $3)
@@ -1770,14 +1936,21 @@ app.post('/api/ingest/message',async(req,res,next)=>{try{
  const whatsappFrom=waMessage?.from;
  const b=parseOr400(IngestMessageSchema,{...body,text:body.text||telegramText||whatsappText,source:body.source||(telegramText?'telegram':whatsappText?'whatsapp':'manual')});
  if(!b.text)throw httpError(400,'Текст сообщения не найден','EMPTY_MESSAGE');
+ const subjectId=telegramChat||whatsappFrom||null;
+ const binding=await resolveInboundBinding(req.user,b.source,subjectId);
+ const context=binding?{restaurant_id:binding.unit_id,restaurant_name:binding.unit_name}:null;
  const parsed=await parseSalesReportWithFunctionCalling(b.text);
- await audit(null,'ingest.message.parsed','message',null,{source:b.source,fields:Object.keys(parsed),recipient:telegramChat||whatsappFrom||null});
- ok(res,{parsed,requiresConfirmation:true,writeToPnl:false,recipient:telegramChat||whatsappFrom||null});
+ if(context && !parsed.restaurant) parsed.restaurant=context.restaurant_name;
+ await audit(null,'ingest.message.parsed','message',null,{source:b.source,fields:Object.keys(parsed),recipient:subjectId,unit_id:binding?.unit_id||null});
+ ok(res,{parsed,context,requiresConfirmation:true,requiresBinding:!binding,writeToPnl:false,recipient:subjectId});
 }catch(e){next(e)}});
  
 app.post('/api/ingest/message/confirm',requireAuth,requireOrg,async(req,res,next)=>{try{
  const b=parseOr400(IngestConfirmSchema,req.body??{});
- const s=b.scope||{period:b.date.slice(0,7),project_id:'',branch_id:'',restaurant_id:'',department_id:''};
+ const explicit=b.scope||{};
+ const s={period:b.date.slice(0,7),project_id:explicit.project_id||'',branch_id:explicit.branch_id||'',restaurant_id:explicit.restaurant_id||'',department_id:explicit.department_id||''};
+ if(!s.restaurant_id) throw httpError(422,'Для подтверждения отчёта необходимо выбрать ресторан.','RESTAURANT_CONTEXT_REQUIRED');
+ await assertRestaurantAccess(req.user,s.restaurant_id);
  const existing=await safeQuery('SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1',[req.user.organizationId,s.period,s.project_id||'',s.branch_id||'',s.restaurant_id||'',s.department_id||''],[]);
  let rows=[];try{rows=existing[0]?.rows?JSON.parse(existing[0].rows):[]}catch{rows=[]}
  const idx=rows.findIndex(r=>canonicalArticleKey(r.article)==='revenue');
