@@ -978,7 +978,7 @@ function rollupAgg(agg) {
 
 /* ---- authoritative workspace context / chat-room binding ------------------ */
 const WorkspaceContextSchema = z.object({
-  restaurant_id: z.string().uuid(),
+  restaurant_id: z.string().uuid().nullable(),
   project_id: z.string().uuid().nullable().optional(),
   branch_id: z.string().uuid().nullable().optional(),
   department_id: z.string().uuid().nullable().optional(),
@@ -1037,7 +1037,7 @@ async function resolveWorkspaceContext(user, supplied = {}, persist = false) {
   if (saved[0]) current = saved[0];
   const restaurantId = requestedRestaurant || current?.restaurant_id || null;
   if (restaurantId) await assertRestaurantAccess(user, restaurantId);
-  if (persist && restaurantId) {
+  if (persist) {
     await queryWithRetry(
       `INSERT INTO workspace_contexts(organization_id,user_id,restaurant_id,project_id,branch_id,department_id,updated_at)
        VALUES($1::uuid,$2,$3::uuid,$4::uuid,$5::uuid,$6::uuid,now())
