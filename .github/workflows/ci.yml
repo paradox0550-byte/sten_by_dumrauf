@@ -151,16 +151,33 @@ jobs:
           echo "STEN CI MARK 13 - production smoke"
           set -euo pipefail
           sleep 5
-          curl -fsSI "$SITE_URL/index.html" | grep -Eiq 'content-type:.*text/html'
-          js=$(grep -oE 'src="./assets/[^"]+\.js"' dist/index.html | head -1 | sed 's/^src="//;s/"$//;s#^./##')
-          css=$(grep -oE 'href="./assets/[^"]+\.css"' dist/index.html | head -1 | sed 's/^href="//;s/"$//;s#^./##')
+
+          check_content_type() {
+            local label="$1"
+            local url="$2"
+            local expected="$3"
+            echo "SMOKE $label: $url"
+            local headers
+            headers="$(curl -fsSL --retry 3 --retry-delay 2 -D - -o /dev/null "$url")"
+            printf '%s
+' "$headers" | sed -n '1,20p'
+            printf '%s
+' "$headers" | grep -Eiq "content-type:.*$expected"
+          }
+
+          check_content_type "index.html" "$SITE_URL/index.html" 'text/html'
+          js=$(grep -oE 'src="./assets/[^"]+.js"' dist/index.html | head -1 | sed 's/^src="//;s/"$//;s#^./##')
+          css=$(grep -oE 'href="./assets/[^"]+.css"' dist/index.html | head -1 | sed 's/^href="//;s/"$//;s#^./##')
           test -n "$js"
           test -n "$css"
-          curl -fsSI "$SITE_URL/$js" | grep -Eiq 'content-type:.*(text/javascript|application/javascript)'
-          curl -fsSI "$SITE_URL/$css" | grep -Eiq 'content-type:.*text/css'
-          curl -fsSI "$SITE_URL/" | grep -Eiq 'content-type:.*text/html'
-          curl -fsSI "$SITE_URL/manifest.json" | grep -Eiq 'content-type:.*(application/json|application/manifest)'
-          curl -fsSI "$API_URL/healthz" | grep -Eiq '^HTTP/.* 200'
+          check_content_type "main JS" "$SITE_URL/$js" '(text/javascript|application/javascript)'
+          check_content_type "main CSS" "$SITE_URL/$css" 'text/css'
+          check_content_type "root" "$SITE_URL/" 'text/html'
+          check_content_type "manifest" "$SITE_URL/manifest.json" '(application/json|application/manifest)'
+          echo "SMOKE API: $API_URL/healthz"
+          api_status="$(curl -fsSL --retry 3 --retry-delay 2 -o /dev/null -w '%{http_code}' "$API_URL/healthz")"
+          echo "SMOKE API status: $api_status"
+          test "$api_status" = "200"
 
       - name: MARK 15 complete
         run: echo "STEN CI MARK 14 - workflow complete"
