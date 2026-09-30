@@ -1085,7 +1085,12 @@ async function resolveWorkspaceContext(user, supplied = {}, persist = false) {
   );
   if (saved[0]) current = saved[0];
   const restaurantId = requestedRestaurant || current?.restaurant_id || null;
-  if (restaurantId) await assertRestaurantAccess(user, restaurantId);
+  await assertScopeAccess(user, {
+    project_id: supplied.project_id ?? current?.project_id ?? '',
+    branch_id: supplied.branch_id ?? current?.branch_id ?? '',
+    restaurant_id: restaurantId || '',
+    department_id: supplied.department_id ?? current?.department_id ?? '',
+  });
   if (persist) {
     await queryWithRetry(
       `INSERT INTO workspace_contexts(organization_id,user_id,restaurant_id,project_id,branch_id,department_id,updated_at)
@@ -1133,16 +1138,17 @@ app.post('/api/b2b/bindings', requireAuth, requireOrg, async (req,res,next)=>{tr
   if(unit[0]?.kind!=='restaurant') throw httpError(400,'Связать канал можно только с рестораном.','BINDING_UNIT_INVALID');
   if(body.is_default) await queryWithRetry('UPDATE workspace_bindings SET is_default=false,updated_at=now() WHERE organization_id=$1::uuid AND channel=$2',[req.user.organizationId,body.channel],{orgId:req.user.organizationId});
   const id=uuid();
-  await queryWithRetry(
+  const saved=await queryWithRetry(
     `INSERT INTO workspace_bindings(id,organization_id,channel,subject_id,unit_id,is_default,updated_at)
      VALUES($1::uuid,$2::uuid,$3,$4,$5::uuid,$6,now())
-     ON CONFLICT(organization_id,channel,subject_id) DO UPDATE SET unit_id=excluded.unit_id,is_default=excluded.is_default,updated_at=now()`,
+     ON CONFLICT(organization_id,channel,subject_id) DO UPDATE SET unit_id=excluded.unit_id,is_default=excluded.is_default,updated_at=now()
+     RETURNING id,channel,subject_id,unit_id,is_default`,
     [id,req.user.organizationId,body.channel,body.subject_id,body.unit_id,Boolean(body.is_default)],
     {orgId:req.user.organizationId}
   );
-  await audit(req.user,'workspace.binding.saved','workspace_bindings',id,{channel:body.channel,subject_id:body.subject_id,unit_id:body.unit_id});
-  const saved=await safeQuery('SELECT b.id,b.channel,b.subject_id,b.unit_id,u.name AS unit_name,b.is_default FROM workspace_bindings b JOIN org_units u ON u.id=b.unit_id WHERE b.id=$1::uuid AND b.organization_id=$2::uuid LIMIT 1',[id,req.user.organizationId],null);
-  ok(res,{binding:saved?.[0]||null,confirmed:Boolean(saved?.[0])},201);
+  const savedRow=await safeQuery('SELECT b.id,b.channel,b.subject_id,b.unit_id,u.name AS unit_name,b.is_default FROM workspace_bindings b JOIN org_units u ON u.id=b.unit_id WHERE b.id=$1::uuid AND b.organization_id=$2::uuid LIMIT 1',[saved?.[0]?.id || id,req.user.organizationId],null);
+  await audit(req.user,'workspace.binding.saved','workspace_bindings',saved?.[0]?.id || id,{channel:body.channel,subject_id:body.subject_id,unit_id:body.unit_id});
+  ok(res,{binding:savedRow?.[0]||null,confirmed:Boolean(savedRow?.[0])},201);
 }catch(e){next(e)}});
 
 app.delete('/api/b2b/bindings/:id', requireAuth, requireOrg, async(req,res,next)=>{try{
