@@ -1508,7 +1508,7 @@ app.get('/reports', requireAuth, requireOrg, async (req, res, next) => {
       const values = r.values_json || {};
       const scope = { period: String(r.report_date).slice(0, 7), project_id: r.project_id || '', branch_id: r.branch_id || '', restaurant_id: r.restaurant_id || '', department_id: r.department_id || '' };
       const pnlRows = await safeQuery('SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1',
-        [req.user.organizationId, scope.period, '', '', '', ''], []);
+        [req.user.organizationId, scope.period, scope.project_id, scope.branch_id, scope.restaurant_id, scope.department_id], []);
       const all = [];
       for (const item of pnlRows) { try { const parsed = JSON.parse(item.rows); if (Array.isArray(parsed)) all.push(...parsed); } catch {} }
       const aggregated = aggregateRows(all);
