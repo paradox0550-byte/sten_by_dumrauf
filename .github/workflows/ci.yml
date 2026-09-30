@@ -101,7 +101,7 @@ jobs:
           grep -RInE 'YANDEXGPT_API_KEY|YANDEXGPT_FOLDER_ID|gpt://\$\{?FOLDER_ID|ai\.api\.cloud\.yandex\.net' .github/agent/*.py .github/agent/auto-agent.yml >/dev/null
           ! grep -RIn --exclude-dir=node_modules -E 'AKIA[0-9A-Z]{16}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|ghp_[A-Za-z0-9]{20,}' backend src public .github
           ! grep -RInE 'DROP[[:space:]]+TABLE|TRUNCATE[[:space:]]+TABLE' backend/index.js
-          ! grep -RInE "app\\.(get|post|put|patch|delete)\\(['\\\"]*/debug" backend/index.js
+          ! grep -RIn '/debug' backend/index.js
           grep -q '/api/analytics/settings:' docs/API_GATEWAY_SPEC_2026-09-29.yaml
           ! grep -q '/debug/db:' docs/API_GATEWAY_SPEC_2026-09-29.yaml
           ! grep -q '/auth/login:' docs/API_GATEWAY_SPEC_2026-09-29.yaml
