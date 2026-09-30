@@ -1,0 +1,459 @@
+/* ==========================================================================
+   STEN v5.0.2 — Executive Cockpit semantic theme layer
+   Loaded after app.css so legacy component styles inherit the canonical tokens.
+   No glassmorphism, blur, glow or decorative gradients.
+   ========================================================================== */
+
+:root {
+  /* LIGHT THEME (Executive Light) */
+  --bg-app: #faf8ff;
+  --bg-surface: #ffffff;
+  --bg-surface-subtle: #f2f3ff;
+  --border-subtle: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --color-brand: #2563eb;
+  --color-danger: #dc2626;
+  --color-danger-bg: #fef2f2;
+  --color-warning: #d97706;
+  --color-warning-bg: #fffbeb;
+  --color-success: #16a34a;
+  --color-success-bg: #f0fdf4;
+
+  /* Backward-compatible aliases used by the existing component CSS. */
+  --bg: var(--bg-app);
+  --surface: var(--bg-surface);
+  --surface2: var(--bg-surface-subtle);
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
+  --line: var(--border-subtle);
+  --accent: var(--color-brand);
+  --accent2: var(--color-brand);
+  --good: var(--color-success);
+  --danger: var(--color-danger);
+  --warning: var(--color-warning);
+  --hair: 1px solid var(--border-subtle);
+  --focus: 0 0 0 2px color-mix(in srgb, var(--color-brand) 28%, transparent);
+}
+
+[data-theme='dark'] {
+  /* DARK THEME (Executive Dark) */
+  --bg-app: #0a0e17;
+  --bg-surface: #0f131c;
+  --bg-surface-subtle: #181b25;
+  --border-subtle: #222736;
+  --border-strong: #333a4d;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --color-brand: #3b82f6;
+  --color-danger: #ef4444;
+  --color-danger-bg: #2d1519;
+  --color-warning: #f59e0b;
+  --color-warning-bg: #2c2111;
+  --color-success: #10b981;
+  --color-success-bg: #0f291e;
+
+  --bg: var(--bg-app);
+  --surface: var(--bg-surface);
+  --surface2: var(--bg-surface-subtle);
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
+  --line: var(--border-subtle);
+  --accent: var(--color-brand);
+  --accent2: var(--color-brand);
+  --good: var(--color-success);
+  --danger: var(--color-danger);
+  --warning: var(--color-warning);
+  --hair: 1px solid var(--border-subtle);
+  --focus: 0 0 0 2px color-mix(in srgb, var(--color-brand) 35%, transparent);
+}
+
+html,
+body,
+#root {
+  background: var(--bg-app);
+  color: var(--text-primary);
+}
+
+body {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  color: inherit;
+}
+
+input,
+select,
+textarea {
+  background: var(--bg-surface);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+/* Executive desktop shell: 1440px+ */
+@media (min-width: 768px) {
+  .executive-shell .sidebar {
+    width: 256px;
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border-subtle);
+  }
+
+  .executive-shell .main {
+    margin-left: 256px;
+    width: calc(100% - 256px);
+    background: var(--bg-app);
+  }
+
+  .executive-shell .topbar {
+    min-height: 56px;
+    padding-inline: 20px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-subtle);
+    backdrop-filter: none;
+  }
+
+  .executive-shell .content {
+    max-width: 1600px;
+    padding: 28px 32px 64px;
+  }
+
+  .executive-shell .sidebar-toggle {
+    display: grid;
+  }
+
+  .executive-shell .mobile-menu,
+  .executive-shell .mobile-close,
+  .executive-shell .backdrop,
+  .executive-shell .mobile-bottom-nav {
+    display: none !important;
+  }
+}
+
+/* Financial controls */
+.executive-shell .global-scale,
+.executive-shell .security-status,
+.executive-shell .period-chip,
+.executive-shell .workspace-btn {
+  border-color: var(--border-subtle);
+  background: var(--bg-surface-subtle);
+  color: var(--text-secondary);
+}
+
+.executive-shell .global-scale button.active,
+.executive-shell .workspace-btn:hover,
+.executive-shell .icon-button:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.executive-shell .global-scale button.active {
+  color: var(--color-brand);
+}
+
+.executive-shell .security-status {
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font: 700 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .06em;
+}
+
+.executive-shell .security-status i,
+.executive-shell .security-boundary i {
+  background: var(--color-success);
+}
+
+.executive-shell .security-boundary {
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.executive-shell .brand-mark {
+  background: var(--text-primary);
+  color: var(--bg-surface);
+}
+
+/* Scope/workspace popover remains data-driven; never invent restaurant IDs. */
+.executive-shell .workspace-popover {
+  background: var(--bg-surface);
+  border-color: var(--border-strong);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, .12);
+}
+
+/* Dense financial tables: aligned, readable, deterministic. */
+.numeric,
+.metric-card strong,
+.pnl-row strong,
+.budget-grid .num,
+.prime-card strong,
+.flash-prime strong,
+.pnl-edit-row > strong,
+.pnl-edit-row > span {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.pnl-edit-row > strong.positive,
+.budget-grid-row .num.positive {
+  color: var(--color-success) !important;
+}
+
+.pnl-edit-row > strong.negative,
+.budget-grid-row .num.negative {
+  color: var(--color-danger) !important;
+}
+
+/* No fake certainty: empty states are visually explicit. */
+.empty-state,
+.empty {
+  color: var(--text-secondary);
+  background: var(--bg-surface-subtle);
+  border: 1px dashed var(--border-strong);
+}
+
+.empty-state b {
+  color: var(--text-primary);
+}
+
+/* Mobile: 390px target */
+@media (max-width: 767px) {
+  .executive-shell {
+    min-height: 100dvh;
+  }
+
+  .executive-shell .sidebar {
+    width: min(86vw, 320px);
+    padding: 14px 10px;
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border-subtle);
+    box-shadow: 12px 0 32px rgba(15, 23, 42, .16);
+    transform: translateX(-105%);
+    transition: transform .18s ease;
+  }
+
+  .executive-shell .sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .executive-shell .main {
+    width: 100%;
+    margin-left: 0;
+    padding-bottom: calc(68px + env(safe-area-inset-bottom));
+  }
+
+  .executive-shell .topbar {
+    position: sticky;
+    top: 0;
+    min-height: 56px;
+    height: auto;
+    padding: 8px 10px;
+    gap: 7px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-subtle);
+    z-index: 30;
+  }
+
+  .executive-shell .mobile-menu,
+  .executive-shell .icon-button {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+  }
+
+  .executive-shell .sidebar-toggle {
+    display: none;
+  }
+
+  .executive-shell .top-context {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .executive-shell .crumb {
+    max-width: 30vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .executive-shell .period-chip {
+    display: none;
+  }
+
+  .executive-shell .top-workspace {
+    min-width: 0;
+    margin-left: auto;
+  }
+
+  .executive-shell .workspace-btn {
+    max-width: 31vw;
+    min-height: 36px;
+    padding: 0 8px;
+  }
+
+  .executive-shell .workspace-btn-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .executive-shell .global-scale,
+  .executive-shell .security-status {
+    display: none;
+  }
+
+  .executive-shell .top-actions {
+    margin-left: 0;
+    gap: 4px;
+  }
+
+  .executive-shell .top-actions .icon-button:first-child {
+    display: none;
+  }
+
+  .executive-shell .content {
+    padding: 16px 12px 28px;
+    max-width: none;
+  }
+
+  .executive-shell .page {
+    display: block;
+  }
+
+  .executive-shell .page > * {
+    margin-bottom: 12px;
+  }
+
+  .executive-shell .page-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .executive-shell .page h1 {
+    font-size: 26px;
+  }
+
+  .executive-shell .head-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .executive-shell .head-actions > button {
+    min-width: 0;
+  }
+
+  .executive-shell .panel {
+    padding: 14px !important;
+    border-radius: 10px !important;
+  }
+
+  .executive-shell .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .executive-shell .metric-card {
+    grid-column: auto;
+    min-height: 122px;
+    padding: 12px;
+  }
+
+  .executive-shell .prime-card {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .executive-shell .prime-card em {
+    text-align: left;
+  }
+
+  .executive-shell .pnl-kpis {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px !important;
+  }
+
+  .executive-shell .pnl-edit-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .executive-shell .pnl-edit-row {
+    min-width: 720px;
+  }
+
+  .executive-shell .mobile-bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(60px + env(safe-area-inset-bottom));
+    padding: 5px 4px env(safe-area-inset-bottom);
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: center;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-subtle);
+    z-index: 60;
+  }
+
+  .executive-shell .mobile-bottom-nav a,
+  .executive-shell .mobile-bottom-nav button {
+    min-width: 0;
+    min-height: 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 9px;
+    font-weight: 650;
+  }
+
+  .executive-shell .mobile-bottom-nav a.active,
+  .executive-shell .mobile-bottom-nav button:hover {
+    color: var(--color-brand);
+  }
+
+  .executive-shell .workspace-popover {
+    position: fixed;
+    top: 62px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-height: calc(100dvh - 78px);
+    overflow-y: auto;
+  }
+}
+
+/* Respect reduced motion without changing information hierarchy. */
+@media (prefers-reduced-motion: reduce) {
+  .executive-shell *,
+  .executive-shell *::before,
+  .executive-shell *::after {
+    animation-duration: .001ms !important;
+    transition-duration: .001ms !important;
+  }
+}
