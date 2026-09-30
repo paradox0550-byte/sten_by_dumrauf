@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 env:
   SITE_URL: https://smenavkarmane-business.website.yandexcloud.net
@@ -144,6 +145,44 @@ jobs:
             esac
             aws s3 cp "$file" "s3://$BUCKET/$key" --endpoint-url "$STORAGE_ENDPOINT" --content-type "$ct" --cache-control "$cc" --metadata-directive REPLACE
           done < <(find dist -type f -print0)
+
+      - name: MARK 14 synchronize API Gateway
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          FOLDER_ID: ${{ vars.YC_FOLDER_ID }}
+          DEPLOY_SA_ID: ${{ vars.YC_DEPLOY_SA_ID }}
+          API_GATEWAY_ID: d5d5p4eof6ra03bsva7a
+        run: |
+          set -euo pipefail
+          test -n "$FOLDER_ID" || { echo "YC_FOLDER_ID is not configured"; exit 1; }
+          test -n "$DEPLOY_SA_ID" || { echo "YC_DEPLOY_SA_ID is not configured"; exit 1; }
+          curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -i "$RUNNER_TEMP/yc" -n
+          export PATH="$RUNNER_TEMP/yc/bin:$PATH"
+          test -x "$RUNNER_TEMP/yc/bin/yc"
+
+      - name: MARK 14a get Yandex IAM token
+        id: yc-iam
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker://ghcr.io/yc-actions/yc-iam-token-fed:1.0.0
+        with:
+          yc-sa-id: ${{ vars.YC_DEPLOY_SA_ID }}
+
+      - name: MARK 14b apply API Gateway specification
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          FOLDER_ID: ${{ vars.YC_FOLDER_ID }}
+          DEPLOY_SA_ID: ${{ vars.YC_DEPLOY_SA_ID }}
+          API_GATEWAY_ID: d5d5p4eof6ra03bsva7a
+          IAM_TOKEN: ${{ steps.yc-iam.outputs.token }}
+        run: |
+          set -euo pipefail
+          export PATH="$RUNNER_TEMP/yc/bin:$PATH"
+          yc serverless api-gateway update \
+            --id "$API_GATEWAY_ID" \
+            --folder-id "$FOLDER_ID" \
+            --spec docs/API_GATEWAY_SPEC_2026-09-29.yaml \
+            --variables "gateway_service_account_id=$DEPLOY_SA_ID" \
+            --token "$IAM_TOKEN"
 
       - name: MARK 14 production smoke
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
