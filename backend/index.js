@@ -171,13 +171,20 @@ async function ensureSchemaNow() {
     await query(`CREATE TABLE IF NOT EXISTS analytics_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
     await query(`CREATE TABLE IF NOT EXISTS auth_unlock_attempts (ip TEXT PRIMARY KEY, window_started_at TIMESTAMPTZ NOT NULL DEFAULT now(), failed_attempts INTEGER NOT NULL DEFAULT 0, blocked_until TIMESTAMPTZ);`);
     // Ежедневные отчёты (/reports контракт OpenAPI).
-    await query(`CREATE TABLE IF NOT EXISTS daily_reports (id UUID PRIMARY KEY, organization_id UUID NOT NULL, report_date DATE NOT NULL, values_json JSONB NOT NULL DEFAULT '{}'::jsonb, note TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (organization_id, report_date));`);
+    await query(`CREATE TABLE IF NOT EXISTS daily_reports (id UUID PRIMARY KEY, organization_id UUID NOT NULL, report_date DATE NOT NULL, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', values_json JSONB NOT NULL DEFAULT '{}'::jsonb, note TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS branch_id TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS restaurant_id TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS department_id TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE daily_reports DROP CONSTRAINT IF EXISTS daily_reports_organization_id_report_date_key;`);
+    await query(`DROP INDEX IF EXISTS daily_reports_org_date_uniq;`);
+    await query(`CREATE UNIQUE INDEX IF NOT EXISTS daily_reports_org_scope_date_uniq ON daily_reports(organization_id, report_date, project_id, branch_id, restaurant_id, department_id);`);
 await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS report_date DATE;`);
     await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS values_json JSONB DEFAULT '{}'::jsonb;`);
     await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS note TEXT;`);
     await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();`);
     await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();`);
-    await query(`CREATE UNIQUE INDEX IF NOT EXISTS daily_reports_org_date_uniq ON daily_reports(organization_id, report_date);`);
+
     // Совместимость со старой схемой daily_reports: переносим date -> report_date, убираем старую колонку.
     await query(`DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_reports' AND column_name='date') THEN UPDATE daily_reports SET report_date = COALESCE(report_date, date) WHERE report_date IS NULL; ALTER TABLE daily_reports ALTER COLUMN date DROP NOT NULL; ALTER TABLE daily_reports DROP COLUMN date; END IF; END $$;`);
     await query(`CREATE TABLE IF NOT EXISTS org_units (id UUID PRIMARY KEY, organization_id UUID NOT NULL, parent_id UUID, kind TEXT NOT NULL, name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
@@ -470,6 +477,10 @@ const ReportWriteSchema = z.object({
   date: z.string().regex(DATE_RE),
   values: z.record(z.string().max(120), z.number().finite()),
   note: z.string().max(4000).nullable().optional(),
+  project_id: z.string().trim().max(120).optional().nullable(),
+  branch_id: z.string().trim().max(120).optional().nullable(),
+  restaurant_id: z.string().trim().max(120).optional().nullable(),
+  department_id: z.string().trim().max(120).optional().nullable(),
 }).strict();
 
 const AiSkillsSchema = z.object({
@@ -1026,6 +1037,44 @@ async function assertRestaurantAccess(user, restaurantId) {
   throw httpError(403, 'Нет доступа к выбранному ресторану.', 'RESTAURANT_FORBIDDEN');
 }
 
+async function assertScopeAccess(user, scope = {}) {
+  const restaurantIds = new Set();
+  if (scope.restaurant_id) restaurantIds.add(String(scope.restaurant_id));
+  if (scope.department_id) {
+    const rows = await safeQuery(
+      'SELECT parent_id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'department\' LIMIT 1',
+      [scope.department_id,user.organizationId], null
+    );
+    if (!rows?.[0]) throw httpError(404,'Отдел не найден в текущей организации.','DEPARTMENT_NOT_FOUND');
+    if (rows[0].parent_id) restaurantIds.add(String(rows[0].parent_id));
+  }
+  if (scope.branch_id) {
+    const rows = await safeQuery(
+      'SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' ORDER BY id',
+      [scope.branch_id,user.organizationId], null
+    );
+    if (!rows) throw httpError(503,'Не удалось проверить доступ к филиалу.','SCOPE_ACCESS_CHECK_FAILED');
+    rows.forEach(r => restaurantIds.add(String(r.id)));
+  }
+  if (scope.project_id) {
+    const branches = await safeQuery(
+      'SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'branch\' ORDER BY id',
+      [scope.project_id,user.organizationId], null
+    );
+    if (!branches) throw httpError(503,'Не удалось проверить доступ к проекту.','SCOPE_ACCESS_CHECK_FAILED');
+    for (const b of branches) {
+      const restaurants = await safeQuery(
+        'SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' ORDER BY id',
+        [b.id,user.organizationId], null
+      );
+      if (!restaurants) throw httpError(503,'Не удалось проверить доступ к проекту.','SCOPE_ACCESS_CHECK_FAILED');
+      restaurants.forEach(r => restaurantIds.add(String(r.id)));
+    }
+  }
+  for (const id of restaurantIds) await assertRestaurantAccess(user,id);
+  return true;
+}
+
 async function resolveWorkspaceContext(user, supplied = {}, persist = false) {
   const requestedRestaurant = supplied.restaurant_id ? String(supplied.restaurant_id) : null;
   if (requestedRestaurant) await assertRestaurantAccess(user, requestedRestaurant);
@@ -1120,7 +1169,7 @@ async function resolveInboundBinding(user, channel, subjectId) {
 app.get('/api/pnl/transactions', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const q = scopeFromQuery(req.query);
-    if (q.restaurant_id) await assertRestaurantAccess(req.user, q.restaurant_id);
+    await assertScopeAccess(req.user, q);
     if (!YM_RE.test(q.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
     const rows = await safeQuery(
       `SELECT id, transaction_date, type, article, amount, comment, created_at
@@ -1140,7 +1189,7 @@ app.get('/api/pnl/transactions', requireAuth, requireOrg, async (req, res, next)
 app.post('/api/pnl/transactions', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const body=parseOr400(PnlTransactionSchema,req.body??{});
-    if (body.restaurant_id) await assertRestaurantAccess(req.user, body.restaurant_id);
+    await assertScopeAccess(req.user, body);
     if(body.date.slice(0,7)!==body.period) throw httpError(400,'Дата операции не относится к выбранному периоду','DATE_PERIOD_MISMATCH');
     const scope=[body.project_id||'',body.branch_id||'',body.restaurant_id||'',body.department_id||''];
     const existing=await safeQuery(
@@ -1175,7 +1224,7 @@ app.post('/api/pnl/transactions', requireAuth, requireOrg, async (req, res, next
 app.get('/api/pnl', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const s = scopeFromQuery(req.query);
-    if (s.restaurant_id) await assertRestaurantAccess(req.user, s.restaurant_id);
+    await assertScopeAccess(req.user, s);
     if (!YM_RE.test(s.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
     const rows = await safeQuery(
       `SELECT rows::text FROM pnl_entries
@@ -1427,7 +1476,7 @@ app.post('/api/reports/send',requireAuth,requireOrg,async(req,res,next)=>{try{
  const recipient=b.recipient||(provider==='telegram'?settings.telegram_chat_id:settings.whatsapp_phone);
  if(!provider||!recipient)throw httpError(400,'Не выбран мессенджер или получатель','MESSENGER_RECIPIENT_REQUIRED');
  const scope=b.scope||settings.scope_json||{};
- if(scope.restaurant_id) await assertRestaurantAccess(req.user,scope.restaurant_id);
+ await assertScopeAccess(req.user,scope);
  const data=await loadReportMetrics(req.user,b.date,scope);
  const restaurant=scope.restaurant_id||data.values.restaurant||null;
  const textBody=reportText(b.date,restaurant,data.values,data.pnlData,metrics);
@@ -1440,16 +1489,24 @@ app.post('/api/reports/send',requireAuth,requireOrg,async(req,res,next)=>{try{
 app.get('/reports', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const date = req.query.date ? String(req.query.date) : null;
+    const reportScope = scopeFromQuery({ ...req.query, period: date ? String(date).slice(0,7) : new Date().toISOString().slice(0,7) });
+    await assertScopeAccess(req.user, reportScope);
     const rows = await safeQuery(
-      `SELECT id, report_date, values_json, note, updated_at FROM daily_reports
-        WHERE organization_id = $1::uuid AND ($2::date IS NULL OR report_date = $2::date)
+      `SELECT id, report_date, project_id, branch_id, restaurant_id, department_id, values_json, note, updated_at
+         FROM daily_reports
+        WHERE organization_id = $1::uuid
+          AND ($2::date IS NULL OR report_date = $2::date)
+          AND ($3::text='' OR project_id=$3)
+          AND ($4::text='' OR branch_id=$4)
+          AND ($5::text='' OR restaurant_id=$5)
+          AND ($6::text='' OR department_id=$6)
         ORDER BY report_date DESC LIMIT 366`,
-      [req.user.organizationId, date], []
+      [req.user.organizationId, date, reportScope.project_id, reportScope.branch_id, reportScope.restaurant_id, reportScope.department_id], []
     );
     const reports = [];
     for (const r of rows) {
       const values = r.values_json || {};
-      const scope = { period: String(r.report_date).slice(0, 7), project_id: '', branch_id: '', restaurant_id: '', department_id: '' };
+      const scope = { period: String(r.report_date).slice(0, 7), project_id: r.project_id || '', branch_id: r.branch_id || '', restaurant_id: r.restaurant_id || '', department_id: r.department_id || '' };
       const pnlRows = await safeQuery('SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1',
         [req.user.organizationId, scope.period, '', '', '', ''], []);
       const all = [];
@@ -1464,12 +1521,14 @@ app.get('/reports', requireAuth, requireOrg, async (req, res, next) => {
 app.post('/reports', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const body = parseOr400(ReportWriteSchema, req.body ?? {});
+    const reportScope = { project_id: body.project_id || '', branch_id: body.branch_id || '', restaurant_id: body.restaurant_id || '', department_id: body.department_id || '' };
+    await assertScopeAccess(req.user, reportScope);
     await queryWithRetry(
-      `INSERT INTO daily_reports (id, organization_id, report_date, values_json, note)
-       VALUES ($1::uuid,$2::uuid,$3::date,$4::jsonb,$5)
-       ON CONFLICT (organization_id, report_date)
+      `INSERT INTO daily_reports (id, organization_id, report_date, project_id, branch_id, restaurant_id, department_id, values_json, note)
+       VALUES ($1::uuid,$2::uuid,$3::date,$4,$5,$6,$7,$8::jsonb,$9)
+       ON CONFLICT (organization_id, report_date, project_id, branch_id, restaurant_id, department_id)
        DO UPDATE SET values_json = excluded.values_json, note = excluded.note, updated_at = now()`,
-      [uuid(), req.user.organizationId, body.date, JSON.stringify(body.values), body.note ?? null],
+      [uuid(), req.user.organizationId, body.date, reportScope.project_id, reportScope.branch_id, reportScope.restaurant_id, reportScope.department_id, JSON.stringify(body.values), body.note ?? null],
       { orgId: req.user.organizationId }
     );
     await audit(req.user, 'report.upsert', 'daily_reports', body.date, { keys: Object.keys(body.values).length });
@@ -1479,8 +1538,10 @@ app.post('/reports', requireAuth, requireOrg, async (req, res, next) => {
 app.delete('/reports/:date', requireAuth, requireOrg, async (req, res, next) => {
   try {
     if (!DATE_RE.test(req.params.date)) throw httpError(400, 'Некорректная дата', 'BAD_DATE');
-    await queryWithRetry('DELETE FROM daily_reports WHERE organization_id = $1::uuid AND report_date = $2::date',
-      [req.user.organizationId, req.params.date], { orgId: req.user.organizationId });
+    const reportScope = scopeFromQuery({ ...req.query, period: req.params.date.slice(0,7) });
+    await assertScopeAccess(req.user, reportScope);
+    await queryWithRetry('DELETE FROM daily_reports WHERE organization_id = $1::uuid AND report_date = $2::date AND ($3::text=\'\' OR project_id=$3) AND ($4::text=\'\' OR branch_id=$4) AND ($5::text=\'\' OR restaurant_id=$5) AND ($6::text=\'\' OR department_id=$6)',
+      [req.user.organizationId, req.params.date, reportScope.project_id, reportScope.branch_id, reportScope.restaurant_id, reportScope.department_id], { orgId: req.user.organizationId });
     await audit(req.user, 'report.delete', 'daily_reports', req.params.date, {});
     ok(res, { deleted: true, date: req.params.date });
   } catch (e) { next(e); }
