@@ -304,7 +304,7 @@ Production smoke-тест Yandex Cloud/PostgreSQL зависит от факти
 | `docs/PNL_WORKSPACE_SPEC.md` | Рабочая таблица P&L |
 | `docs/PNL_MANUAL_ENTRY_CONTRACT.md` | Ручной ввод P&L и save/readback |
 | `docs/SCOPE_CONTRACT.md` | Scope: Project / Branch / Restaurant / Department |
-| `openapi.yaml` | API-контракт |
+| `docs/API_GATEWAY_SPEC_2026-09-29.yaml` | API Gateway контракт |
 
 ---
 
