@@ -1106,10 +1106,13 @@ app.delete('/api/b2b/bindings/:id', requireAuth, requireOrg, async(req,res,next)
 
 async function resolveInboundBinding(user, channel, subjectId) {
   if (!subjectId) return null;
-  const rows=await safeQuery(
-    'SELECT b.id,b.unit_id,b.is_default,u.name AS unit_name FROM workspace_bindings b JOIN org_units u ON u.id=b.unit_id AND u.organization_id=b.organization_id WHERE b.organization_id=$1::uuid AND b.channel=$2 AND b.subject_id=$3 LIMIT 1',
-    [user?.organizationId,channel,String(subjectId)],[]
-  );
+  const rows = user?.organizationId
+    ? await safeQuery(
+        'SELECT b.id,b.unit_id,b.is_default,u.name AS unit_name FROM workspace_bindings b JOIN org_units u ON u.id=b.unit_id AND u.organization_id=b.organization_id WHERE b.organization_id=$1::uuid AND b.channel=$2 AND b.subject_id=$3 LIMIT 1',
+        [user.organizationId,channel,String(subjectId)],[])
+    : await safeQuery(
+        'SELECT b.id,b.organization_id,b.unit_id,b.is_default,u.name AS unit_name FROM workspace_bindings b JOIN org_units u ON u.id=b.unit_id AND u.organization_id=b.organization_id WHERE b.channel=$1 AND b.subject_id=$2 ORDER BY b.is_default DESC,b.updated_at DESC LIMIT 1',
+        [channel,String(subjectId)],[]);
   return rows[0]||null;
 }
 
