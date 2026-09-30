@@ -160,7 +160,6 @@ async function ensureSchemaNow() {
     await query(`CREATE INDEX IF NOT EXISTS idx_pnl_transactions_scope ON pnl_transactions(organization_id, period, project_id, branch_id, restaurant_id, department_id, transaction_date);`);
     await query(`CREATE TABLE IF NOT EXISTS pnl_approvals (organization_id UUID NOT NULL, period TEXT NOT NULL, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'draft', approved_by UUID, approved_at TIMESTAMPTZ, PRIMARY KEY (organization_id, period, project_id, branch_id, restaurant_id, department_id));`);
     // Журнал аудита всех записей (финансовый контур обязан иметь provenance).
-    await query(`DROP TABLE IF EXISTS audit_log;`);
     await query(`CREATE TABLE IF NOT EXISTS audit_log (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id UUID, user_id TEXT, action TEXT NOT NULL, entity TEXT NOT NULL, entity_id TEXT, details JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
     // Документы STEN (evidence pipeline): meta в БД, тело — в Object Storage.
     await query(`CREATE TABLE IF NOT EXISTS ai_documents (id UUID PRIMARY KEY, organization_id UUID NOT NULL, user_id TEXT, name TEXT NOT NULL, mime_type TEXT, size_bytes BIGINT, storage_key TEXT, status TEXT NOT NULL DEFAULT 'stored', error TEXT, extracted_text TEXT, extraction_json JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
