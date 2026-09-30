@@ -2,7 +2,7 @@
 /* ============================================================================
    STEN Backend — Express + serverless-http (Yandex Cloud Functions)
    Version: 5.0.2
-   Контракты: openapi.yaml, docs/BACKEND_ENV_CONTRACT.md, docs/DEPLOYMENT_CURRENT.md,
+   Контракты: docs/API_GATEWAY_SPEC_2026-09-29.yaml, docs/BACKEND_ENV_CONTRACT.md, docs/DEPLOYMENT_CURRENT.md,
               docs/PNL_MANUAL_ENTRY_CONTRACT.md, docs/SCOPE_CONTRACT.md
    Правила:
    - Missing != zero: отсутствующая величина остаётся null, никогда не выдумывается.
