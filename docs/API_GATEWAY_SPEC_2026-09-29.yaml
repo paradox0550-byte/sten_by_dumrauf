@@ -1806,6 +1806,137 @@ paths:
       responses:
         '204': { description: No Content }
 
+  /api/b2b/context:
+    get:
+      tags: [Organization]
+      operationId: getWorkspaceContext
+      summary: Получить серверный рабочий контекст и доступные рестораны
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: OK }
+        '401': { description: Unauthorized }
+    put:
+      tags: [Organization]
+      operationId: setWorkspaceContext
+      summary: Сменить ресторан/рабочий контур
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: OK }
+        '403': { description: Forbidden }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, PUT, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204': { description: No Content }
+
+  /api/b2b/bindings:
+    get:
+      tags: [Organization]
+      operationId: listWorkspaceBindings
+      summary: Получить связи Telegram/WhatsApp/Web с ресторанами
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: OK }
+        '401': { description: Unauthorized }
+    post:
+      tags: [Organization]
+      operationId: saveWorkspaceBinding
+      summary: Создать или обновить связь канала с рестораном
+      security:
+        - bearerAuth: []
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
+        payload_format_version: '1.0'
+      responses:
+        '201': { description: Created }
+        '403': { description: Forbidden }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "GET, POST, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204': { description: No Content }
+
+  /api/b2b/bindings/{id}:
+    delete:
+      tags: [Organization]
+      operationId: deleteWorkspaceBinding
+      summary: Удалить связь канала с рестораном
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
+        payload_format_version: '1.0'
+      responses:
+        '200': { description: OK }
+        '404': { description: Not Found }
+    options:
+      tags: [CORS]
+      security: []
+      x-yc-apigateway-integration:
+        type: dummy
+        http_code: 204
+        http_headers:
+          Access-Control-Allow-Origin: "*"
+          Access-Control-Allow-Methods: "DELETE, OPTIONS"
+          Access-Control-Allow-Headers: "Authorization, Content-Type, X-Request-ID"
+          Access-Control-Expose-Headers: "Content-Type, X-Request-ID"
+          Access-Control-Max-Age: "86400"
+        content:
+          "*": ""
+      responses:
+        '204': { description: No Content }
+
 # =============================================================================
 # COMPONENTS
 # =============================================================================
