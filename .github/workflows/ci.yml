@@ -157,16 +157,22 @@ jobs:
         run: |
           set -euo pipefail
           echo "VERIFY GET/PUT /api/analytics/settings on current Gateway"
-          get_status=$(curl -sS -o /tmp/analytics-get.json -w '%{http_code}' --max-time 20 "$API_URL/api/analytics/settings")
-          put_status=$(curl -sS -o /tmp/analytics-put.json -w '%{http_code}' --max-time 20 -X PUT -H 'Content-Type: application/json' --data '{"financial":true}' "$API_URL/api/analytics/settings")
           options_status=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 -X OPTIONS -H 'Origin: https://smenavkarmane-business.website.yandexcloud.net' "$API_URL/api/analytics/settings")
-          echo "GET status: $get_status"
-          echo "PUT status: $put_status"
-          echo "OPTIONS status: $options_status"
-          test "$get_status" = "401" || test "$get_status" = "403"
-          test "$put_status" = "401" || test "$put_status" = "403"
           test "$options_status" = "204"
-          echo "Analytics settings route is present and protected; OPTIONS is wired."
+          for i in $(seq 1 20); do
+            get_status=$(curl -sS -o /tmp/analytics-get.json -w '%{http_code}' --max-time 20 "$API_URL/api/analytics/settings" || true)
+            put_status=$(curl -sS -o /tmp/analytics-put.json -w '%{http_code}' --max-time 20 -X PUT -H 'Content-Type: application/json' --data '{"financial":true}' "$API_URL/api/analytics/settings" || true)
+            echo "Attempt $i: GET=$get_status PUT=$put_status OPTIONS=$options_status"
+            if { [ "$get_status" = "401" ] || [ "$get_status" = "403" ]; } && { [ "$put_status" = "401" ] || [ "$put_status" = "403" ]; }; then
+              echo "Analytics settings route is present and protected; OPTIONS is wired."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Analytics settings route did not reach the expected protected state."
+          cat /tmp/analytics-get.json || true
+          cat /tmp/analytics-put.json || true
+          exit 1
           
       - name: MARK 14 synchronize API Gateway
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
