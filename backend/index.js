@@ -799,34 +799,6 @@ app.use(async (req, _res, next) => {
 const ok = (res, data, status = 200) => res.status(status).json({ ok: true, data, requestId: res.req?.requestId || undefined });
 
 /* ---- health ---- */
-app.get('/debug/db', async (_req, res) => {
-  const out = {};
-  try { const r = await query('SELECT COUNT(*)::int AS c FROM pnl_entries'); out.total = r.rows; }
-  catch (e) { out.total_error = e.message; }
-  try { const r = await query('SELECT organization_id, period, COUNT(*)::int AS c FROM pnl_entries GROUP BY organization_id, period ORDER BY period DESC LIMIT 20'); out.byOrg = r.rows; }
-  catch (e) { out.byOrg_error = e.message; }
-  try { const r = await query('SELECT organization_id, period, project_id, branch_id, restaurant_id, department_id, updated_at FROM pnl_entries ORDER BY updated_at DESC LIMIT 10'); out.sample = r.rows; }
-  catch (e) { out.sample_error = e.message; }
-  try { const r = await query('SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname = $1', ['pnl_entries']); out.rls = r.rows; }
-  catch (e) { out.rls_error = e.message; }
-  res.json(out);
-});
-app.get('/debug/auth', requireAuth, (req, res) => {
-  res.json({ organizationId: req.user?.organizationId, id: req.user?.id, email: req.user?.email, type: typeof req.user?.organizationId });
-});
-
-app.get('/debug/pnl-test', requireAuth, async (req, res) => {
-  const org = req.user.organizationId;
-  const period = '2026-06';
-  const out = { org: String(org), org_type: typeof org, period };
-  try { const r = await query('SELECT COUNT(*)::int AS c FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2', [org, period]); out.withParams = r.rows; }
-  catch (e) { out.withParams_error = e.message; }
-  try { const r = await query('SELECT COUNT(*)::int AS c FROM pnl_entries WHERE organization_id::text=$1 AND period=$2', [String(org), period]); out.asText = r.rows; }
-  catch (e) { out.asText_error = e.message; }
-  try { const r = await query("SELECT COUNT(*)::int AS c FROM pnl_entries WHERE organization_id='7a776df0-bd68-4754-9741-1709357d0f4c'::uuid AND period='2026-06'"); out.hardcoded = r.rows; }
-  catch (e) { out.hardcoded_error = e.message; }
-  res.json(out);
-});
 app.get('/healthz', async (_req, res) => {
   const dbOk = !!ENV.DB_HOST;
   let dbReachable = false;
