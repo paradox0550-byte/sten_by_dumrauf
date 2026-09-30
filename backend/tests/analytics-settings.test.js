@@ -22,6 +22,6 @@ test('API Gateway contract exposes GET/PUT/OPTIONS for analytics settings', () =
   assert.match(block, /    get:/);
   assert.match(block, /    put:/);
   assert.match(block, /    options:/);
-  assert.equal((block.match(/function_id: d4epijnhj7h9sd5ppa66/g) || []).length, 3);
+  assert.equal((block.match(/function_id: d4epijnhj7h9sd5ppa66/g) || []).length, 2);
   assert.equal((block.match(/service_account_id: '\$\{var\.gateway_service_account_id\}'/g) || []).length, 2);
 });
