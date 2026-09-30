@@ -3,6 +3,7 @@
    между всеми компонентами (Layout, Настройки) через кастомное событие. */
 import { useEffect, useState } from 'react';
 import { DEFAULT_PERIOD, Scope, scopeKey } from './scope';
+import { api } from './api';
 
 const KEY = 'sten_scope_v5';
 const EVT = 'sten-scope-change';
@@ -22,6 +23,17 @@ export function useScope(): [Scope, (next: Scope) => void] {
   const [scope, setScope] = useState<Scope>(readSaved);
 
   useEffect(() => {
+    void api.get<any>('/api/b2b/context').then((r:any) => {
+      const c = r?.context ?? r?.data?.context;
+      if (!c) return;
+      setScope(prev => ({
+        ...prev,
+        projectId: c.project_id || undefined,
+        branchId: c.branch_id || undefined,
+        restaurantId: c.restaurant_id || undefined,
+        departmentId: c.department_id || undefined,
+      }));
+    }).catch(() => { /* server context недоступен — остаёмся на локальном scope */ });
     const onChange = () => setScope(readSaved());
     window.addEventListener(EVT, onChange);
     window.addEventListener('storage', onChange);
@@ -33,6 +45,12 @@ export function useScope(): [Scope, (next: Scope) => void] {
 
   const update = (next: Scope) => {
     setScope(next);
+    void api.put('/api/b2b/context', {
+      restaurant_id: next.restaurantId ?? null,
+      project_id: next.projectId ?? null,
+      branch_id: next.branchId ?? null,
+      department_id: next.departmentId ?? null,
+    }).catch(() => { /* локальный scope остаётся рабочим при временной недоступности API */ });
     try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* приватный режим */ }
     window.dispatchEvent(new Event(EVT));
   };
