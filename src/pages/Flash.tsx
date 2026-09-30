@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react';
 import { Activity, AlertTriangle, RefreshCw, Save, Pencil, X } from 'lucide-react';
 import { api } from '../lib/api';
 
-import { useScope } from '../lib/useScope';
-
 type Calc = {
   revenue: number | null; cogs: number | null; labor: number | null;
   personnel: number | null; overtime: number | null;
@@ -27,7 +25,6 @@ const fmt = (v: number | null, p = false) =>
   v === null ? '—' : (p ? v.toFixed(1).replace('.', ',') + ' %' : new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(v));
 
 export default function Flash() {
-  const [scope] = useScope();
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [r, setR] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
