@@ -1,18 +1,25 @@
 openapi: 3.0.3
 info:
   title: ╨б╨в╨Х╨Э API
-  version: 4.3.0
+  version: 5.0.2
   description: |
     API ╨║╨░╨▒╨╕╨╜╨╡╤В╨░ ╤Г╨┐╤А╨░╨▓╨╗╤П╤О╤Й╨╡╨│╨╛ ┬л╨б╨в╨Х╨Э┬╗.
     ╨б╨╕╨╜╤Е╤А╨╛╨╜╨╕╨╖╨╕╤А╨╛╨▓╨░╨╜╨╛ ╤Б backend/index.js v4.3.0 (YandexGPT + skills routing + P&L CRUD).
 
     Function: d4epijnhj7h9sd5ppa66
+    Backend: 5.0.2
     AI: YandexGPT (production)
   contact:
     name: STEN Team
 
 servers:
 - url: https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net
+
+x-yc-apigateway:
+  variables:
+    gateway_service_account_id:
+      default: ""
+      description: "Service account ID used by API Gateway to invoke the private STEN Cloud Function."
 tags:
   - name: Health
     description: ╨Я╤А╨╛╨▓╨╡╤А╨║╨░ ╨┤╨╛╤Б╤В╤Г╨┐╨╜╨╛╤Б╤В╨╕ ╤Б╨╡╤А╨▓╨╕╤Б╨░
@@ -113,6 +120,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -152,6 +160,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -169,6 +178,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -220,6 +230,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -272,6 +283,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -311,6 +323,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '403':
@@ -346,6 +359,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -394,6 +408,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -443,6 +458,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -495,6 +511,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -546,6 +563,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -594,6 +612,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -642,6 +661,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -689,6 +709,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -755,6 +776,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -802,6 +824,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -872,6 +895,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -931,6 +955,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -988,6 +1013,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       parameters:
         - in: query
@@ -1014,6 +1040,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -1066,6 +1093,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -1088,6 +1116,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -1116,6 +1145,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -1163,6 +1193,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -1185,6 +1216,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -1235,6 +1267,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -1269,6 +1302,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -1316,6 +1350,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -1376,6 +1411,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -1394,6 +1430,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -1440,6 +1477,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -1457,6 +1495,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -1482,6 +1521,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -1526,6 +1566,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -1548,6 +1589,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -1597,6 +1639,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -1617,6 +1660,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -1661,6 +1705,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -1683,6 +1728,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -1739,6 +1785,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -1775,6 +1822,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -1834,6 +1882,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -1867,6 +1916,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -1917,6 +1967,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       parameters:
         - in: query
@@ -1948,6 +1999,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       requestBody:
         required: true
@@ -2009,6 +2061,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -2056,6 +2109,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -2078,6 +2132,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '201':
@@ -2117,6 +2172,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       parameters:
         - in: query
@@ -2143,6 +2199,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '201':
@@ -2185,6 +2242,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       parameters:
         - in: query
@@ -2220,6 +2278,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '201':
@@ -2264,6 +2323,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -2290,6 +2350,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200':
@@ -2337,6 +2398,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       parameters:
         - in: query
@@ -2392,6 +2454,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       parameters:
         - { in: query, name: period, required: true, schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' } }
@@ -2429,6 +2492,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200': { description: Approved }
@@ -2465,6 +2529,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200': { description: OK }
@@ -2478,6 +2543,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200': { description: Saved }
@@ -2516,6 +2582,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200': { description: OK }
@@ -2530,6 +2597,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200': { description: Saved }
@@ -2561,6 +2629,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200': { description: OK }
@@ -2574,6 +2643,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200': { description: Saved }
@@ -2608,6 +2678,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200': { description: Sent }
@@ -2644,6 +2715,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       parameters:
         - { in: query, name: from, schema: { type: string } }
@@ -2660,6 +2732,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '201': { description: Created }
@@ -2697,6 +2770,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200': { description: OK }
@@ -2711,6 +2785,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200': { description: Deleted }
@@ -2751,6 +2826,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200': { description: OK }
@@ -2789,6 +2865,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200': { description: Deleted }
@@ -2823,6 +2900,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       parameters:
         - { in: query, name: hub.verify_token, schema: { type: string } }
@@ -2839,6 +2917,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200': { description: Parsed }
@@ -2871,6 +2950,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200': { description: Confirmed }
@@ -2906,6 +2986,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200': { description: OK }
@@ -2938,6 +3019,7 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: '$latest'
+        service_account_id: '${var.gateway_service_account_id}'
         payload_format_version: '1.0'
       responses:
         '200': { description: OK }
