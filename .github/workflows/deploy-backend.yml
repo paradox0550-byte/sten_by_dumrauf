@@ -102,6 +102,9 @@ jobs:
             YANDEXGPT_MAX_TOKENS=8000
             YANDEXGPT_TEMPERATURE=0.2
             VISION_OCR_URL=https://ocr.api.cloud.yandex.net/ocr/v1/recognizeText
+            MARKITDOWN_URL=${{ vars.MARKITDOWN_URL }}
+            MARKITDOWN_ENABLED=${{ vars.MARKITDOWN_ENABLED }}
+            MARKITDOWN_TIMEOUT_MS=60000
             DB_HOST=${{ vars.YC_DB_HOST }}
             DB_PORT=${{ vars.YC_DB_PORT }}
             DB_NAME=${{ vars.YC_DB_NAME }}
@@ -122,6 +125,7 @@ jobs:
             YANDEXGPT_API_KEY=${{ secrets.YC_LOCKBOX_YANDEXGPT_API_KEY }}
             AWS_ACCESS_KEY_ID=${{ secrets.YC_LOCKBOX_AWS_ACCESS_KEY_ID }}
             AWS_SECRET_ACCESS_KEY=${{ secrets.YC_LOCKBOX_AWS_SECRET_ACCESS_KEY }}
+            MARKITDOWN_TOKEN=${{ secrets.YC_LOCKBOX_MARKITDOWN_TOKEN }}
 
       - name: Production smoke test
         env:
