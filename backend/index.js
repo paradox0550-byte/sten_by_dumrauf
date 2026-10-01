@@ -1663,7 +1663,8 @@ app.get('/api/b2b/org/tree', requireAuth, requireOrg, async (req, res, next) => 
     if (!rows) {
       return res.status(503).json({ error: { message: 'Справочник организации временно недоступен (БД)', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
     }
-    // Пустой справочник остаётся пустым: STEN не создаёт фиктивные рестораны/отделы.\n    const byId = new Map(rows.map(r => [r.id, { ...r, children: [] }]));
+    // Пустой справочник остаётся пустым: STEN не создаёт фиктивные рестораны/отделы.
+    const byId = new Map(rows.map(r => [r.id, { ...r, children: [] }]));
     const roots = [];
     for (const node of byId.values()) {
       const parent = node.parent_id ? byId.get(node.parent_id) : null;
