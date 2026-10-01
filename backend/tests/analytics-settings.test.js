@@ -24,4 +24,8 @@ test('API Gateway contract exposes GET/PUT/OPTIONS for analytics settings', () =
   assert.match(block, /    options:/);
   assert.equal((block.match(/function_id: d4epijnhj7h9sd5ppa66/g) || []).length, 2);
   assert.equal((block.match(/service_account_id: '\$\{var\.gateway_service_account_id\}'/g) || []).length, 2);
+  const bindingsStart = gateway.indexOf('  /api/b2b/bindings/{id}:');
+  assert.notEqual(bindingsStart, -1, 'binding path missing from gateway spec');
+  const bindingsBlock = gateway.slice(bindingsStart, gateway.indexOf('\n  /', bindingsStart + 3));
+  assert.match(bindingsBlock, /parameters:\n\s+- \{ in: path, name: id, required: true/);
 });
