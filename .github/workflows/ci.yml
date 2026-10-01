@@ -220,7 +220,7 @@ jobs:
             --id "$API_GATEWAY_ID" \
             --folder-id "$FOLDER_ID" \
             --spec docs/API_GATEWAY_SPEC_2026-09-29.yaml \
-            --variables "gateway_service_account_id=$DEPLOY_SA_ID" \
+            --variables "gateway_service_account_id=$DEPLOY_SA_ID"
 
       - name: MARK 14 production smoke
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
