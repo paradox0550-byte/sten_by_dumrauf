@@ -2206,9 +2206,8 @@ h3, .h3 {
   bottom: 0;
   z-index: 60;
   padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
-  background: rgba(10, 10, 15, 0.96);
+  background: var(--surface);
   border-top: 1px solid var(--line);
-  backdrop-filter: blur(12px);
 }
 
 .quick-entry-save {
@@ -3186,14 +3185,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 /* === Impeccable: Skeleton Loader === */
 .skeleton {
-  background: linear-gradient(90deg, var(--surface2) 25%, var(--line) 50%, var(--surface2) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  background: var(--surface2);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
   border-radius: var(--radius-sm);
 }
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: .72; }
+  50% { opacity: 1; }
 }
 
 /* === Pegboard: Dark theme contrast fix === */
