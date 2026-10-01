@@ -93,8 +93,8 @@ jobs:
           service-account: ajeru518lnk3t3rc935k
           network-id: ${{ env.FUNCTION_NETWORK_ID }}
           tags: |
-            ${{ github.sha }}
-            ${{ 'latest' }}
+            $latest
+            sha-${{ github.sha }}
           environment: |
             NODE_ENV=production
             ALLOWED_ORIGINS=https://smenavkarmane-business.website.yandexcloud.net,https://cabinet.smenavkarmane.ru,https://smenavkarmane.ru,http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:5173,https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net
