@@ -12,13 +12,7 @@ permissions:
   contents: read
 
 env:
-  FOLDER_ID: ${{ vars.YC_FOLDER_ID }}
   FUNCTION_NAME: smenavkarmane-api
-  FUNCTION_RUNTIME: nodejs22
-  FUNCTION_ENTRYPOINT: index.handler
-  FUNCTION_MEMORY: 256Mb
-  FUNCTION_TIMEOUT: "90"
-  FUNCTION_NETWORK_ID: ${{ vars.YC_NETWORK_ID }}
 
 jobs:
   validate:
@@ -26,17 +20,14 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: backend/package-lock.json
-
       - name: Install backend dependencies
         working-directory: backend
-        run: npm ci
-
+        run: npm ci --omit=dev
       - name: Syntax check
         working-directory: backend
         run: |
@@ -45,26 +36,6 @@ jobs:
           node --check documentProcessor.js
           node --check markitdownClient.js
           node --check core/skills.js
-          npm test
-
-  deploy:
-    name: Deploy Cloud Function
-    needs: validate
-    runs-on: ubuntu-24.04
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: backend/package-lock.json
-
-      - name: Install backend dependencies (prod only)
-        working-directory: backend
-        run: npm ci --omit=dev
-
       - name: Verify required files exist
         working-directory: backend
         run: |
@@ -73,10 +44,24 @@ jobs:
           test -f documentProcessor.js  || (echo "❌ documentProcessor.js missing" && exit 1)
           test -f markitdownClient.js   || (echo "❌ markitdownClient.js missing" && exit 1)
           test -f core/skills.js        || (echo "❌ core/skills.js missing" && exit 1)
-          test -f package.json          || (echo "❌ package.json missing" && exit 1)
           test -d node_modules          || (echo "❌ node_modules missing" && exit 1)
           echo "✅ All required files present"
 
+  deploy:
+    name: Deploy Cloud Function
+    needs: validate
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install backend dependencies (prod only)
+        working-directory: backend
+        run: npm ci --omit=dev
       - name: Deploy function version
         id: deploy
         uses: yc-actions/yc-sls-function@v5
@@ -84,82 +69,52 @@ jobs:
           yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
           folder-id: ${{ vars.YC_FOLDER_ID }}
           function-name: ${{ env.FUNCTION_NAME }}
-          runtime: ${{ env.FUNCTION_RUNTIME }}
-          memory: ${{ env.FUNCTION_MEMORY }}
-          entrypoint: ${{ env.FUNCTION_ENTRYPOINT }}
-          execution-timeout: ${{ env.FUNCTION_TIMEOUT }}
+          runtime: nodejs22
+          memory: 256Mb
+          entrypoint: index.handler
+          execution-timeout: 90
           source-root: backend
+          include: |
+            ./*.js
+            ./core/*.js
+            ./core/**/*.js
+            ./package.json
+            ./package-lock.json
+            ./node_modules/**
           bucket: smenavkarmane-business
           service-account: ajeru518lnk3t3rc935k
-          network-id: ${{ env.FUNCTION_NETWORK_ID }}
+          network-id: ${{ vars.YC_NETWORK_ID }}
+          tags: |
+            sha-${{ github.sha }}
           environment: |
             NODE_ENV=production
-            ALLOWED_ORIGINS=https://smenavkarmane-business.website.yandexcloud.net,https://cabinet.smenavkarmane.ru,https://smenavkarmane.ru,http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:5173,https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net
-            CORS_ORIGIN=https://smenavkarmane-business.website.yandexcloud.net
-            OBJECT_STORAGE_BUCKET=smenavkarmane-business
-            OBJECT_STORAGE_ENDPOINT=https://storage.yandexcloud.net
-            OBJECT_STORAGE_REGION=ru-central1
-            YC_BUCKET_NAME=smenavkarmane-business
+            JWT_SECRET=${{ secrets.YC_LOCKBOX_JWT_SECRET }}
+            UNLOCK_CODE_HASH=${{ secrets.YC_LOCKBOX_UNLOCK_CODE }}
+            DB_HOST=${{ vars.YC_DB_HOST }}
+            DB_PORT=${{ vars.YC_DB_PORT }}
+            DB_NAME=${{ vars.YC_DB_NAME }}
+            DB_USER=${{ vars.YC_DB_USER }}
+            DB_PASSWORD=${{ secrets.YC_LOCKBOX_DB_PASSWORD }}
+            YC_FOLDER_ID=${{ vars.YC_FOLDER_ID }}
             YANDEXGPT_MODEL=yandexgpt
             YANDEXGPT_BASE_URL=https://llm.api.cloud.yandex.net/foundationModels/v1
             YANDEXGPT_TIMEOUT_MS=60000
             YANDEXGPT_MAX_TOKENS=8000
             YANDEXGPT_TEMPERATURE=0.2
+            YANDEXGPT_API_KEY=${{ secrets.YC_LOCKBOX_YANDEXGPT_API_KEY }}
             VISION_OCR_URL=https://ocr.api.cloud.yandex.net/ocr/v1/recognizeText
-            DB_HOST=${{ vars.YC_DB_HOST }}
-            DB_PORT=${{ vars.YC_DB_PORT }}
-            DB_NAME=${{ vars.YC_DB_NAME }}
-            DB_USER=${{ vars.YC_DB_USER }}
-            YC_FOLDER_ID=${{ vars.YC_FOLDER_ID }}
-            JWT_TTL_SECONDS=2592000
-            PNL_APPROVER_ROLES=super_admin,admin,director,owner
-            DEFAULT_ORG_ID=${{ vars.YC_DEFAULT_ORG_ID }}
+            OBJECT_STORAGE_BUCKET=smenavkarmane-business
+            OBJECT_STORAGE_ENDPOINT=https://storage.yandexcloud.net
+            OBJECT_STORAGE_REGION=ru-central1
+            YC_BUCKET_NAME=smenavkarmane-business
+            AWS_ACCESS_KEY_ID=${{ secrets.YC_LOCKBOX_AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.YC_LOCKBOX_AWS_SECRET_ACCESS_KEY }}
+            ALLOWED_ORIGINS=https://smenavkarmane-business.website.yandexcloud.net,https://cabinet.smenavkarmane.ru,http://localhost:5173
+            CORS_ORIGIN=https://smenavkarmane-business.website.yandexcloud.net
             ADMIN_ROLE=super_admin
             ADMIN_EMAIL=${{ vars.YC_ADMIN_EMAIL }}
             ADMIN_ID=${{ vars.YC_ADMIN_ID }}
+            JWT_TTL_SECONDS=2592000
+            PNL_APPROVER_ROLES=super_admin,admin,director,owner
+            DEFAULT_ORG_ID=${{ vars.YC_DEFAULT_ORG_ID }}
             DEBUG=0
-            JWT_SECRET=${{ secrets.YC_LOCKBOX_JWT_SECRET }}
-            UNLOCK_CODE_HASH=${{ secrets.YC_LOCKBOX_UNLOCK_CODE }}
-            DB_PASSWORD=${{ secrets.YC_LOCKBOX_DB_PASSWORD }}
-            YANDEXGPT_API_KEY=${{ secrets.YC_LOCKBOX_YANDEXGPT_API_KEY }}
-            AWS_ACCESS_KEY_ID=${{ secrets.YC_LOCKBOX_AWS_ACCESS_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY=${{ secrets.YC_LOCKBOX_AWS_SECRET_ACCESS_KEY }}
-            MARKITDOWN_TOKEN=${{ secrets.YC_LOCKBOX_MARKITDOWN_TOKEN }}
-
-      - name: Promote new version to $latest
-        env:
-          YC_SA_JSON_CREDENTIALS: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
-        run: |
-          set -euo pipefail
-          curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -i /home/runner/ycfolder -n
-          export PATH="/home/runner/ycfolder/bin:$PATH"
-          yc --version
-
-          echo "$YC_SA_JSON_CREDENTIALS" > /tmp/sa-key.json
-          yc config profile create sa 2>/dev/null || true
-          yc config set service-account-key /tmp/sa-key.json
-          yc config set folder-id ${{ vars.YC_FOLDER_ID }}
-          rm /tmp/sa-key.json
-
-          NEW_ID=$(yc serverless function version list --function-id d4epijnhj7h9sd5ppa66 --format json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['id'])")
-          echo "New version ID: $NEW_ID"
-          yc serverless function version set-tag --id "$NEW_ID" --tag '$latest'
-          echo "✅ \$latest now points to $NEW_ID"
-
-      - name: Production smoke test
-        env:
-          API_URL: ${{ vars.YC_API_GATEWAY_URL }}
-        run: |
-          set -euo pipefail
-          echo "🔍 Smoke test on $API_URL/healthz..."
-          for i in 1 2 3 4 5; do
-            if curl -fsS "$API_URL/healthz" >/tmp/health.json; then
-              echo "✅ Backend is healthy:"
-              cat /tmp/health.json
-              exit 0
-            fi
-            echo "⏳ Attempt $i failed, retrying in 4s..."
-            sleep 4
-          done
-          echo "❌ Smoke test failed after 5 attempts"
-          exit 1
