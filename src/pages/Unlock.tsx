@@ -5,7 +5,6 @@ import { ApiError } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
 
 const CODE_LENGTH = 4;
-const MAX_ATTEMPTS = 5;
 
 export default function Unlock() {
   const { unlock, user, loading } = useAuth();
