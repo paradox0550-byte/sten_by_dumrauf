@@ -1,0 +1,62 @@
+name: Deploy STEN MarkItDown converter
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/markitdown/**"
+      - ".github/workflows/deploy-markitdown.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  FUNCTION_NAME: sten-markitdown
+  FUNCTION_RUNTIME: python312
+  FUNCTION_ENTRYPOINT: function.handler
+  FUNCTION_MEMORY: 1024Mb
+  FUNCTION_TIMEOUT: "120"
+
+jobs:
+  validate:
+    name: Validate MarkItDown function
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate source
+        run: |
+          set -euo pipefail
+          test -f backend/markitdown/function.py
+          test -f backend/markitdown/requirements.txt
+          grep -q "markitdown\[all\]==0.1.8" backend/markitdown/requirements.txt
+          python3 -m py_compile backend/markitdown/function.py
+
+  deploy:
+    name: Deploy MarkItDown Cloud Function
+    needs: validate
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy function version
+        uses: yc-actions/yc-sls-function@v5
+        with:
+          yc-sa-id: ${{ vars.YC_DEPLOY_SA_ID }}
+          folder-id: ${{ vars.YC_FOLDER_ID }}
+          function-name: ${{ env.FUNCTION_NAME }}
+          runtime: ${{ env.FUNCTION_RUNTIME }}
+          memory: ${{ env.FUNCTION_MEMORY }}
+          entrypoint: ${{ env.FUNCTION_ENTRYPOINT }}
+          execution-timeout: ${{ env.FUNCTION_TIMEOUT }}
+          source-root: backend/markitdown
+          service-account-name: github-deployer
+          include: |
+            ./function.py
+            ./requirements.txt
+          tags: |
+            ${{ github.sha }}
+          environment: |
+            MARKITDOWN_MAX_BYTES=15728640
+            MARKITDOWN_TOKEN=${{ secrets.YC_LOCKBOX_MARKITDOWN_TOKEN }}
