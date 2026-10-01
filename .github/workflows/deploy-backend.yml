@@ -44,7 +44,9 @@ jobs:
           set -euo pipefail
           node --check index.js
           node --check documentProcessor.js
+          node --check markitdownClient.js
           node --check core/skills.js
+          npm test
       
       - name: Validate required deployment configuration
         env:
