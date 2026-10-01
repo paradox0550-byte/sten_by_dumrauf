@@ -15,7 +15,7 @@ env:
   FUNCTION_NAME: smenavkarmane-api
   FUNCTION_RUNTIME: nodejs22
   FUNCTION_ENTRYPOINT: index.handler
-  FUNCTION_MEMORY: 256Mb
+  FUNCTION_MEMORY: 256m
   FUNCTION_TIMEOUT: 90s
 
 jobs:
