@@ -135,7 +135,7 @@ jobs:
             --package-bucket-name smenavkarmane-business \
             --package-object-name "$PACKAGE_OBJECT" \
             --package-sha256 "$PACKAGE_SHA256" \
-            --service-account-id ajeru518lnk3t3rc935k \
+            --service-account-id "${{ vars.YC_DEPLOY_SA_ID }}" \
             --network-id "$YC_NETWORK_ID" \
             --environment NODE_ENV=production \
             --environment DEBUG=0 \
