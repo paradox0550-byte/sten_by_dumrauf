@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link2, Plus, Trash2, X, Save } from 'lucide-react';
+import { Plus, Trash2, X, Save } from 'lucide-react';
 import { api } from '../lib/api';
 
 type Binding={id:string;channel:'telegram'|'whatsapp'|'web';subject_id:string;unit_id:string;unit_name?:string;is_default:boolean};
