@@ -9,7 +9,6 @@ import{formatMoney,formatDeltaPct}from'../lib/format';
 
 type Row=FinancialRow;
 const canonical=[['revenue','Выручка'],['cogs','Себестоимость'],['payroll','ФОТ'],['opex','OPEX'],['depreciation','Амортизация'],['interest','Проценты'],['tax','Налоги'],['other','Прочее']] as const;
-const value=(rows:Row[],key:string,field:'plan'|'fact')=>rows.find(r=>canonicalArticleKey(r.article)===key)?.[field]??null;
 const has=(v:number|null|undefined):v is number=>typeof v==='number'&&Number.isFinite(v);
 const EXPENSE_KEYWORDS=['cogs','labor','payroll','opex','personnel','other','себестоим','фот','персонал','расход','затрат'];
 const isExpenseArticle=(article:string):boolean=>{const key=String(article||'').toLowerCase();return EXPENSE_KEYWORDS.some(k=>key.includes(k))};
