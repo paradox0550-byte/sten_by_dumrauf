@@ -457,3 +457,323 @@ textarea {
     transition-duration: .001ms !important;
   }
 }
+
+
+/* ==========================================================================
+   STEN v5.0.2 — Unified UI contour
+   One surface language across every workspace: shell, pages, panels, controls,
+   tables, forms and dialogs. This layer intentionally normalizes legacy styles.
+   ========================================================================== */
+
+:root {
+  --ui-radius-xs: 6px;
+  --ui-radius-sm: 8px;
+  --ui-radius-md: 10px;
+  --ui-radius-lg: 12px;
+  --ui-control-h: 38px;
+  --ui-section-gap: 16px;
+  --ui-page-gap: 12px;
+  --ui-shadow: none;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--text-primary);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 0;
+  box-shadow: var(--focus);
+}
+
+/* One page frame */
+.executive-shell .content {
+  width: 100%;
+  margin: 0 auto;
+}
+
+.executive-shell .page {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  gap: var(--ui-page-gap);
+}
+
+.executive-shell .page > * {
+  min-width: 0;
+}
+
+/* One panel language */
+.executive-shell .panel,
+.executive-shell .metric-card,
+.executive-shell .pnl-kpi,
+.executive-shell .budget-kpi,
+.executive-shell .chat,
+.executive-shell .docs-panel,
+.executive-shell .modal-card,
+.executive-shell .unlock-card,
+.executive-shell .analytics-gap-section {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ui-radius-md);
+  box-shadow: var(--ui-shadow);
+}
+
+.executive-shell .panel {
+  padding: 18px 20px;
+}
+
+.executive-shell .panel-title {
+  margin: 0 0 14px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
+/* One control language */
+.executive-shell .primary-button,
+.executive-shell .secondary-button,
+.executive-shell .danger-button {
+  min-height: var(--ui-control-h);
+  border-radius: var(--ui-radius-xs);
+  box-shadow: none;
+}
+
+.executive-shell .primary-button {
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+  color: #fff;
+}
+
+.executive-shell .primary-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-brand) 88%, var(--text-primary));
+  border-color: color-mix(in srgb, var(--color-brand) 88%, var(--text-primary));
+}
+
+.executive-shell .secondary-button {
+  background: var(--bg-surface);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.executive-shell .secondary-button:hover:not(:disabled) {
+  background: var(--bg-surface-subtle);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.executive-shell .danger-button {
+  background: transparent;
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.executive-shell .icon-button {
+  border-color: var(--border-subtle);
+  border-radius: var(--ui-radius-xs);
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.executive-shell .icon-button:hover:not(:disabled) {
+  background: var(--bg-surface-subtle);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+/* One input/select language */
+.executive-shell input,
+.executive-shell select,
+.executive-shell textarea {
+  border-color: var(--border-subtle);
+  border-radius: var(--ui-radius-xs);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.executive-shell input:hover,
+.executive-shell select:hover,
+.executive-shell textarea:hover {
+  border-color: var(--border-strong);
+}
+
+.executive-shell input:focus,
+.executive-shell select:focus,
+.executive-shell textarea:focus {
+  border-color: var(--color-brand);
+  box-shadow: var(--focus);
+  outline: 0;
+}
+
+.executive-shell .settings-field input,
+.executive-shell .settings-field select {
+  min-height: var(--ui-control-h);
+  border-radius: var(--ui-radius-xs);
+  background: var(--bg-surface-subtle);
+}
+
+/* Workspace/scope controls share the same surface and density */
+.executive-shell .workspace-btn,
+.executive-shell .period-chip,
+.executive-shell .global-scale,
+.executive-shell .security-status {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ui-radius-xs);
+  background: var(--bg-surface-subtle);
+}
+
+.executive-shell .workspace-btn {
+  min-height: var(--ui-control-h);
+}
+
+.executive-shell .workspace-popover {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--ui-radius-md);
+  background: var(--bg-surface);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .18);
+}
+
+/* Tables are part of the same contour, not separate visual products */
+.executive-shell .table-wrap,
+.executive-shell .financial-table,
+.executive-shell .analytics-report-table,
+.executive-shell .budget-grid {
+  border-color: var(--border-subtle);
+}
+
+.executive-shell .financial-table th,
+.executive-shell .financial-table td,
+.executive-shell .analytics-report-table > div,
+.executive-shell .budget-grid > div {
+  border-color: var(--border-subtle);
+}
+
+.executive-shell .financial-table th,
+.executive-shell .analytics-report-head {
+  background: var(--bg-surface-subtle);
+  color: var(--text-secondary);
+}
+
+.executive-shell .financial-table tr:hover td,
+.executive-shell .analytics-report-table > div:not(.analytics-report-head):hover,
+.executive-shell .budget-grid > div:not(.head):hover {
+  background: var(--bg-surface-subtle);
+}
+
+/* Status semantics are shared everywhere */
+.executive-shell .positive,
+.executive-shell .metric-positive {
+  color: var(--color-success) !important;
+}
+
+.executive-shell .negative,
+.executive-shell .metric-negative {
+  color: var(--color-danger) !important;
+}
+
+.executive-shell .warning,
+.executive-shell .metric-warning {
+  color: var(--color-warning) !important;
+}
+
+/* Messages and empty states use the same semantic surfaces */
+.executive-shell .pnl-message,
+.executive-shell .import-result,
+.executive-shell .empty,
+.executive-shell .empty-state,
+.executive-shell .chart-empty {
+  border-radius: var(--ui-radius-sm);
+  box-shadow: none;
+}
+
+.executive-shell .empty,
+.executive-shell .empty-state,
+.executive-shell .chart-empty {
+  background: var(--bg-surface-subtle);
+  border: 1px dashed var(--border-strong);
+  color: var(--text-secondary);
+}
+
+/* Dialogs: same contour, stronger separation */
+.executive-shell .modal-backdrop,
+.executive-shell .workspace-popover-backdrop {
+  background: rgba(2, 6, 23, .48);
+}
+
+.executive-shell .modal-card {
+  max-width: 560px;
+  padding: 22px;
+}
+
+.executive-shell .modal-close {
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+/* Remove legacy warm/gold emphasis from shared structural components. */
+.executive-shell .eyebrow,
+.executive-shell .panel-title svg,
+.executive-shell .analytics-footer svg {
+  color: var(--color-brand);
+}
+
+.executive-shell .status-chip,
+.executive-shell .badge-info {
+  color: var(--color-brand);
+  background: color-mix(in srgb, var(--color-brand) 10%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--color-brand) 22%, var(--border-subtle));
+}
+
+/* Desktop density stays stable; wide screens gain whitespace, not larger UI. */
+@media (min-width: 1440px) {
+  .executive-shell .content {
+    padding-inline: 40px;
+  }
+}
+
+@media (max-width: 767px) {
+  .executive-shell .content {
+    padding: 14px 12px 28px;
+  }
+
+  .executive-shell .panel {
+    padding: 16px;
+    border-radius: var(--ui-radius-sm);
+  }
+
+  .executive-shell .page {
+    gap: 10px;
+  }
+
+  .executive-shell .primary-button,
+  .executive-shell .secondary-button,
+  .executive-shell .danger-button,
+  .executive-shell .settings-field input,
+  .executive-shell .settings-field select {
+    min-height: 40px;
+  }
+
+  .executive-shell .modal-card {
+    width: calc(100vw - 24px);
+    max-width: none;
+    padding: 18px;
+    border-radius: var(--ui-radius-md);
+  }
+}
