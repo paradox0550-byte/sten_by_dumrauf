@@ -139,7 +139,6 @@ jobs:
             ADMIN_EMAIL=${{ vars.YC_ADMIN_EMAIL }}
             ADMIN_ID=${{ vars.YC_ADMIN_ID }}
             DEBUG=0
-          secrets: |
             JWT_SECRET=${{ secrets.YC_LOCKBOX_JWT_SECRET }}
             UNLOCK_CODE_HASH=${{ secrets.YC_LOCKBOX_UNLOCK_CODE }}
             DB_PASSWORD=${{ secrets.YC_LOCKBOX_DB_PASSWORD }}
