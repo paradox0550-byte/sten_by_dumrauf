@@ -1781,7 +1781,7 @@ function extractDocxXml(buffer) {
   if (pos + compSize > view.length) return '';
   try {
     const zlib = require('zlib');
-    const async function extractDocument(buf, name, mime) {
+    async function extractDocument(buf, name, mime) {
   const ext = String(name).split('.').pop()?.toLowerCase() || '';
   const markitdownEnv = {
     MARKITDOWN_URL: ENV.MARKITDOWN_URL,
