@@ -92,8 +92,6 @@ jobs:
           bucket: smenavkarmane-business
           service-account: ajeru518lnk3t3rc935k
           network-id: ${{ env.FUNCTION_NETWORK_ID }}
-          tags: |
-            sha-${{ github.sha }}}
           environment: |
             NODE_ENV=production
             ALLOWED_ORIGINS=https://smenavkarmane-business.website.yandexcloud.net,https://cabinet.smenavkarmane.ru,https://smenavkarmane.ru,http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:5173,https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net
@@ -108,7 +106,6 @@ jobs:
             YANDEXGPT_MAX_TOKENS=8000
             YANDEXGPT_TEMPERATURE=0.2
             VISION_OCR_URL=https://ocr.api.cloud.yandex.net/ocr/v1/recognizeText
-            DB_HOST=${{ vars.YC_DB_HOST }}
             DB_HOST=${{ vars.YC_DB_HOST }}
             DB_PORT=${{ vars.YC_DB_PORT }}
             DB_NAME=${{ vars.YC_DB_NAME }}
@@ -128,32 +125,27 @@ jobs:
             AWS_ACCESS_KEY_ID=${{ secrets.YC_LOCKBOX_AWS_ACCESS_KEY_ID }}
             AWS_SECRET_ACCESS_KEY=${{ secrets.YC_LOCKBOX_AWS_SECRET_ACCESS_KEY }}
             MARKITDOWN_TOKEN=${{ secrets.YC_LOCKBOX_MARKITDOWN_TOKEN }}
-      - name: Promote to $latest
+
+      - name: Promote new version to $latest
         env:
           YC_SA_JSON_CREDENTIALS: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
         run: |
           set -euo pipefail
-          # Устанавливаем yc CLI
           curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -i /home/runner/ycfolder -n
           export PATH="/home/runner/ycfolder/bin:$PATH"
           yc --version
 
-          # Авторизуемся через JSON-ключ SA
           echo "$YC_SA_JSON_CREDENTIALS" > /tmp/sa-key.json
-          yc config profile create sa-profile 2>/dev/null || true
+          yc config profile create sa 2>/dev/null || true
           yc config set service-account-key /tmp/sa-key.json
           yc config set folder-id ${{ vars.YC_FOLDER_ID }}
           rm /tmp/sa-key.json
 
-          # Находим ID свежей версии (первая в списке)
-          NEW_ID=$(yc serverless function version list \
-            --function-id d4epijnhj7h9sd5ppa66 \
-            --format json | jq -r '.[0].id')
+          NEW_ID=$(yc serverless function version list --function-id d4epijnhj7h9sd5ppa66 --format json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['id'])")
           echo "New version ID: $NEW_ID"
-
-          # Присваиваем $latest
           yc serverless function version set-tag --id "$NEW_ID" --tag '$latest'
-          echo "✅ $latest now points to $NEW_ID"
+          echo "✅ \$latest now points to $NEW_ID"
+
       - name: Production smoke test
         env:
           API_URL: ${{ vars.YC_API_GATEWAY_URL }}
