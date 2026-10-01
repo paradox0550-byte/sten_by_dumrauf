@@ -82,6 +82,7 @@ jobs:
           network-id: ${{ env.FUNCTION_NETWORK_ID }}
           include: |
             ./*.js
+            ./core/*.js
             ./core/**/*.js
             ./package.json
             ./package-lock.json
