@@ -1903,14 +1903,14 @@ paths:
         '204': { description: No Content }
 
   /api/b2b/bindings/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
     delete:
       tags: [Organization]
       operationId: deleteWorkspaceBinding
       summary: Удалить связь канала с рестораном
       security:
         - bearerAuth: []
-      parameters:
-        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
       x-yc-apigateway-integration:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
