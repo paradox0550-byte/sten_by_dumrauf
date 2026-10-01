@@ -21,7 +21,7 @@ def _response(status, payload):
 
 def _authorized(event):
     if not TOKEN:
-        return True
+        return False
     headers = event.get("headers") or {}
     auth = headers.get("authorization") or headers.get("Authorization") or ""
     return auth == f"Bearer {TOKEN}"
@@ -35,6 +35,8 @@ def _body(event):
 
 
 def handler(event, context):
+    if not TOKEN:
+        return _response(503, {"error": {"code": "MARKITDOWN_NOT_CONFIGURED", "message": "MarkItDown token is not configured"}})
     if not _authorized(event):
         return _response(401, {"error": {"code": "UNAUTHORIZED", "message": "Unauthorized"}})
 
