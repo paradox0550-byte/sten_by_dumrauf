@@ -48,16 +48,6 @@ jobs:
           node --check core/skills.js
           npm test
 
-      - name: Validate required deployment configuration
-        env:
-          FOLDER_ID: ${{ vars.YC_FOLDER_ID }}
-          DEPLOY_SA_ID: ${{ vars.YC_DEPLOY_SA_ID }}
-        run: |
-          set -euo pipefail
-          test -n "$FOLDER_ID" || { echo "❌ YC_FOLDER_ID is not configured"; exit 1; }
-          test -n "$DEPLOY_SA_ID" || { echo "❌ YC_DEPLOY_SA_ID is not configured"; exit 1; }
-          echo "✅ Target: $FOLDER_ID / github-deployer / $FUNCTION_NAME"
-
   deploy:
     name: Deploy Cloud Function
     needs: validate
@@ -65,6 +55,44 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies (prod only)
+        working-directory: backend
+        run: npm ci --omit=dev
+
+      - name: Verify required files exist
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          test -f index.js              || (echo "❌ index.js missing" && exit 1)
+          test -f documentProcessor.js  || (echo "❌ documentProcessor.js missing" && exit 1)
+          test -f markitdownClient.js   || (echo "❌ markitdownClient.js missing" && exit 1)
+          test -f core/skills.js        || (echo "❌ core/skills.js missing" && exit 1)
+          test -f package.json          || (echo "❌ package.json missing" && exit 1)
+          test -d node_modules          || (echo "❌ node_modules missing" && exit 1)
+          echo "✅ All required files present"
+
+      - name: Build function.zip
+        run: |
+          set -euo pipefail
+          cd backend
+          rm -f ../function.zip
+          zip -r ../function.zip . \
+            -x "tests/*" \
+            -x "*.md" \
+            -x ".env*" \
+            -x "*.bak*" \
+            -x "*.test.js"
+          echo "----- zip content (top-level) -----"
+          unzip -l ../function.zip | head -60
+          echo "----- checking core/skills.js in zip -----"
+          unzip -l ../function.zip | grep -E 'core/skills\.js' || (echo "❌ core/skills.js not in zip" && exit 1)
 
       - name: Get Yandex IAM token
         id: yc-iam
@@ -84,18 +112,9 @@ jobs:
           memory: ${{ env.FUNCTION_MEMORY }}
           entrypoint: ${{ env.FUNCTION_ENTRYPOINT }}
           execution-timeout: ${{ env.FUNCTION_TIMEOUT }}
-          source-root: backend
+          source-path: ./function.zip
           service-account-name: github-deployer
           network-id: ${{ env.FUNCTION_NETWORK_ID }}
-          include: |
-            ./*.js
-            ./core/*.js
-            ./core/**/*.js
-            ./package.json
-            ./package-lock.json
-          exclude: |
-            ./function.zip
-            ./node_modules/**
           tags: |
             ${{ github.sha }}
             $latest
