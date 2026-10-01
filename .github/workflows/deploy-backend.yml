@@ -86,29 +86,29 @@ jobs:
           network-id: ${{ vars.YC_NETWORK_ID }}
           tags: |
             sha-${{ github.sha }}
-          environment: |
+                   environment: |
             NODE_ENV=production
-            JWT_SECRET=${{ secrets.YC_LOCKBOX_JWT_SECRET }}
-            UNLOCK_CODE_HASH=${{ secrets.YC_LOCKBOX_UNLOCK_CODE }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            UNLOCK_CODE_HASH=${{ secrets.UNLOCK_CODE_HASH }}
             DB_HOST=${{ vars.YC_DB_HOST }}
             DB_PORT=${{ vars.YC_DB_PORT }}
             DB_NAME=${{ vars.YC_DB_NAME }}
             DB_USER=${{ vars.YC_DB_USER }}
-            DB_PASSWORD=${{ secrets.YC_LOCKBOX_DB_PASSWORD }}
-            YC_FOLDER_ID=${{ vars.YC_FOLDER_ID }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            YC_FOLDER_ID=${{ secrets.YC_FOLDER_ID }}
             YANDEXGPT_MODEL=yandexgpt
             YANDEXGPT_BASE_URL=https://llm.api.cloud.yandex.net/foundationModels/v1
             YANDEXGPT_TIMEOUT_MS=60000
             YANDEXGPT_MAX_TOKENS=8000
             YANDEXGPT_TEMPERATURE=0.2
-            YANDEXGPT_API_KEY=${{ secrets.YC_LOCKBOX_YANDEXGPT_API_KEY }}
+            YANDEXGPT_API_KEY=${{ secrets.YANDEXGPT_API_KEY }}
             VISION_OCR_URL=https://ocr.api.cloud.yandex.net/ocr/v1/recognizeText
             OBJECT_STORAGE_BUCKET=smenavkarmane-business
             OBJECT_STORAGE_ENDPOINT=https://storage.yandexcloud.net
             OBJECT_STORAGE_REGION=ru-central1
             YC_BUCKET_NAME=smenavkarmane-business
-            AWS_ACCESS_KEY_ID=${{ secrets.YC_LOCKBOX_AWS_ACCESS_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY=${{ secrets.YC_LOCKBOX_AWS_SECRET_ACCESS_KEY }}
+            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
             ALLOWED_ORIGINS=https://smenavkarmane-business.website.yandexcloud.net,https://cabinet.smenavkarmane.ru,http://localhost:5173
             CORS_ORIGIN=https://smenavkarmane-business.website.yandexcloud.net
             ADMIN_ROLE=super_admin
