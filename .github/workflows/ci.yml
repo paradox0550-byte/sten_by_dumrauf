@@ -203,6 +203,7 @@ jobs:
           yc config profile create gateway-sa >/dev/null
           yc config set service-account-key "$key_file"
           yc config set folder-id "$FOLDER_ID"
+          yc config set endpoint api.cloud.yandex.net:443
           token="$(yc iam create-token)"
           test -n "$token"
           echo "token=$token" >> "$GITHUB_OUTPUT"
@@ -218,6 +219,7 @@ jobs:
           set -euo pipefail
           export PATH="$RUNNER_TEMP/yc/bin:$PATH"
           yc serverless api-gateway update \
+            --endpoint api.cloud.yandex.net:443 \
             --id "$API_GATEWAY_ID" \
             --folder-id "$FOLDER_ID" \
             --spec docs/API_GATEWAY_SPEC_2026-09-29.yaml \
