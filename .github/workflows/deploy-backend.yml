@@ -77,7 +77,7 @@ jobs:
           test -f package.json          || (echo "❌ package.json missing" && exit 1)
           test -d node_modules          || (echo "❌ node_modules missing" && exit 1)
           echo "✅ All required files present"
-
+          
       - name: Build function.zip
         run: |
           set -euo pipefail
