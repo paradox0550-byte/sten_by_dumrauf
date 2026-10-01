@@ -184,7 +184,13 @@ jobs:
           set -euo pipefail
           test -n "$FOLDER_ID" || { echo "YC_FOLDER_ID is not configured"; exit 1; }
           test -n "$DEPLOY_SA_ID" || { echo "YC_DEPLOY_SA_ID is not configured"; exit 1; }
-          curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -i "$RUNNER_TEMP/yc" -n
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/yc/bin"
+          curl -fsSL --retry 3 --retry-all-errors --connect-timeout 10 --max-time 180 \
+            -o "$RUNNER_TEMP/yc.tar.gz" \
+            https://storage.yandexcloud.net/yandexcloud-yc/release/yc_linux_amd64.tar.gz
+          tar -xzf "$RUNNER_TEMP/yc.tar.gz" -C "$RUNNER_TEMP/yc/bin"
+          chmod +x "$RUNNER_TEMP/yc/bin/yc"
           export PATH="$RUNNER_TEMP/yc/bin:$PATH"
           echo "$RUNNER_TEMP/yc/bin" >> "$GITHUB_PATH"
           test -x "$RUNNER_TEMP/yc/bin/yc"
