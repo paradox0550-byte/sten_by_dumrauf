@@ -18,6 +18,7 @@ const bcrypt     = require('bcryptjs');
 const { z }      = require('zod');
 const XLSX       = require('xlsx');
 const documentProcessor = require('./documentProcessor');
+const { convertWithMarkItDown } = require('./markitdownClient');
 const { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { buildSkillPrompt } = require('./core/skills');
 
@@ -52,6 +53,10 @@ const ENV = {
   YANDEXGPT_MAX_TOKENS: Number(process.env.YANDEXGPT_MAX_TOKENS || 8000),
   YANDEXGPT_TEMPERATURE: Number(process.env.YANDEXGPT_TEMPERATURE || 0.2),
   VISION_OCR_URL: process.env.VISION_OCR_URL || 'https://ocr.api.cloud.yandex.net/ocr/v1/recognizeText',
+  MARKITDOWN_URL: process.env.MARKITDOWN_URL || '',
+  MARKITDOWN_TOKEN: process.env.MARKITDOWN_TOKEN || '',
+  MARKITDOWN_ENABLED: String(process.env.MARKITDOWN_ENABLED || 'false').toLowerCase() === 'true',
+  MARKITDOWN_TIMEOUT_MS: Number(process.env.MARKITDOWN_TIMEOUT_MS || 60000),
   STORAGE_BUCKET: process.env.OBJECT_STORAGE_BUCKET || process.env.YC_BUCKET_NAME,
   STORAGE_ENDPOINT: process.env.OBJECT_STORAGE_ENDPOINT || 'https://storage.yandexcloud.net',
   STORAGE_REGION: process.env.OBJECT_STORAGE_REGION || 'ru-central1',
@@ -1776,23 +1781,76 @@ function extractDocxXml(buffer) {
   if (pos + compSize > view.length) return '';
   try {
     const zlib = require('zlib');
-    const method = view.readUInt16LE(start + 8);
-    const data = view.subarray(pos, pos + compSize);
-    const xml = method === 8 ? zlib.inflateRawSync(data).toString('utf8') : data.toString('utf8');
-    return xml.replace(/<w:tab\s*\/>/gu,'\t').replace(/<w:br\s*\/>/gu,'\n').replace(/<[^>]+>/gu,' ').replace(/\s+/gu,' ').trim();
-  } catch { return ''; }
-}
-async function extractDocument(buf, name, mime) {
+    const async function extractDocument(buf, name, mime) {
   const ext = String(name).split('.').pop()?.toLowerCase() || '';
+  const markitdownEnv = {
+    MARKITDOWN_URL: ENV.MARKITDOWN_URL,
+    MARKITDOWN_TOKEN: ENV.MARKITDOWN_TOKEN,
+    MARKITDOWN_ENABLED: ENV.MARKITDOWN_ENABLED,
+    MARKITDOWN_TIMEOUT_MS: ENV.MARKITDOWN_TIMEOUT_MS,
+  };
+
+  // MarkItDown is the primary normalization layer. STEN keeps its deterministic
+  // XLSX parser after conversion so plan/fact/sourceCell precision is preserved.
+  let normalized = null;
+  if (ENV.MARKITDOWN_ENABLED && ENV.MARKITDOWN_URL) {
+    normalized = await convertWithMarkItDown(buf, name, mime, markitdownEnv);
+  }
+
   if (['xlsx','xlsm','xls'].includes(ext)) {
     const rows = xlsxToRows(buf);
-    return { text: rows.map(r => [r.label, r.plan, r.fact].filter(v => v !== null && v !== undefined).join(' | ')).join('\n'), meta: { type: 'spreadsheet', sheets: [...new Set(rows.map(r => r.sheet))], rows } };
+    const meta = {
+      type: 'spreadsheet',
+      engine: normalized?.meta?.engine || 'sten-xlsx',
+      engineVersion: normalized?.meta?.engineVersion || null,
+      normalizedMarkdown: Boolean(normalized?.markdown),
+      sourceFormat: normalized?.meta?.sourceFormat || mime,
+      sheets: [...new Set(rows.map(r => r.sheet))],
+      rows,
+    };
+    const deterministicText = rows
+      .map(r => [r.label, r.plan, r.fact].filter(v => v !== null && v !== undefined).join(' | '))
+      .join('\n');
+    return {
+      text: normalized?.markdown ? normalized.markdown : deterministicText,
+      meta,
+    };
   }
+
+  if (normalized?.markdown) {
+    return {
+      text: normalized.markdown,
+      meta: {
+        ...normalized.meta,
+        type: 'document',
+        format: ext || mime,
+      },
+    };
+  }
+
+  // Compatibility fallback while MarkItDown is being provisioned or for a
+  // format/version it cannot convert. This is never the primary path.
   if (['csv','txt','md','json'].includes(ext) || String(mime).startsWith('text/')) {
-    return { text: buf.toString('utf8').replace(/^\uFEFF/u,''), meta: { type: 'text', format: ext || mime } };
+    return {
+      text: buf.toString('utf8').replace(/^\uFEFF/u,''),
+      meta: { type: 'text', format: ext || mime, engine: 'legacy-text-fallback' },
+    };
   }
+
   if (['pdf','docx','png','jpg','jpeg','webp','tiff','bmp'].includes(ext)) {
     const processed = await documentProcessor.process(buf, name, mime, {
+      YANDEXGPT_API_KEY: ENV.YANDEXGPT_API_KEY,
+      YC_FOLDER_ID: ENV.YC_FOLDER_ID,
+      VISION_OCR_URL: ENV.VISION_OCR_URL,
+    });
+    return {
+      text: processed.text,
+      meta: { ...processed.data, type: processed.kind, engine: 'legacy-fallback' },
+    };
+  }
+
+  return { text: '', meta: { type: 'binary', mime, engine: 'none' } };
+} processed = await documentProcessor.process(buf, name, mime, {
       YANDEXGPT_API_KEY: ENV.YANDEXGPT_API_KEY,
       YC_FOLDER_ID: ENV.YC_FOLDER_ID,
       VISION_OCR_URL: ENV.VISION_OCR_URL,
