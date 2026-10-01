@@ -105,7 +105,7 @@ jobs:
           entrypoint: ${{ env.FUNCTION_ENTRYPOINT }}
           execution-timeout: ${{ env.FUNCTION_TIMEOUT }}
           source-path: ./function.zip
-          service-account-name: github-deployer
+          service-account-id: ajeru518lnk3t3rc935k
           network-id: ${{ env.FUNCTION_NETWORK_ID }}
           tags: |
             ${{ github.sha }}
