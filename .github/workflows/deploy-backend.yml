@@ -109,9 +109,7 @@ jobs:
             YANDEXGPT_MAX_TOKENS=8000
             YANDEXGPT_TEMPERATURE=0.2
             VISION_OCR_URL=https://ocr.api.cloud.yandex.net/ocr/v1/recognizeText
-            MARKITDOWN_URL=${{ vars.MARKITDOWN_URL }}
-            MARKITDOWN_ENABLED=${{ vars.MARKITDOWN_ENABLED }}
-            MARKITDOWN_TIMEOUT_MS=60000
+            DB_HOST=${{ vars.YC_DB_HOST }}
             DB_HOST=${{ vars.YC_DB_HOST }}
             DB_PORT=${{ vars.YC_DB_PORT }}
             DB_NAME=${{ vars.YC_DB_NAME }}
