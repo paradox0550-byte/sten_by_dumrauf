@@ -77,35 +77,6 @@ jobs:
           test -d node_modules          || (echo "❌ node_modules missing" && exit 1)
           echo "✅ All required files present"
 
-      - name: Build function.zip
-        run: |
-          set -euo pipefail
-          cd backend
-          rm -f ../function.zip
-          
-          # Создаем архив, ИСКЛЮЧАЯ node_modules (облако установит зависимости само)
-          zip -r ../function.zip . \
-            -x "node_modules/*" \
-            -x "tests/*" \
-            -x "*.md" \
-            -x ".env*" \
-            -x "*.bak*" \
-            -x "*.test.js" \
-            -x ".git/*"
-            
-          echo "----- zip content (top-level) -----"
-          unzip -l ../function.zip | head -60
-          echo "----- checking core/skills.js in zip -----"
-          unzip -l ../function.zip | grep -E 'core/skills\.js' || (echo "❌ core/skills.js not in zip" && exit 1)
-          
-          # Проверяем размер архива
-          SIZE=$(stat -c%s ../function.zip 2>/dev/null || stat -f%z ../function.zip)
-          echo "📦 Final zip size: $SIZE bytes"
-          if [ "$SIZE" -gt 10485760 ]; then
-            echo "❌ Zip is still too big (>10MB). Check for large files."
-            exit 1
-          fi
-
       - name: Deploy function version
         id: deploy
         uses: yc-actions/yc-sls-function@v5
@@ -117,8 +88,8 @@ jobs:
           memory: ${{ env.FUNCTION_MEMORY }}
           entrypoint: ${{ env.FUNCTION_ENTRYPOINT }}
           execution-timeout: ${{ env.FUNCTION_TIMEOUT }}
-          source-path: ./function.zip
-          service-account-id: ajeru518lnk3t3rc935k
+          source-root: backend
+          service-account: ajeru518lnk3t3rc935k
           network-id: ${{ env.FUNCTION_NETWORK_ID }}
           tags: |
             ${{ github.sha }}
