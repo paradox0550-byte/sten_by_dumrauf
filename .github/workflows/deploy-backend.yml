@@ -99,6 +99,7 @@ jobs:
         run: |
           set -euo pipefail
           yc serverless function version create \
+            --endpoint api.cloud.yandex.net:443 \
             --function-name ${{ env.FUNCTION_NAME }} \
             --runtime ${{ env.FUNCTION_RUNTIME }} \
             --entrypoint ${{ env.FUNCTION_ENTRYPOINT }} \
