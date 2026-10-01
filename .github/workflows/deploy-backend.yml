@@ -65,6 +65,11 @@ jobs:
     environment: production # Требует ручного подтверждения, если настроено в GitHub
     steps:
       - uses: actions/checkout@v4
+      - name: Get Yandex IAM token
+        id: yc-iam
+        uses: yc-actions/yc-iam-token-fed@v1
+        with:
+          yc-sa-id: ${{ vars.YC_DEPLOY_SA_ID }}
 
       - name: Deploy function version
         id: deploy
