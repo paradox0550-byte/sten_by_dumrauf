@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 env:
   FOLDER_ID: ${{ vars.YC_FOLDER_ID }}
@@ -77,7 +76,7 @@ jobs:
           test -f package.json          || (echo "❌ package.json missing" && exit 1)
           test -d node_modules          || (echo "❌ node_modules missing" && exit 1)
           echo "✅ All required files present"
-          
+
       - name: Build function.zip
         run: |
           set -euo pipefail
@@ -94,18 +93,11 @@ jobs:
           echo "----- checking core/skills.js in zip -----"
           unzip -l ../function.zip | grep -E 'core/skills\.js' || (echo "❌ core/skills.js not in zip" && exit 1)
 
-      - name: Get Yandex IAM token
-        id: yc-iam
-        uses: docker://ghcr.io/yc-actions/yc-iam-token-fed:1.0.0
-        with:
-          yc-sa-id: ${{ vars.YC_DEPLOY_SA_ID }}
-
       - name: Deploy function version
         id: deploy
         uses: yc-actions/yc-sls-function@v5
         with:
-          yc-sa-id: ${{ vars.YC_DEPLOY_SA_ID }}
-          yc-iam-token: ${{ steps.yc-iam.outputs.token }}
+          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
           folder-id: ${{ vars.YC_FOLDER_ID }}
           function-name: ${{ env.FUNCTION_NAME }}
           runtime: ${{ env.FUNCTION_RUNTIME }}
@@ -117,7 +109,7 @@ jobs:
           network-id: ${{ env.FUNCTION_NETWORK_ID }}
           tags: |
             ${{ github.sha }}
-            $latest
+            ${{ 'latest' }}
           environment: |
             NODE_ENV=production
             ALLOWED_ORIGINS=https://smenavkarmane-business.website.yandexcloud.net,https://cabinet.smenavkarmane.ru,https://smenavkarmane.ru,http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:5173,https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net
