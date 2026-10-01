@@ -112,7 +112,6 @@ jobs:
             ADMIN_ROLE=super_admin
             ADMIN_EMAIL=${{ vars.YC_ADMIN_EMAIL }}
             ADMIN_ID=${{ vars.YC_ADMIN_ID }}
-            DEBUG=0
           secrets: |
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             UNLOCK_CODE_HASH=${{ secrets.UNLOCK_CODE_HASH }}
