@@ -78,6 +78,32 @@ jobs:
           yc config set service-account-key /tmp/sa-key.json
           yc config set folder-id ${{ vars.YC_FOLDER_ID }}
           rm /tmp/sa-key.json
+      - name: Package backend
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          zip -qr "$RUNNER_TEMP/sten-backend.zip" . \
+            -x 'node_modules/.cache/*' \
+            -x 'tests/*' \
+            -x 'markitdown/*'
+          ls -lh "$RUNNER_TEMP/sten-backend.zip"
+          sha256sum "$RUNNER_TEMP/sten-backend.zip"
+
+      - name: Upload backend package to Object Storage
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          STORAGE_ENDPOINT: https://storage.yandexcloud.net
+          BUCKET: smenavkarmane-business
+        run: |
+          set -euo pipefail
+          OBJECT="deploy/sten-backend-${GITHUB_SHA}.zip"
+          aws s3 cp "$RUNNER_TEMP/sten-backend.zip" "s3://$BUCKET/$OBJECT" \
+            --endpoint-url "$STORAGE_ENDPOINT" \
+            --content-type application/zip \
+            --cache-control no-cache
+          echo "PACKAGE_OBJECT=$OBJECT" >> "$GITHUB_ENV"
+
       - name: Deploy function version
         working-directory: backend
         env:
@@ -98,6 +124,7 @@ jobs:
           DEFAULT_ORG_ID: ${{ vars.YC_DEFAULT_ORG_ID }}
         run: |
           set -euo pipefail
+          PACKAGE_SHA256="$(sha256sum "$RUNNER_TEMP/sten-backend.zip" | awk '{print $1}')"
           yc serverless function version create \
             --endpoint api.cloud.yandex.net:443 \
             --function-name ${{ env.FUNCTION_NAME }} \
@@ -105,7 +132,9 @@ jobs:
             --entrypoint ${{ env.FUNCTION_ENTRYPOINT }} \
             --memory ${{ env.FUNCTION_MEMORY }} \
             --execution-timeout ${{ env.FUNCTION_TIMEOUT }} \
-            --source-path . \
+            --package-bucket-name smenavkarmane-business \
+            --package-object-name "$PACKAGE_OBJECT" \
+            --package-sha256 "$PACKAGE_SHA256" \
             --service-account-id ajeru518lnk3t3rc935k \
             --network-id "$YC_NETWORK_ID" \
             --environment NODE_ENV=production \
