@@ -10,7 +10,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write # Критично для OIDC-аутентификации в Yandex Cloud
+  id-token: write
 
 env:
   FOLDER_ID: ${{ vars.YC_FOLDER_ID }}
@@ -54,8 +54,8 @@ jobs:
           DEPLOY_SA_ID: ${{ vars.YC_DEPLOY_SA_ID }}
         run: |
           set -euo pipefail
-          test -n "$FOLDER_ID" || { echo "❌ YC_FOLDER_ID is not configured in GitHub Variables"; exit 1; }
-          test -n "$DEPLOY_SA_ID" || { echo "❌ YC_DEPLOY_SA_ID is not configured in GitHub Variables"; exit 1; }
+          test -n "$FOLDER_ID" || { echo "❌ YC_FOLDER_ID is not configured"; exit 1; }
+          test -n "$DEPLOY_SA_ID" || { echo "❌ YC_DEPLOY_SA_ID is not configured"; exit 1; }
           echo "✅ Target: $FOLDER_ID / github-deployer / $FUNCTION_NAME"
 
   deploy:
@@ -142,7 +142,7 @@ jobs:
           API_URL: ${{ vars.YC_API_GATEWAY_URL }}
         run: |
           set -euo pipefail
-          echo "🔍 Running smoke test on $API_URL/healthz..."
+          echo "🔍 Smoke test on $API_URL/healthz..."
           for i in 1 2 3 4 5; do
             if curl -fsS "$API_URL/healthz" >/tmp/health.json; then
               echo "✅ Backend is healthy:"
@@ -152,5 +152,5 @@ jobs:
             echo "⏳ Attempt $i failed, retrying in 4s..."
             sleep 4
           done
-          echo "❌ Backend smoke test failed after 5 attempts"
+          echo "❌ Smoke test failed after 5 attempts"
           exit 1
