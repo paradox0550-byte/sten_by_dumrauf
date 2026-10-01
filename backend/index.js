@@ -1781,7 +1781,30 @@ function extractDocxXml(buffer) {
   if (pos + compSize > view.length) return '';
   try {
     const zlib = require('zlib');
-    async function extractDocument(buf, name, mime) {
+    const method = view.readUInt16LE(start + 8);
+    const data = view.subarray(pos, pos + compSize);
+    const xml = method === 8
+      ? zlib.inflateRawSync(data).toString('utf8')
+      : data.toString('utf8');
+    return xml
+      .replace(/<w:tab[^>]*\/>/g, '\t')
+      .replace(/<w:br[^>]*\/>/g, '\n')
+      .replace(/<\/w:p>/g, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&#39;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n\s*\n+/g, '\n')
+      .trim();
+  } catch {
+    return '';
+  }
+}
+
+async function extractDocument(buf, name, mime) {
   const ext = String(name).split('.').pop()?.toLowerCase() || '';
   const markitdownEnv = {
     MARKITDOWN_URL: ENV.MARKITDOWN_URL,
@@ -1797,7 +1820,7 @@ function extractDocxXml(buffer) {
     normalized = await convertWithMarkItDown(buf, name, mime, markitdownEnv);
   }
 
-  if (['xlsx','xlsm','xls'].includes(ext)) {
+  if (['xlsx', 'xlsm', 'xls'].includes(ext)) {
     const rows = xlsxToRows(buf);
     const meta = {
       type: 'spreadsheet',
@@ -1830,14 +1853,14 @@ function extractDocxXml(buffer) {
 
   // Compatibility fallback while MarkItDown is being provisioned or for a
   // format/version it cannot convert. This is never the primary path.
-  if (['csv','txt','md','json'].includes(ext) || String(mime).startsWith('text/')) {
+  if (['csv', 'txt', 'md', 'json'].includes(ext) || String(mime).startsWith('text/')) {
     return {
-      text: buf.toString('utf8').replace(/^\uFEFF/u,''),
+      text: buf.toString('utf8').replace(/^\uFEFF/u, ''),
       meta: { type: 'text', format: ext || mime, engine: 'legacy-text-fallback' },
     };
   }
 
-  if (['pdf','docx','png','jpg','jpeg','webp','tiff','bmp'].includes(ext)) {
+  if (['pdf', 'docx', 'png', 'jpg', 'jpeg', 'webp', 'tiff', 'bmp'].includes(ext)) {
     const processed = await documentProcessor.process(buf, name, mime, {
       YANDEXGPT_API_KEY: ENV.YANDEXGPT_API_KEY,
       YC_FOLDER_ID: ENV.YC_FOLDER_ID,
@@ -1850,14 +1873,6 @@ function extractDocxXml(buffer) {
   }
 
   return { text: '', meta: { type: 'binary', mime, engine: 'none' } };
-} processed = await documentProcessor.process(buf, name, mime, {
-      YANDEXGPT_API_KEY: ENV.YANDEXGPT_API_KEY,
-      YC_FOLDER_ID: ENV.YC_FOLDER_ID,
-      VISION_OCR_URL: ENV.VISION_OCR_URL,
-    });
-    return { text: processed.text, meta: { ...processed.data, type: processed.kind } };
-  }
-  return { text: '', meta: { type: 'binary', mime } };
 }
 /* ---- documents (evidence pipeline, analysis-first) ---- */
 app.post('/ai/documents/upload', requireAuth, requireOrg, async (req, res, next) => {
