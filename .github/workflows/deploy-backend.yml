@@ -12,13 +12,11 @@ permissions:
   contents: read
 
 env:
-  FOLDER_ID: ${{ vars.YC_FOLDER_ID }}
   FUNCTION_NAME: smenavkarmane-api
   FUNCTION_RUNTIME: nodejs22
   FUNCTION_ENTRYPOINT: index.handler
   FUNCTION_MEMORY: 256Mb
-  FUNCTION_TIMEOUT: "90"
-  FUNCTION_NETWORK_ID: ${{ vars.YC_NETWORK_ID }}
+  FUNCTION_TIMEOUT: 90s
 
 jobs:
   validate:
@@ -26,17 +24,14 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: backend/package-lock.json
-
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
-
       - name: Syntax check
         working-directory: backend
         run: |
@@ -44,16 +39,14 @@ jobs:
           node --check index.js
           node --check documentProcessor.js
           node --check core/skills.js
-
-      - name: Validate required deployment configuration
+      - name: Validate deployment config
         env:
           FOLDER_ID: ${{ vars.YC_FOLDER_ID }}
           DEPLOY_SA_ID: ${{ vars.YC_DEPLOY_SA_ID }}
         run: |
           set -euo pipefail
-          test -n "$FOLDER_ID" || { echo "❌ YC_FOLDER_ID is not configured in GitHub Variables"; exit 1; }
-          test -n "$DEPLOY_SA_ID" || { echo "❌ YC_DEPLOY_SA_ID is not configured in GitHub Variables"; exit 1; }
-          echo "✅ Target: $FOLDER_ID / github-deployer / $FUNCTION_NAME"
+          test -n "$FOLDER_ID" || { echo "❌ YC_FOLDER_ID is not configured"; exit 1; }
+          test -n "$DEPLOY_SA_ID" || { echo "❌ YC_DEPLOY_SA_ID is not configured"; exit 1; }
 
   deploy:
     name: Deploy Cloud Function
@@ -62,78 +55,101 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
-
-      - name: Deploy function version
-        id: deploy
-        uses: yc-actions/yc-sls-function@v5
+      - uses: actions/setup-node@v4
         with:
-          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
-          folder-id: ${{ vars.YC_FOLDER_ID }}
-          function-name: ${{ env.FUNCTION_NAME }}
-          runtime: ${{ env.FUNCTION_RUNTIME }}
-          memory: ${{ env.FUNCTION_MEMORY }}
-          entrypoint: ${{ env.FUNCTION_ENTRYPOINT }}
-          execution-timeout: ${{ env.FUNCTION_TIMEOUT }}
-          source-root: backend
-          service-account-name: github-deployer
-          network-id: ${{ env.FUNCTION_NETWORK_ID }}
-          include: |
-            ./*.js
-            ./core/**/*.js
-            ./package.json
-            ./package-lock.json
-          exclude: |
-            ./function.zip
-            ./node_modules/**
-          tags: |
-            ${{ github.sha }}
-          environment: |
-            NODE_ENV=production
-            ALLOWED_ORIGINS=https://smenavkarmane-business.website.yandexcloud.net,https://cabinet.smenavkarmane.ru,https://smenavkarmane.ru,http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:5173,https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net
-            CORS_ORIGIN=https://smenavkarmane-business.website.yandexcloud.net
-            OBJECT_STORAGE_BUCKET=smenavkarmane-business
-            OBJECT_STORAGE_ENDPOINT=https://storage.yandexcloud.net
-            OBJECT_STORAGE_REGION=ru-central1
-            YC_BUCKET_NAME=smenavkarmane-business
-            YANDEXGPT_MODEL=yandexgpt
-            YANDEXGPT_BASE_URL=https://llm.api.cloud.yandex.net/foundationModels/v1
-            YANDEXGPT_TIMEOUT_MS=60000
-            YANDEXGPT_MAX_TOKENS=8000
-            YANDEXGPT_TEMPERATURE=0.2
-            VISION_OCR_URL=https://ocr.api.cloud.yandex.net/ocr/v1/recognizeText
-            DB_HOST=${{ vars.YC_DB_HOST }}
-            DB_PORT=${{ vars.YC_DB_PORT }}
-            DB_NAME=${{ vars.YC_DB_NAME }}
-            DB_USER=${{ vars.YC_DB_USER }}
-            YC_FOLDER_ID=${{ vars.YC_FOLDER_ID }}
-            JWT_TTL_SECONDS=2592000
-            PNL_APPROVER_ROLES=super_admin,admin,director,owner
-            DEFAULT_ORG_ID=${{ vars.YC_DEFAULT_ORG_ID }}
-            ADMIN_ROLE=super_admin
-            ADMIN_EMAIL=${{ vars.YC_ADMIN_EMAIL }}
-            ADMIN_ID=${{ vars.YC_ADMIN_ID }}
-          secrets: |
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            UNLOCK_CODE_HASH=${{ secrets.UNLOCK_CODE_HASH }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            YANDEXGPT_API_KEY=${{ secrets.YANDEXGPT_API_KEY }}
-            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install backend deps (prod only)
+        working-directory: backend
+        run: npm ci --omit=dev
+      - name: Install yc CLI
+        run: |
+          curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+          echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
+      - name: Authenticate yc CLI
+        env:
+          YC_SA_JSON: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.config/yandex-cloud
+          printf '%s' "$YC_SA_JSON" > /tmp/sa-key.json
+          yc config profile create sa-profile
+          yc config set service-account-key /tmp/sa-key.json
+          yc config set folder-id ${{ vars.YC_FOLDER_ID }}
+          rm /tmp/sa-key.json
+      - name: Deploy function version
+        working-directory: backend
+        env:
+          DB_HOST: ${{ vars.YC_DB_HOST }}
+          DB_PORT: ${{ vars.YC_DB_PORT }}
+          DB_NAME: ${{ vars.YC_DB_NAME }}
+          DB_USER: ${{ vars.YC_DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          UNLOCK_CODE_HASH: ${{ secrets.UNLOCK_CODE_HASH }}
+          YANDEXGPT_API_KEY: ${{ secrets.YANDEXGPT_API_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          YC_FOLDER_ID: ${{ vars.YC_FOLDER_ID }}
+          YC_NETWORK_ID: ${{ vars.YC_NETWORK_ID }}
+          ADMIN_EMAIL: ${{ vars.YC_ADMIN_EMAIL }}
+          ADMIN_ID: ${{ vars.YC_ADMIN_ID }}
+          DEFAULT_ORG_ID: ${{ vars.YC_DEFAULT_ORG_ID }}
+        run: |
+          set -euo pipefail
+          yc serverless function version create \
+            --function-name ${{ env.FUNCTION_NAME }} \
+            --runtime ${{ env.FUNCTION_RUNTIME }} \
+            --entrypoint ${{ env.FUNCTION_ENTRYPOINT }} \
+            --memory ${{ env.FUNCTION_MEMORY }} \
+            --execution-timeout ${{ env.FUNCTION_TIMEOUT }} \
+            --source-path . \
+            --service-account-id ajeru518lnk3t3rc935k \
+            --network-id "$YC_NETWORK_ID" \
+            --environment NODE_ENV=production \
+            --environment DEBUG=0 \
+            --environment ALLOWED_ORIGINS=https://smenavkarmane-business.website.yandexcloud.net,https://cabinet.smenavkarmane.ru,http://localhost:5173 \
+            --environment CORS_ORIGIN=https://smenavkarmane-business.website.yandexcloud.net \
+            --environment OBJECT_STORAGE_BUCKET=smenavkarmane-business \
+            --environment OBJECT_STORAGE_ENDPOINT=https://storage.yandexcloud.net \
+            --environment OBJECT_STORAGE_REGION=ru-central1 \
+            --environment YANDEXGPT_MODEL=yandexgpt \
+            --environment YANDEXGPT_BASE_URL=https://llm.api.cloud.yandex.net/foundationModels/v1 \
+            --environment YANDEXGPT_TIMEOUT_MS=60000 \
+            --environment YANDEXGPT_MAX_TOKENS=8000 \
+            --environment YANDEXGPT_TEMPERATURE=0.2 \
+            --environment VISION_OCR_URL=https://ocr.api.cloud.yandex.net/ocr/v1/recognizeText \
+            --environment "DB_HOST=$DB_HOST" \
+            --environment "DB_PORT=$DB_PORT" \
+            --environment "DB_NAME=$DB_NAME" \
+            --environment "DB_USER=$DB_USER" \
+            --environment "DB_PASSWORD=$DB_PASSWORD" \
+            --environment "JWT_SECRET=$JWT_SECRET" \
+            --environment "UNLOCK_CODE_HASH=$UNLOCK_CODE_HASH" \
+            --environment "YANDEXGPT_API_KEY=$YANDEXGPT_API_KEY" \
+            --environment "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" \
+            --environment "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" \
+            --environment "YC_FOLDER_ID=$YC_FOLDER_ID" \
+            --environment JWT_TTL_SECONDS=2592000 \
+            --environment PNL_APPROVER_ROLES=super_admin,admin,director,owner \
+            --environment "DEFAULT_ORG_ID=$DEFAULT_ORG_ID" \
+            --environment ADMIN_ROLE=super_admin \
+            --environment "ADMIN_EMAIL=$ADMIN_EMAIL" \
+            --environment "ADMIN_ID=$ADMIN_ID"
       - name: Production smoke test
         env:
           API_URL: ${{ vars.YC_API_GATEWAY_URL }}
         run: |
           set -euo pipefail
-          echo "🔍 Running smoke test on $API_URL/healthz..."
           for i in 1 2 3 4 5; do
             if curl -fsS "$API_URL/healthz" >/tmp/health.json; then
-              echo "✅ Backend is healthy:"
+              echo "✅ Backend healthy:"
               cat /tmp/health.json
               exit 0
             fi
-            echo "⏳ Attempt $i failed, retrying in 4s..."
+            echo "Attempt $i failed, retrying..."
             sleep 4
           done
-          echo "❌ Backend smoke test failed after 5 attempts"
+          echo "❌ Smoke test failed"
           exit 1
