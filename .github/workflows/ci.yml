@@ -204,17 +204,14 @@ jobs:
           yc config set service-account-key "$key_file"
           yc config set folder-id "$FOLDER_ID"
           yc config set endpoint api.cloud.yandex.net:443
-          token="$(yc iam create-token)"
-          test -n "$token"
-          echo "token=$token" >> "$GITHUB_OUTPUT"
-          rm -f "$key_file"
+          yc iam whoami
+          test -s "$key_file"
       - name: MARK 14b apply API Gateway specification
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           FOLDER_ID: ${{ vars.YC_FOLDER_ID }}
           DEPLOY_SA_ID: ${{ vars.YC_DEPLOY_SA_ID }}
           API_GATEWAY_ID: d5d5p4eof6ra03bsva7a
-          IAM_TOKEN: ${{ steps.yc-iam.outputs.token }}
         run: |
           set -euo pipefail
           export PATH="$RUNNER_TEMP/yc/bin:$PATH"
@@ -224,7 +221,6 @@ jobs:
             --folder-id "$FOLDER_ID" \
             --spec docs/API_GATEWAY_SPEC_2026-09-29.yaml \
             --variables "gateway_service_account_id=$DEPLOY_SA_ID" \
-            --token "$IAM_TOKEN"
 
       - name: MARK 14 production smoke
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
