@@ -27,17 +27,17 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: backend/package-lock.json
-      
+
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
-      
+
       - name: Syntax check
         working-directory: backend
         run: |
@@ -47,7 +47,7 @@ jobs:
           node --check markitdownClient.js
           node --check core/skills.js
           npm test
-      
+
       - name: Validate required deployment configuration
         env:
           FOLDER_ID: ${{ vars.YC_FOLDER_ID }}
@@ -62,9 +62,10 @@ jobs:
     name: Deploy Cloud Function
     needs: validate
     runs-on: ubuntu-24.04
-    environment: production # Требует ручного подтверждения, если настроено в GitHub
+    environment: production
     steps:
       - uses: actions/checkout@v4
+
       - name: Get Yandex IAM token
         id: yc-iam
         uses: yc-actions/yc-iam-token-fed@v1
@@ -76,6 +77,7 @@ jobs:
         uses: yc-actions/yc-sls-function@v5
         with:
           yc-sa-id: ${{ vars.YC_DEPLOY_SA_ID }}
+          yc-iam-token: ${{ steps.yc-iam.outputs.token }}
           folder-id: ${{ vars.YC_FOLDER_ID }}
           function-name: ${{ env.FUNCTION_NAME }}
           runtime: ${{ env.FUNCTION_RUNTIME }}
@@ -83,7 +85,7 @@ jobs:
           entrypoint: ${{ env.FUNCTION_ENTRYPOINT }}
           execution-timeout: ${{ env.FUNCTION_TIMEOUT }}
           source-root: backend
-          service-account-name: github-deployer # SA, от имени которой будет работать функция
+          service-account-name: github-deployer
           network-id: ${{ env.FUNCTION_NETWORK_ID }}
           include: |
             ./*.js
@@ -96,6 +98,7 @@ jobs:
             ./node_modules/**
           tags: |
             ${{ github.sha }}
+            $latest
           environment: |
             NODE_ENV=production
             ALLOWED_ORIGINS=https://smenavkarmane-business.website.yandexcloud.net,https://cabinet.smenavkarmane.ru,https://smenavkarmane.ru,http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:5173,https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net
@@ -125,7 +128,6 @@ jobs:
             ADMIN_EMAIL=${{ vars.YC_ADMIN_EMAIL }}
             ADMIN_ID=${{ vars.YC_ADMIN_ID }}
             DEBUG=0
-          # 🔒 ИСПРАВЛЕНО: Используем secrets, а не vars для чувствительных данных
           secrets: |
             JWT_SECRET=${{ secrets.YC_LOCKBOX_JWT_SECRET }}
             UNLOCK_CODE_HASH=${{ secrets.YC_LOCKBOX_UNLOCK_CODE }}
@@ -137,7 +139,7 @@ jobs:
 
       - name: Production smoke test
         env:
-          API_URL: ${{ vars.YC_API_GATEWAY_URL }} # Вынесли в переменную, чтобы не хардкодить
+          API_URL: ${{ vars.YC_API_GATEWAY_URL }}
         run: |
           set -euo pipefail
           echo "🔍 Running smoke test on $API_URL/healthz..."
