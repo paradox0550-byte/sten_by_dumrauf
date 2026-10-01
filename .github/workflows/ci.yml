@@ -201,6 +201,8 @@ jobs:
           key_file="$RUNNER_TEMP/sten-yc-sa.json"
           printf '%s' "$YC_SA_JSON" > "$key_file"
           yc config profile create gateway-sa >/dev/null
+          yc config profile activate gateway-sa
+          yc config unset token 2>/dev/null || true
           yc config set service-account-key "$key_file"
           yc config set folder-id "$FOLDER_ID"
           yc config set endpoint api.cloud.yandex.net:443
