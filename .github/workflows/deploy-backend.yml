@@ -96,7 +96,7 @@ jobs:
 
       - name: Get Yandex IAM token
         id: yc-iam
-        uses: yc-actions/yc-iam-token-fed@v1
+        uses: docker://ghcr.io/yc-actions/yc-iam-token-fed:1.0.0
         with:
           yc-sa-id: ${{ vars.YC_DEPLOY_SA_ID }}
 
