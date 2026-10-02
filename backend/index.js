@@ -192,6 +192,28 @@ await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS report_date DATE
 
     // Совместимость со старой схемой daily_reports: переносим date -> report_date, убираем старую колонку.
     await query(`DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_reports' AND column_name='date') THEN UPDATE daily_reports SET report_date = COALESCE(report_date, date) WHERE report_date IS NULL; ALTER TABLE daily_reports ALTER COLUMN date DROP NOT NULL; ALTER TABLE daily_reports DROP COLUMN date; END IF; END $$;`);
+    // Multi-tenant core: system organizations + memberships. organization_id remains the server-authoritative tenant boundary.
+    await query(`CREATE TABLE IF NOT EXISTS organizations (
+      id UUID PRIMARY KEY,
+      code TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_by UUID,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      CONSTRAINT organizations_status_check CHECK (status IN ('active','suspended','archived'))
+    );`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_organizations_status ON organizations(status, created_at DESC);`);
+    await query(`CREATE TABLE IF NOT EXISTS organization_memberships (
+      organization_id UUID NOT NULL,
+      user_id UUID NOT NULL,
+      role TEXT NOT NULL DEFAULT 'member',
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (organization_id, user_id)
+    );`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_org_memberships_user ON organization_memberships(user_id, status);`);
     await query(`CREATE TABLE IF NOT EXISTS org_units (id UUID PRIMARY KEY, organization_id UUID NOT NULL, parent_id UUID, kind TEXT NOT NULL, name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
     // Одноразовая миграция: удалить дубликаты pnl_entries с пустым project_id.
     try {
@@ -917,6 +939,111 @@ app.post('/auth/unlock', async (req, res) => {
 
 /* ---- auth: me ---- */
 app.get('/auth/me', requireAuth, (req, res) => ok(res, { user: publicUser(req.user) }));
+function requireSuperAdmin(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: { message: 'Требуется авторизация', code: 'UNAUTHORIZED', requestId: req.requestId } });
+  if (String(req.user.role || '') !== 'super_admin') {
+    return res.status(403).json({ error: { message: 'Раздел доступен только системному администратору STEN', code: 'SUPER_ADMIN_REQUIRED', requestId: req.requestId } });
+  }
+  next();
+}
+function normalizeOrgCode(value) {
+  return String(value || '').trim().toUpperCase().replace(/\s+/gu, '-').replace(/[^A-Z0-9_-]/gu, '').slice(0, 32);
+}
+function generateOrgCode() {
+  return `ORG-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+}
+app.get('/api/admin/organizations', requireAuth, requireSuperAdmin, async (req, res, next) => {
+  try {
+    const rows = await safeQuery(
+      `SELECT o.id, o.code, o.name, o.status, o.created_at, o.updated_at,
+              COUNT(om.user_id)::int AS user_count
+         FROM organizations o
+         LEFT JOIN organization_memberships om ON om.organization_id = o.id AND om.status = 'active'
+        GROUP BY o.id ORDER BY o.created_at DESC`, [], null);
+    if (!rows) return res.status(503).json({ error: { message: 'Организации временно недоступны (БД)', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
+    ok(res, { organizations: rows });
+  } catch (e) { next(e); }
+});
+app.post('/api/admin/organizations', requireAuth, requireSuperAdmin, async (req, res, next) => {
+  try {
+    const name = String(req.body?.name || '').trim().normalize('NFC');
+    if (name.length < 2 || name.length > 160) throw httpError(400, 'Название организации: от 2 до 160 символов', 'INVALID_ORG_NAME');
+    let code = normalizeOrgCode(req.body?.code);
+    if (!code) code = generateOrgCode();
+    if (code.length < 3) throw httpError(400, 'ID организации должен содержать минимум 3 символа', 'INVALID_ORG_CODE');
+    const existing = await safeQuery('SELECT id FROM organizations WHERE code = $1 LIMIT 1', [code], null);
+    if (!existing) return res.status(503).json({ error: { message: 'БД временно недоступна', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
+    if (existing.length) throw httpError(409, 'Такой ID организации уже существует', 'ORG_CODE_EXISTS');
+    const id = uuid();
+    const ownerEmail = String(req.body?.ownerEmail || '').trim().toLowerCase();
+    const q = await queryWithRetry(
+      `INSERT INTO organizations(id, code, name, status, created_by)
+       VALUES($1::uuid,$2,$3,'active',$4::uuid)
+       RETURNING id, code, name, status, created_at, updated_at`,
+      [id, code, name, req.user.id], {});
+    const organization = q.rows?.[0];
+    if (!organization) throw httpError(500, 'Организация не создана', 'CREATE_NOT_CONFIRMED');
+    let owner = null;
+    if (ownerEmail && EMAIL_RE.test(ownerEmail)) {
+      const ur = await queryWithRetry(
+        `UPDATE users SET organization_id = $1::uuid
+          WHERE lower(email) = lower($2) AND is_active = true
+          RETURNING id, email, first_name, last_name, role`,
+        [id, ownerEmail], {});
+      owner = ur.rows?.[0] || null;
+      if (owner) {
+        await queryWithRetry(
+          `INSERT INTO organization_memberships(organization_id,user_id,role,status)
+           VALUES($1::uuid,$2::uuid,'owner','active')
+           ON CONFLICT(organization_id,user_id) DO UPDATE SET role='owner',status='active',updated_at=now()`,
+          [id, owner.id], {});
+      }
+    }
+    await audit(req.user, 'admin.organization.created', 'organizations', id, { code, name, ownerEmail: ownerEmail || null, ownerAssigned: Boolean(owner) });
+    ok(res, { organization: { ...organization, user_count: owner ? 1 : 0 }, ownerAssigned: Boolean(owner), owner: owner ? { id: owner.id, email: owner.email, firstName: owner.first_name, lastName: owner.last_name, role: owner.role } : null }, 201);
+  } catch (e) { next(e); }
+});
+app.patch('/api/admin/organizations/:id', requireAuth, requireSuperAdmin, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный ID организации', 'BAD_ORG_ID');
+    const sets = [], params = [req.params.id];
+    if (req.body?.name !== undefined) {
+      const name = String(req.body.name).trim().normalize('NFC');
+      if (name.length < 2 || name.length > 160) throw httpError(400, 'Некорректное название организации', 'INVALID_ORG_NAME');
+      params.push(name); sets.push(`name = ${params.length}`);
+    }
+    if (req.body?.status !== undefined) {
+      const status = String(req.body.status);
+      if (!['active','suspended','archived'].includes(status)) throw httpError(400, 'Недопустимый статус организации', 'INVALID_ORG_STATUS');
+      params.push(status); sets.push(`status = ${params.length}`);
+    }
+    if (!sets.length) throw httpError(400, 'Нет изменений', 'NO_CHANGES');
+    const q = await queryWithRetry(
+      `UPDATE organizations SET ${sets.join(', ')}, updated_at=now()
+        WHERE id=$1::uuid
+        RETURNING id, code, name, status, created_at, updated_at`,
+      params, {});
+    if (!q.rows?.[0]) throw httpError(404, 'Организация не найдена', 'ORG_NOT_FOUND');
+    await audit(req.user, 'admin.organization.updated', 'organizations', req.params.id, { fields: Object.keys(req.body || {}) });
+    ok(res, { organization: q.rows[0] });
+  } catch (e) { next(e); }
+});
+app.get('/api/admin/organizations/:id/users', requireAuth, requireSuperAdmin, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный ID организации', 'BAD_ORG_ID');
+    const rows = await safeQuery(
+      `SELECT u.id, u.email, u.first_name, u.last_name, u.role, u.is_active,
+              om.role AS organization_role, om.status AS membership_status
+         FROM users u
+         JOIN organization_memberships om ON om.user_id = u.id AND om.organization_id = $1::uuid
+        WHERE om.status = 'active'
+        ORDER BY u.last_name NULLS LAST, u.first_name NULLS LAST, u.email`,
+      [req.params.id], null);
+    if (!rows) return res.status(503).json({ error: { message: 'Пользователи временно недоступны (БД)', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
+    ok(res, { users: rows });
+  } catch (e) { next(e); }
+});
+
 
 /* ---- P&L scope helpers ---- */
 function scopeFromQuery(q) {
