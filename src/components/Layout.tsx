@@ -96,7 +96,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <aside className={`sidebar ${mobileMenu ? 'is-open' : ''} ${sidebarCollapsed ? 'is-collapsed' : ''}`}>
         <div>
           <div className="brand">
-            <div className="brand-mark" aria-hidden="true">S</div>
+            <div className="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 40" role="img"><path d="M7 7 20 20 33 7M7 33 20 20 33 33M7 20h26" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/></svg></div>
             <div className="brand-copy">
               <b>STEN</b>
               <small>Executive Cockpit · v5.0.2</small>
@@ -146,7 +146,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <button className="icon-button mobile-menu" onClick={() => setMobileMenu(v => !v)} aria-label="Меню">
             {mobileMenu ? <X size={18} /> : <Menu size={18} />}
           </button>
-          <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(v => !v)} aria-label="Свернуть навигацию">
+          <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(v => !v)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed ? "Развернуть навигацию" : "Свернуть навигацию"} title={sidebarCollapsed ? "Развернуть навигацию" : "Свернуть навигацию"}>
             {sidebarCollapsed ? <PanelLeft size={17} /> : <PanelLeftClose size={17} />}
           </button>
 
@@ -159,7 +159,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <WorkspaceSelector value={scope} onChange={setScope} variant="compact" />
           </div>
 
-          <div className="global-scale" aria-label="Масштаб финансовых значений">
+          <div className="global-scale" role="group" aria-label="Масштаб финансовых значений">
             {([['RUB', '₽'], ['THOUSAND', 'тыс. ₽'], ['MILLION', 'млн ₽']] as const).map(([value, label]) => (
               <button
                 key={value}
@@ -179,7 +179,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <button className="icon-button" onClick={() => navigate('/sten')} aria-label="STEN"><Bot size={17} /></button>
             )}
             <button className="icon-button" onClick={() => navigate('/settings')} aria-label="Настройки"><Settings2 size={17} /></button>
-            <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label="Переключить тему">
+            <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}>
               {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
             </button>
           </div>
