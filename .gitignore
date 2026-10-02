@@ -50,3 +50,6 @@ pnl-test.json
 # one-off scripts
 patch-*.mjs
 patch-*.ps1
+
+# Legacy auth artifacts — never commit
+unlock.json
