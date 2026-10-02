@@ -40,7 +40,7 @@ Financial values are calculated by deterministic backend code; YandexGPT is used
 ## Authentication
 
 Analytics thresholds and the analytics composition are persisted via GET/PUT /api/analytics/settings through the same Gateway/Function.
-The personal workspace uses POST /auth/unlock with a 4-digit code. The backend compares it only against a bcrypt cost-12 hash stored as UNLOCK_CODE_HASH and returns a JWT. Legacy email/password UX is not part of the product.
+The legacy 4-digit PIN login is parked and is not part of the active product flow. Authentication is being reworked to email/password + email verification + organization membership; do not restore POST /auth/unlock.
 
 ## CI gate
 
@@ -68,7 +68,6 @@ GitHub repository **Variables** required by the workflow:
 - `YC_DB_NAME`
 - `YC_DB_USER`
 - `YC_LOCKBOX_JWT_SECRET`
-- `YC_LOCKBOX_UNLOCK_CODE`
 - `YC_LOCKBOX_DB_PASSWORD`
 - `YC_LOCKBOX_YANDEXGPT_API_KEY`
 - `YC_LOCKBOX_AWS_ACCESS_KEY_ID`
