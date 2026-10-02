@@ -1,6 +1,6 @@
 import {createContext,useCallback,useContext,useEffect,useMemo,useState} from 'react';
 import {api,ApiError,clearSession} from '../lib/api';
-export type User={id:string;firstName?:string;lastName?:string;role?:string};
+export type User={id:string;email?:string;firstName?:string;lastName?:string;role?:string;organizationId?:string|null;permissions?:Record<string,string>};
 type Ctx={user:User|null;loading:boolean;unlock:(code:string)=>Promise<User>;signOut:()=>void};
 const C=createContext<Ctx|null>(null), USER='sten_user',TOKEN='sten_token';
 export function AuthProvider({children}:{children:React.ReactNode}){const[user,setUser]=useState<User|null>(null),[loading,setLoading]=useState(true);
