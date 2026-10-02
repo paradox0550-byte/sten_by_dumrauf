@@ -14,7 +14,7 @@
 Frontend: React + TypeScript + Vite + PWA/offline shell.
 Backend: Node.js 22 + Yandex Cloud Functions + PostgreSQL + Object Storage.
 AI: только YandexGPT через backend/API Gateway. Локальные Ollama/Qwen runtime не являются production-контуром STEN.
-Auth: 4-значный numeric PIN → POST /auth/unlock → JWT. Код хранится только как bcrypt cost 12 hash во внешнем secret storage; без email/password и offline-auth.
+Auth: legacy 4-значный PIN → POST /auth/unlock is parked. Active target: email/password + email verification + organization membership; no offline-auth.
 Deploy: frontend/backend разделены; frontend CI не изменяет Cloud Function.
 Offline: кэширует оболочку, но не выдаёт защищённые данные и не подделывает API-ответы.
 
@@ -33,7 +33,7 @@ P&L: канонические Revenue/COGS/Labor/OPEX; overtime отдельно
 Excel/CSV: fuzzy matching; неизвестное → очередь «Требует уточнения».
 
 ### 5. Канонические маршруты
-/unlock — 4-значный numeric PIN; 4 символа на frontend, сервер проверяет код из secret storage.
+/unlock — legacy route is parked and must not be used for the active authentication flow.
 /dashboard — Prime Cost first, P&L, отклонения.
 /flash — daily/weekly оперативная сводка.
 /pnl — Plan/Fact/Delta и нормализованные статьи.
