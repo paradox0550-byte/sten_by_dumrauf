@@ -296,7 +296,11 @@ async function authenticate(req) {
   const uid = String(claims.userId || '');
   if (!UUID_RE.test(uid)) return null; // никаких «admin»-подставок из claims
   const rows = await safeQuery(
-    'SELECT id, email, role, organization_id, first_name, last_name FROM users WHERE id = $1::uuid AND is_active = true LIMIT 1',
+    `SELECT u.id, u.email, u.role, u.organization_id, u.first_name, u.last_name,
+            o.status AS organization_status
+       FROM users u
+       LEFT JOIN organizations o ON o.id = u.organization_id
+      WHERE u.id = $1::uuid AND u.is_active = true LIMIT 1`,
     [uid], null
   );
   if (!rows) return null; // БД недоступна → отказ, а не фолбэк-пользователь
@@ -306,6 +310,7 @@ async function authenticate(req) {
     id: u.id, email: u.email, role: u.role,
     firstName: u.first_name, lastName: u.last_name,
     organizationId: u.organization_id || ENV.DEFAULT_ORG_ID || null,
+    organizationStatus: u.organization_status || null,
     permissions: { '*': 'edit' },
   };
 }
@@ -323,7 +328,10 @@ function requireAuth(req, res, next) {
 function requireOrg(req, res, next) {
   if (!req.user) return res.status(401).json({ error: { message: 'Требуется авторизация', code: 'UNAUTHORIZED', requestId: req.requestId } });
   if (!UUID_RE.test(String(req.user.organizationId || ''))) {
-    return res.status(403).json({ error: { message: 'Организация не назначена пользователю (DEFAULT_ORG_ID/users.organization_id)', code: 'NO_ORG_SCOPE', requestId: req.requestId } });
+    return res.status(403).json({ error: { message: 'Организация не назначена пользователю', code: 'NO_ORG_SCOPE', requestId: req.requestId } });
+  }
+  if (String(req.user.organizationStatus || '') !== 'active') {
+    return res.status(403).json({ error: { message: 'Рабочий контур организации закрыт', code: 'ORG_ACCESS_CLOSED', requestId: req.requestId } });
   }
   next();
 }
