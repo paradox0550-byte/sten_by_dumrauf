@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity, BarChart3, Bot, CalendarDays, FileSpreadsheet, FileText,
   LayoutDashboard, Menu, Moon, PanelLeft, PanelLeftClose, Settings2,
-  Sun, Users, WalletCards, X
+  Sun, Users, WalletCards, X, ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import WorkspaceSelector from './WorkspaceSelector';
@@ -123,6 +123,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <span>{label}</span>
               </NavLink>
             ))}
+            {user?.role === 'super_admin' && <>
+              <div className="nav-section-label" style={{ marginTop: 18 }}>Система</div>
+              <NavLink to="/admin/organizations" onClick={() => setMobileMenu(false)}>
+                <ShieldCheck size={17} />
+                <span>Организации</span>
+              </NavLink>
+            </>}
           </nav>
         </div>
 
