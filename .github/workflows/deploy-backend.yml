@@ -113,7 +113,6 @@ jobs:
           DB_USER: ${{ vars.YC_DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          UNLOCK_CODE_HASH: ${{ secrets.UNLOCK_CODE_HASH }}
           YANDEXGPT_API_KEY: ${{ secrets.YANDEXGPT_API_KEY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -156,7 +155,6 @@ jobs:
             --environment "DB_USER=$DB_USER" \
             --environment "DB_PASSWORD=$DB_PASSWORD" \
             --environment "JWT_SECRET=$JWT_SECRET" \
-            --environment "UNLOCK_CODE_HASH=$UNLOCK_CODE_HASH" \
             --environment "YANDEXGPT_API_KEY=$YANDEXGPT_API_KEY" \
             --environment "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" \
             --environment "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" \
