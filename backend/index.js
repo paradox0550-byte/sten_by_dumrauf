@@ -862,87 +862,11 @@ app.get('/healthz', async (_req, res) => {
   });
 });
 
-/* ---- auth: unlock (код существует только в env/secret storage) ---- */
-app.post('/auth/unlock', async (req, res) => {
-  const body = parseOr400(UnlockSchema, req.body ?? {});
-  if (ENV.DB_HOST) await ensureSchemaNow();
-  const hash = String(ENV.UNLOCK_CODE_HASH || '');
-  if (!hash || !hash.startsWith('$2')) {
-    return res.status(503).json({ error: { message: 'Сервер авторизации не настроен. Укажите bcrypt-хеш кода доступа в secret storage.', code: 'AUTH_NOT_CONFIGURED', requestId: req.requestId } });
-  }
-  try {
-    if (bcrypt.getRounds(hash) !== ENV.BCRYPT_ROUNDS) {
-      return res.status(503).json({ error: { message: 'Сервер авторизации требует bcrypt cost 12.', code: 'AUTH_HASH_CONFIG', requestId: req.requestId } });
-    }
-  } catch {
-    return res.status(503).json({ error: { message: 'Сервер авторизации настроен некорректно.', code: 'AUTH_HASH_CONFIG', requestId: req.requestId } });
-  }
-
-  const ip = String(req.ip || 'unknown').slice(0, 255);
-  const rate = await query(
-    `INSERT INTO auth_unlock_attempts (ip, window_started_at, failed_attempts, blocked_until)
-     VALUES ($1, now(), 0, NULL)
-     ON CONFLICT (ip) DO UPDATE SET
-       failed_attempts = CASE
-         WHEN auth_unlock_attempts.window_started_at < now() - interval '15 minutes' THEN 0
-         ELSE auth_unlock_attempts.failed_attempts
-       END,
-       window_started_at = CASE
-         WHEN auth_unlock_attempts.window_started_at < now() - interval '15 minutes' THEN now()
-         ELSE auth_unlock_attempts.window_started_at
-       END,
-       blocked_until = CASE
-         WHEN auth_unlock_attempts.window_started_at < now() - interval '15 minutes' THEN NULL
-         ELSE auth_unlock_attempts.blocked_until
-       END
-     RETURNING failed_attempts, blocked_until`,
-    [ip]
-  );
-  const blockedUntil = rate.rows?.[0]?.blocked_until ? new Date(rate.rows[0].blocked_until) : null;
-  if (blockedUntil && blockedUntil.getTime() > Date.now()) {
-    return res.status(429).json({ error: { message: 'Слишком много попыток. Повторите вход позже.', code: 'AUTH_RATE_LIMITED', requestId: req.requestId } });
-  }
-
-  const match = await bcrypt.compare(String(body.code), hash);
-  if (!match) {
-    const failed = await query(
-      `UPDATE auth_unlock_attempts
-       SET failed_attempts = failed_attempts + 1,
-           blocked_until = CASE WHEN failed_attempts + 1 >= 5 THEN now() + interval '30 minutes' ELSE blocked_until END
-       WHERE ip = $1
-       RETURNING failed_attempts, blocked_until`,
-      [ip]
-    );
-    const row = failed.rows?.[0];
-    await audit(null, 'auth.unlock.denied', 'auth', null, { ip, attempts: row?.failed_attempts || 1 });
-    return res.status(401).json({ error: { message: 'Неверный код доступа', code: 'INVALID_CODE', requestId: req.requestId } });
-  }
-
-  await query('DELETE FROM auth_unlock_attempts WHERE ip = $1', [ip]);
-
-  // Пользователь берётся из БД (users по ADMIN_EMAIL), а не выдумывается.
-  let user = null;
-  if (ENV.DB_HOST) {
-    const rows = await safeQuery('SELECT id, email, role, organization_id, first_name, last_name FROM users WHERE lower(email) = lower($1) AND is_active = true LIMIT 1', [ENV.ADMIN_EMAIL], null);
-    user = rows?.[0] || null;
-  }
-  if (!user) {
-    return res.status(503).json({ error: { message: 'Учётная запись не найдена в базе. Обратитесь к администратору.', code: 'USER_NOT_PROVISIONED', requestId: req.requestId } });
-  }
-  const claims = { userId: user.id, email: user.email, role: user.role, organizationId: user.organization_id };
-  const token = createJWT(claims);
-  await audit({ id: user.id, organizationId: user.organization_id }, 'auth.unlock.ok', 'auth', user.id, {});
-  ok(res, {
-    token,
-    user: {
-      id: user.id, email: user.email, role: user.role,
-      firstName: user.first_name, lastName: user.last_name,
-      organizationId: user.organization_id, permissions: { '*': 'edit' },
-    },
-  });
-});
-
-/* ---- auth: me ---- */
+/* ---- auth: legacy PIN unlock PARKED ----
+   Старый POST /auth/unlock намеренно отключён.
+   Новый auth-контур (email/password + email verification + organization membership)
+   подключается отдельно. Не возвращать PIN-login в production без отдельного решения.
+   ---- auth: me ---- */
 app.get('/auth/me', requireAuth, (req, res) => ok(res, { user: publicUser(req.user) }));
 function requireSuperAdmin(req, res, next) {
   if (!req.user) return res.status(401).json({ error: { message: 'Требуется авторизация', code: 'UNAUTHORIZED', requestId: req.requestId } });
