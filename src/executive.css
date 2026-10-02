@@ -6,15 +6,15 @@
 
 :root {
   /* LIGHT THEME (Executive Light) */
-  --bg-app: #faf8ff;
+  --bg-app: #f7f8fb;
   --bg-surface: #ffffff;
-  --bg-surface-subtle: #f2f3ff;
-  --border-subtle: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
-  --color-brand: #2563eb;
+  --bg-surface-subtle: #f1f3f7;
+  --border-subtle: #dfe3ea;
+  --border-strong: #c7ced9;
+  --text-primary: #0b0d10;
+  --text-secondary: #4b5563;
+  --text-muted: #8b95a5;
+  --color-brand: #5b7cfa;
   --color-danger: #dc2626;
   --color-danger-bg: #fef2f2;
   --color-warning: #d97706;
@@ -40,15 +40,15 @@
 
 [data-theme='dark'] {
   /* DARK THEME (Executive Dark) */
-  --bg-app: #0a0e17;
-  --bg-surface: #0f131c;
-  --bg-surface-subtle: #181b25;
-  --border-subtle: #222736;
-  --border-strong: #333a4d;
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --color-brand: #3b82f6;
+  --bg-app: #0b0d10;
+  --bg-surface: #11151a;
+  --bg-surface-subtle: #171c22;
+  --border-subtle: #262d36;
+  --border-strong: #39424e;
+  --text-primary: #f5f7fa;
+  --text-secondary: #a4adba;
+  --text-muted: #697482;
+  --color-brand: #5b7cfa;
   --color-danger: #ef4444;
   --color-danger-bg: #2d1519;
   --color-warning: #f59e0b;
@@ -775,5 +775,248 @@ textarea:focus-visible {
     max-width: none;
     padding: 18px;
     border-radius: var(--ui-radius-md);
+  }
+}
+
+
+/* ==========================================================================
+   STEN v5.0.2 — Final frontend hardening
+   ========================================================================== */
+
+.executive-shell {
+  --content-max: 1440px;
+}
+
+.executive-shell .brand-mark {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--bg-surface-subtle);
+  color: var(--color-brand);
+  border: 1px solid var(--border-subtle);
+}
+
+.executive-shell .brand-mark svg {
+  width: 25px;
+  height: 25px;
+}
+
+.executive-shell .brand-copy {
+  min-width: 0;
+}
+
+.executive-shell .brand-copy b,
+.executive-shell .brand-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.executive-shell .sidebar.is-collapsed {
+  width: 76px;
+}
+
+.executive-shell .sidebar.is-collapsed + .backdrop + .main,
+.executive-shell .sidebar.is-collapsed ~ .main {
+  margin-left: 76px;
+  width: calc(100% - 76px);
+}
+
+.executive-shell .sidebar.is-collapsed .brand {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.executive-shell .sidebar.is-collapsed .brand-copy,
+.executive-shell .sidebar.is-collapsed .assistant-chip span,
+.executive-shell .sidebar.is-collapsed .assistant-chip small,
+.executive-shell .sidebar.is-collapsed .nav-section-label,
+.executive-shell .sidebar.is-collapsed .security-boundary,
+.executive-shell .sidebar.is-collapsed .sidebar-profile > div:not(.avatar) {
+  display: none;
+}
+
+.executive-shell .sidebar.is-collapsed .assistant-chip,
+.executive-shell .sidebar.is-collapsed nav a {
+  justify-content: center;
+}
+
+.executive-shell .sidebar.is-collapsed nav a span {
+  display: none;
+}
+
+.executive-shell .sidebar.is-collapsed .sidebar-bottom,
+.executive-shell .sidebar.is-collapsed .sidebar-profile {
+  justify-content: center;
+}
+
+.executive-shell .top-context {
+  min-width: 0;
+}
+
+.executive-shell .crumb {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.executive-shell .content {
+  width: 100%;
+  max-width: none;
+  overflow-x: clip;
+}
+
+.executive-shell .page,
+.executive-shell .panel,
+.executive-shell .metric-card,
+.executive-shell .pnl-kpi,
+.executive-shell .budget-kpi,
+.executive-shell .chat,
+.executive-shell .docs-panel {
+  min-width: 0;
+}
+
+.executive-shell .table-wrap,
+.executive-shell .financial-table,
+.executive-shell .analytics-report-table {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.executive-shell img,
+.executive-shell svg {
+  max-width: 100%;
+}
+
+.executive-shell button,
+.executive-shell input,
+.executive-shell select,
+.executive-shell textarea {
+  -webkit-appearance: none;
+}
+
+.executive-shell .primary-button,
+.executive-shell .secondary-button,
+.executive-shell .danger-button,
+.executive-shell .icon-button,
+.executive-shell .sidebar-toggle {
+  user-select: none;
+}
+
+.executive-shell .loading,
+.executive-shell .fatal {
+  min-height: 100dvh;
+  background: var(--bg-app);
+  color: var(--text-primary);
+}
+
+.executive-shell .loading {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+}
+
+.executive-shell :where(button, a, input, select, textarea):disabled {
+  cursor: not-allowed;
+}
+
+@media (max-width: 767px) {
+  .executive-shell .sidebar.is-collapsed {
+    width: min(86vw, 320px);
+  }
+
+  .executive-shell .sidebar.is-collapsed + .backdrop + .main,
+  .executive-shell .sidebar.is-collapsed ~ .main {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .executive-shell .brand-mark {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+  }
+
+  .executive-shell .content {
+    overflow-x: clip;
+    padding-bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+
+  .executive-shell .page-head h1 {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .executive-shell .head-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .executive-shell .head-actions > button:only-child {
+    grid-column: 1 / -1;
+  }
+
+  .executive-shell .chat-body {
+    min-height: 360px;
+    padding: 16px 12px;
+  }
+
+  .executive-shell .composer {
+    padding: 10px 12px;
+  }
+
+  .executive-shell .starter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .executive-shell .message {
+    max-width: 100%;
+  }
+
+  .executive-shell .message-body {
+    max-width: calc(100vw - 76px);
+  }
+
+  .executive-shell .scope-bar {
+    position: static;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .executive-shell .scope-bar label:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1100px) {
+  .executive-shell .top-workspace {
+    max-width: 28vw;
+  }
+
+  .executive-shell .global-scale {
+    display: none;
+  }
+
+  .executive-shell .content {
+    padding-inline: 20px;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .executive-shell .panel,
+  .executive-shell .metric-card,
+  .executive-shell input,
+  .executive-shell select,
+  .executive-shell textarea {
+    border-color: var(--border-strong);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .executive-shell .sidebar {
+    transition: none !important;
   }
 }
