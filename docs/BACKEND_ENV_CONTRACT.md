@@ -6,7 +6,6 @@ This repository contains the frontend, production backend source and API contrac
 - JWT_SECRET
 - YANDEXGPT_API_KEY
 - DB_PASSWORD
-- UNLOCK_CODE_HASH (bcrypt hash, cost 12)
 
 Use Yandex Cloud Lockbox / runtime secret configuration or the equivalent protected backend secret store. Never commit values, print them in CI logs, or expose them in browser bundles. The runtime must receive a bcrypt hash, never the plaintext 4-digit code.
 
@@ -25,7 +24,7 @@ Use Yandex Cloud Lockbox / runtime secret configuration or the equivalent protec
 Recommended production posture: DEBUG=0 unless temporary diagnostics are explicitly required. AI configuration remains server-side; the frontend knows only the API Gateway URL.
 
 ## STEN AI contract
-The backend must call Yandex Cloud AI Studio/YandexGPT. The frontend must never receive YANDEXGPT_API_KEY, database credentials, JWT secret or unlock code. If YandexGPT is unavailable, return a safe diagnostic error rather than a fake answer.
+The backend must call Yandex Cloud AI Studio/YandexGPT. The frontend must never receive YANDEXGPT_API_KEY, database credentials, JWT secret or. If YandexGPT is unavailable, return a safe diagnostic error rather than a fake answer.
 
 
 ## MarkItDown document normalization
