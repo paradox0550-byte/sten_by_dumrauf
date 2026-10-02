@@ -32,7 +32,6 @@ const ENV = {
   NODE_ENV: process.env.NODE_ENV || 'production',
   JWT_SECRET: process.env.JWT_SECRET || INSECURE_JWT_FALLBACK,
   JWT_TTL_SEC: parseInt(process.env.JWT_TTL_SECONDS || String(30 * 24 * 3600), 10),
-  UNLOCK_CODE_HASH: process.env.UNLOCK_CODE_HASH || process.env.UNLOCK_CODE || process.env.STEN_UNLOCK_CODE || '',
   ALLOWED_ORIGINS: (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN || '*').split(',').map(s => s.trim()).filter(Boolean),
   ADMIN_ID: process.env.ADMIN_ID || 'admin',
   ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@sten.local',
@@ -174,7 +173,6 @@ async function ensureSchemaNow() {
     await query(`CREATE TABLE IF NOT EXISTS messenger_settings (organization_id UUID PRIMARY KEY, provider TEXT NOT NULL DEFAULT 'telegram', send_time TEXT NOT NULL DEFAULT '21:00', scope_json JSONB NOT NULL DEFAULT '{}'::jsonb, metrics_json JSONB NOT NULL DEFAULT '{"revenue":true,"cashCard":true,"discounts":true,"avgCheck":true,"checks":true,"primeCost":true,"ebitda":true,"deviation":true}'::jsonb, telegram_chat_id TEXT, whatsapp_phone TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
     await query(`CREATE TABLE IF NOT EXISTS ai_skill_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
     await query(`CREATE TABLE IF NOT EXISTS analytics_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
-    await query(`CREATE TABLE IF NOT EXISTS auth_unlock_attempts (ip TEXT PRIMARY KEY, window_started_at TIMESTAMPTZ NOT NULL DEFAULT now(), failed_attempts INTEGER NOT NULL DEFAULT 0, blocked_until TIMESTAMPTZ);`);
     // Ежедневные отчёты (/reports контракт OpenAPI).
     await query(`CREATE TABLE IF NOT EXISTS daily_reports (id UUID PRIMARY KEY, organization_id UUID NOT NULL, report_date DATE NOT NULL, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', values_json JSONB NOT NULL DEFAULT '{}'::jsonb, note TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
     await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT '';`);
@@ -463,7 +461,6 @@ const PnlCalculateSchema = z.object({
   }).partial().strict().optional(),
 }).catchall(z.unknown());
 
-const UnlockSchema = z.object({ code: z.string().regex(/^\d{4}$/u, 'Код должен содержать 4 цифры') }).strict();
 
 const AskSchema = z.object({
   question: z.string().max(8000).optional(),
