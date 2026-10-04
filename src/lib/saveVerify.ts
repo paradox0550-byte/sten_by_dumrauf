@@ -4,6 +4,7 @@
    («нет данных» — это тоже состояние, отличное от 0). */
 import { api } from './api';
 import { Scope, scopeQuery } from './scope';
+import { PnlWriteSchema, type PnlWriteRequest } from './contracts/pnl';
 
 export interface ComparableRow {
   article: string;
@@ -27,25 +28,35 @@ export type PnlWriteResult =
   | { ok: true; confirmed: true; message: string }
   | { ok: false; message: string };
 
+interface PnlWriteResponse {
+  saved?: boolean;
+  confirmed?: boolean;
+  count?: number;
+  period?: string;
+}
+
 /** Полный финансовый цикл записи: input → API → DB → save → re-read → compare → подтверждение UI. */
 export async function writePnlAndVerify(scope: Scope, rows: ComparableRow[]): Promise<PnlWriteResult> {
   try {
-    const res = await api.post<any>('/api/pnl', {
+    const body: PnlWriteRequest = {
       period: scope.period,
       project_id: scope.projectId ?? null,
       branch_id: scope.branchId ?? null,
       restaurant_id: scope.restaurantId ?? null,
       department_id: scope.departmentId ?? null,
-      rows,
-    });
-    const payload = res?.data ?? res;
-    if ((payload?.confirmed ?? payload?.saved) !== true) {
+      rows: rows.map(r => ({
+        article: r.article,
+        plan: r.plan ?? null,
+        fact: r.fact ?? null,
+      })),
+    };
+    const res = await api.post<PnlWriteResponse>('/api/pnl', PnlWriteSchema.parse(body));
+    if ((res?.confirmed ?? res?.saved) !== true) {
       return { ok: false, message: 'Сервер не вернул подтверждение записи (confirmed ≠ true). Черновик НЕ считается сохранённым.' };
     }
     // Обязательное повторное чтение той же области.
-    const read = await api.get<any>('/api/pnl?' + scopeQuery(scope));
-    const body = read?.data ?? read;
-    const saved: ComparableRow[] = Array.isArray(body?.rows) ? body.rows : [];
+    const read = await api.get<{ rows?: ComparableRow[] }>('/api/pnl?' + scopeQuery(scope));
+    const saved: ComparableRow[] = Array.isArray(read?.rows) ? read.rows : [];
     if (!rowsMatch(rows, saved)) {
       return { ok: false, message: 'Повторное чтение с сервера не подтвердило сохранение: строки P&L не совпали. Не считайте эти данные сохранёнными.' };
     }
