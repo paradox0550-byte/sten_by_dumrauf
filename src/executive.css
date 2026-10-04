@@ -9,11 +9,11 @@
   --bg-app: #f7f8fb;
   --bg-surface: #ffffff;
   --bg-surface-subtle: #f1f3f7;
-  --border-subtle: #dfe3ea;
+  --border-subtle: #d4dae3;
   --border-strong: #c7ced9;
   --text-primary: #0b0d10;
-  --text-secondary: #4b5563;
-  --text-muted: #8b95a5;
+  --text-secondary: #374151;
+  --text-muted: #6b7280;
   --color-brand: #5b7cfa;
   --color-danger: #dc2626;
   --color-danger-bg: #fef2f2;
@@ -41,13 +41,13 @@
 [data-theme='dark'] {
   /* DARK THEME (Executive Dark) */
   --bg-app: #0b0d10;
-  --bg-surface: #11151a;
+  --bg-surface: #131820;
   --bg-surface-subtle: #171c22;
-  --border-subtle: #262d36;
-  --border-strong: #39424e;
+  --border-subtle: #2f3844;
+  --border-strong: #4a5665;
   --text-primary: #f5f7fa;
-  --text-secondary: #a4adba;
-  --text-muted: #697482;
+  --text-secondary: #c3cad6;
+  --text-muted: #94a0b0;
   --color-brand: #5b7cfa;
   --color-danger: #ef4444;
   --color-danger-bg: #2d1519;
@@ -55,6 +55,18 @@
   --color-warning-bg: #2c2111;
   --color-success: #10b981;
   --color-success-bg: #0f291e;
+
+  /* Semantic backgrounds — dark variants.
+     Эти токены используются в app.css (legacy слой) через имена без
+     префикса --color-, поэтому их нужно определить и здесь, чтобы
+     статусные сообщения не оставались на светлом фоне в тёмной теме. */
+  --success-bg: rgba(34, 197, 94, 0.14);
+  --warning-bg: rgba(245, 158, 11, 0.14);
+  --danger-bg:  rgba(239, 68, 68, 0.14);
+  --info-bg:    rgba(59, 130, 246, 0.14);
+  --violet-bg:  rgba(167, 139, 250, 0.14);
+  --cyan-bg:    rgba(34, 211, 238, 0.14);
+  --neutral-bg: rgba(156, 163, 175, 0.14);
 
   --bg: var(--bg-app);
   --surface: var(--bg-surface);
@@ -1070,4 +1082,17 @@ textarea:focus-visible {
   .ai-grid { grid-template-columns: 1fr; }
   .ai-grid.docs-collapsed { grid-template-columns: 1fr !important; }
   .ai-grid.docs-collapsed .docs-panel { display: none !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Visual polish v2: zebra striping для строк P&L
+   Лёгкое чередование строк в интерактивной таблице.
+   Не затрагивает заголовок, subhead и subtotal строки.
+   ═══════════════════════════════════════════════════════════ */
+.executive-shell .pnl-edit-row:nth-child(even):not(.pnl-edit-head):not(.pnl-edit-subhead):not(.pnl-edit-subtotal) {
+  background: color-mix(in srgb, var(--bg-surface-subtle) 45%, transparent);
+}
+
+.executive-shell .pnl-edit-row:nth-child(even):not(.pnl-edit-head):not(.pnl-edit-subhead):not(.pnl-edit-subtotal):hover {
+  background: var(--bg-surface-subtle);
 }
