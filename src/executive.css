@@ -1258,3 +1258,88 @@ textarea:focus-visible {
     font-size: 22px;
   }
 }
+/* Executive Cockpit shell refresh: primary navigation + authenticated profile. */
+.executive-shell .top-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-inline: 8px;
+}
+
+.executive-shell .top-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--ui-radius-xs);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.executive-shell .top-nav a:hover {
+  background: var(--bg-surface-subtle);
+  color: var(--text-primary);
+}
+
+.executive-shell .top-nav a.active {
+  background: var(--bg-surface-subtle);
+  color: var(--color-brand);
+  font-weight: 600;
+}
+
+.executive-shell .top-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+}
+
+.executive-shell .top-profile .avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--color-brand);
+  color: #fff;
+}
+
+.executive-shell .top-profile-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.executive-shell .top-profile-info b {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.executive-shell .top-profile-info small {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+  .executive-shell .top-nav {
+    display: none;
+  }
+
+  .executive-shell .top-profile-info {
+    display: none;
+  }
+
+  .executive-shell .top-profile {
+    padding: 2px;
+  }
+}
