@@ -1096,3 +1096,165 @@ textarea:focus-visible {
 .executive-shell .pnl-edit-row:nth-child(even):not(.pnl-edit-head):not(.pnl-edit-subhead):not(.pnl-edit-subtotal):hover {
   background: var(--bg-surface-subtle);
 }
+
+
+/* ═══════════════════════════════════════════════════════════
+   Visual redesign v3: унифицированные KPI-карточки
+   Применяется ко всем KPI-блокам: P&L, Dashboard, Analytics,
+   Team, Budget. Единая форма: крупное число, compact label,
+   plan/fact/delta row, статус-бейдж.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── Базовый контур KPI-карточки ────────────────────────── */
+.executive-shell .pnl-kpi,
+.executive-shell .metric-card,
+.executive-shell .budget-kpi,
+.executive-shell .analytics-kpi-strip > article {
+  padding: 16px 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ui-radius-md);
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 118px;
+  transition: border-color 0.15s ease;
+}
+
+.executive-shell .pnl-kpi:hover,
+.executive-shell .metric-card:hover,
+.executive-shell .budget-kpi:hover,
+.executive-shell .analytics-kpi-strip > article:hover {
+  border-color: var(--border-strong);
+}
+
+/* ─── Подпись (label) карточки ────────────────────────────── */
+.executive-shell .pnl-kpi > small,
+.executive-shell .metric-card > span:first-child,
+.executive-shell .metric-card > small,
+.executive-shell .budget-kpi > small,
+.executive-shell .analytics-kpi-strip > article > small {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+/* ─── Крупное число (value) ───────────────────────────────── */
+.executive-shell .pnl-kpi b,
+.executive-shell .metric-card strong,
+.executive-shell .budget-kpi strong,
+.executive-shell .analytics-kpi-strip > article strong {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Блок plan / fact / delta ────────────────────────────── */
+.executive-shell .pnl-kpi > div,
+.executive-shell .metric-card > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 2px;
+}
+
+.executive-shell .pnl-kpi span,
+.executive-shell .metric-card span {
+  display: inline-flex;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.executive-shell .pnl-kpi span b,
+.executive-shell .metric-card span b {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* ─── Дельта (em) — статус-строка внизу карточки ──────────── */
+.executive-shell .pnl-kpi em,
+.executive-shell .metric-card em,
+.executive-shell .budget-kpi em {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  font-style: normal;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  width: fit-content;
+  background: var(--bg-surface-subtle);
+  color: var(--text-secondary);
+}
+
+/* Позитивная дельта */
+.executive-shell .pnl-kpi em.positive,
+.executive-shell .metric-card em.positive,
+.executive-shell .budget-kpi em.positive,
+.executive-shell .pnl-kpi em:not(:empty):not(.negative):not(.neutral)::before {
+  /* подстраховка для старых мест, где нет классов */
+}
+
+.executive-shell .pnl-kpi em.positive,
+.executive-shell .metric-card em.positive,
+.executive-shell .budget-kpi em.positive {
+  background: var(--success-bg);
+  color: var(--color-success);
+}
+
+/* Негативная дельта */
+.executive-shell .pnl-kpi em.negative,
+.executive-shell .metric-card em.negative,
+.executive-shell .budget-kpi em.negative {
+  background: var(--danger-bg);
+  color: var(--color-danger);
+}
+
+/* ─── KPI-strip: равномерная сетка ────────────────────────── */
+.executive-shell .analytics-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  border-bottom: 0;
+  margin-bottom: 16px;
+  padding: 0;
+}
+
+/* ─── Плотный режим для мобильных ─────────────────────────── */
+@media (max-width: 640px) {
+  .executive-shell .pnl-kpi,
+  .executive-shell .metric-card,
+  .executive-shell .budget-kpi,
+  .executive-shell .analytics-kpi-strip > article {
+    min-height: 104px;
+    padding: 14px;
+  }
+
+  .executive-shell .pnl-kpi b,
+  .executive-shell .metric-card strong,
+  .executive-shell .budget-kpi strong,
+  .executive-shell .analytics-kpi-strip > article strong {
+    font-size: 22px;
+  }
+}
