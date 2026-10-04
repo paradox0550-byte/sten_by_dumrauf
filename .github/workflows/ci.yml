@@ -1,4 +1,5 @@
-name: STEN CI + Deploy
+name: STEN CI
+
 on:
   pull_request:
     branches: [main]
@@ -8,71 +9,54 @@ on:
 
 permissions:
   contents: read
-  id-token: write
-
-env:
-  SITE_URL: https://smenavkarmane-business.website.yandexcloud.net
-  API_URL: https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net
-  BUCKET: smenavkarmane-business
-  STORAGE_ENDPOINT: https://storage.yandexcloud.net
 
 jobs:
-  validate-and-deploy:
-    name: STEN validation and deploy
+  validate:
+    name: STEN validation only
     runs-on: ubuntu-24.04
     steps:
-      - name: MARK 01 checkout
-        run: echo "STEN CI MARK 01 - checkout"
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: MARK 02 runtime
+      - name: Runtime
         run: |
-          echo "STEN CI MARK 02 - runtime"
+          set -euo pipefail
           node --version
           npm --version
           git --version
-          aws --version
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
 
-      - name: MARK 03 install frontend
-        run: |
-          echo "STEN CI MARK 03 - npm ci frontend"
-          npm ci --legacy-peer-deps
+      - name: Install frontend
+        run: npm ci --legacy-peer-deps
 
-      - name: MARK 04 typecheck
-        run: |
-          echo "STEN CI MARK 04 - typecheck"
-          npm run typecheck
+      - name: Typecheck
+        run: npm run typecheck
 
-      - name: MARK 05 lint
-        run: |
-          echo "STEN CI MARK 05 - lint"
-          npm run lint
+      - name: Lint
+        run: npm run lint
 
-      - name: MARK 06 frontend tests
-        run: |
-          echo "STEN CI MARK 06 - test"
-          npm test
+      - name: Frontend tests
+        run: npm test
 
-      - name: MARK 07 build
+      - name: Frontend build
         env:
-          VITE_API_URL: ${{ env.API_URL }}
+          VITE_API_URL: https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net
         run: |
-          echo "STEN CI MARK 07 - build"
+          set -euo pipefail
           npm run build
           test -s dist/index.html
           test -d dist/assets
           test -f dist/manifest.json
           test -f dist/sw.js
 
-      - name: MARK 08 backend validation
+      - name: Backend validation
         working-directory: backend
         run: |
-          echo "STEN CI MARK 08 - backend"
           set -euo pipefail
           npm ci --omit=dev
           node --check index.js
@@ -80,9 +64,16 @@ jobs:
           npm test
           test -f package-lock.json
 
-      - name: MARK 09 architecture integrity
+      - name: MarkItDown validation
         run: |
-          echo "STEN CI MARK 09 - architecture integrity"
+          set -euo pipefail
+          test -f backend/markitdown/function.py
+          test -f backend/markitdown/requirements.txt
+          grep -q "markitdown\[all\]==0.1.8" backend/markitdown/requirements.txt
+          python3 -m py_compile backend/markitdown/function.py
+
+      - name: Architecture integrity
+        run: |
           set -euo pipefail
           test ! -d node_modules/.cache/stencil
           ! grep -RInE 'process\.env\.(JWT_SECRET|UNLOCK_CODE_HASH|YANDEXGPT_API_KEY|DB_PASSWORD|AWS_SECRET_ACCESS_KEY)' src public
@@ -90,9 +81,8 @@ jobs:
           ! grep -RInE 'fetch\(.{0,200}(yandexgpt|foundationModels|llm\.api|ai\.api\.cloud)' src
           ! grep -RInE 'localhost:11434|127\.0\.0\.1:11434|OLLAMA|ollama|qwen2\.5|DASHSCOPE_API_KEY|QWEN_API_KEY' src public .github/agent/*.py .github/agent/auto-agent.yml
 
-      - name: MARK 10 static integrity
+      - name: Static integrity
         run: |
-          echo "STEN CI MARK 09 - static integrity"
           set -euo pipefail
           grep -q 'src="./assets/' dist/index.html
           ! grep -q 'Перейти к содержимому' index.html
@@ -107,165 +97,16 @@ jobs:
           ! grep -q '/auth/login:' docs/API_GATEWAY_SPEC_2026-09-29.yaml
           grep -q 'gateway_service_account_id' docs/API_GATEWAY_SPEC_2026-09-29.yaml
 
-      - name: MARK 11 configure credentials
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: |
-          echo "STEN CI MARK 10 - credentials"
-          set -euo pipefail
-          test -n "$AWS_ACCESS_KEY_ID"
-          test -n "$AWS_SECRET_ACCESS_KEY"
-          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
-          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
-          aws configure set region ru-central1
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sten-frontend-dist-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
 
-      - name: MARK 12 configure SPA hosting
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          echo "STEN CI MARK 11 - SPA hosting"
-          set -euo pipefail
-          aws s3api put-bucket-website --bucket "$BUCKET" --endpoint-url "$STORAGE_ENDPOINT" --website-configuration '{"IndexDocument":{"Suffix":"index.html"},"ErrorDocument":{"Key":"404.html"}}'
-
-      - name: MARK 13 upload frontend
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: |
-          echo "STEN CI MARK 12 - upload frontend"
-          set -euo pipefail
-          while IFS= read -r -d '' file; do
-            key=$(echo "$file" | sed 's#^dist/##')
-            case "$file" in
-              *.html) ct='text/html; charset=utf-8'; cc='no-cache, no-store, must-revalidate' ;;
-              *.js|*.mjs) ct='text/javascript; charset=utf-8'; cc='public, max-age=31536000, immutable' ;;
-              *.css) ct='text/css; charset=utf-8'; cc='public, max-age=31536000, immutable' ;;
-              *.svg) ct='image/svg+xml'; cc='public, max-age=31536000, immutable' ;;
-              *.png) ct='image/png'; cc='public, max-age=31536000, immutable' ;;
-              *.jpg|*.jpeg) ct='image/jpeg'; cc='public, max-age=31536000, immutable' ;;
-              *.webp) ct='image/webp'; cc='public, max-age=31536000, immutable' ;;
-              *.json|*.webmanifest) ct='application/json; charset=utf-8'; cc='no-cache' ;;
-              *) ct='application/octet-stream'; cc='public, max-age=31536000, immutable' ;;
-            esac
-            aws s3 cp "$file" "s3://$BUCKET/$key" --endpoint-url "$STORAGE_ENDPOINT" --content-type "$ct" --cache-control "$cc" --metadata-directive REPLACE
-          done < <(find dist -type f -print0)
-
-      - name: MARK 13a verify deployed analytics settings route
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Deploy boundary assertion
         run: |
           set -euo pipefail
-          echo "VERIFY GET/PUT /api/analytics/settings on current Gateway"
-          options_status=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 -X OPTIONS -H 'Origin: https://smenavkarmane-business.website.yandexcloud.net' "$API_URL/api/analytics/settings")
-          test "$options_status" = "204"
-          for i in $(seq 1 20); do
-            get_status=$(curl -sS -o /tmp/analytics-get.json -w '%{http_code}' --max-time 20 "$API_URL/api/analytics/settings" || true)
-            put_status=$(curl -sS -o /tmp/analytics-put.json -w '%{http_code}' --max-time 20 -X PUT -H 'Content-Type: application/json' --data '{"financial":true}' "$API_URL/api/analytics/settings" || true)
-            echo "Attempt $i: GET=$get_status PUT=$put_status OPTIONS=$options_status"
-            if { [ "$get_status" = "401" ] || [ "$get_status" = "403" ]; } && { [ "$put_status" = "401" ] || [ "$put_status" = "403" ]; }; then
-              echo "Analytics settings route is present and protected; OPTIONS is wired."
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "Analytics settings route did not reach the expected protected state."
-          cat /tmp/analytics-get.json || true
-          cat /tmp/analytics-put.json || true
-          exit 1
-          
-      - name: MARK 14 synchronize API Gateway
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          FOLDER_ID: ${{ vars.YC_FOLDER_ID }}
-          DEPLOY_SA_ID: ${{ vars.YC_DEPLOY_SA_ID }}
-          API_GATEWAY_ID: d5d5p4eof6ra03bsva7a
-        run: |
-          set -euo pipefail
-          test -n "$FOLDER_ID" || { echo "YC_FOLDER_ID is not configured"; exit 1; }
-          test -n "$DEPLOY_SA_ID" || { echo "YC_DEPLOY_SA_ID is not configured"; exit 1; }
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/yc/bin"
-          curl -fsSL --retry 3 --retry-all-errors --connect-timeout 10 --max-time 180 \
-            -o "$RUNNER_TEMP/yc.tar.gz" \
-            https://storage.yandexcloud.net/yandexcloud-yc/release/yc_linux_amd64.tar.gz
-          tar -xzf "$RUNNER_TEMP/yc.tar.gz" -C "$RUNNER_TEMP/yc/bin"
-          chmod +x "$RUNNER_TEMP/yc/bin/yc"
-          export PATH="$RUNNER_TEMP/yc/bin:$PATH"
-          echo "$RUNNER_TEMP/yc/bin" >> "$GITHUB_PATH"
-          test -x "$RUNNER_TEMP/yc/bin/yc"
-
-      - name: MARK 14a get Yandex IAM token
-        id: yc-iam
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          FOLDER_ID: ${{ vars.YC_FOLDER_ID }}
-          YC_SA_JSON: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
-        run: |
-          set -euo pipefail
-          test -n "$YC_SA_JSON" || { echo "YC_SA_JSON_CREDENTIALS is not configured"; exit 1; }
-          key_file="$RUNNER_TEMP/sten-yc-sa.json"
-          printf '%s' "$YC_SA_JSON" > "$key_file"
-          yc config profile create gateway-sa >/dev/null
-          yc config profile activate gateway-sa
-          yc config unset token 2>/dev/null || true
-          yc config set service-account-key "$key_file"
-          yc config set folder-id "$FOLDER_ID"
-          yc config set endpoint api.cloud.yandex.net:443
-          yc iam whoami
-          test -s "$key_file"
-      - name: MARK 14b apply API Gateway specification
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          FOLDER_ID: ${{ vars.YC_FOLDER_ID }}
-          DEPLOY_SA_ID: ${{ vars.YC_DEPLOY_SA_ID }}
-          API_GATEWAY_ID: d5d5p4eof6ra03bsva7a
-        run: |
-          set -euo pipefail
-          export PATH="$RUNNER_TEMP/yc/bin:$PATH"
-          yc serverless api-gateway update \
-            --endpoint api.cloud.yandex.net:443 \
-            --id "$API_GATEWAY_ID" \
-            --folder-id "$FOLDER_ID" \
-            --spec docs/API_GATEWAY_SPEC_2026-09-29.yaml \
-            --variables "gateway_service_account_id=$DEPLOY_SA_ID"
-
-      - name: MARK 14 production smoke
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          echo "STEN CI MARK 13 - production smoke"
-          set -euo pipefail
-          sleep 5
-
-          curl -fsSL --retry 3 --retry-delay 2 -D /tmp/index.headers -o /dev/null "$SITE_URL/index.html"
-          cat /tmp/index.headers
-          grep -Eiq 'content-type:.*text/html' /tmp/index.headers
-
-          js=$(grep -oE 'src="./assets/[^"]+\.js"' dist/index.html | head -1 | sed 's/^src="//;s/"$//;s#^./##')
-          css=$(grep -oE 'href="./assets/[^"]+\.css"' dist/index.html | head -1 | sed 's/^href="//;s/"$//;s#^./##')
-          test -n "$js"
-          test -n "$css"
-
-          curl -fsSL --retry 3 --retry-delay 2 -D /tmp/js.headers -o /dev/null "$SITE_URL/$js"
-          cat /tmp/js.headers
-          grep -Eiq 'content-type:.*(text/javascript|application/javascript)' /tmp/js.headers
-
-          curl -fsSL --retry 3 --retry-delay 2 -D /tmp/css.headers -o /dev/null "$SITE_URL/$css"
-          cat /tmp/css.headers
-          grep -Eiq 'content-type:.*text/css' /tmp/css.headers
-
-          curl -fsSL --retry 3 --retry-delay 2 -D /tmp/root.headers -o /dev/null "$SITE_URL/"
-          cat /tmp/root.headers
-          grep -Eiq 'content-type:.*text/html' /tmp/root.headers
-
-          curl -fsSL --retry 3 --retry-delay 2 -D /tmp/manifest.headers -o /dev/null "$SITE_URL/manifest.json"
-          cat /tmp/manifest.headers
-          grep -Eiq 'content-type:.*(application/json|application/manifest)' /tmp/manifest.headers
-
-          echo "SMOKE API: $API_URL/healthz"
-          api_status=$(curl -fsSL --retry 3 --retry-delay 2 -o /dev/null -w '%{http_code}' "$API_URL/healthz")
-          echo "SMOKE API status: $api_status"
-          test "$api_status" = "200"
-
-      - name: MARK 15 complete
-        run: echo "STEN CI MARK 14 - workflow complete"
+          ! grep -RInE 'yc serverless|api-gateway update|aws s3 (cp|sync)|put-bucket-website|YC_SA_JSON|YC_DEPLOY_SA_ID|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY' .github/workflows
+          echo "CI is validation-only. No Yandex Cloud deployment is performed."
