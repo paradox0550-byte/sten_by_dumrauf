@@ -27,7 +27,7 @@ const applyTheme = (theme: Theme) => {
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     const value = localStorage.getItem(THEME_KEY);
-    return value === 'light' || value === 'dark' || value === 'system' ? value : 'dark';
+    return value === 'light' || value === 'dark' || value === 'system' ? value : 'light';
   });
   const [scale, setScale] = useState<Scale>(() => {
     const value = localStorage.getItem(SCALE_KEY);
