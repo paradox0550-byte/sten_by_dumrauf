@@ -1,7 +1,7 @@
-import{useEffect,useMemo,useRef,useState}from'react';
+﻿import{useEffect,useMemo,useRef,useState}from'react';
 import{ArrowLeft,Check,Save,Trash2}from'lucide-react';
 import{useNavigate}from'react-router-dom';
-import{api}from'../lib/api';
+import{api}from'../lib/api';import{ReportWriteSchema,type ReportWrite}from'../lib/contracts/reports';
 
 type Key='revenue'|'cash'|'card'|'discounts'|'checks'|'avgCheck';
 type Values=Partial<Record<Key,number>>;
@@ -32,7 +32,7 @@ export default function QuickEntry(){
  const derivedAvg=useMemo(()=>values.avgCheck??(values.revenue!==undefined&&values.checks!==undefined&&values.checks>0?values.revenue/values.checks:undefined),[values]);
  function update(key:Key,text:string){setSaved(false);setMessage('');setValues(v=>{const n=parse(text);const next={...v};if(n===undefined)delete next[key];else next[key]=n;return next})}
  function next(index:number){refs.current[index+1]?.focus()}
- async function save(){setSaving(true);setSaved(false);setMessage('');try{const clean:Record<string,number>={};for(const f of FIELDS){const n=f.key==='avgCheck'?derivedAvg:values[f.key];if(n!==undefined)clean[f.key]=n}await api.post('/reports',{date,values:clean,note:'Quick Entry'});localStorage.setItem(keyFor(date),JSON.stringify(clean));setValues(clean);setSaved(true);setMessage('Смена сохранена.')}catch(e){setMessage(e instanceof Error?e.message:'Не удалось сохранить смену.')}finally{setSaving(false)}}
+ async function save(){setSaving(true);setSaved(false);setMessage('');try{const clean:Record<string,number>={};for(const f of FIELDS){const n=f.key==='avgCheck'?derivedAvg:values[f.key];if(n!==undefined)clean[f.key]=n}const body=ReportWriteSchema.parse({date,values:clean,note:'Quick Entry'});await api.post('/reports',body);localStorage.setItem(keyFor(date),JSON.stringify(clean));setValues(clean);setSaved(true);setMessage('Смена сохранена.')}catch(e){setMessage(e instanceof Error?e.message:'Не удалось сохранить смену.')}finally{setSaving(false)}}
  function clearDraft(){if(!window.confirm('Очистить черновик этой смены?'))return;localStorage.removeItem(keyFor(date));setValues({});setSaved(false);setMessage('Черновик очищен.')}
  return <main className="quick-entry-page">
   <header className="quick-entry-head"><button className="icon-button"aria-label="Назад"onClick={()=>nav('/pnl')}><ArrowLeft size={20}/></button><div><small>QUICK ENTRY</small><h1>Выручка за {dateLabel}</h1></div><button className="icon-button"aria-label="Очистить черновик"onClick={clearDraft}><Trash2 size={18}/></button></header>

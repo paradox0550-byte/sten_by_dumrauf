@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Activity, AlertTriangle, RefreshCw, Save, Pencil, X } from 'lucide-react';
 import { api } from '../lib/api';
+import { ReportWriteSchema, type ReportWrite } from '../lib/contracts/reports';
 
 type Calc = {
   revenue: number | null; cogs: number | null; labor: number | null;
@@ -70,7 +71,8 @@ export default function Flash() {
         values[f.key] = num;
       }
       if (!Object.keys(values).length) throw new Error('Заполните хотя бы одно поле.');
-      const res = await api.post<{ saved?: boolean; date?: string }>('/reports', { date, values });
+      const body: ReportWrite = { date, values };
+      const res = await api.post<{ saved?: boolean; date?: string }>('/reports', ReportWriteSchema.parse(body));
       const saved = (res as any)?.saved ?? true;
       if (!saved) throw new Error('Сервер не подтвердил сохранение.');
       await load();

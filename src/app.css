@@ -4174,3 +4174,168 @@ body { font-size: 14px; }
 .pnl-edit-row strong.negative { color: var(--danger); }
 .budget-grid-row .num.positive { color: var(--good); }
 .budget-grid-row .num.negative { color: var(--danger); }
+
+/* === STEN Mobile Polish v1.0 === */
+
+/* 1. Отключаем hover-эффекты на тач-устройствах (залипание на планшетах/телефонах) */
+@media (hover: none) {
+  .metric-card:hover,
+  .budget-kpi:hover,
+  .upload-box:hover,
+  .icon-button:hover,
+  .primary-button:hover:not(:disabled),
+  .secondary-button:hover:not(:disabled),
+  .starter-grid button:hover,
+  .workspace-btn:hover,
+  .choice:hover,
+  .composer-box:hover,
+  .unlock-card input:hover,
+  .metric-card:hover,
+  .panel:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
+
+/* 2. Autofill Chrome: убираем жёлтый фон в светлой и тёмной темах */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--text);
+  -webkit-box-shadow: 0 0 0 1000px var(--surface2) inset;
+  box-shadow: 0 0 0 1000px var(--surface2) inset;
+  transition: background-color 9999s ease-out 0s;
+  caret-color: var(--text);
+}
+
+/* 3. Fallback для color-mix() в Safari < 16.2 и Firefox < 113 */
+@supports not (color: color-mix(in srgb, red, blue)) {
+  .pnl-message.ok { background: #f0fdf4; border-color: #16a34a; color: #14532d; }
+  .pnl-message.warn { background: #fef2f2; border-color: #dc2626; color: #7f1d1d; }
+  .pnl-message.error { background: #fef2f2; border-color: #dc2626; }
+  .prime-card { background: #fef9f3; }
+  .flash-prime { background: #fef9f3; }
+  .import-result.warn { background: #fffbeb; border-color: #d97706; }
+  .metric-card:hover, .budget-kpi:hover { border-color: var(--accent); }
+  .toggle-row input:not(:checked) + i { background: rgba(107,114,128,0.1); }
+  .badge-info, .status-chip {
+    color: #2563eb;
+    background: rgba(37,99,235,0.1);
+    border-color: rgba(37,99,235,0.22);
+  }
+}
+
+/* 4. Отключаем pull-to-refresh и overscroll на мобильных */
+html, body {
+  overscroll-behavior-y: contain;
+  overscroll-behavior-x: none;
+}
+
+/* 5. Тонкая полоса прокрутки на Windows/Linux (не портит тёмную тему) */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* 6. Запрет выделения текста на кнопках-иконках (мобильные долгие тапы) */
+.icon-button, .mobile-nav a, .sidebar-toggle, .docs-toggle {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 7. Мобильный Safari: 100dvh уже используется, но добавим fallback на 100vh */
+@supports not (height: 100dvh) {
+  .quick-entry-page, .executive-shell { min-height: 100vh; }
+}
+/* ─────────── P&L template tree ─────────── */
+
+.pnl-edit-row > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pnl-edit-row.pnl-edit-subtotal {
+  background: color-mix(in srgb, #2563eb 6%, transparent);
+  font-weight: 600;
+  border-top: 1px solid #e5e7eb;
+}
+
+.pnl-edit-row.pnl-edit-subtotal .icon-button {
+  padding: 2px;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.pnl-edit-row.pnl-edit-computed {
+  background: color-mix(in srgb, #111827 3%, transparent);
+}
+
+.pnl-edit-row.pnl-edit-computed > div > span:nth-child(2) {
+  color: #6b7280;
+}
+
+.pnl-edit-row.pnl-edit-subhead {
+  background: #f3f4f6;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  grid-column: 1 / -1;
+  padding: 6px 12px;
+}
+
+.pnl-code {
+  display: inline-block;
+  min-width: 42px;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.pnl-group { display: contents; }
+
+.pnl-mix-split {
+  margin: 12px 0;
+  padding: 12px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.pnl-mix-split summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.pnl-mix-split-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 16px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.pnl-mix-split-grid input[type="number"] {
+  width: 80px;
+  text-align: right;
+}
+
+.pnl-mix-split small {
+  display: block;
+  grid-column: 1 / -1;
+  color: #6b7280;
+  margin-top: 8px;
+  line-height: 1.4;
+}

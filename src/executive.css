@@ -1020,3 +1020,54 @@ textarea:focus-visible {
     transition: none !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Панель документов AI: узкая полоска 44px в свёрнутом виде
+   (перебивает все предыдущие правила из-за порядка в файле)
+   ═══════════════════════════════════════════════════════════════ */
+.ai-grid {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 16px;
+  transition: grid-template-columns 0.25s ease;
+}
+
+.ai-grid.docs-collapsed {
+  grid-template-columns: 44px 1fr !important;
+}
+
+.ai-grid.docs-collapsed .docs-panel {
+  min-width: 44px;
+  max-width: 44px;
+  padding: 8px 0 !important;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ai-grid.docs-collapsed .docs-panel > *:not(.panel-title) {
+  display: none !important;
+}
+
+.ai-grid.docs-collapsed .docs-panel .panel-title {
+  padding: 8px 0 !important;
+  justify-content: center !important;
+  align-items: center;
+  border-bottom: none !important;
+  width: 100%;
+}
+
+.ai-grid.docs-collapsed .docs-panel .panel-title > *:not(.docs-toggle) {
+  display: none !important;
+}
+
+.ai-grid.docs-collapsed .docs-panel .docs-toggle {
+  margin: 0 auto !important;
+}
+
+@media (max-width: 900px) {
+  .ai-grid { grid-template-columns: 1fr; }
+  .ai-grid.docs-collapsed { grid-template-columns: 1fr !important; }
+  .ai-grid.docs-collapsed .docs-panel { display: none !important; }
+}
