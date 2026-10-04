@@ -2169,6 +2169,28 @@ app.get('/my-earnings', requireAuth, async (req, res, next) => {
 });
 app.get('/fot-analytics', requireAuth, requireOrg, async (req, res, next) => {
   try {
+    const s = scopeFromQuery(req.query);
+    await assertScopeAccess(req.user, s);
+
+    const hasScope = Boolean(
+      s.project_id || s.branch_id || s.restaurant_id || s.department_id
+    );
+
+    // Scope-фильтрация ФОТ будет добавлена, когда:
+    // 1. появится payroll-источник (табель, 1С, API)
+    // 2. в payroll_records появятся колонки restaurant_id / branch_id / project_id / department_id
+    // 3. либо будет установлена связь через staff.user_id → staff.restaurant_id
+    // Пока scope непустой — возвращаем 501, чтобы не допустить утечки.
+    if (hasScope) {
+      return res.status(501).json({
+        error: {
+          message: 'Фильтрация ФОТ по scope (project/branch/restaurant/department) будет реализована после подключения payroll-источника. Сейчас ФОТ доступен только на уровне всей организации.',
+          code: 'FOT_SCOPE_NOT_IMPLEMENTED',
+          requestId: req.requestId,
+        },
+      });
+    }
+
     const rows = await safeQuery(`SELECT period, department, hours, amount FROM payroll_records WHERE organization_id=$1::uuid ORDER BY period DESC LIMIT 5000`, [req.user.organizationId], null);
     if (!rows) return res.status(503).json({ error: { message: 'Данные ФОТ временно недоступны', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
     ok(res, { records: rows });
