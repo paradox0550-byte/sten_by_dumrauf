@@ -51,5 +51,12 @@ pnl-test.json
 patch-*.mjs
 patch-*.ps1
 
-# Legacy auth artifacts — never commit
+# Legacy auth artifacts вЂ” never commit
 unlock.json
+# Build artifacts
+*.tsbuildinfo
+dist-ssr/
+# Local logs
+tsc.log
+tsc-test.log
+# OS / editor
