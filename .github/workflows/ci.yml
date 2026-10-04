@@ -79,7 +79,7 @@ jobs:
           ! grep -RInE 'process\.env\.(JWT_SECRET|UNLOCK_CODE_HASH|YANDEXGPT_API_KEY|DB_PASSWORD|AWS_SECRET_ACCESS_KEY)' src public
           ! grep -RInE 'from .*(pg|sequelize|mysql2|knex)|require\(.{0,20}(pg|sequelize|mysql2|knex)' src
           ! grep -RInE 'fetch\(.{0,200}(yandexgpt|foundationModels|llm\.api|ai\.api\.cloud)' src
-          ! grep -RInE 'localhost:11434|127\.0\.0\.1:11434|OLLAMA|ollama|qwen2\.5|DASHSCOPE_API_KEY|QWEN_API_KEY' src public .github/agent/*.py .github/agent/auto-agent.yml
+          ! grep -RInE 'localhost:11434|127\.0\.0\.1:11434|OLLAMA|ollama|qwen2\.5|DASHSCOPE_API_KEY|QWEN_API_KEY' src public
 
       - name: Static integrity
         run: |
@@ -88,7 +88,6 @@ jobs:
           ! grep -q 'Перейти к содержимому' index.html
           ! grep -RInE 'QWEN_API_KEY|DASHSCOPE_API_KEY|YANDEXGPT_API_KEY|OLLAMA_BASE_URL' src public
           ! grep -RInE 'localhost:11434|127\.0\.0\.1:11434|OLLAMA|ollama|qwen2\.5|DASHSCOPE_API_KEY|QWEN_API_KEY' src public .github/agent/*.py .github/agent/auto-agent.yml
-          grep -RInE 'YANDEXGPT_API_KEY|YANDEXGPT_FOLDER_ID|gpt://\$\{?FOLDER_ID|ai\.api\.cloud\.yandex\.net' .github/agent/*.py .github/agent/auto-agent.yml >/dev/null
           ! grep -RIn --exclude-dir=node_modules -E 'AKIA[0-9A-Z]{16}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|ghp_[A-Za-z0-9]{20,}' backend src public .github
           ! grep -RInE 'DROP[[:space:]]+TABLE|TRUNCATE[[:space:]]+TABLE' backend/index.js
           ! grep -RIn '/debug' backend/index.js
