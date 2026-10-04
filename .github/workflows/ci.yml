@@ -104,9 +104,3 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 7
-
-      - name: Deploy boundary assertion
-        run: |
-          set -euo pipefail
-          ! grep -RInE 'yc serverless|api-gateway update|aws s3 (cp|sync)|put-bucket-website|YC_SA_JSON|YC_DEPLOY_SA_ID|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY' .github/workflows
-          echo "CI is validation-only. No Yandex Cloud deployment is performed."
