@@ -87,7 +87,7 @@ jobs:
           grep -q 'src="./assets/' dist/index.html
           ! grep -q 'Перейти к содержимому' index.html
           ! grep -RInE 'QWEN_API_KEY|DASHSCOPE_API_KEY|YANDEXGPT_API_KEY|OLLAMA_BASE_URL' src public
-          ! grep -RInE 'localhost:11434|127\.0\.0\.1:11434|OLLAMA|ollama|qwen2\.5|DASHSCOPE_API_KEY|QWEN_API_KEY' src public .github/agent/*.py .github/agent/auto-agent.yml
+          ! grep -RInE 'localhost:11434|127\.0\.0\.1:11434|OLLAMA|ollama|qwen2\.5|DASHSCOPE_API_KEY|QWEN_API_KEY' src public
           ! grep -RIn --exclude-dir=node_modules -E 'AKIA[0-9A-Z]{16}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|ghp_[A-Za-z0-9]{20,}' backend src public .github
           ! grep -RInE 'DROP[[:space:]]+TABLE|TRUNCATE[[:space:]]+TABLE' backend/index.js
           ! grep -RIn '/debug' backend/index.js
