@@ -1,7 +1,7 @@
 ﻿import{useEffect,useMemo,useRef,useState}from'react';
 import{ArrowLeft,Check,Save,Trash2}from'lucide-react';
 import{useNavigate}from'react-router-dom';
-import{api}from'../lib/api';import{ReportWriteSchema,type ReportWrite}from'../lib/contracts/reports';
+import{api}from'../lib/api';import{ReportWriteSchema}from'../lib/contracts/reports';
 
 type Key='revenue'|'cash'|'card'|'discounts'|'checks'|'avgCheck';
 type Values=Partial<Record<Key,number>>;

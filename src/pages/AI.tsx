@@ -110,7 +110,7 @@ export default function AI(){
 
  function toggleVoice(){
    if(!SR){setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:'Голосовой ввод не поддерживается этим браузером. Откройте STEN в Chrome или Edge.'}]);return}
-   if(listening){try{recog.current?.stop?.()}catch{};return}
+   if(listening){try{recog.current?.stop?.()}catch{}return}
    const r=new SR();
    r.lang='ru-RU';
    r.interimResults=true;
