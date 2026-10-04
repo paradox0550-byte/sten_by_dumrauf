@@ -58,13 +58,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }, []);
 
   const items = useMemo(() => [
-    ['/sten', 'STEN', Bot],
-    ['/dashboard', 'Сводка', LayoutDashboard],
+    ['/sten', 'STEN AI', Bot],
+    ['/dashboard', 'Мой день', LayoutDashboard],
     ['/flash', 'Flash', Activity],
     ['/pnl', 'P&L', FileSpreadsheet],
     ['/budget', 'Бюджет', BarChart3],
     ['/analytics', 'Аналитика', BarChart3],
-    ['/team', 'Команда', Users],
+    ['/team', 'Команда и ФОТ', Users],
     ['/documents', 'Документы', FileText],
     ['/finances', 'Финансы', WalletCards],
     ['/secretary', 'Секретарь', CalendarDays],
@@ -111,7 +111,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav aria-label="Навигация контура">
-            <div className="nav-section-label">Навигация контура</div>
+            <div className="nav-section-label">ОПЕРАЦИОННЫЙ КОНТУР</div>
             {items.map(([to, label, Icon]) => (
               <NavLink
                 key={to}
@@ -162,6 +162,26 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span className="period-chip">{periodLabel} · MTD</span>
           </div>
 
+          <nav className="top-nav" aria-label="Основная навигация">
+            {([
+              ['/pnl', 'P&L', FileSpreadsheet],
+              ['/dashboard', 'Мой день', LayoutDashboard],
+              ['/sten', 'STEN AI', Bot],
+              ['/team', 'Команда', Users],
+              ['/settings', 'Настройки', Settings2],
+            ] as const).map(([to, label, Icon]) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) => isActive ? 'active' : ''}
+                end={to === '/sten'}
+              >
+                <Icon size={15} />
+                <span>{label}</span>
+              </NavLink>
+            ))}
+          </nav>
+
           <div className="top-workspace">
             <WorkspaceSelector value={scope} onChange={setScope} variant="compact" />
           </div>
@@ -189,6 +209,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}>
               {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
             </button>
+          </div>
+          <div className="top-profile" title={user?.email || ''}>
+            <div className="avatar">{name.slice(0, 1)}</div>
+            <div className="top-profile-info">
+              <b>{name}</b>
+              <small>{user?.role === 'super_admin' ? 'Администратор' : 'Пользователь'}</small>
+            </div>
           </div>
         </header>
 
