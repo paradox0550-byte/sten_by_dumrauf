@@ -5,4 +5,21 @@
 <meta name="theme-color" content="#FAFAF8"><meta name="description" content="СТЕН — персональный рабочий контур управления рестораном">
 <link rel="icon" href="./favicon.svg"><link rel="manifest" href="./manifest.json">
 <title>Dumrauf — рабочий контур</title>
+<style>
+.topbar  { view-transition-name: sten-topbar; }
+.sidebar { view-transition-name: sten-sidebar; }
+.content { view-transition-name: sten-content; }
+@keyframes sten-view-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sten-view-slide-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+::view-transition-old(sten-content) { animation: 120ms ease sten-view-fade-in reverse; }
+::view-transition-new(sten-content) { animation: 220ms ease sten-view-slide-up; }
+::view-transition-old(sten-sidebar),
+::view-transition-new(sten-sidebar),
+::view-transition-old(sten-topbar),
+::view-transition-new(sten-topbar) { animation-duration: 0.001ms; }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(sten-content),
+  ::view-transition-new(sten-content) { animation: none; }
+}
+</style>
 </head><body><div id="root"></div><script type="module" src="./src/main.tsx"></script></body></html>
