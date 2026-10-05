@@ -15,6 +15,7 @@
   --text-secondary: #1f2937; /* Apple-label-secondary */
   --text-muted: #4b5563; /* Apple-label-tertiary */
   --color-brand: #5b7cfa;
+  --color-brand-strong: color-mix(in srgb, var(--color-brand) 70%, #000);
   --color-danger: #dc2626;
   --color-danger-bg: #fef2f2;
   --color-warning: #d97706;
@@ -49,6 +50,7 @@
   --text-secondary: #e5e7eb; /* Apple-dark-secondary */
   --text-muted: #b5bdc9; /* Apple-dark-tertiary */
   --color-brand: #5b7cfa;
+  --color-brand-strong: color-mix(in srgb, var(--color-brand) 70%, #fff);
   --color-danger: #ef4444;
   --color-danger-bg: #2d1519;
   --color-warning: #f59e0b;
@@ -173,7 +175,7 @@ textarea {
 .executive-shell .global-scale button.active {
   background: color-mix(in srgb, var(--color-brand) 14%, var(--bg-surface-subtle));
   border-color: color-mix(in srgb, var(--color-brand) 45%, transparent);
-  color: var(--color-brand);
+  color: var(--color-brand-strong);
   font-weight: 600;
 }
 
@@ -1592,7 +1594,7 @@ textarea:focus-visible {
 .executive-shell .pnl-scale-toggle button.active {
   background: color-mix(in srgb, var(--color-brand) 14%, var(--bg-surface-subtle));
   border-color: color-mix(in srgb, var(--color-brand) 45%, transparent);
-  color: var(--color-brand);
+  color: var(--color-brand-strong);
   font-weight: 600;
 }
 
