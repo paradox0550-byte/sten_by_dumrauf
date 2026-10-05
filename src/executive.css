@@ -210,8 +210,8 @@ textarea {
 
   .executive-shell .mobile-menu,
   .executive-shell .mobile-close,
-  .executive-shell .backdrop,
-  .executive-shell .mobile-bottom-nav {
+  .backdrop,
+  .mobile-bottom-nav {
     display: none !important;
   }
 }
@@ -265,7 +265,7 @@ textarea {
 }
 
 /* Scope/workspace popover remains data-driven; never invent restaurant IDs. */
-.executive-shell .workspace-popover {
+.workspace-popover {
   background: var(--bg-surface);
   border-color: var(--border-strong);
   box-shadow: 0 12px 32px rgba(15, 23, 42, .12);
@@ -478,7 +478,7 @@ textarea {
     min-width: 720px;
   }
 
-  .executive-shell .mobile-bottom-nav {
+  .mobile-bottom-nav {
     position: fixed;
     left: 0;
     right: 0;
@@ -493,8 +493,8 @@ textarea {
     z-index: 60;
   }
 
-  .executive-shell .mobile-bottom-nav a,
-  .executive-shell .mobile-bottom-nav button {
+  .mobile-bottom-nav a,
+  .mobile-bottom-nav button {
     min-width: 0;
     min-height: 48px;
     display: flex;
@@ -509,12 +509,12 @@ textarea {
     font-weight: 650;
   }
 
-  .executive-shell .mobile-bottom-nav a.active,
-  .executive-shell .mobile-bottom-nav button:hover {
+  .mobile-bottom-nav a.active,
+  .mobile-bottom-nav button:hover {
     color: var(--color-brand);
   }
 
-  .executive-shell .workspace-popover {
+  .workspace-popover {
     position: fixed;
     top: 62px;
     left: 10px;
@@ -591,9 +591,9 @@ textarea:focus-visible {
 .executive-shell .metric-card,
 .pnl-kpi,
 .budget-kpi,
-.executive-shell .chat,
-.executive-shell .docs-panel,
-.executive-shell .modal-card,
+.chat,
+.docs-panel,
+.modal-card,
 .executive-shell .unlock-card,
 .analytics-gap-section {
   background: var(--bg-surface);
@@ -719,7 +719,7 @@ textarea:focus-visible {
   min-height: var(--ui-control-h);
 }
 
-.executive-shell .workspace-popover {
+.workspace-popover {
   border: 1px solid var(--border-strong);
   border-radius: var(--ui-radius-md);
   background: var(--bg-surface);
@@ -788,30 +788,30 @@ textarea:focus-visible {
 }
 
 /* Dialogs: same contour, stronger separation */
-.executive-shell .modal-backdrop,
-.executive-shell .workspace-popover-backdrop {
+.modal-backdrop,
+.workspace-popover-backdrop {
   background: rgba(2, 6, 23, .48);
 }
 
-.executive-shell .modal-card {
+.modal-card {
   max-width: 560px;
   padding: 22px;
 }
 
-.executive-shell .modal-close {
+.modal-close {
   border-color: var(--border-subtle);
   color: var(--text-secondary);
 }
 
 /* Remove legacy warm/gold emphasis from shared structural components. */
-.executive-shell .eyebrow,
+.eyebrow,
 .panel-title svg,
 .analytics-footer svg {
   color: var(--color-brand);
 }
 
 .executive-shell .status-chip,
-.executive-shell .badge-info {
+.badge-info {
   color: var(--color-brand);
   background: color-mix(in oklch, var(--color-brand) 10%, var(--bg-surface));
   border-color: color-mix(in oklch, var(--color-brand) 22%, var(--border-subtle));
@@ -846,7 +846,7 @@ textarea:focus-visible {
     min-height: 40px;
   }
 
-  .executive-shell .modal-card {
+  .modal-card {
     width: calc(100vw - 24px);
     max-width: none;
     padding: 18px;
@@ -950,8 +950,8 @@ textarea:focus-visible {
 .executive-shell .metric-card,
 .pnl-kpi,
 .budget-kpi,
-.executive-shell .chat,
-.executive-shell .docs-panel {
+.chat,
+.docs-panel {
   min-width: 0;
 }
 
@@ -983,14 +983,14 @@ textarea:focus-visible {
   user-select: none;
 }
 
-.executive-shell .loading,
-.executive-shell .fatal {
+.loading,
+.fatal {
   min-height: 100dvh;
   background: var(--bg-app);
   color: var(--text-primary);
 }
 
-.executive-shell .loading {
+.loading {
   display: grid;
   place-items: center;
   align-content: center;
@@ -1036,24 +1036,24 @@ textarea:focus-visible {
     grid-column: 1 / -1;
   }
 
-  .executive-shell .chat-body {
+  .chat-body {
     min-height: 360px;
     padding: 16px 12px;
   }
 
-  .executive-shell .composer {
+  .composer {
     padding: 10px 12px;
   }
 
-  .executive-shell .starter-grid {
+  .starter-grid {
     grid-template-columns: 1fr;
   }
 
-  .executive-shell .message {
+  .message {
     max-width: 100%;
   }
 
-  .executive-shell .message-body {
+  .message-body {
     max-width: calc(100vw - 76px);
   }
 
@@ -1346,14 +1346,14 @@ textarea:focus-visible {
 
 }
 /* Executive Cockpit shell refresh: primary navigation + authenticated profile. */
-.executive-shell .top-nav {
+.top-nav {
   display: flex;
   align-items: center;
   gap: 4px;
   margin-inline: 8px;
 }
 
-.executive-shell .top-nav a {
+.top-nav a {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1366,18 +1366,18 @@ textarea:focus-visible {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.executive-shell .top-nav a:hover {
+.top-nav a:hover {
   background: var(--bg-surface-subtle);
   color: var(--text-primary);
 }
 
-.executive-shell .top-nav a.active {
+.top-nav a.active {
   background: var(--bg-surface-subtle);
   color: var(--color-brand);
   font-weight: 600;
 }
 
-.executive-shell .top-profile {
+.top-profile {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1388,7 +1388,7 @@ textarea:focus-visible {
   border: 1px solid var(--border-subtle);
 }
 
-.executive-shell .top-profile .avatar {
+.top-profile .avatar {
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -1400,33 +1400,33 @@ textarea:focus-visible {
   color: #fff;
 }
 
-.executive-shell .top-profile-info {
+.top-profile-info {
   display: flex;
   flex-direction: column;
   line-height: 1.15;
 }
 
-.executive-shell .top-profile-info b {
+.top-profile-info b {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
-.executive-shell .top-profile-info small {
+.top-profile-info small {
   font-size: 10px;
   color: var(--text-muted);
 }
 
 @media (max-width: 900px) {
-  .executive-shell .top-nav {
+  .top-nav {
     display: none;
   }
 
-  .executive-shell .top-profile-info {
+  .top-profile-info {
     display: none;
   }
 
-  .executive-shell .top-profile {
+  .top-profile {
     padding: 2px;
   }
 }
@@ -1719,20 +1719,20 @@ textarea:focus-visible {
    AI message cards
    ═══════════════════════════════════════════════════════════ */
 
-.executive-shell .chat-body article.message.assistant .message-body {
+.chat-body article.message.assistant .message-body {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--ui-radius-md);
   padding: 14px 16px;
 }
 
-.executive-shell .chat-body article.message.user .message-body {
+.chat-body article.message.user .message-body {
   background: var(--bg-surface-subtle);
   border-radius: var(--ui-radius-md);
   padding: 12px 14px;
 }
 
-.executive-shell .message-header {
+.message-header {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1744,7 +1744,7 @@ textarea:focus-visible {
   font-weight: 700;
 }
 
-.executive-shell .message-text {
+.message-text {
   font-size: 13px;
   line-height: 1.6;
   color: var(--text-primary);
@@ -1793,13 +1793,13 @@ textarea:focus-visible {
    Theme choice buttons + messenger choice buttons
    ═══════════════════════════════════════════════════════════ */
 
-.executive-shell .choice-grid {
+.choice-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 8px;
 }
 
-.executive-shell .choice {
+.choice {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1815,19 +1815,19 @@ textarea:focus-visible {
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.executive-shell .choice:hover {
+.choice:hover {
   background: var(--bg-surface-subtle);
   color: var(--text-primary);
 }
 
-.executive-shell .choice.active {
+.choice.active {
   background: color-mix(in oklch, var(--color-brand) 10%, var(--bg-surface));
   border-color: var(--color-brand);
   color: var(--color-brand);
   font-weight: 600;
 }
 
-.executive-shell .choice.active svg {
+.choice.active svg {
   color: var(--color-brand);
 }
 
@@ -1884,7 +1884,7 @@ textarea:focus-visible {
 }
 
 .executive-shell .status-dot,
-.executive-shell .assistant-chip .dot {
+.assistant-chip .dot {
   animation: sten-pulse 2s ease-in-out infinite;
 }
 
@@ -1916,7 +1916,7 @@ textarea:focus-visible {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.executive-shell .chat-body article.message {
+.chat-body article.message {
   animation: sten-message-in 0.2s ease-out;
 }
 
@@ -1925,12 +1925,12 @@ textarea:focus-visible {
   30%           { opacity: 1;   transform: translateY(-3px); }
 }
 
-.executive-shell .typing i {
+.typing i {
   animation: sten-typing 1.2s ease-in-out infinite;
 }
 
-.executive-shell .typing i:nth-child(2) { animation-delay: 0.15s; }
-.executive-shell .typing i:nth-child(3) { animation-delay: 0.3s; }
+.typing i:nth-child(2) { animation-delay: 0.15s; }
+.typing i:nth-child(3) { animation-delay: 0.3s; }
 
 @media (prefers-reduced-motion: reduce) {
   .executive-shell *,
@@ -1969,7 +1969,7 @@ textarea:focus-visible {
   color: var(--label-tertiary);
 }
 
-.executive-shell .eyebrow,
+.eyebrow,
 .executive-shell .nav-section-label {
   color: var(--label-quaternary);
   font-weight: 600;
