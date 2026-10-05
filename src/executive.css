@@ -2159,4 +2159,112 @@ textarea:focus-visible {
   .composer-box:focus-within { transition: none; }
   .chat-body article.message.assistant .message-avatar { transition: none; }
 }
+/* ═══════════════════════════════════════════════════════════
+   UI Polish v4 — семантически правильная система
+   Brand (синий) = интерактив, Success (зелёный) = успех,
+   Warning (жёлтый) = предупреждение, Danger (красный) = опасность
+   ═══════════════════════════════════════════════════════════ */
+
+/* 1. Global-scale: сброс дефолтной кнопки браузера (убирает «кубики») */
+.global-scale button {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  text-shadow: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: 6px 10px;
+  border-radius: var(--ui-radius-xs);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.global-scale button:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.global-scale button.active {
+  background: var(--active-bg);
+  color: var(--active-text);
+  font-weight: 600;
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--color-brand) 40%, transparent),
+              0 0 10px color-mix(in oklch, var(--color-brand) 22%, transparent);
+}
+
+/* 2. Sidebar nav: BRAND (синий), НЕ зелёный — семантика */
+.sidebar nav a {
+  position: relative;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sidebar nav a:hover {
+  background: color-mix(in oklch, var(--color-brand) 8%, var(--bg-surface-subtle));
+  color: var(--color-brand);
+  box-shadow: inset 2px 0 0 0 var(--color-brand);
+}
+
+.sidebar nav a.active {
+  background: color-mix(in oklch, var(--color-brand) 12%, var(--bg-surface-subtle));
+  color: var(--color-brand);
+  box-shadow: inset 3px 0 0 0 var(--color-brand);
+}
+
+[data-theme='dark'] .sidebar nav a.active {
+  background: color-mix(in oklch, var(--color-brand) 15%, var(--bg-surface-subtle));
+  box-shadow: inset 3px 0 0 0 var(--color-brand),
+              0 0 12px color-mix(in oklch, var(--color-brand) 28%, transparent);
+}
+
+[data-theme='dark'] .sidebar nav a:hover {
+  box-shadow: inset 2px 0 0 0 var(--color-brand),
+              0 0 8px color-mix(in oklch, var(--color-brand) 22%, transparent);
+}
+
+/* 3. Danger-button: КРАСНЫЙ неон (только для опасных действий) */
+.danger-button {
+  border: 1px solid color-mix(in oklch, var(--color-danger) 60%, transparent);
+  color: var(--color-danger);
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.danger-button:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--color-danger) 10%, var(--bg-surface));
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  box-shadow: 0 0 12px color-mix(in oklch, var(--color-danger) 30%, transparent);
+}
+
+[data-theme='dark'] .danger-button {
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--color-danger) 30%, transparent);
+}
+
+[data-theme='dark'] .danger-button:hover:not(:disabled) {
+  box-shadow: 0 0 0 1px var(--color-danger),
+              0 0 18px color-mix(in oklch, var(--color-danger) 45%, transparent);
+}
+
+/* 4. Warning (жёлтый) — только цвет, без «неона» и text-shadow */
+[data-theme='dark'] .warning,
+[data-theme='dark'] .metric-warning {
+  color: var(--color-warning);
+}
+
+[data-theme='dark'] .badge-warn {
+  color: var(--color-warning);
+  background: color-mix(in oklch, var(--color-warning) 12%, transparent);
+  border: 1px solid color-mix(in oklch, var(--color-warning) 35%, transparent);
+}
+
+/* 5. Success (зелёный) — только там, где реально «успех» */
+/* Никаких green на навигации. Только .positive, .pnl-kpi em.positive, .metric-positive */
+
+/* 6. Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .global-scale button, .sidebar nav a, .danger-button { transition: none; }
+}
 
