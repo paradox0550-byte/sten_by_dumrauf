@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Bot, Copy, FileText, Mic, MicOff, Paperclip, Send, Sparkles, Trash2, UploadCloud, Eye, X, CalendarPlus, Database, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { api } from '../lib/api';
 import { useScope } from '../lib/useScope';
+import { useAuth } from '../contexts/AuthContext';
 import { hasScopeId, scopeQuery } from '../lib/scope';
 import { AskRequestSchema, type AskRequest, type AskResponse, type AskSource } from '../lib/contracts/ask';
 
@@ -9,14 +10,19 @@ type Msg={id:string;role:'user'|'assistant';text:string;sources?:AskSource[]};
 type Doc={id:string;name:string;size:number;status:string;chars?:number};
 type DocPreview={id:string;name:string;preview:string;chars:number;truncated:boolean;readOnly:true};
 const starters=['Проанализируй текущий P&L и найди главные причины падения прибыли','Что сильнее всего отклонилось от плана?','Собери план действий для управляющего на сегодня','Проверь ФОТ: часы, производительность и стоимость отклонения'];
-const supported=new Set(['pdf','docx','xlsx','xlsm','xls','csv','txt','md','json','png','jpg','jpeg','webp','tiff','bmp']);const MAX_DOC_BYTES=15*1024*1024;const KEY='sten_chat_v5';
+const supported=new Set(['pdf','docx','xlsx','xlsm','xls','csv','txt','md','json','png','jpg','jpeg','webp','tiff','bmp']);const MAX_DOC_BYTES=15*1024*1024;const LEGACY_KEY='sten_chat_v5';
+function chatKey(user:{id?:string;organizationId?:string|null}|null){return user?.id?`sten_chat_v5:${user.organizationId||'no-org'}:${user.id}`:null;}
+function readMessages(key:string|null):Msg[]{if(!key)return[];try{const raw=localStorage.getItem(key);const parsed=raw?JSON.parse(raw):[];return Array.isArray(parsed)?parsed:[]}catch{return[]}}
 function to64(file:File){return new Promise<string>((ok,no)=>{const r=new FileReader();r.onload=()=>{const s=String(r.result);ok(s.includes(',')?s.split(',')[1]:s)};r.onerror=()=>no(r.error);r.readAsDataURL(file)})}
 
 const SR:any = typeof window!=='undefined' ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : null;
 
 export default function AI(){
  const[scope]=useScope();
- const[messages,setMessages]=useState<Msg[]>(()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return[]}});
+ const{user}=useAuth();
+ const key=chatKey(user);
+ const[messages,setMessages]=useState<Msg[]>(()=>readMessages(key));
+ const hydrateRef=useRef<string|null>(key);
  const[prompt,setPrompt]=useState('');
  const[docs,setDocs]=useState<Doc[]>([]);
  const[busy,setBusy]=useState(false);
@@ -29,7 +35,16 @@ export default function AI(){
  const file=useRef<HTMLInputElement>(null);
  const recog=useRef<any>(null);
 
- useEffect(()=>{localStorage.setItem(KEY,JSON.stringify(messages.slice(-80)))},[messages]);
+ useEffect(()=>{
+   if(!key)return;
+   const loaded=readMessages(key);
+   hydrateRef.current=key;
+   setMessages(loaded);
+ },[key]);
+ useEffect(()=>{
+   if(!key||hydrateRef.current!==key)return;
+   try{localStorage.setItem(key,JSON.stringify(messages.slice(-80)));localStorage.removeItem(LEGACY_KEY)}catch{}
+ },[messages,key]);
  useEffect(()=>{try{localStorage.setItem('sten_docs_collapsed',docsCollapsed?'1':'0')}catch{}},[docsCollapsed]);
 
  const load=async()=>{
@@ -137,7 +152,7 @@ export default function AI(){
        <h1>STEN</h1>
        <p>AI видит выбранный рабочий контур, текущий P&L и ФОТ. Ответ отделён от факта, а действие можно передать в Секретарь.</p>
      </div>
-     <button className="secondary-button" onClick={()=>{setMessages([]);localStorage.removeItem(KEY)}}>Новый диалог</button>
+     <button className="secondary-button" onClick={()=>{setMessages([]);if(key)try{localStorage.removeItem(key)}catch{};try{localStorage.removeItem(LEGACY_KEY)}catch{}}>Новый диалог</button>
    </div>
 
    {!hasScopeId(scope)&&<div className="import-result warn">Для точного AI-контекста выберите рабочий контур в Настройках.</div>}
