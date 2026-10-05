@@ -12,8 +12,8 @@
   --border-subtle: #d4dae3;
   --border-strong: #c7ced9;
   --text-primary: #0b0d10;
-  --text-secondary: #374151;
-  --text-muted: #6b7280;
+  --text-secondary: #1f2937; /* Apple-label-secondary */
+  --text-muted: #4b5563; /* Apple-label-tertiary */
   --color-brand: #5b7cfa;
   --color-danger: #dc2626;
   --color-danger-bg: #fef2f2;
@@ -46,8 +46,8 @@
   --border-subtle: #2f3844;
   --border-strong: #4a5665;
   --text-primary: #f5f7fa;
-  --text-secondary: #c3cad6;
-  --text-muted: #94a0b0;
+  --text-secondary: #e5e7eb; /* Apple-dark-secondary */
+  --text-muted: #b5bdc9; /* Apple-dark-tertiary */
   --color-brand: #5b7cfa;
   --color-danger: #ef4444;
   --color-danger-bg: #2d1519;
@@ -1741,4 +1741,165 @@ textarea:focus-visible {
 
 .executive-shell .choice.active svg {
   color: var(--color-brand);
+}
+
+/* Loader, Skeleton, Micro-animations */
+
+.executive-shell .loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 24px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.executive-shell .loader::before {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-subtle);
+  border-top-color: var(--color-brand);
+  border-radius: 50%;
+  animation: sten-spin 0.7s linear infinite;
+}
+
+@keyframes sten-spin {
+  to { transform: rotate(360deg); }
+}
+
+.executive-shell .skeleton-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 12px;
+  padding: 12px 4px;
+}
+
+.executive-shell .skeleton-row span {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-surface-subtle) 0%, color-mix(in srgb, var(--bg-surface-subtle) 60%, var(--bg-surface)) 50%, var(--bg-surface-subtle) 100%);
+  background-size: 200% 100%;
+  animation: sten-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes sten-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes sten-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.6; transform: scale(0.92); }
+}
+
+.executive-shell .status-dot,
+.executive-shell .assistant-chip .dot {
+  animation: sten-pulse 2s ease-in-out infinite;
+}
+
+@keyframes sten-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.executive-shell .panel,
+.executive-shell .analytics-summary,
+.executive-shell .analytics-kpi-strip {
+  animation: sten-fade-in 0.25s ease-out;
+}
+
+.executive-shell .pnl-kpi,
+.executive-shell .metric-card,
+.executive-shell .analytics-kpi-strip > article {
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.executive-shell .pnl-kpi:hover,
+.executive-shell .metric-card:hover,
+.executive-shell .analytics-kpi-strip > article:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+@keyframes sten-message-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.executive-shell .chat-body article.message {
+  animation: sten-message-in 0.2s ease-out;
+}
+
+@keyframes sten-typing {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30%           { opacity: 1;   transform: translateY(-3px); }
+}
+
+.executive-shell .typing i {
+  animation: sten-typing 1.2s ease-in-out infinite;
+}
+
+.executive-shell .typing i:nth-child(2) { animation-delay: 0.15s; }
+.executive-shell .typing i:nth-child(3) { animation-delay: 0.3s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .executive-shell *,
+  .executive-shell *::before,
+  .executive-shell *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Apple-label-contrast: системный контраст iOS/macOS
+   ═══════════════════════════════════════════════════════════ */
+
+/* Soft font smoothing — как в macOS */
+.executive-shell,
+.executive-shell * {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Четыре уровня текста — как в Apple HIG */
+.executive-shell {
+  --label-primary:    var(--text-primary);
+  --label-secondary:  var(--text-secondary);
+  --label-tertiary:   var(--text-muted);
+  --label-quaternary: color-mix(in srgb, var(--text-muted) 60%, transparent);
+}
+
+/* Приглушённые элементы — не чистый цвет, а полупрозрачный */
+.executive-shell .dashboard-note,
+.executive-shell .muted,
+.executive-shell small {
+  color: var(--label-tertiary);
+}
+
+.executive-shell .eyebrow,
+.executive-shell .nav-section-label {
+  color: var(--label-quaternary);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+/* Заголовки — weight 600, не 700/800 */
+.executive-shell h1,
+.executive-shell h2,
+.executive-shell h3,
+.executive-shell .page-head h1 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.executive-shell h1,
+.executive-shell .page-head h1 {
+  font-weight: 700;
+  letter-spacing: -0.025em;
 }
