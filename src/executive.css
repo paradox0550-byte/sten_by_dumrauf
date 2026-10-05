@@ -1343,3 +1343,207 @@ textarea:focus-visible {
     padding: 2px;
   }
 }
+
+
+/* ═══════════════════════════════════════════════════════════
+   Dashboard Cockpit — /dashboard «Мой день»
+   Визуальная унификация. Бизнес-логика не тронута.
+   ═══════════════════════════════════════════════════════════ */
+
+/* Hero */
+.executive-shell .dashboard-cockpit .page-head h1 {
+  margin-bottom: 6px;
+}
+.executive-shell .dashboard-cockpit .page-head .eyebrow {
+  color: var(--color-brand);
+}
+
+/* Сводка «Что произошло» */
+.executive-shell .analytics-summary {
+  display: grid;
+  gap: 16px;
+  padding: 20px 22px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ui-radius-md);
+  background: var(--bg-surface);
+}
+.executive-shell .analytics-summary-delta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  background: var(--bg-surface-subtle);
+  border-radius: var(--ui-radius-sm);
+}
+.executive-shell .analytics-summary-delta strong {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-success);
+}
+.executive-shell .analytics-summary-delta small {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* KPI-strip уже покрыт PR #8 — не трогать */
+
+/* Две колонки */
+.executive-shell .two-col.dashboard-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+@media (max-width: 900px) {
+  .executive-shell .two-col.dashboard-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Таблица драйверов */
+.executive-shell .driver-tree {
+  display: grid;
+  gap: 0;
+}
+.executive-shell .driver-tree > div {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  gap: 12px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border-subtle);
+  align-items: center;
+}
+.executive-shell .driver-tree > div:last-child {
+  border-bottom: 0;
+}
+.executive-shell .driver-tree .analytics-report-head {
+  background: var(--bg-surface-subtle);
+  border-radius: var(--ui-radius-xs);
+  padding: 8px 12px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.executive-shell .driver-tree strong {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.executive-shell .driver-tree strong.positive {
+  color: var(--color-success);
+}
+.executive-shell .driver-tree strong.negative {
+  color: var(--color-danger);
+}
+
+/* Действия «Что делать» */
+.executive-shell .secretary-event {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--border-subtle);
+  align-items: flex-start;
+}
+.executive-shell .secretary-event:last-of-type {
+  border-bottom: 0;
+}
+.executive-shell .secretary-date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 48px;
+}
+.executive-shell .secretary-date b {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.executive-shell .secretary-date small {
+  font-size: 9px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+.executive-shell .secretary-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.executive-shell .secretary-main strong {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.executive-shell .secretary-main span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* График */
+.executive-shell .dashboard-cockpit .chart-wrap {
+  padding: 18px 20px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ui-radius-md);
+  background: var(--bg-surface);
+  margin-top: 16px;
+}
+.executive-shell .dashboard-cockpit .chart-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* Notes */
+.executive-shell .dashboard-note {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Empty / Loading / Error */
+.executive-shell .dashboard-cockpit .panel.empty,
+.executive-shell .dashboard-cockpit .panel.empty-state,
+.executive-shell .dashboard-cockpit .error {
+  border-radius: var(--ui-radius-md);
+}
+
+@media (max-width: 767px) {
+  .executive-shell .dashboard-cockpit .analytics-summary {
+    padding: 16px;
+  }
+
+  .executive-shell .dashboard-cockpit .analytics-summary-delta {
+    padding: 11px 14px;
+  }
+
+  .executive-shell .dashboard-cockpit .driver-tree > div {
+    gap: 8px;
+    padding-inline: 2px;
+  }
+
+  .executive-shell .dashboard-cockpit .secretary-event {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .executive-shell .dashboard-cockpit .secretary-event > .secondary-button {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .executive-shell .dashboard-cockpit .chart-wrap {
+    padding: 14px 10px;
+    overflow-x: hidden;
+  }
+}
