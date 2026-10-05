@@ -438,7 +438,7 @@ textarea {
     min-width: 0;
   }
 
-  .executive-shell .panel {
+  .panel {
     padding: 14px !important;
     border-radius: 10px !important;
   }
@@ -587,26 +587,26 @@ textarea:focus-visible {
 }
 
 /* One panel language */
-.executive-shell .panel,
+.panel,
 .executive-shell .metric-card,
-.executive-shell .pnl-kpi,
-.executive-shell .budget-kpi,
+.pnl-kpi,
+.budget-kpi,
 .executive-shell .chat,
 .executive-shell .docs-panel,
 .executive-shell .modal-card,
 .executive-shell .unlock-card,
-.executive-shell .analytics-gap-section {
+.analytics-gap-section {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--ui-radius-md);
   box-shadow: var(--ui-shadow);
 }
 
-.executive-shell .panel {
+.panel {
   padding: 18px 20px;
 }
 
-.executive-shell .panel-title {
+.panel-title {
   margin: 0 0 14px;
   padding: 0 0 12px;
   border-bottom: 1px solid var(--border-subtle);
@@ -729,26 +729,26 @@ textarea:focus-visible {
 /* Tables are part of the same contour, not separate visual products */
 .executive-shell .table-wrap,
 .executive-shell .financial-table,
-.executive-shell .analytics-report-table,
+.analytics-report-table,
 .executive-shell .budget-grid {
   border-color: var(--border-subtle);
 }
 
 .executive-shell .financial-table th,
 .executive-shell .financial-table td,
-.executive-shell .analytics-report-table > div,
+.analytics-report-table > div,
 .executive-shell .budget-grid > div {
   border-color: var(--border-subtle);
 }
 
 .executive-shell .financial-table th,
-.executive-shell .analytics-report-head {
+.analytics-report-head {
   background: var(--bg-surface-subtle);
   color: var(--text-secondary);
 }
 
 .executive-shell .financial-table tr:hover td,
-.executive-shell .analytics-report-table > div:not(.analytics-report-head):hover,
+.analytics-report-table > div:not(.analytics-report-head):hover,
 .executive-shell .budget-grid > div:not(.head):hover {
   background: var(--bg-surface-subtle);
 }
@@ -774,14 +774,14 @@ textarea:focus-visible {
 .executive-shell .import-result,
 .executive-shell .empty,
 .executive-shell .empty-state,
-.executive-shell .chart-empty {
+.chart-empty {
   border-radius: var(--ui-radius-sm);
   box-shadow: none;
 }
 
 .executive-shell .empty,
 .executive-shell .empty-state,
-.executive-shell .chart-empty {
+.chart-empty {
   background: var(--bg-surface-subtle);
   border: 1px dashed var(--border-strong);
   color: var(--text-secondary);
@@ -805,8 +805,8 @@ textarea:focus-visible {
 
 /* Remove legacy warm/gold emphasis from shared structural components. */
 .executive-shell .eyebrow,
-.executive-shell .panel-title svg,
-.executive-shell .analytics-footer svg {
+.panel-title svg,
+.analytics-footer svg {
   color: var(--color-brand);
 }
 
@@ -829,7 +829,7 @@ textarea:focus-visible {
     padding: 14px 12px 28px;
   }
 
-  .executive-shell .panel {
+  .panel {
     padding: 16px;
     border-radius: var(--ui-radius-sm);
   }
@@ -946,10 +946,10 @@ textarea:focus-visible {
 }
 
 .executive-shell .page,
-.executive-shell .panel,
+.panel,
 .executive-shell .metric-card,
-.executive-shell .pnl-kpi,
-.executive-shell .budget-kpi,
+.pnl-kpi,
+.budget-kpi,
 .executive-shell .chat,
 .executive-shell .docs-panel {
   min-width: 0;
@@ -957,7 +957,7 @@ textarea:focus-visible {
 
 .executive-shell .table-wrap,
 .executive-shell .financial-table,
-.executive-shell .analytics-report-table {
+.analytics-report-table {
   max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -1082,7 +1082,7 @@ textarea:focus-visible {
 }
 
 @media (prefers-contrast: more) {
-  .executive-shell .panel,
+  .panel,
   .executive-shell .metric-card,
   .executive-shell input,
   .executive-shell select,
@@ -1170,10 +1170,10 @@ textarea:focus-visible {
    ═══════════════════════════════════════════════════════════ */
 
 /* ─── Базовый контур KPI-карточки ────────────────────────── */
-.executive-shell .pnl-kpi,
+.pnl-kpi,
 .executive-shell .metric-card,
-.executive-shell .budget-kpi,
-.executive-shell .analytics-kpi-strip > article {
+.budget-kpi,
+.analytics-kpi-strip > article {
   padding: 16px 18px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--ui-radius-md);
@@ -1188,9 +1188,9 @@ textarea:focus-visible {
 }
 
 /* Hover shadow via ::after - GPU composited, no paint on hover */
-.executive-shell .pnl-kpi::after,
+.pnl-kpi::after,
 .executive-shell .metric-card::after,
-.executive-shell .analytics-kpi-strip > article::after {
+.analytics-kpi-strip > article::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -1201,25 +1201,25 @@ textarea:focus-visible {
   pointer-events: none;
 }
 
-.executive-shell .pnl-kpi:hover::after,
+.pnl-kpi:hover::after,
 .executive-shell .metric-card:hover::after,
-.executive-shell .analytics-kpi-strip > article:hover::after {
+.analytics-kpi-strip > article:hover::after {
   opacity: 1;
 }
 
-.executive-shell .pnl-kpi:hover,
+.pnl-kpi:hover,
 .executive-shell .metric-card:hover,
-.executive-shell .budget-kpi:hover,
-.executive-shell .analytics-kpi-strip > article:hover {
+.budget-kpi:hover,
+.analytics-kpi-strip > article:hover {
   border-color: var(--border-strong);
 }
 
 /* ─── Подпись (label) карточки ────────────────────────────── */
-.executive-shell .pnl-kpi > small,
+.pnl-kpi > small,
 .executive-shell .metric-card > span:first-child,
 .executive-shell .metric-card > small,
-.executive-shell .budget-kpi > small,
-.executive-shell .analytics-kpi-strip > article > small {
+.budget-kpi > small,
+.analytics-kpi-strip > article > small {
   display: block;
   font-size: 10px;
   font-weight: 700;
@@ -1230,10 +1230,10 @@ textarea:focus-visible {
 }
 
 /* ─── Крупное число (value) ───────────────────────────────── */
-.executive-shell .pnl-kpi b,
+.pnl-kpi b,
 .executive-shell .metric-card strong,
-.executive-shell .budget-kpi strong,
-.executive-shell .analytics-kpi-strip > article strong {
+.budget-kpi strong,
+.analytics-kpi-strip > article strong {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
   font-size: clamp(22px, 1.304rem + 0.357vw, 26px);
@@ -1247,7 +1247,7 @@ textarea:focus-visible {
 }
 
 /* ─── Блок plan / fact / delta ────────────────────────────── */
-.executive-shell .pnl-kpi > div,
+.pnl-kpi > div,
 .executive-shell .metric-card > div {
   display: flex;
   flex-wrap: wrap;
@@ -1255,7 +1255,7 @@ textarea:focus-visible {
   margin-top: 2px;
 }
 
-.executive-shell .pnl-kpi span,
+.pnl-kpi span,
 .executive-shell .metric-card span {
   display: inline-flex;
   gap: 4px;
@@ -1264,7 +1264,7 @@ textarea:focus-visible {
   line-height: 1.3;
 }
 
-.executive-shell .pnl-kpi span b,
+.pnl-kpi span b,
 .executive-shell .metric-card span b {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
@@ -1274,9 +1274,9 @@ textarea:focus-visible {
 }
 
 /* ─── Дельта (em) — статус-строка внизу карточки ──────────── */
-.executive-shell .pnl-kpi em,
+.pnl-kpi em,
 .executive-shell .metric-card em,
-.executive-shell .budget-kpi em {
+.budget-kpi em {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1295,30 +1295,30 @@ textarea:focus-visible {
 }
 
 /* Позитивная дельта */
-.executive-shell .pnl-kpi em.positive,
+.pnl-kpi em.positive,
 .executive-shell .metric-card em.positive,
-.executive-shell .budget-kpi em.positive,
-.executive-shell .pnl-kpi em:not(:empty):not(.negative):not(.neutral)::before {
+.budget-kpi em.positive,
+.pnl-kpi em:not(:empty):not(.negative):not(.neutral)::before {
   /* подстраховка для старых мест, где нет классов */
 }
 
-.executive-shell .pnl-kpi em.positive,
+.pnl-kpi em.positive,
 .executive-shell .metric-card em.positive,
-.executive-shell .budget-kpi em.positive {
+.budget-kpi em.positive {
   background: var(--success-bg);
   color: var(--color-success);
 }
 
 /* Негативная дельта */
-.executive-shell .pnl-kpi em.negative,
+.pnl-kpi em.negative,
 .executive-shell .metric-card em.negative,
-.executive-shell .budget-kpi em.negative {
+.budget-kpi em.negative {
   background: var(--danger-bg);
   color: var(--color-danger);
 }
 
 /* ─── KPI-strip: равномерная сетка ────────────────────────── */
-.executive-shell .analytics-kpi-strip {
+.analytics-kpi-strip {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
@@ -1329,18 +1329,18 @@ textarea:focus-visible {
 
 /* ─── Плотный режим для мобильных ─────────────────────────── */
 @container (max-width: 220px) {
-  .executive-shell .pnl-kpi,
+  .pnl-kpi,
   .executive-shell .metric-card,
-  .executive-shell .budget-kpi,
-  .executive-shell .analytics-kpi-strip > article {
+  .budget-kpi,
+  .analytics-kpi-strip > article {
     min-height: 104px;
     padding: 14px;
   }
 
-  .executive-shell .pnl-kpi b,
+  .pnl-kpi b,
   .executive-shell .metric-card strong,
-  .executive-shell .budget-kpi strong,
-  .executive-shell .analytics-kpi-strip > article strong {
+  .budget-kpi strong,
+  .analytics-kpi-strip > article strong {
     font-size: 20px;
   }
 
@@ -1438,15 +1438,15 @@ textarea:focus-visible {
    ═══════════════════════════════════════════════════════════ */
 
 /* Hero */
-.executive-shell .dashboard-cockpit .page-head h1 {
+.dashboard-cockpit .page-head h1 {
   margin-bottom: 6px;
 }
-.executive-shell .dashboard-cockpit .page-head .eyebrow {
+.dashboard-cockpit .page-head .eyebrow {
   color: var(--color-brand);
 }
 
 /* Сводка «Что произошло» */
-.executive-shell .analytics-summary {
+.analytics-summary {
   display: grid;
   gap: 16px;
   padding: 20px 22px;
@@ -1454,7 +1454,7 @@ textarea:focus-visible {
   border-radius: var(--ui-radius-md);
   background: var(--bg-surface);
 }
-.executive-shell .analytics-summary-delta {
+.analytics-summary-delta {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1462,13 +1462,13 @@ textarea:focus-visible {
   background: var(--bg-surface-subtle);
   border-radius: var(--ui-radius-sm);
 }
-.executive-shell .analytics-summary-delta strong {
+.analytics-summary-delta strong {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 22px;
   font-variant-numeric: tabular-nums;
   color: var(--color-success);
 }
-.executive-shell .analytics-summary-delta small {
+.analytics-summary-delta small {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1491,11 +1491,11 @@ textarea:focus-visible {
 }
 
 /* Таблица драйверов */
-.executive-shell .driver-tree {
+.driver-tree {
   display: grid;
   gap: 0;
 }
-.executive-shell .driver-tree > div {
+.driver-tree > div {
   display: grid;
   grid-template-columns: 1.4fr 1fr 1fr 1fr;
   gap: 12px;
@@ -1503,10 +1503,10 @@ textarea:focus-visible {
   border-bottom: 1px solid var(--border-subtle);
   align-items: center;
 }
-.executive-shell .driver-tree > div:last-child {
+.driver-tree > div:last-child {
   border-bottom: 0;
 }
-.executive-shell .driver-tree .analytics-report-head {
+.driver-tree .analytics-report-head {
   background: var(--bg-surface-subtle);
   border-radius: var(--ui-radius-xs);
   padding: 8px 12px;
@@ -1516,15 +1516,15 @@ textarea:focus-visible {
   color: var(--text-muted);
   font-weight: 700;
 }
-.executive-shell .driver-tree strong {
+.driver-tree strong {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
-.executive-shell .driver-tree strong.positive {
+.driver-tree strong.positive {
   color: var(--color-success);
 }
-.executive-shell .driver-tree strong.negative {
+.driver-tree strong.negative {
   color: var(--color-danger);
 }
 
@@ -1574,14 +1574,14 @@ textarea:focus-visible {
 }
 
 /* График */
-.executive-shell .dashboard-cockpit .chart-wrap {
+.dashboard-cockpit .chart-wrap {
   padding: 18px 20px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--ui-radius-md);
   background: var(--bg-surface);
   margin-top: 16px;
 }
-.executive-shell .dashboard-cockpit .chart-empty {
+.dashboard-cockpit .chart-empty {
   padding: 40px 20px;
   text-align: center;
   color: var(--text-muted);
@@ -1589,7 +1589,7 @@ textarea:focus-visible {
 }
 
 /* Notes */
-.executive-shell .dashboard-note {
+.dashboard-note {
   display: flex;
   gap: 6px;
   align-items: flex-start;
@@ -1600,36 +1600,36 @@ textarea:focus-visible {
 }
 
 /* Empty / Loading / Error */
-.executive-shell .dashboard-cockpit .panel.empty,
-.executive-shell .dashboard-cockpit .panel.empty-state,
-.executive-shell .dashboard-cockpit .error {
+.dashboard-cockpit .panel.empty,
+.dashboard-cockpit .panel.empty-state,
+.dashboard-cockpit .error {
   border-radius: var(--ui-radius-md);
 }
 
 @media (max-width: 767px) {
-  .executive-shell .dashboard-cockpit .analytics-summary {
+  .dashboard-cockpit .analytics-summary {
     padding: 16px;
   }
 
-  .executive-shell .dashboard-cockpit .analytics-summary-delta {
+  .dashboard-cockpit .analytics-summary-delta {
     padding: 11px 14px;
   }
 
-  .executive-shell .dashboard-cockpit .driver-tree > div {
+  .dashboard-cockpit .driver-tree > div {
     gap: 8px;
     padding-inline: 2px;
   }
 
-  .executive-shell .dashboard-cockpit .secretary-event {
+  .dashboard-cockpit .secretary-event {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .executive-shell .dashboard-cockpit .secretary-event > .secondary-button {
+  .dashboard-cockpit .secretary-event > .secondary-button {
     grid-column: 2;
     justify-self: start;
   }
 
-  .executive-shell .dashboard-cockpit .chart-wrap {
+  .dashboard-cockpit .chart-wrap {
     padding: 14px 10px;
     overflow-x: hidden;
   }
@@ -1893,21 +1893,21 @@ textarea:focus-visible {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.executive-shell .panel,
-.executive-shell .analytics-summary,
-.executive-shell .analytics-kpi-strip {
+.panel,
+.analytics-summary,
+.analytics-kpi-strip {
   animation: sten-fade-in 0.25s ease-out;
 }
 
-.executive-shell .pnl-kpi,
+.pnl-kpi,
 .executive-shell .metric-card,
-.executive-shell .analytics-kpi-strip > article {
+.analytics-kpi-strip > article {
   transition: transform 0.15s ease, border-color 0.15s ease;
 }
 
-.executive-shell .pnl-kpi:hover,
+.pnl-kpi:hover,
 .executive-shell .metric-card:hover,
-.executive-shell .analytics-kpi-strip > article:hover {
+.analytics-kpi-strip > article:hover {
   transform: translateY(-1px);
 }
 
@@ -1963,7 +1963,7 @@ textarea:focus-visible {
 }
 
 /* Приглушённые элементы — не чистый цвет, а полупрозрачный */
-.executive-shell .dashboard-note,
+.dashboard-note,
 .executive-shell .muted,
 .executive-shell small {
   color: var(--label-tertiary);
