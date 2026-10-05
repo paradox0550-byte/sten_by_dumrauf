@@ -53,6 +53,11 @@ jobs:
           test -d dist/assets
           test -f dist/manifest.json
           test -f dist/sw.js
+          test -f dist/favicon.svg
+          test -f dist/icon-192.svg
+          test -f dist/icon-512.svg
+          test -f dist/brand/sten-mark.svg
+          test -f dist/brand/sten-lockup.svg
 
       - name: Backend validation
         working-directory: backend
