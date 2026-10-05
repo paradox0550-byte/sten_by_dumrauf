@@ -217,30 +217,30 @@ textarea {
 }
 
 /* Financial controls */
-.executive-shell .global-scale,
-.executive-shell .security-status,
-.executive-shell .period-chip,
-.executive-shell .workspace-btn {
+.global-scale,
+.security-status,
+.period-chip,
+.workspace-btn {
   border-color: var(--control-border-color);
   background: var(--control-bg);
   color: var(--text-secondary);
 }
 
-.executive-shell .workspace-btn:hover,
+.workspace-btn:hover,
 .executive-shell .icon-button:hover {
   background: var(--bg-surface);
   color: var(--text-primary);
   border-color: var(--border-strong);
 }
 
-.executive-shell .global-scale button.active {
+.global-scale button.active {
   background: var(--active-bg);
   border-color: var(--active-border);
   color: var(--active-text);
   font-weight: 600;
 }
 
-.executive-shell .security-status {
+.security-status {
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   padding: 6px 8px;
@@ -248,18 +248,18 @@ textarea {
   letter-spacing: .06em;
 }
 
-.executive-shell .security-status i,
-.executive-shell .security-boundary i {
+.security-status i,
+.security-boundary i {
   background: var(--color-success);
 }
 
-.executive-shell .security-boundary {
+.security-boundary {
   background: var(--bg-surface-subtle);
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
 }
 
-.executive-shell .brand-mark {
+.brand-mark {
   background: var(--text-primary);
   color: var(--bg-surface);
 }
@@ -369,7 +369,7 @@ textarea {
     white-space: nowrap;
   }
 
-  .executive-shell .period-chip {
+  .period-chip {
     display: none;
   }
 
@@ -378,20 +378,20 @@ textarea {
     margin-left: auto;
   }
 
-  .executive-shell .workspace-btn {
+  .workspace-btn {
     max-width: 31vw;
     min-height: 36px;
     padding: 0 8px;
   }
 
-  .executive-shell .workspace-btn-label {
+  .workspace-btn-label {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .executive-shell .global-scale,
-  .executive-shell .security-status {
+  .global-scale,
+  .security-status {
     display: none;
   }
 
@@ -614,38 +614,38 @@ textarea:focus-visible {
 }
 
 /* One control language */
-.executive-shell .primary-button,
-.executive-shell .secondary-button,
-.executive-shell .danger-button {
+.primary-button,
+.secondary-button,
+.danger-button {
   min-height: var(--ui-control-h);
   border-radius: var(--ui-radius-xs);
   box-shadow: none;
 }
 
-.executive-shell .primary-button {
+.primary-button {
   background: var(--color-brand);
   border-color: var(--color-brand);
   color: #fff;
 }
 
-.executive-shell .primary-button:hover:not(:disabled) {
+.primary-button:hover:not(:disabled) {
   background: color-mix(in oklch, var(--color-brand) 88%, var(--text-primary));
   border-color: color-mix(in oklch, var(--color-brand) 88%, var(--text-primary));
 }
 
-.executive-shell .secondary-button {
+.secondary-button {
   background: var(--bg-surface);
   border-color: var(--border-subtle);
   color: var(--text-primary);
 }
 
-.executive-shell .secondary-button:hover:not(:disabled) {
+.secondary-button:hover:not(:disabled) {
   background: var(--bg-surface-subtle);
   border-color: var(--border-strong);
   color: var(--text-primary);
 }
 
-.executive-shell .danger-button {
+.danger-button {
   background: transparent;
   border-color: var(--color-danger);
   color: var(--color-danger);
@@ -696,17 +696,17 @@ textarea:focus-visible {
 }
 
 /* Workspace/scope controls share the same surface and density */
-.executive-shell .workspace-btn,
-.executive-shell .period-chip,
-.executive-shell .global-scale,
-.executive-shell .security-status {
+.workspace-btn,
+.period-chip,
+.global-scale,
+.security-status {
   border: 1px solid var(--border-subtle);
   border-radius: var(--ui-radius-xs);
   background: var(--bg-surface-subtle);
 }
 
 /* Period chip: compact, nowrap, tabular nums */
-.executive-shell .period-chip {
+.period-chip {
   white-space: nowrap;
   flex-shrink: 0;
   font-size: var(--chip-font-size);
@@ -715,7 +715,7 @@ textarea:focus-visible {
   padding-inline: 8px;
 }
 
-.executive-shell .workspace-btn {
+.workspace-btn {
   min-height: var(--ui-control-h);
 }
 
@@ -838,9 +838,9 @@ textarea:focus-visible {
     gap: 10px;
   }
 
-  .executive-shell .primary-button,
-  .executive-shell .secondary-button,
-  .executive-shell .danger-button,
+  .primary-button,
+  .secondary-button,
+  .danger-button,
   .executive-shell .settings-field input,
   .executive-shell .settings-field select {
     min-height: 40px;
@@ -863,7 +863,7 @@ textarea:focus-visible {
   --content-max: 1440px;
 }
 
-.executive-shell .brand-mark {
+.brand-mark {
   width: 36px;
   height: 36px;
   flex: 0 0 36px;
@@ -875,17 +875,17 @@ textarea:focus-visible {
   border: 1px solid var(--border-subtle);
 }
 
-.executive-shell .brand-mark svg {
+.brand-mark svg {
   width: 25px;
   height: 25px;
 }
 
-.executive-shell .brand-copy {
+.brand-copy {
   min-width: 0;
 }
 
-.executive-shell .brand-copy b,
-.executive-shell .brand-copy small {
+.brand-copy b,
+.brand-copy small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -975,9 +975,9 @@ textarea:focus-visible {
   -webkit-appearance: none;
 }
 
-.executive-shell .primary-button,
-.executive-shell .secondary-button,
-.executive-shell .danger-button,
+.primary-button,
+.secondary-button,
+.danger-button,
 .executive-shell .icon-button,
 .executive-shell .sidebar-toggle {
   user-select: none;
@@ -1012,7 +1012,7 @@ textarea:focus-visible {
     width: 100%;
   }
 
-  .executive-shell .brand-mark {
+  .brand-mark {
     width: 34px;
     height: 34px;
     flex-basis: 34px;
@@ -1072,7 +1072,7 @@ textarea:focus-visible {
     max-width: 28vw;
   }
 
-  .executive-shell .global-scale {
+  .global-scale {
     display: none;
   }
 
