@@ -130,7 +130,7 @@ export default function AI(){
 
  const readyCount=docs.filter(d=>d.status==='ready').length;
 
- return <div className="page">
+ return <div className="page sten-ai-page">
    <div className="page-head">
      <div>
        <span className="eyebrow"><span className="status-dot"/> AI · ДАННЫЕ → ДЕЙСТВИЯ</span>
