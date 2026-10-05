@@ -1,5 +1,5 @@
 import {useState,FormEvent} from 'react';
-import {useNavigate} from 'react-router-dom';
+import {Navigate} from 'react-router-dom';
 import {useAuth} from '../contexts/AuthContext';
 import {ApiError} from '../lib/api';
 
@@ -7,7 +7,6 @@ function LoginSpinner(){return <svg className="login-spinner" width="18" height=
 
 export default function AuthSetup(){
   const {user,login}=useAuth();
-  const navigate=useNavigate();
   const [email,setEmail]=useState('');
   const [password,setPassword]=useState('');
   const [busy,setBusy]=useState(false);
@@ -27,10 +26,7 @@ export default function AuthSetup(){
     }finally{setBusy(false)}
   }
 
-  if(user){
-    navigate('/sten',{replace:true});
-    return null;
-  }
+  if(user) return <Navigate to="/sten" replace/>;
 
   const inputStyle:React.CSSProperties={padding:'10px 12px',borderRadius:8,border:'1px solid var(--border-subtle)',background:'var(--bg-surface)',color:'var(--text-primary)',fontSize:14,width:'100%',boxSizing:'border-box'};
   const labelStyle:React.CSSProperties={display:'flex',flexDirection:'column',gap:6,fontSize:12,color:'var(--text-secondary)'};
