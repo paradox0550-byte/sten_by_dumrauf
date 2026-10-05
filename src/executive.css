@@ -2357,3 +2357,9 @@ textarea:focus-visible {
 [data-theme='dark'] .unlock{background-image:url('../brand/sten-ai-wallpaper.svg')}
 .unlock-card{position:relative;z-index:1;border:1px solid var(--border-subtle);background:color-mix(in oklch,var(--bg-surface) 97%,transparent);border-radius:14px}
 @media(max-width:767px){.brand-mark{width:34px;height:34px;flex-basis:34px}.brand-mark img{width:24px;height:24px}.auth-brand{margin-bottom:18px}.auth-brand img{width:min(240px,82vw)}.sten-ai-page{background-size:auto 100%}}
+
+
+/* STEN auth/loading feedback */
+.loading .sten-neon-spinner{display:block;width:48px;height:48px;filter:drop-shadow(0 0 8px rgba(91,124,250,.42))}
+.loading{gap:14px}
+.login-spinner{display:block;flex:0 0 auto;filter:drop-shadow(0 0 5px rgba(255,255,255,.35))}
