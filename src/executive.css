@@ -15,6 +15,7 @@
   --text-secondary: #1f2937; /* Apple-label-secondary */
   --text-muted: #4b5563; /* Apple-label-tertiary */
   --color-brand: #5b7cfa;
+  --color-brand-strong: color-mix(in srgb, var(--color-brand) 70%, #000);
   --color-danger: #dc2626;
   --color-danger-bg: #fef2f2;
   --color-warning: #d97706;
@@ -49,6 +50,7 @@
   --text-secondary: #e5e7eb; /* Apple-dark-secondary */
   --text-muted: #b5bdc9; /* Apple-dark-tertiary */
   --color-brand: #5b7cfa;
+  --color-brand-strong: color-mix(in srgb, var(--color-brand) 70%, #fff);
   --color-danger: #ef4444;
   --color-danger-bg: #2d1519;
   --color-warning: #f59e0b;
@@ -163,7 +165,6 @@ textarea {
   color: var(--text-secondary);
 }
 
-.executive-shell .global-scale button.active,
 .executive-shell .workspace-btn:hover,
 .executive-shell .icon-button:hover {
   background: var(--bg-surface);
@@ -172,7 +173,10 @@ textarea {
 }
 
 .executive-shell .global-scale button.active {
-  color: var(--color-brand);
+  background: color-mix(in srgb, var(--color-brand) 14%, var(--bg-surface-subtle));
+  border-color: color-mix(in srgb, var(--color-brand) 45%, transparent);
+  color: var(--color-brand-strong);
+  font-weight: 600;
 }
 
 .executive-shell .security-status {
@@ -460,17 +464,6 @@ textarea {
   }
 }
 
-/* Respect reduced motion without changing information hierarchy. */
-@media (prefers-reduced-motion: reduce) {
-  .executive-shell *,
-  .executive-shell *::before,
-  .executive-shell *::after {
-    animation-duration: .001ms !important;
-    transition-duration: .001ms !important;
-  }
-}
-
-
 /* ==========================================================================
    STEN v5.0.2 — Unified UI contour
    One surface language across every workspace: shell, pages, panels, controls,
@@ -649,6 +642,16 @@ textarea:focus-visible {
   border: 1px solid var(--border-subtle);
   border-radius: var(--ui-radius-xs);
   background: var(--bg-surface-subtle);
+}
+
+/* Period chip: compact, nowrap, tabular nums */
+.executive-shell .period-chip {
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  padding-inline: 8px;
 }
 
 .executive-shell .workspace-btn {
@@ -1118,7 +1121,28 @@ textarea:focus-visible {
   flex-direction: column;
   gap: 10px;
   min-height: 118px;
+  position: relative;
   transition: border-color 0.15s ease;
+}
+
+/* Hover shadow via ::after - GPU composited, no paint on hover */
+.executive-shell .pnl-kpi::after,
+.executive-shell .metric-card::after,
+.executive-shell .analytics-kpi-strip > article::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.executive-shell .pnl-kpi:hover::after,
+.executive-shell .metric-card:hover::after,
+.executive-shell .analytics-kpi-strip > article:hover::after {
+  opacity: 1;
 }
 
 .executive-shell .pnl-kpi:hover,
@@ -1150,7 +1174,7 @@ textarea:focus-visible {
 .executive-shell .analytics-kpi-strip > article strong {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 26px;
+  font-size: clamp(22px, 1.304rem + 0.357vw, 26px);
   font-weight: 600;
   line-height: 1.1;
   letter-spacing: -0.02em;
@@ -1251,12 +1275,6 @@ textarea:focus-visible {
     padding: 14px;
   }
 
-  .executive-shell .pnl-kpi b,
-  .executive-shell .metric-card strong,
-  .executive-shell .budget-kpi strong,
-  .executive-shell .analytics-kpi-strip > article strong {
-    font-size: 22px;
-  }
 }
 /* Executive Cockpit shell refresh: primary navigation + authenticated profile. */
 .executive-shell .top-nav {
@@ -1589,8 +1607,9 @@ textarea:focus-visible {
 }
 
 .executive-shell .pnl-scale-toggle button.active {
-  background: var(--bg-surface);
-  color: var(--color-brand);
+  background: color-mix(in srgb, var(--color-brand) 14%, var(--bg-surface-subtle));
+  border-color: color-mix(in srgb, var(--color-brand) 45%, transparent);
+  color: var(--color-brand-strong);
   font-weight: 600;
 }
 
@@ -1814,14 +1833,13 @@ textarea:focus-visible {
 .executive-shell .pnl-kpi,
 .executive-shell .metric-card,
 .executive-shell .analytics-kpi-strip > article {
-  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.15s ease, border-color 0.15s ease;
 }
 
 .executive-shell .pnl-kpi:hover,
 .executive-shell .metric-card:hover,
 .executive-shell .analytics-kpi-strip > article:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
 @keyframes sten-message-in {
