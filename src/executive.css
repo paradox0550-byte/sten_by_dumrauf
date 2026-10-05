@@ -1991,3 +1991,99 @@ textarea:focus-visible {
   letter-spacing: -0.025em;
 }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Topbar layout fix v2 — всё в одну строку без переносов
+   ═══════════════════════════════════════════════════════════ */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.top-context {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 260px;
+  overflow: hidden;
+}
+
+.top-context .crumb {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.top-context .period-chip {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.top-nav {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+
+.top-nav a {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.top-nav a span {
+  white-space: nowrap;
+}
+
+.top-workspace {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 180px;
+}
+
+.global-scale {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+.global-scale button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.security-status {
+  flex-shrink: 0;
+}
+
+.top-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+.top-profile {
+  flex-shrink: 0;
+}
+
+.top-profile-info b,
+.top-profile-info small {
+  white-space: nowrap;
+}
+
+@media (max-width: 1400px) {
+  .top-context { max-width: 180px; }
+  .top-workspace { max-width: 140px; }
+}
+
+@media (max-width: 1200px) {
+  .security-status { display: none; }
+.top-workspace { max-width: 120px; }
+}
+
