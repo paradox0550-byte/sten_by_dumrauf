@@ -1174,7 +1174,7 @@ textarea:focus-visible {
 .executive-shell .analytics-kpi-strip > article strong {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 26px;
+  font-size: clamp(22px, 1.304rem + 0.357vw, 26px);
   font-weight: 600;
   line-height: 1.1;
   letter-spacing: -0.02em;
@@ -1275,12 +1275,6 @@ textarea:focus-visible {
     padding: 14px;
   }
 
-  .executive-shell .pnl-kpi b,
-  .executive-shell .metric-card strong,
-  .executive-shell .budget-kpi strong,
-  .executive-shell .analytics-kpi-strip > article strong {
-    font-size: 22px;
-  }
 }
 /* Executive Cockpit shell refresh: primary navigation + authenticated profile. */
 .executive-shell .top-nav {
