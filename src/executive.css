@@ -51,22 +51,22 @@
 
 :root {
   /* LIGHT THEME (Executive Light) */
-  --bg-app: #f7f8fb;
-  --bg-surface: #ffffff;
-  --bg-surface-subtle: #f1f3f7;
-  --border-subtle: #d4dae3;
-  --border-strong: #c7ced9;
-  --text-primary: #0b0d10;
-  --text-secondary: #1f2937; /* Apple-label-secondary */
-  --text-muted: #4b5563; /* Apple-label-tertiary */
-  --color-brand: #5b7cfa;
+  --bg-app: var(--c-gray-100);
+  --bg-surface: var(--c-gray-50);
+  --bg-surface-subtle: var(--c-gray-200);
+  --border-subtle: var(--c-gray-300);
+  --border-strong: var(--c-gray-400);
+  --text-primary: var(--c-gray-950);
+  --text-secondary: var(--c-gray-850); /* Apple-label-secondary */
+  --text-muted: var(--c-gray-600); /* Apple-label-tertiary */
+  --color-brand: var(--c-blue-500);
   --color-brand-strong: color-mix(in oklch, var(--color-brand) 70%, #000);
-  --color-danger: #dc2626;
-  --color-danger-bg: #fef2f2;
-  --color-warning: #d97706;
-  --color-warning-bg: #fffbeb;
-  --color-success: #16a34a;
-  --color-success-bg: #f0fdf4;
+  --color-danger: var(--c-red-500);
+  --color-danger-bg: var(--c-red-50);
+  --color-warning: var(--c-amber-500);
+  --color-warning-bg: var(--c-amber-50);
+  --color-success: var(--c-green-600);
+  --color-success-bg: var(--c-green-50);
 
   /* Backward-compatible aliases used by the existing component CSS. */
   --bg: var(--bg-app);
@@ -86,22 +86,22 @@
 
 [data-theme='dark'] {
   /* DARK THEME (Executive Dark) */
-  --bg-app: #0b0d10;
-  --bg-surface: #131820;
-  --bg-surface-subtle: #171c22;
-  --border-subtle: #2f3844;
-  --border-strong: #4a5665;
-  --text-primary: #f5f7fa;
-  --text-secondary: #e5e7eb; /* Apple-dark-secondary */
-  --text-muted: #b5bdc9; /* Apple-dark-tertiary */
-  --color-brand: #5b7cfa;
+  --bg-app: var(--c-gray-950);
+  --bg-surface: var(--c-gray-925);
+  --bg-surface-subtle: var(--c-gray-900);
+  --border-subtle: var(--c-gray-800);
+  --border-strong: var(--c-gray-700);
+  --text-primary: var(--c-gray-150);
+  --text-secondary: var(--c-gray-250); /* Apple-dark-secondary */
+  --text-muted: var(--c-gray-500); /* Apple-dark-tertiary */
+  --color-brand: var(--c-blue-500);
   --color-brand-strong: color-mix(in oklch, var(--color-brand) 70%, #fff);
-  --color-danger: #ef4444;
-  --color-danger-bg: #2d1519;
-  --color-warning: #f59e0b;
-  --color-warning-bg: #2c2111;
-  --color-success: #10b981;
-  --color-success-bg: #0f291e;
+  --color-danger: var(--c-red-400);
+  --color-danger-bg: var(--c-red-950);
+  --color-warning: var(--c-amber-400);
+  --color-warning-bg: var(--c-amber-950);
+  --color-success: var(--c-green-500);
+  --color-success-bg: var(--c-green-950);
 
   /* Semantic backgrounds — dark variants.
      Эти токены используются в app.css (legacy слой) через имена без
