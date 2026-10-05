@@ -1547,3 +1547,50 @@ textarea:focus-visible {
     overflow-x: hidden;
   }
 }
+
+/* AI Skills UX — progressive disclosure, provenance, validation and mobile */
+.ai-skills-panel{display:flex;flex-direction:column;gap:18px}
+.ai-skills-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding-bottom:14px;border-bottom:1px solid var(--border-subtle)}
+.ai-skills-header h2{margin:3px 0 5px}
+.ai-skills-header p{margin:0;color:var(--text-secondary);font-size:13px}
+.ai-skills-header small{display:block;margin-top:5px;color:var(--text-muted);font-size:11px}
+.ai-skills-state{border:1px solid var(--border-subtle);border-radius:999px;padding:5px 9px;font:600 10px/1 ui-monospace,monospace;white-space:nowrap;color:var(--text-muted)}
+.ai-skills-state.saved{color:var(--color-success);border-color:color-mix(in oklch,var(--color-success) 35%,var(--border-subtle))}
+.ai-skills-state.error{color:var(--color-danger);border-color:color-mix(in oklch,var(--color-danger) 35%,var(--border-subtle))}
+.ai-skills-section{padding-top:2px}
+.ai-skills-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.ai-skills-section-head>div{display:flex;align-items:center;gap:8px}
+.ai-skills-section-head h3{margin:0;font-size:14px}
+.ai-skills-section-head>span:last-child{font-size:11px;color:var(--text-muted)}
+.ai-skills-index{font:700 10px/1 ui-monospace,monospace;color:var(--color-brand)}
+.ai-skills-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ai-skill-field{gap:6px}
+.ai-skill-field>span{display:flex;justify-content:space-between;gap:10px}
+.ai-skill-field>span small{color:var(--text-muted);font-size:10px;font-weight:500}
+.field-hint{color:var(--text-muted);font-size:11px}
+.ai-skill-field em{font-style:normal;color:var(--color-danger);font-size:11px}
+.ai-skill-control{display:grid;grid-template-columns:minmax(0,1fr) 76px 18px;align-items:center;gap:8px}
+.ai-skill-control input[type=range]{min-height:0;padding:0;accent-color:var(--color-brand)}
+.ai-skill-control input[type=number]{min-width:0}
+.ai-skill-control>b{font:600 11px ui-monospace,monospace;color:var(--text-muted)}
+.ai-skill-toggle{border-top:1px solid var(--border-subtle);padding-top:10px}
+.tone-example{margin-top:10px;padding:12px;border:1px solid var(--border-subtle);border-radius:var(--ui-radius-sm);background:var(--bg-surface-subtle)}
+.tone-example>span{display:block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--color-brand)}
+.tone-example p{margin:7px 0 0;font-size:12px;line-height:1.55;color:var(--text-primary)}
+.ai-skills-preview{padding:14px;border:1px solid color-mix(in oklch,var(--color-brand) 24%,var(--border-subtle));border-radius:var(--ui-radius-sm);background:color-mix(in oklch,var(--color-brand) 4%,var(--bg-surface))}
+.ai-skills-preview h3{margin:4px 0 8px;font-size:14px}
+.ai-skills-preview ul{margin:0;padding-left:18px;display:grid;gap:5px;font-size:12px;color:var(--text-secondary)}
+.ai-skills-preview li.not-configured{color:var(--color-danger)}
+.ai-skills-details{border-top:1px solid var(--border-subtle);padding-top:12px}
+.ai-skills-details summary{cursor:pointer;color:var(--text-primary);font-size:12px;font-weight:600}
+.ai-skills-details p{margin:9px 0 0;color:var(--text-secondary);font-size:12px;line-height:1.55}
+.ai-skills-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;padding-top:2px}
+.ai-skills-actions .primary-button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:767px){
+ .ai-skills-header,.ai-skills-section-head{align-items:flex-start}
+ .ai-skills-header{flex-direction:column}
+ .ai-skills-grid{grid-template-columns:1fr}
+ .ai-skills-actions{display:grid;grid-template-columns:1fr}
+ .ai-skills-actions button{width:100%}
+ .ai-skill-control{grid-template-columns:minmax(0,1fr) 68px 16px}
+}
