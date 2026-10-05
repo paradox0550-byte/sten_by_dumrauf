@@ -3,23 +3,13 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0B0D10"><meta name="description" content="STEN — Smart Tracking &amp; Economic Navigator. Исполнительный контур управления ресторанным бизнесом.">
-<link rel="icon" href="./favicon.svg"><link rel="manifest" href="./manifest.json">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=5.0.2"><link rel="apple-touch-icon" href="/icon-192.svg?v=5.0.2"><link rel="manifest" href="/manifest.json?v=5.0.2">
 <title>STEN — Smart Tracking &amp; Economic Navigator</title>
 <style>
-.topbar  { view-transition-name: sten-topbar; }
-.sidebar { view-transition-name: sten-sidebar; }
-.content { view-transition-name: sten-content; }
-@keyframes sten-view-fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes sten-view-slide-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-::view-transition-old(sten-content) { animation: 120ms ease sten-view-fade-in reverse; }
-::view-transition-new(sten-content) { animation: 220ms ease sten-view-slide-up; }
-::view-transition-old(sten-sidebar),
-::view-transition-new(sten-sidebar),
-::view-transition-old(sten-topbar),
-::view-transition-new(sten-topbar) { animation-duration: 0.001ms; }
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(sten-content),
-  ::view-transition-new(sten-content) { animation: none; }
-}
+.topbar{view-transition-name:sten-topbar}.sidebar{view-transition-name:sten-sidebar}.content{view-transition-name:sten-content}
+@keyframes sten-view-fade-in{from{opacity:0}to{opacity:1}}@keyframes sten-view-slide-up{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+::view-transition-old(sten-content){animation:120ms ease sten-view-fade-in reverse}::view-transition-new(sten-content){animation:220ms ease sten-view-slide-up}
+::view-transition-old(sten-sidebar),::view-transition-new(sten-sidebar),::view-transition-old(sten-topbar),::view-transition-new(sten-topbar){animation-duration:.001ms}
+@media(prefers-reduced-motion:reduce){::view-transition-old(sten-content),::view-transition-new(sten-content){animation:none}}
 </style>
 </head><body><div id="root"></div><script type="module" src="./src/main.tsx"></script></body></html>
