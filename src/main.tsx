@@ -1,4 +1,4 @@
-import React from 'react';import ReactDOM from 'react-dom/client';import App from './App';import './app.css';import './executive.css';
+import '@fontsource-variable/inter';import React from 'react';import ReactDOM from 'react-dom/client';import App from './App';import './app.css';import './executive.css';
 const THEME_KEY='sten_theme_v5';
 const storedTheme=localStorage.getItem(THEME_KEY);
 const initialTheme=storedTheme==='light'||storedTheme==='dark'?storedTheme:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');

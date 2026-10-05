@@ -1,5 +1,47 @@
 # Changelog
 
+## [1.2.0] — UI/UX Polish (Этап 10)
+
+Системный рефактор CSS и UX: доступность, современный CSS, производительность.
+
+### Added
+- View Transitions API для навигации между страницами (#23, #24)
+- Container Queries для KPI-карточек (#18)
+- Self-hosted Inter Variable — 7 subsets woff2 (#19)
+- Fluid typography clamp() для KPI-чисел (#16)
+- Токен --color-brand-strong для WCAG AA (#16)
+- Трёхуровневая система дизайн-токенов: primitives → semantic → component (#20)
+- @layer legacy + @layer components для управления каскадом (#22)
+- Component-токены: --control-bg, --active-bg, --chip-font-size (#20)
+
+### Changed
+- color-mix(in srgb) → color-mix(in oklch) — предсказуемая светлота (#18)
+- Hover-shadow KPI через ::after + opacity — GPU compositing (#16)
+- Снятие ~400 префиксов .executive-shell в 6 батчах (#22)
+- Удалён дублирующий @media (prefers-reduced-motion) (#16)
+
+### Fixed
+- Контраст активных кнопок в dark-теме: 2.78:1 → 5.79:1 (WCAG AA) (#16)
+- .period-chip перенесён из mobile MQ в правильное место (#16)
+- Белое пятно активной кнопки .global-scale и .pnl-scale-toggle (#16)
+
+### Performance
+- CSS размер: 101.47 → 96.10 KB (-5.3%)
+- Hover-анимации — compositing вместо paint (INP)
+- Self-hosted шрифты — нет блокирующего запроса к Google Fonts
+
+### Accessibility
+- WCAG AA контраст (4.5:1) для текста на тонированных фонах
+- prefers-reduced-motion отключает view transitions
+- NavLink — Ctrl/Cmd/Shift/Alt-click открывает в новой вкладке нативно (#24)
+
+### Verification
+- npm run typecheck — 0 ошибок
+- npm run lint — 0 ошибок
+- npm run build — успешно (CSS 96.10 KB, JS 257.80 KB)
+
+
+
 ## [1.1.0] — Frontend freeze (Этап 3)
 
 Заморозка frontend-контура перед сохранением репозитория на ПК и деплоем в Yandex Cloud.

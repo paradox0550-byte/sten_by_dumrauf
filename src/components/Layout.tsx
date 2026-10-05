@@ -24,6 +24,7 @@ const applyTheme = (theme: Theme) => {
   document.documentElement.style.colorScheme = resolved;
 };
 
+const viewNavigate=(nav:ReturnType<typeof useNavigate>,to:string)=>{if(typeof document!=='undefined'&&'startViewTransition' in document){(document as any).startViewTransition(()=>nav(to));}else{nav(to);}};
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     const value = localStorage.getItem(THEME_KEY);
@@ -175,6 +176,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 to={to}
                 className={({ isActive }) => isActive ? 'active' : ''}
                 end={to === '/sten'}
+                onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); viewNavigate(navigate, to); }}
               >
                 <Icon size={15} />
                 <span>{label}</span>
@@ -198,14 +200,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
           <div className="security-status" title="Браузер не обращается напрямую к БД или Yandex Cloud">
             <i />
-            <span>SECURE</span>
           </div>
 
           <div className="top-actions">
-            {location.pathname !== '/sten' && (
-              <button className="icon-button" onClick={() => navigate('/sten')} aria-label="STEN"><Bot size={17} /></button>
-            )}
-            <button className="icon-button" onClick={() => navigate('/settings')} aria-label="Настройки"><Settings2 size={17} /></button>
             <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}>
               {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
             </button>
@@ -224,12 +221,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <nav className="mobile-bottom-nav" aria-label="Основная навигация">
         {mobileItems.map(([to, label, Icon]) => (
-          <NavLink key={to} to={to} end={to === '/sten'}>
+          <NavLink key={to} to={to} end={to === '/sten'} onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); viewNavigate(navigate, to); }}>
             <Icon size={18} />
             <span>{label}</span>
           </NavLink>
         ))}
-        <button onClick={() => navigate('/settings')} aria-label="Настройки"><Settings2 size={18} /><span>Настройки</span></button>
+        <button onClick={() => viewNavigate(navigate,'/settings')} aria-label="Настройки"><Settings2 size={18} /><span>Настройки</span></button>
       </nav>
     </div>
   );

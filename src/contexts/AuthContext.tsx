@@ -2,7 +2,7 @@ import {createContext,useCallback,useContext,useEffect,useMemo,useState} from 'r
 import {api,clearSession} from '../lib/api';
 
 export type User={id:string;email?:string;firstName?:string;lastName?:string;role?:string;organizationId?:string|null;permissions?:Record<string,string>};
-type Ctx={user:User|null;loading:boolean;signOut:()=>void};
+type Ctx={user:User|null;loading:boolean;signOut:()=>void;login:(email:string,password:string)=>Promise<void>};
 const C=createContext<Ctx|null>(null), USER='sten_user',TOKEN='sten_token';
 
 export function AuthProvider({children}:{children:React.ReactNode}){
@@ -21,6 +21,12 @@ export function AuthProvider({children}:{children:React.ReactNode}){
   },[]);
   useEffect(()=>{void restore()},[restore]);
   const signOut=useCallback(()=>{clearSession();localStorage.removeItem(USER);setUser(null)},[]);
-  return <C.Provider value={useMemo(()=>({user,loading,signOut}),[user,loading,signOut])}>{children}</C.Provider>
+  const login=useCallback(async(email:string,password:string)=>{
+    const r=await api.post<{token:string;user:User}>('/auth/login',{email,password});
+    localStorage.setItem(TOKEN,r.token);
+    localStorage.setItem(USER,JSON.stringify(r.user));
+    setUser(r.user);
+  },[]);
+  return <C.Provider value={useMemo(()=>({user,loading,signOut,login}),[user,loading,signOut,login])}>{children}</C.Provider>
 }
 export function useAuth(){const c=useContext(C);if(!c)throw new Error('AuthProvider is missing');return c}
