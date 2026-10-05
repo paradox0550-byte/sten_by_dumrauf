@@ -1,3 +1,4 @@
+@layer legacy {
 /* ============================================================================
    STEN Design System — Swiss Hospitality Canon
    Smart Tracking & Economic Navigator
@@ -4338,4 +4339,5 @@ html {
   color: #6b7280;
   margin-top: 8px;
   line-height: 1.4;
+}
 }
