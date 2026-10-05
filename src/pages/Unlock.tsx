@@ -1,4 +1,5 @@
 import {useState,FormEvent} from 'react';
+import {useNavigate} from 'react-router-dom';
 import {Navigate} from 'react-router-dom';
 import {useAuth} from '../contexts/AuthContext';
 import {ApiError} from '../lib/api';
@@ -7,6 +8,7 @@ function LoginSpinner(){return <svg className="login-spinner" width="18" height=
 
 export default function AuthSetup(){
   const {user,login}=useAuth();
+  const navigate=useNavigate();
   const [email,setEmail]=useState('');
   const [password,setPassword]=useState('');
   const [busy,setBusy]=useState(false);
