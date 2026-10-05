@@ -1594,3 +1594,8 @@ textarea:focus-visible {
  .ai-skills-actions button{width:100%}
  .ai-skill-control{grid-template-columns:minmax(0,1fr) 68px 16px}
 }
+
+.ai-skills-state.unsaved{color:var(--color-warning);border-color:color-mix(in oklch,var(--color-warning) 35%,var(--border-subtle))}
+.ai-skills-state.saving{color:var(--color-brand);border-color:color-mix(in oklch,var(--color-brand) 35%,var(--border-subtle))}
+.field-error{display:block;color:var(--color-danger);font-size:11px;font-style:normal}
+.ai-skill-field:has(.field-error) input,.ai-skill-field:has(.field-error) select{border-color:var(--color-danger)}
