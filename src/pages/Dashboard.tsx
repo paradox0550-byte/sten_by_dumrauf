@@ -89,7 +89,7 @@ export default function Dashboard() {
   const status = prime === null ? 'Нет данных' : prime <= 60 ? 'Ниже 60%' : prime <= 65 ? '60–65%' : 'Выше 65%';
 
   return (
-    <div className="page">
+    <div className="page dashboard-cockpit">
       <div className="page-head">
         <div><span className="eyebrow"><Activity size={12} /> РУКОВОДИТЕЛЬ · МОЙ ДЕНЬ</span><h1>Мой день</h1><p>Один экран: что произошло, где отклонение и какое действие логично сделать первым.</p></div>
         <button className="secondary-button" onClick={() => void load()} disabled={loading}><RefreshCw size={15} /> Обновить</button>
