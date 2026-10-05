@@ -200,14 +200,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
           <div className="security-status" title="Браузер не обращается напрямую к БД или Yandex Cloud">
             <i />
-            <span>SECURE</span>
           </div>
 
           <div className="top-actions">
-            {location.pathname !== '/sten' && (
-              <button className="icon-button" onClick={() => viewNavigate(navigate,'/sten')} aria-label="STEN"><Bot size={17} /></button>
-            )}
-            <button className="icon-button" onClick={() => viewNavigate(navigate,'/settings')} aria-label="Настройки"><Settings2 size={17} /></button>
             <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}>
               {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
             </button>

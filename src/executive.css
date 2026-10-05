@@ -2268,3 +2268,78 @@ textarea:focus-visible {
   .global-scale button, .sidebar nav a, .danger-button { transition: none; }
 }
 
+
+/* ═══════════════════════════════════════════════════════════
+   Topbar compact v5 — SECURE → точка, scale компактнее, паддинги
+   ═══════════════════════════════════════════════════════════ */
+
+/* 1. SECURE → маленькая зелёная точка */
+.security-status {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.security-status i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 6px color-mix(in oklch, var(--color-success) 50%, transparent);
+}
+
+[data-theme='dark'] .security-status i {
+  box-shadow: 0 0 8px color-mix(in oklch, var(--color-success) 65%, transparent);
+}
+
+/* 2. Scale-toggle компактнее */
+.global-scale {
+  padding: 2px;
+  gap: 1px;
+}
+
+.global-scale button {
+  padding: 5px 8px;
+  font-size: 11px;
+  letter-spacing: -0.01em;
+}
+
+/* 3. Topbar: уменьшить паддинги и gap */
+.topbar {
+  padding-inline: 14px;
+  gap: 6px;
+}
+
+.top-nav {
+  margin-inline: 4px;
+  gap: 2px;
+}
+
+.top-nav a {
+  padding: 6px 10px;
+}
+
+.top-actions {
+  gap: 2px;
+  margin-left: 4px;
+}
+
+.top-context {
+  max-width: 240px;
+}
+
+.top-workspace {
+  max-width: 160px;
+  margin-inline: 4px;
+}
+
+@media (max-width: 1400px) {
+  .top-context { max-width: 160px; }
+  .top-workspace { max-width: 120px; }
+}
+
