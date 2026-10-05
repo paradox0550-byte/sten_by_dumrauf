@@ -1,3 +1,4 @@
+@layer components {
 /* ==========================================================================
    STEN v5.0.2 — Executive Cockpit semantic theme layer
    Loaded after app.css so legacy component styles inherit the canonical tokens.
@@ -1988,4 +1989,5 @@ textarea:focus-visible {
 .executive-shell .page-head h1 {
   font-weight: 700;
   letter-spacing: -0.025em;
+}
 }
