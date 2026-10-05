@@ -2,15 +2,16 @@
    ресторан → отдел. Выбранный scope сохраняется локально и синхронизируется
    между всеми компонентами (Layout, Настройки) через кастомное событие. */
 import { useEffect, useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { DEFAULT_PERIOD, Scope, scopeKey } from './scope';
 import { api } from './api';
 
-const KEY = 'sten_scope_v5';
+const LEGACY_KEY = 'sten_scope_v5';
 const EVT = 'sten-scope-change';
-
-function readSaved(): Scope {
+function storageKey(user:{id?:string;organizationId?:string|null}|null){return user?.id?`sten_scope_v5:${user.organizationId||'no-org'}:${user.id}`:null;}
+function readSaved(key:string|null): Scope {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = key ? localStorage.getItem(key) : null;
     if (raw) {
       const s = JSON.parse(raw) as Scope;
       if (typeof s === 'object' && s && /^\d{4}-(0[1-9]|1[0-2])$/.test(String(s.period || ''))) return s;
@@ -20,9 +21,13 @@ function readSaved(): Scope {
 }
 
 export function useScope(): [Scope, (next: Scope) => void] {
-  const [scope, setScope] = useState<Scope>(readSaved);
+  const { user } = useAuth();
+  const key = storageKey(user);
+  const [scope, setScope] = useState<Scope>(() => readSaved(key));
 
   useEffect(() => {
+    setScope(readSaved(key));
+    try { localStorage.removeItem(LEGACY_KEY); } catch { /* приватный режим */ }
     void api.get<any>('/api/b2b/context').then((r:any) => {
       const c = r?.context ?? r?.data?.context;
       if (!c) return;
@@ -34,14 +39,14 @@ export function useScope(): [Scope, (next: Scope) => void] {
         departmentId: c.department_id || undefined,
       }));
     }).catch(() => { /* server context недоступен — остаёмся на локальном scope */ });
-    const onChange = () => setScope(readSaved());
+    const onChange = () => setScope(readSaved(key));
     window.addEventListener(EVT, onChange);
     window.addEventListener('storage', onChange);
     return () => {
       window.removeEventListener(EVT, onChange);
       window.removeEventListener('storage', onChange);
     };
-  }, []);
+  }, [key]);
 
   const update = (next: Scope) => {
     setScope(next);
@@ -51,13 +56,13 @@ export function useScope(): [Scope, (next: Scope) => void] {
       branch_id: next.branchId ?? null,
       department_id: next.departmentId ?? null,
     }).catch(() => { /* локальный scope остаётся рабочим при временной недоступности API */ });
-    try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* приватный режим */ }
+    try { if (key) localStorage.setItem(key, JSON.stringify(next)); } catch { /* приватный режим */ }
     window.dispatchEvent(new Event(EVT));
   };
 
   useEffect(() => {
-    try { localStorage.setItem(KEY, JSON.stringify(scope)); } catch { /* приватный режим */ }
-  }, [scopeKey(scope)]);
+    try { if (key) localStorage.setItem(key, JSON.stringify(scope)); } catch { /* приватный режим */ }
+  }, [scopeKey(scope), key]);
 
   return [scope, update];
 }
