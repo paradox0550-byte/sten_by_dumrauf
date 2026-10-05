@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Bot, Copy, FileText, Mic, MicOff, Paperclip, Send, Sparkles, Trash2, UploadCloud, Eye, X, CalendarPlus, Database, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { api } from '../lib/api';
 import { useScope } from '../lib/useScope';
@@ -188,7 +188,8 @@ export default function AI(){
          </div>:messages.map(m=><article className={'message '+m.role} key={m.id}>
            <div className="message-avatar">{m.role==='assistant'?<Sparkles size={14}/>:'Вы'}</div>
            <div className="message-body">
-             <div>{m.text}</div>
+             {m.role==='assistant'&&<div className="message-header"><span className="message-label">STEN Copilot</span></div>}
+             <div className="message-text">{m.text}</div>
              {m.sources?.length?<small className="sources">Источники: {m.sources.map(s=>s.title).join(' · ')}</small>:null}
              {m.role==='assistant'&&<div className="quick-actions">
                <button className="copy" onClick={()=>void navigator.clipboard?.writeText(m.text)}><Copy size={13}/> Копировать</button>
