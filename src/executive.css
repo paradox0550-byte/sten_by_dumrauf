@@ -1122,6 +1122,7 @@ textarea:focus-visible {
   gap: 10px;
   min-height: 118px;
   position: relative;
+  container-type: inline-size;
   transition: border-color 0.15s ease;
 }
 
@@ -1266,13 +1267,20 @@ textarea:focus-visible {
 }
 
 /* ─── Плотный режим для мобильных ─────────────────────────── */
-@media (max-width: 640px) {
+@container (max-width: 220px) {
   .executive-shell .pnl-kpi,
   .executive-shell .metric-card,
   .executive-shell .budget-kpi,
   .executive-shell .analytics-kpi-strip > article {
     min-height: 104px;
     padding: 14px;
+  }
+
+  .executive-shell .pnl-kpi b,
+  .executive-shell .metric-card strong,
+  .executive-shell .budget-kpi strong,
+  .executive-shell .analytics-kpi-strip > article strong {
+    font-size: 20px;
   }
 
 }
