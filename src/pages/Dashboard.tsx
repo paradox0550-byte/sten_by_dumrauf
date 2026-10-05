@@ -89,7 +89,7 @@ export default function Dashboard() {
   const status = prime === null ? 'Нет данных' : prime <= 60 ? 'Ниже 60%' : prime <= 65 ? '60–65%' : 'Выше 65%';
 
   return (
-    <div className="page">
+    <div className="page dashboard-cockpit">
       <div className="page-head">
         <div><span className="eyebrow"><Activity size={12} /> РУКОВОДИТЕЛЬ · МОЙ ДЕНЬ</span><h1>Мой день</h1><p>Один экран: что произошло, где отклонение и какое действие логично сделать первым.</p></div>
         <button className="secondary-button" onClick={() => void load()} disabled={loading}><RefreshCw size={15} /> Обновить</button>
@@ -101,7 +101,7 @@ export default function Dashboard() {
         <section className="analytics-kpi-strip">{metrics.map(([label, fv, pv]) => <article key={label}><small>{label}</small><strong>{formatMoneyAuto(fv)}</strong><span>План {formatMoneyAuto(pv)}</span></article>)}<article><small>Prime Cost</small><strong>{prime == null ? '—' : prime.toFixed(1).replace('.', ',') + ' %'}</strong><span>{status}</span></article></section>
         <div className="two-col dashboard-columns">
           <section className="panel"><div className="panel-title"><AlertTriangle size={16}/> ПОЧЕМУ</div>
-            <div className="analytics-report-table"><div className="analytics-report-head"><span>Драйвер</span><span>Факт</span><span>План</span><span>Δ</span></div>
+            <div className="analytics-report-table driver-tree"><div className="analytics-report-head"><span>Драйвер</span><span>Факт</span><span>План</span><span>Δ</span></div>
               <div><b>Выручка</b><span>{formatMoneyAuto(fact?.revenue)}</span><span>{formatMoneyAuto(plan?.revenue)}</span><strong className={gapClass('revenue', day.revenueGap)}>{formatMoneyAuto(day.revenueGap)}</strong></div>
               <div><b>COGS</b><span>{formatMoneyAuto(fact?.cogs)}</span><span>{formatMoneyAuto(plan?.cogs)}</span><strong className={gapClass('cogs', day.cogsGap)}>{formatMoneyAuto(day.cogsGap)}</strong></div>
               <div><b>ФОТ</b><span>{formatMoneyAuto(fact?.labor)}</span><span>{formatMoneyAuto(plan?.labor)}</span><strong className={gapClass('labor', day.laborGap)}>{formatMoneyAuto(day.laborGap)}</strong></div>
