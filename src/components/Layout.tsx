@@ -24,6 +24,7 @@ const applyTheme = (theme: Theme) => {
   document.documentElement.style.colorScheme = resolved;
 };
 
+const viewNavigate=(nav:ReturnType<typeof useNavigate>,to:string)=>{if(typeof document!=='undefined'&&'startViewTransition' in document){(document as any).startViewTransition(()=>nav(to));}else{nav(to);}};
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     const value = localStorage.getItem(THEME_KEY);
@@ -203,9 +204,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
           <div className="top-actions">
             {location.pathname !== '/sten' && (
-              <button className="icon-button" onClick={() => navigate('/sten')} aria-label="STEN"><Bot size={17} /></button>
+              <button className="icon-button" onClick={() => viewNavigate(navigate,'/sten')} aria-label="STEN"><Bot size={17} /></button>
             )}
-            <button className="icon-button" onClick={() => navigate('/settings')} aria-label="Настройки"><Settings2 size={17} /></button>
+            <button className="icon-button" onClick={() => viewNavigate(navigate,'/settings')} aria-label="Настройки"><Settings2 size={17} /></button>
             <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}>
               {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
             </button>
@@ -229,7 +230,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span>{label}</span>
           </NavLink>
         ))}
-        <button onClick={() => navigate('/settings')} aria-label="Настройки"><Settings2 size={18} /><span>Настройки</span></button>
+        <button onClick={() => viewNavigate(navigate,'/settings')} aria-label="Настройки"><Settings2 size={18} /><span>Настройки</span></button>
       </nav>
     </div>
   );
