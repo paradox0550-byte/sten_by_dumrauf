@@ -1591,7 +1591,8 @@ textarea:focus-visible {
 }
 
 .executive-shell .pnl-scale-toggle button.active {
-  background: var(--bg-surface);
+  background: color-mix(in srgb, var(--color-brand) 14%, var(--bg-surface-subtle));
+  border-color: color-mix(in srgb, var(--color-brand) 45%, transparent);
   color: var(--color-brand);
   font-weight: 600;
 }
