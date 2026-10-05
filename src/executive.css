@@ -2087,3 +2087,76 @@ textarea:focus-visible {
 .top-workspace { max-width: 120px; }
 }
 
+
+/* ═══════════════════════════════════════════════════════════
+   STEN AI Neon — свечение в dark, мягкий акцент в light
+   ═══════════════════════════════════════════════════════════ */
+
+/* 1. Аватар STEN — свечение */
+.chat-body article.message.assistant .message-avatar {
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--color-brand) 50%, transparent);
+}
+
+[data-theme='dark'] .chat-body article.message.assistant .message-avatar {
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--color-brand) 70%, transparent),
+              0 0 16px color-mix(in oklch, var(--color-brand) 45%, transparent);
+}
+
+/* 2. Карточка assistant — brand-подсветка слева */
+.chat-body article.message.assistant .message-body {
+  border-left: 2px solid color-mix(in oklch, var(--color-brand) 60%, transparent);
+}
+
+[data-theme='dark'] .chat-body article.message.assistant .message-body {
+  border-left-color: var(--color-brand);
+  background: color-mix(in oklch, var(--color-brand) 4%, var(--bg-surface));
+  box-shadow: -4px 0 16px -8px color-mix(in oklch, var(--color-brand) 60%, transparent);
+}
+
+/* 3. Карточка user — контраст в dark */
+[data-theme='dark'] .chat-body article.message.user .message-body {
+  background: color-mix(in oklch, var(--color-brand) 8%, var(--bg-surface-subtle));
+  border: 1px solid color-mix(in oklch, var(--color-brand) 20%, transparent);
+}
+
+/* 4. Composer — неоновая рамка при фокусе */
+.composer-box:focus-within {
+  border-color: var(--color-brand);
+}
+
+[data-theme='dark'] .composer-box:focus-within {
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--color-brand) 25%, transparent),
+              0 0 24px color-mix(in oklch, var(--color-brand) 18%, transparent);
+}
+
+/* 5. Docs-panel collapsed — неоновая вертикальная полоска */
+[data-theme='dark'] .ai-grid.docs-collapsed .docs-panel {
+  background: linear-gradient(180deg,
+    transparent 0%,
+    color-mix(in oklch, var(--color-brand) 8%, var(--bg-surface)) 50%,
+    transparent 100%);
+}
+
+/* 6. Кнопки Копировать / В Секретарь — brand-hover */
+.chat-body article.message .message-body button:hover {
+  color: var(--color-brand);
+}
+
+[data-theme='dark'] .chat-body article.message .message-body button:hover {
+  box-shadow: 0 0 12px color-mix(in oklch, var(--color-brand) 30%, transparent);
+}
+
+/* 7. Читабельность mobile */
+@media (max-width: 767px) {
+  .chat-body { padding: 12px 8px; min-height: 320px; }
+  .message { gap: 6px; margin-bottom: 12px; }
+  .message-avatar { width: 24px; height: 24px; }
+  .message-body { font-size: 13px; padding: 10px 12px; }
+}
+
+/* 8. Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .composer-box:focus-within { transition: none; }
+  .chat-body article.message.assistant .message-avatar { transition: none; }
+}
+
