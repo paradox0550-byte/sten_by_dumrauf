@@ -176,6 +176,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 to={to}
                 className={({ isActive }) => isActive ? 'active' : ''}
                 end={to === '/sten'}
+                onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); viewNavigate(navigate, to); }}
               >
                 <Icon size={15} />
                 <span>{label}</span>
@@ -225,7 +226,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <nav className="mobile-bottom-nav" aria-label="Основная навигация">
         {mobileItems.map(([to, label, Icon]) => (
-          <NavLink key={to} to={to} end={to === '/sten'}>
+          <NavLink key={to} to={to} end={to === '/sten'} onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); viewNavigate(navigate, to); }}>
             <Icon size={18} />
             <span>{label}</span>
           </NavLink>
