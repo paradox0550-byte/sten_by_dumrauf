@@ -208,8 +208,8 @@ textarea {
     display: grid;
   }
 
-  .executive-shell .mobile-menu,
-  .executive-shell .mobile-close,
+  .mobile-menu,
+  .mobile-close,
   .backdrop,
   .mobile-bottom-nav {
     display: none !important;
@@ -344,7 +344,7 @@ textarea {
     z-index: 30;
   }
 
-  .executive-shell .mobile-menu,
+  .mobile-menu,
   .icon-button {
     width: 36px;
     height: 36px;
@@ -443,7 +443,7 @@ textarea {
     border-radius: 10px !important;
   }
 
-  .executive-shell .metric-grid {
+  .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
@@ -463,13 +463,13 @@ textarea {
     text-align: left;
   }
 
-  .executive-shell .pnl-kpis {
+  .pnl-kpis {
     display: grid;
     grid-template-columns: 1fr;
     gap: 8px !important;
   }
 
-  .executive-shell .pnl-edit-table {
+  .pnl-edit-table {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -594,7 +594,7 @@ textarea:focus-visible {
 .chat,
 .docs-panel,
 .modal-card,
-.executive-shell .unlock-card,
+.unlock-card,
 .analytics-gap-section {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
@@ -688,8 +688,8 @@ textarea:focus-visible {
   outline: 0;
 }
 
-.executive-shell .settings-field input,
-.executive-shell .settings-field select {
+.settings-field input,
+.settings-field select {
   min-height: var(--ui-control-h);
   border-radius: var(--ui-radius-xs);
   background: var(--bg-surface-subtle);
@@ -727,51 +727,51 @@ textarea:focus-visible {
 }
 
 /* Tables are part of the same contour, not separate visual products */
-.executive-shell .table-wrap,
-.executive-shell .financial-table,
+.table-wrap,
+.financial-table,
 .analytics-report-table,
 .executive-shell .budget-grid {
   border-color: var(--border-subtle);
 }
 
-.executive-shell .financial-table th,
-.executive-shell .financial-table td,
+.financial-table th,
+.financial-table td,
 .analytics-report-table > div,
 .executive-shell .budget-grid > div {
   border-color: var(--border-subtle);
 }
 
-.executive-shell .financial-table th,
+.financial-table th,
 .analytics-report-head {
   background: var(--bg-surface-subtle);
   color: var(--text-secondary);
 }
 
-.executive-shell .financial-table tr:hover td,
+.financial-table tr:hover td,
 .analytics-report-table > div:not(.analytics-report-head):hover,
 .executive-shell .budget-grid > div:not(.head):hover {
   background: var(--bg-surface-subtle);
 }
 
 /* Status semantics are shared everywhere */
-.executive-shell .positive,
-.executive-shell .metric-positive {
+.positive,
+.metric-positive {
   color: var(--color-success) !important;
 }
 
-.executive-shell .negative,
-.executive-shell .metric-negative {
+.negative,
+.metric-negative {
   color: var(--color-danger) !important;
 }
 
-.executive-shell .warning,
-.executive-shell .metric-warning {
+.warning,
+.metric-warning {
   color: var(--color-warning) !important;
 }
 
 /* Messages and empty states use the same semantic surfaces */
-.executive-shell .pnl-message,
-.executive-shell .import-result,
+.pnl-message,
+.import-result,
 .executive-shell .empty,
 .executive-shell .empty-state,
 .chart-empty {
@@ -810,7 +810,7 @@ textarea:focus-visible {
   color: var(--color-brand);
 }
 
-.executive-shell .status-chip,
+.status-chip,
 .badge-info {
   color: var(--color-brand);
   background: color-mix(in oklch, var(--color-brand) 10%, var(--bg-surface));
@@ -841,8 +841,8 @@ textarea:focus-visible {
   .primary-button,
   .secondary-button,
   .danger-button,
-  .executive-shell .settings-field input,
-  .executive-shell .settings-field select {
+  .settings-field input,
+  .settings-field select {
     min-height: 40px;
   }
 
@@ -955,8 +955,8 @@ textarea:focus-visible {
   min-width: 0;
 }
 
-.executive-shell .table-wrap,
-.executive-shell .financial-table,
+.table-wrap,
+.financial-table,
 .analytics-report-table {
   max-width: 100%;
   overflow-x: auto;
@@ -1057,12 +1057,12 @@ textarea:focus-visible {
     max-width: calc(100vw - 76px);
   }
 
-  .executive-shell .scope-bar {
+  .scope-bar {
     position: static;
     grid-template-columns: 1fr 1fr;
   }
 
-  .executive-shell .scope-bar label:last-child {
+  .scope-bar label:last-child {
     grid-column: 1 / -1;
   }
 }
@@ -1478,14 +1478,14 @@ textarea:focus-visible {
 /* KPI-strip уже покрыт PR #8 — не трогать */
 
 /* Две колонки */
-.executive-shell .two-col.dashboard-columns {
+.two-col.dashboard-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
   margin-top: 16px;
 }
 @media (max-width: 900px) {
-  .executive-shell .two-col.dashboard-columns {
+  .two-col.dashboard-columns {
     grid-template-columns: 1fr;
   }
 }
@@ -1529,7 +1529,7 @@ textarea:focus-visible {
 }
 
 /* Действия «Что делать» */
-.executive-shell .secretary-event {
+.secretary-event {
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 12px;
@@ -1537,38 +1537,38 @@ textarea:focus-visible {
   border-bottom: 1px solid var(--border-subtle);
   align-items: flex-start;
 }
-.executive-shell .secretary-event:last-of-type {
+.secretary-event:last-of-type {
   border-bottom: 0;
 }
-.executive-shell .secretary-date {
+.secretary-date {
   display: flex;
   flex-direction: column;
   align-items: center;
   min-width: 48px;
 }
-.executive-shell .secretary-date b {
+.secretary-date b {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 20px;
   font-weight: 700;
   color: var(--text-primary);
 }
-.executive-shell .secretary-date small {
+.secretary-date small {
   font-size: 9px;
   text-transform: uppercase;
   color: var(--text-muted);
   letter-spacing: 0.08em;
 }
-.executive-shell .secretary-main {
+.secretary-main {
   display: flex;
   flex-direction: column;
   gap: 3px;
   min-width: 0;
 }
-.executive-shell .secretary-main strong {
+.secretary-main strong {
   font-size: 13px;
   color: var(--text-primary);
 }
-.executive-shell .secretary-main span {
+.secretary-main span {
   font-size: 12px;
   color: var(--text-secondary);
 }
@@ -1640,7 +1640,7 @@ textarea:focus-visible {
    Design polish v4 — P&L scale toggle + empty state
    ═══════════════════════════════════════════════════════════ */
 
-.executive-shell .pnl-scale-toggle {
+.pnl-scale-toggle {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1650,7 +1650,7 @@ textarea:focus-visible {
   background: var(--bg-surface-subtle);
 }
 
-.executive-shell .pnl-scale-toggle > span {
+.pnl-scale-toggle > span {
   padding: 0 8px 0 4px;
   font-size: 10px;
   text-transform: uppercase;
@@ -1658,7 +1658,7 @@ textarea:focus-visible {
   color: var(--text-muted);
 }
 
-.executive-shell .pnl-scale-toggle button {
+.pnl-scale-toggle button {
   padding: 5px 10px;
   border: 0;
   border-radius: var(--ui-radius-xs);
@@ -1670,19 +1670,19 @@ textarea:focus-visible {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.executive-shell .pnl-scale-toggle button:hover {
+.pnl-scale-toggle button:hover {
   background: var(--bg-surface);
   color: var(--text-primary);
 }
 
-.executive-shell .pnl-scale-toggle button.active {
+.pnl-scale-toggle button.active {
   background: var(--active-bg);
   border-color: var(--active-border);
   color: var(--active-text);
   font-weight: 600;
 }
 
-.executive-shell .pnl-empty-state {
+.pnl-empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1692,24 +1692,24 @@ textarea:focus-visible {
   color: var(--text-muted);
 }
 
-.executive-shell .pnl-empty-state svg {
+.pnl-empty-state svg {
   color: var(--text-muted);
   opacity: 0.6;
 }
 
-.executive-shell .pnl-empty-state b {
+.pnl-empty-state b {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
-.executive-shell .pnl-empty-state span {
+.pnl-empty-state span {
   font-size: 12px;
   color: var(--text-secondary);
   max-width: 420px;
 }
 
-.executive-shell .pnl-empty-actions {
+.pnl-empty-actions {
   display: flex;
   gap: 8px;
   margin-top: 8px;
@@ -1774,10 +1774,10 @@ textarea:focus-visible {
   background: var(--bg-surface-subtle);
   border-color: var(--border-strong);
 }
-.executive-shell .financial-table tbody tr:nth-child(even) td {
+.financial-table tbody tr:nth-child(even) td {
   background: var(--bg-surface-subtle);
 }
-.executive-shell .financial-table th {
+.financial-table th {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1785,7 +1785,7 @@ textarea:focus-visible {
   font-weight: 700;
   padding: 10px 12px;
 }
-.executive-shell .financial-table td {
+.financial-table td {
   padding: 10px 12px;
 }
 
@@ -1833,7 +1833,7 @@ textarea:focus-visible {
 
 /* Loader, Skeleton, Micro-animations */
 
-.executive-shell .loader {
+.loader {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1844,7 +1844,7 @@ textarea:focus-visible {
   font-weight: 500;
 }
 
-.executive-shell .loader::before {
+.loader::before {
   content: '';
   width: 20px;
   height: 20px;
@@ -1858,14 +1858,14 @@ textarea:focus-visible {
   to { transform: rotate(360deg); }
 }
 
-.executive-shell .skeleton-row {
+.skeleton-row {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr;
   gap: 12px;
   padding: 12px 4px;
 }
 
-.executive-shell .skeleton-row span {
+.skeleton-row span {
   height: 12px;
   border-radius: 6px;
   background: linear-gradient(90deg, var(--bg-surface-subtle) 0%, color-mix(in srgb, var(--bg-surface-subtle) 60%, var(--bg-surface)) 50%, var(--bg-surface-subtle) 100%);
@@ -1883,7 +1883,7 @@ textarea:focus-visible {
   50%      { opacity: 0.6; transform: scale(0.92); }
 }
 
-.executive-shell .status-dot,
+.status-dot,
 .assistant-chip .dot {
   animation: sten-pulse 2s ease-in-out infinite;
 }
@@ -1964,7 +1964,7 @@ textarea:focus-visible {
 
 /* Приглушённые элементы — не чистый цвет, а полупрозрачный */
 .dashboard-note,
-.executive-shell .muted,
+.muted,
 .executive-shell small {
   color: var(--label-tertiary);
 }
