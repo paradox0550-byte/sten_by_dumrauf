@@ -4,6 +4,51 @@
    No glassmorphism, blur, glow or decorative gradients.
    ========================================================================== */
 
+/* ═══════════════════════════════════════════════════════════════
+   Tier 1: Primitives (сырая палитра).
+   НЕ использовать в компонентах. Только semantic-слой ниже.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Gray ramp: light → dark */
+  --c-gray-50:   #ffffff;
+  --c-gray-100:  #f7f8fb;
+  --c-gray-150:  #f5f7fa;
+  --c-gray-200:  #f1f3f7;
+  --c-gray-250:  #e5e7eb;
+  --c-gray-300:  #d4dae3;
+  --c-gray-400:  #c7ced9;
+  --c-gray-500:  #b5bdc9;
+  --c-gray-600:  #4b5563;
+  --c-gray-700:  #4a5665;
+  --c-gray-800:  #2f3844;
+  --c-gray-850:  #1f2937;
+  --c-gray-900:  #171c22;
+  --c-gray-925:  #131820;
+  --c-gray-950:  #0b0d10;
+
+  /* Brand */
+  --c-blue-500:  #5b7cfa;
+
+  /* Status: light backgrounds */
+  --c-red-50:    #fef2f2;
+  --c-amber-50:  #fffbeb;
+  --c-green-50:  #f0fdf4;
+
+  /* Status: dark backgrounds */
+  --c-red-950:   #2d1519;
+  --c-amber-950: #2c2111;
+  --c-green-950: #0f291e;
+
+  /* Status: foreground */
+  --c-red-500:   #dc2626;
+  --c-red-400:   #ef4444;
+  --c-amber-500: #d97706;
+  --c-amber-400: #f59e0b;
+  --c-green-600: #16a34a;
+  --c-green-500: #10b981;
+}
+
 :root {
   /* LIGHT THEME (Executive Light) */
   --bg-app: #f7f8fb;
