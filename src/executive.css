@@ -163,7 +163,6 @@ textarea {
   color: var(--text-secondary);
 }
 
-.executive-shell .global-scale button.active,
 .executive-shell .workspace-btn:hover,
 .executive-shell .icon-button:hover {
   background: var(--bg-surface);
@@ -172,7 +171,10 @@ textarea {
 }
 
 .executive-shell .global-scale button.active {
+  background: color-mix(in srgb, var(--color-brand) 14%, var(--bg-surface-subtle));
+  border-color: color-mix(in srgb, var(--color-brand) 45%, transparent);
   color: var(--color-brand);
+  font-weight: 600;
 }
 
 .executive-shell .security-status {
