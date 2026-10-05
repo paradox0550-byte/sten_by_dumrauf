@@ -1121,7 +1121,28 @@ textarea:focus-visible {
   flex-direction: column;
   gap: 10px;
   min-height: 118px;
+  position: relative;
   transition: border-color 0.15s ease;
+}
+
+/* Hover shadow via ::after - GPU composited, no paint on hover */
+.executive-shell .pnl-kpi::after,
+.executive-shell .metric-card::after,
+.executive-shell .analytics-kpi-strip > article::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.executive-shell .pnl-kpi:hover::after,
+.executive-shell .metric-card:hover::after,
+.executive-shell .analytics-kpi-strip > article:hover::after {
+  opacity: 1;
 }
 
 .executive-shell .pnl-kpi:hover,
@@ -1818,14 +1839,13 @@ textarea:focus-visible {
 .executive-shell .pnl-kpi,
 .executive-shell .metric-card,
 .executive-shell .analytics-kpi-strip > article {
-  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.15s ease, border-color 0.15s ease;
 }
 
 .executive-shell .pnl-kpi:hover,
 .executive-shell .metric-card:hover,
 .executive-shell .analytics-kpi-strip > article:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
 @keyframes sten-message-in {
