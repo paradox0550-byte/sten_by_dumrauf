@@ -2343,3 +2343,17 @@ textarea:focus-visible {
   .top-workspace { max-width: 120px; }
 }
 
+
+
+/* STEN canonical brand system — mark, AI wallpaper, authentication */
+.brand-mark{overflow:hidden;background:var(--bg-surface);border-color:color-mix(in oklch,var(--color-brand) 18%,var(--border-subtle))}
+.brand-mark img{width:26px;height:26px;display:block;object-fit:contain}
+.sten-ai-page{position:relative;isolation:isolate;background-color:var(--bg-app);background-image:url('/brand/sten-ai-wallpaper-light.svg');background-repeat:no-repeat;background-position:center top;background-size:cover}
+[data-theme='dark'] .sten-ai-page{background-image:url('/brand/sten-ai-wallpaper.svg')}
+.sten-ai-page>.page-head,.sten-ai-page>.ai-grid{position:relative;z-index:1}
+.auth-brand{display:flex;justify-content:center;margin:0 auto 22px}
+.auth-brand img{width:min(280px,78vw);height:auto;display:block}
+.unlock{position:relative;overflow:hidden;background-color:var(--bg-app);background-image:url('../brand/sten-ai-wallpaper-light.svg');background-repeat:no-repeat;background-position:center;background-size:cover}
+[data-theme='dark'] .unlock{background-image:url('../brand/sten-ai-wallpaper.svg')}
+.unlock-card{position:relative;z-index:1;border:1px solid var(--border-subtle);background:color-mix(in oklch,var(--bg-surface) 97%,transparent);border-radius:14px}
+@media(max-width:767px){.brand-mark{width:34px;height:34px;flex-basis:34px}.brand-mark img{width:24px;height:24px}.auth-brand{margin-bottom:18px}.auth-brand img{width:min(240px,82vw)}.sten-ai-page{background-size:auto 100%}}

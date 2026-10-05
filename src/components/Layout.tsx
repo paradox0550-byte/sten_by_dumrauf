@@ -97,7 +97,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <aside className={`sidebar ${mobileMenu ? 'is-open' : ''} ${sidebarCollapsed ? 'is-collapsed' : ''}`}>
         <div>
           <div className="brand">
-            <div className="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 40" role="img"><path d="M7 7 20 20 33 7M7 33 20 20 33 33M7 20h26" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/></svg></div>
+            <div className="brand-mark" aria-hidden="true"><img src="./brand/sten-mark.svg" alt="" /></div>
             <div className="brand-copy">
               <b>STEN</b>
               <small>Executive Cockpit · v5.0.2</small>

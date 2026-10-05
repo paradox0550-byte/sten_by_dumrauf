@@ -40,6 +40,7 @@ export default function AuthSetup(){
   return (
     <main className="unlock">
       <section className="unlock-card">
+        <div className="auth-brand"><img src="./brand/sten-lockup.svg" alt="STEN — Smart Tracking &amp; Economic Navigator" /></div>
         <small>STEN — AUTHENTICATION</small>
         <h1>Вход в рабочий контур</h1>
         <form onSubmit={onSubmit} style={{display:'flex',flexDirection:'column',gap:14,marginTop:18}}>
