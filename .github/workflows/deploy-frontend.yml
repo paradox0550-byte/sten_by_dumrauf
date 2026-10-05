@@ -59,6 +59,9 @@ jobs:
           aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/index.html "s3://$BUCKET/index.html" --content-type "text/html; charset=utf-8"
           aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/manifest.json "s3://$BUCKET/manifest.json" --content-type "application/manifest+json"
           aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/sw.js "s3://$BUCKET/sw.js" --content-type "application/javascript; charset=utf-8"
+          aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/favicon.svg "s3://$BUCKET/favicon.svg" --content-type "image/svg+xml"
+          aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/icon-192.svg "s3://$BUCKET/icon-192.svg" --content-type "image/svg+xml"
+          aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/icon-512.svg "s3://$BUCKET/icon-512.svg" --content-type "image/svg+xml"
 
       - name: Upload assets (JS)
         env:
@@ -86,8 +89,7 @@ jobs:
             aws --endpoint-url=https://storage.yandexcloud.net s3 cp "$f" "s3://$BUCKET/assets/$name" --content-type "text/css; charset=utf-8"
           done
 
-      - name: Upload icons
-        if: ${{ hashFiles('dist/icons/**') != '' }}
+      - name: Upload brand assets
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.YC_S3_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_S3_SECRET }}
@@ -95,7 +97,7 @@ jobs:
           BUCKET: smenavkarmane-business
         run: |
           set -e
-          aws --endpoint-url=https://storage.yandexcloud.net s3 sync dist/icons "s3://$BUCKET/icons" --content-type "image/svg+xml"
+          aws --endpoint-url=https://storage.yandexcloud.net s3 sync dist/brand "s3://$BUCKET/brand" --content-type "image/svg+xml"
 
       - name: Cleanup stale JS bundles
         env:
@@ -136,4 +138,12 @@ jobs:
             echo "❌ Smoke test failed: $code"
             exit 1
           fi
+          for asset in favicon.svg icon-192.svg icon-512.svg brand/sten-mark.svg brand/sten-lockup.svg; do
+            asset_code=$(curl -s -o /dev/null -w "%{http_code}" "$URL$asset")
+            echo "$asset: $asset_code"
+            if [ "$asset_code" != "200" ]; then
+              echo "❌ Asset smoke test failed: $asset"
+              exit 1
+            fi
+          done
           echo "✅ Smoke test passed"
