@@ -462,17 +462,6 @@ textarea {
   }
 }
 
-/* Respect reduced motion without changing information hierarchy. */
-@media (prefers-reduced-motion: reduce) {
-  .executive-shell *,
-  .executive-shell *::before,
-  .executive-shell *::after {
-    animation-duration: .001ms !important;
-    transition-duration: .001ms !important;
-  }
-}
-
-
 /* ==========================================================================
    STEN v5.0.2 — Unified UI contour
    One surface language across every workspace: shell, pages, panels, controls,
@@ -651,6 +640,16 @@ textarea:focus-visible {
   border: 1px solid var(--border-subtle);
   border-radius: var(--ui-radius-xs);
   background: var(--bg-surface-subtle);
+}
+
+/* Period chip: compact, nowrap, tabular nums */
+.executive-shell .period-chip {
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  padding-inline: 8px;
 }
 
 .executive-shell .workspace-btn {
