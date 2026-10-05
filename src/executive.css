@@ -130,6 +130,21 @@
   --focus: 0 0 0 2px color-mix(in oklch, var(--color-brand) 35%, transparent);
 }
 
+/* ─── Tier 3: Component tokens ───────────────────────────── */
+.executive-shell {
+  /* Control surfaces (chips, scale toggles, selects) */
+  --control-bg: var(--bg-surface-subtle);
+  --control-border-color: var(--border-subtle);
+
+  /* Active / selected state */
+  --active-bg: color-mix(in oklch, var(--color-brand) 14%, var(--bg-surface-subtle));
+  --active-border: color-mix(in oklch, var(--color-brand) 45%, transparent);
+  --active-text: var(--color-brand-strong);
+
+  /* Period chip */
+  --chip-font-size: 12px;
+}
+
 html,
 body,
 #root {
@@ -205,8 +220,8 @@ textarea {
 .executive-shell .security-status,
 .executive-shell .period-chip,
 .executive-shell .workspace-btn {
-  border-color: var(--border-subtle);
-  background: var(--bg-surface-subtle);
+  border-color: var(--control-border-color);
+  background: var(--control-bg);
   color: var(--text-secondary);
 }
 
@@ -218,9 +233,9 @@ textarea {
 }
 
 .executive-shell .global-scale button.active {
-  background: color-mix(in oklch, var(--color-brand) 14%, var(--bg-surface-subtle));
-  border-color: color-mix(in oklch, var(--color-brand) 45%, transparent);
-  color: var(--color-brand-strong);
+  background: var(--active-bg);
+  border-color: var(--active-border);
+  color: var(--active-text);
   font-weight: 600;
 }
 
@@ -693,7 +708,7 @@ textarea:focus-visible {
 .executive-shell .period-chip {
   white-space: nowrap;
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: var(--chip-font-size);
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
   padding-inline: 8px;
@@ -1660,9 +1675,9 @@ textarea:focus-visible {
 }
 
 .executive-shell .pnl-scale-toggle button.active {
-  background: color-mix(in oklch, var(--color-brand) 14%, var(--bg-surface-subtle));
-  border-color: color-mix(in oklch, var(--color-brand) 45%, transparent);
-  color: var(--color-brand-strong);
+  background: var(--active-bg);
+  border-color: var(--active-border);
+  color: var(--active-text);
   font-weight: 600;
 }
 
