@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Building2, GitBranch, Layers3, Users, Plus, Trash2, X, ChevronDown } from 'lucide-react';
 import { api } from '../lib/api';
 import { DEFAULT_PERIOD, Scope } from '../lib/scope';
@@ -31,18 +31,22 @@ function useOrgTree() {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const reloadSeqRef = useRef(0);
 
   const reload = async () => {
+    const seq = ++reloadSeqRef.current;
     setLoading(true);
     try {
       const x = await api.get<unknown>('/api/b2b/org/tree');
+      if (seq !== reloadSeqRef.current) return;
       setNodes(flatten(x));
       setError('');
     } catch (e) {
+      if (seq !== reloadSeqRef.current) return;
       setNodes([]);
       setError(e instanceof Error ? e.message : 'Не удалось загрузить дерево');
     } finally {
-      setLoading(false);
+      if (seq === reloadSeqRef.current) setLoading(false);
     }
   };
 

@@ -25,6 +25,7 @@ export default function AI(){
  const hydrateRef=useRef<string|null>(key);
  const[prompt,setPrompt]=useState('');
  const[docs,setDocs]=useState<Doc[]>([]);
+ const loadSeqRef=useRef(0);
  const[busy,setBusy]=useState(false);
  const[upload,setUpload]=useState(false);
  const[previewDoc,setPreviewDoc]=useState<DocPreview|null>(null);
@@ -48,11 +49,14 @@ export default function AI(){
  useEffect(()=>{try{localStorage.setItem('sten_docs_collapsed',docsCollapsed?'1':'0')}catch{}},[docsCollapsed]);
 
  const load=async()=>{
+   const seq=++loadSeqRef.current;
    try{
      const r=await api.get<{documents:Doc[]}>('/ai/documents');
+     if(seq!==loadSeqRef.current)return;
      setDocs(r.documents||[]);
      const q=scopeQuery(scope);
      await Promise.all([api.get<any>('/api/pnl?'+q).catch(()=>null),api.get<any>('/fot-analytics?'+q).catch(()=>null)]);
+     if(seq!==loadSeqRef.current)return;
      setContextAt(new Date().toISOString());
    }catch{}
  };
