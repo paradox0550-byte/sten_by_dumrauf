@@ -408,7 +408,7 @@
 .chat-theme-slate .chat-theme-swatch { background: #12171F; }
 .chat-theme-paper .chat-theme-swatch { background: #F7F8FA; }
 .chat-theme-sten .chat-theme-swatch { background: #0A0E17; }
-.chat-theme-system .chat-theme-swatch { background: linear-gradient(135deg, #0B0F1A 50%, #F7F8FA 50%); }
+.chat-theme-system .chat-theme-swatch { background: #0B0F1A; box-shadow: inset -10px 0 0 #F7F8FA; }
 
 .chat-radio-list,
 .chat-density-list,
@@ -551,5 +551,115 @@
   .chat-density-option,
   .chat-appearance-reset {
     transition: none;
+  }
+}
+
+
+.sten-ai-page .chat-head-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sten-ai-page .chat-head-actions > span {
+  color: var(--chat-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.sten-ai-page .chat-body {
+  background: var(--chat-bg);
+}
+
+.sten-ai-page .chat-body::before {
+  display: none;
+}
+
+.sten-ai-page .sten-chat-background {
+  z-index: 1;
+}
+
+.sten-ai-page .chat-body > .welcome,
+.sten-ai-page .chat-body > article.message {
+  z-index: 2;
+}
+
+.sten-ai-page .message-avatar {
+  background: color-mix(in srgb, var(--chat-accent) 10%, var(--chat-panel));
+  border-color: var(--chat-border);
+  color: var(--chat-text);
+}
+
+.sten-ai-page .message-time {
+  display: block;
+  margin-top: 6px;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--chat-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sten-ai-page .message-header .message-time {
+  display: inline-block;
+  margin: 0 0 0 auto;
+}
+
+.sten-ai-page .sources {
+  display: block;
+  margin-top: 9px;
+  color: var(--chat-muted);
+}
+
+.sten-ai-page .quick-actions {
+  border-top-color: var(--chat-border);
+}
+
+.sten-ai-page .quick-actions .copy {
+  color: var(--chat-muted);
+}
+
+.sten-ai-page .welcome-mark {
+  background: color-mix(in srgb, var(--chat-accent) 10%, var(--chat-panel));
+  border-color: var(--chat-border);
+  color: var(--chat-accent);
+}
+
+.sten-ai-page .starter-grid button {
+  border-color: var(--chat-border);
+  background: var(--chat-panel);
+  color: var(--chat-text);
+}
+
+.sten-ai-page .starter-grid button:hover {
+  border-color: color-mix(in srgb, var(--chat-accent) 55%, var(--chat-border));
+  background: color-mix(in srgb, var(--chat-accent) 7%, var(--chat-panel));
+}
+
+.sten-ai-page .composer > small {
+  color: var(--chat-muted);
+}
+
+.sten-ai-page .composer-box .icon-button {
+  color: var(--chat-muted);
+}
+
+.sten-ai-page .composer-box .icon-button:hover:not(:disabled) {
+  color: var(--chat-text);
+}
+
+.sten-ai-page .composer-box .send {
+  background: var(--chat-accent);
+  color: var(--chat-on-accent);
+}
+
+.sten-ai-page.theme-paper .chat .composer-box .send {
+  color: #0B0D10;
+}
+
+@media (max-width: 767px) {
+  .sten-ai-page .chat-head-actions > span {
+    display: none;
   }
 }
