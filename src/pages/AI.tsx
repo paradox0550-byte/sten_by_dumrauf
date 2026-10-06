@@ -43,6 +43,8 @@ function AIContent({user}:{user:User|null}){
  const[contextAt,setContextAt]=useState('');
  const[listening,setListening]=useState(false);
  const[appearanceOpen,setAppearanceOpen]=useState(false);
+ const[composerFocused,setComposerFocused]=useState(false);
+ const[dragOver,setDragOver]=useState(false);
  const file=useRef<HTMLInputElement>(null);
  const recog=useRef<any>(null);
 
@@ -57,6 +59,12 @@ function AIContent({user}:{user:User|null}){
    try{localStorage.setItem(key,JSON.stringify(messages.slice(-80)));localStorage.removeItem(LEGACY_KEY)}catch{}
  },[messages,key]);
  useEffect(()=>{try{localStorage.setItem('sten_docs_collapsed',docsCollapsed?'1':'0')}catch{}},[docsCollapsed]);
+ useEffect(()=>{
+   const el=document.querySelector<HTMLTextAreaElement>('.sten-ai-page .composer-box textarea');
+   if(!el)return;
+   el.style.height='auto';
+   el.style.height=Math.min(el.scrollHeight,144)+'px';
+ },[prompt]);
 
  const load=async()=>{
    const seq=++loadSeqRef.current;
@@ -243,16 +251,23 @@ function AIContent({user}:{user:User|null}){
          {busy&&<div className="typing" aria-label="STEN готовит ответ"><i/><i/><i/></div>}
        </div>
 
-       <div className="composer">
+       <div className={'composer '+(composerFocused?'is-focused ':'')+(dragOver?'is-dragover':'')}
+         onDragOver={e=>{e.preventDefault();if(!upload)setDragOver(true)}}
+         onDragLeave={()=>setDragOver(false)}
+         onDrop={e=>{e.preventDefault();setDragOver(false);void uploadFiles(e.dataTransfer.files)}}>
+         {dragOver&&<div className="composer-drop-hint"><UploadCloud size={16}/> Отпустите файл — STEN добавит его в документы</div>}
          <div className="composer-box">
-           <button className="icon-button" onClick={()=>file.current?.click()} aria-label="Прикрепить документ"><Paperclip size={18}/></button>
-           <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void ask()}}} placeholder={listening?'Говорите…':'Что сделать с текущими данными?'} rows={1}/>
+           <button className="icon-button composer-attach" onClick={()=>file.current?.click()} aria-label="Прикрепить документ" title="Добавить документ"><Paperclip size={18}/></button>
+           <textarea value={prompt} onFocus={()=>setComposerFocused(true)} onBlur={()=>setComposerFocused(false)} onChange={e=>setPrompt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void ask()}}} placeholder={listening?'Говорите…':'Напишите запрос к текущим данным…'} rows={1} aria-label="Запрос к STEN AI"/>
            <button className={'icon-button'+(listening?' mic-active':'')} onClick={toggleVoice} aria-label={listening?'Остановить запись':'Голосовой ввод'} title={SR?'Голосовой ввод (Chrome / Edge)':'Голосовой ввод не поддерживается этим браузером'}>
              {listening?<MicOff size={18}/>:<Mic size={18}/>}
            </button>
-           <button className="send" disabled={!prompt.trim()||busy} onClick={()=>void ask()} aria-label="Отправить"><Send size={18}/></button>
+           <button className="send" disabled={!prompt.trim()||busy} onClick={()=>void ask()} aria-label="Отправить" title="Отправить (Enter)"><Send size={18}/></button>
          </div>
-         <small>Enter — отправить · Shift+Enter — новая строка · Микрофон — голосовой ввод</small>
+         <div className="composer-footer">
+           <span>{upload?'Обрабатываем документ…':dragOver?'Добавление документа':'Enter — отправить · Shift+Enter — новая строка'}</span>
+           <span className="composer-context">{readyCount} док. готовы</span>
+         </div>
        </div>
      </section>
    </div>
