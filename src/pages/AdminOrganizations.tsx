@@ -8,6 +8,7 @@ type Organization = {
   code: string;
   name: string;
   status: 'active' | 'suspended' | 'archived';
+  subscription_until: string | null;
   user_count: number;
   created_at: string;
   updated_at: string;
@@ -18,6 +19,7 @@ export default function AdminOrganizations() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [renewingId, setRenewingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
@@ -68,6 +70,39 @@ export default function AdminOrganizations() {
       setOrganizations(list => list.map(item => item.id === org.id ? { ...item, ...r.organization } : item));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Статус не изменён.');
+    }
+  };
+
+  const renewMonth = async (org: Organization) => {
+    const today = new Date();
+    const todayIso = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, '0'),
+      String(today.getDate()).padStart(2, '0'),
+    ].join('-');
+    const base = org.subscription_until && org.subscription_until >= todayIso ? org.subscription_until : todayIso;
+    const [year, month, day] = base.split('-').map(Number);
+    const targetMonth = month;
+    const targetYear = year + Math.floor(targetMonth / 12);
+    const normalizedMonth = targetMonth % 12;
+    const lastDay = new Date(targetYear, normalizedMonth + 1, 0).getDate();
+    const nextDate = [
+      targetYear,
+      String(normalizedMonth + 1).padStart(2, '0'),
+      String(Math.min(day, lastDay)).padStart(2, '0'),
+    ].join('-');
+
+    setRenewingId(org.id);
+    setError('');
+    try {
+      const r = await api.patch<{ organization: Organization }>(`/api/admin/organizations/${org.id}`, {
+        subscription_until: nextDate,
+      });
+      setOrganizations(list => list.map(item => item.id === org.id ? { ...item, ...r.organization } : item));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Срок оплаты не продлён.');
+    } finally {
+      setRenewingId(null);
     }
   };
 
@@ -123,18 +158,24 @@ export default function AdminOrganizations() {
         ) : (
           <div className="table-wrap">
             <table className="data-table">
-              <thead><tr><th>Организация</th><th>ID</th><th>Пользователи</th><th>Статус</th><th>Действие</th></tr></thead>
+              <thead><tr><th>Организация</th><th>ID</th><th>Пользователи</th><th>Оплачено до</th><th>Статус</th><th>Действие</th></tr></thead>
               <tbody>{organizations.map(org => (
                 <tr key={org.id}>
                   <td><b>{org.name}</b><small className="muted">{new Date(org.created_at).toLocaleDateString('ru-RU')}</small></td>
                   <td><code>{org.code}</code></td>
                   <td><span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><UserRound size={14} />{org.user_count}</span></td>
+                  <td>{org.subscription_until ? new Date(`${org.subscription_until}T00:00:00`).toLocaleDateString('ru-RU') : <span className="muted">Не оплачено</span>}</td>
                   <td><span className={`status-badge ${org.status === 'active' ? 'ok' : org.status === 'suspended' ? 'warn' : 'muted'}`}>{org.status === 'active' ? 'Активна' : org.status === 'suspended' ? 'Приостановлена' : 'Архив'}</span></td>
-                  <td>{org.status === 'active'
-                    ? <button className="secondary-button" onClick={() => void setStatus(org, 'suspended')}>Закрыть дверь</button>
-                    : org.status === 'suspended'
-                      ? <button className="secondary-button" onClick={() => void setStatus(org, 'active')}>Открыть</button>
-                      : <span className="muted">Только чтение</span>}</td>
+                  <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button className="secondary-button" onClick={() => void renewMonth(org)} disabled={renewingId === org.id}>
+                      {renewingId === org.id ? 'Продлеваем…' : 'Продлить на месяц'}
+                    </button>
+                    {org.status === 'active'
+                      ? <button className="secondary-button" onClick={() => void setStatus(org, 'suspended')}>Закрыть дверь</button>
+                      : org.status === 'suspended'
+                        ? <button className="secondary-button" onClick={() => void setStatus(org, 'active')}>Открыть</button>
+                        : <span className="muted">Только чтение</span>}
+                  </td>
                 </tr>
               ))}</tbody>
             </table>
