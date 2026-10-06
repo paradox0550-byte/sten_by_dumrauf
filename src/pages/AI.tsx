@@ -144,6 +144,11 @@ export default function AI(){
  }
 
  const readyCount=docs.filter(d=>d.status==='ready').length;
+ const clearChat=()=>{
+   setMessages([]);
+   if(key){try{localStorage.removeItem(key)}catch{}}
+   try{localStorage.removeItem(LEGACY_KEY)}catch{}
+ };
 
  return <div className="page sten-ai-page">
    <div className="page-head">
@@ -152,7 +157,7 @@ export default function AI(){
        <h1>STEN</h1>
        <p>AI видит выбранный рабочий контур, текущий P&L и ФОТ. Ответ отделён от факта, а действие можно передать в Секретарь.</p>
      </div>
-     <button className="secondary-button" onClick={()=>{setMessages([]);if(key)try{localStorage.removeItem(key)}catch{};try{localStorage.removeItem(LEGACY_KEY)}catch{}}>Новый диалог</button>
+     <button className="secondary-button" onClick={clearChat}>Новый диалог</button>
    </div>
 
    {!hasScopeId(scope)&&<div className="import-result warn">Для точного AI-контекста выберите рабочий контур в Настройках.</div>}
