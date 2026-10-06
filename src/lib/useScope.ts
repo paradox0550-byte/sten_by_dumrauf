@@ -1,7 +1,7 @@
 /* Единый рабочий контекст (scope) для всех страниц: период + проект → филиал →
    ресторан → отдел. Выбранный scope сохраняется локально и синхронизируется
    между всеми компонентами (Layout, Настройки) через кастомное событие. */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { DEFAULT_PERIOD, Scope, scopeKey } from './scope';
 import { api } from './api';
@@ -24,11 +24,14 @@ export function useScope(): [Scope, (next: Scope) => void] {
   const { user } = useAuth();
   const key = storageKey(user);
   const [scope, setScope] = useState<Scope>(() => readSaved(key));
+  const contextSeqRef = useRef(0);
 
   useEffect(() => {
+    const seq = ++contextSeqRef.current;
     setScope(readSaved(key));
     try { localStorage.removeItem(LEGACY_KEY); } catch { /* приватный режим */ }
     void api.get<any>('/api/b2b/context').then((r:any) => {
+      if (seq !== contextSeqRef.current) return;
       const c = r?.context ?? r?.data?.context;
       if (!c) return;
       setScope(prev => ({
