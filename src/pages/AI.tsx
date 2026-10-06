@@ -112,16 +112,6 @@ function AIContent({user}:{user:User|null}){
    }finally{setBusy(false)}
  }
 
- async function makeTask(m:Msg){
-   setBusy(true);
-   try{
-     await api.post('/api/secretary/events',{title:'STEN · действие по аналитике',description:m.text,start_at:new Date(Date.now()+60*60*1000).toISOString(),event_type:'task',status:'planned',reminder_minutes:30});
-     setMessages(v=>[...v,{id:crypto.randomUUID(),role:'assistant',text:'Действие передано в Секретарь на контроль через 1 час.',createdAt:new Date().toISOString()}]);
-   }catch(e){
-     setMessages(v=>[...v,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось передать действие в Секретарь.',createdAt:new Date().toISOString()}]);
-   }finally{setBusy(false)}
- }
-
  async function uploadFiles(list:FileList|null){
    if(!list||upload)return;
    setUpload(true);
