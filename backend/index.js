@@ -196,12 +196,14 @@ await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS report_date DATE
       code TEXT NOT NULL UNIQUE,
       name TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'active',
+      subscription_until DATE,
       created_by UUID,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       CONSTRAINT organizations_status_check CHECK (status IN ('active','suspended','archived'))
     );`);
     await query(`CREATE INDEX IF NOT EXISTS idx_organizations_status ON organizations(status, created_at DESC);`);
+    await query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS subscription_until DATE;`);
     await query(`CREATE TABLE IF NOT EXISTS organization_memberships (
       organization_id UUID NOT NULL,
       user_id UUID NOT NULL,
@@ -884,7 +886,7 @@ function generateOrgCode() {
 app.get('/api/admin/organizations', requireAuth, requireSuperAdmin, async (req, res, next) => {
   try {
     const rows = await safeQuery(
-      `SELECT o.id, o.code, o.name, o.status, o.created_at, o.updated_at,
+      `SELECT o.id, o.code, o.name, o.status, o.subscription_until, o.created_at, o.updated_at,
               COUNT(om.user_id)::int AS user_count
          FROM organizations o
          LEFT JOIN organization_memberships om ON om.organization_id = o.id AND om.status = 'active'
@@ -908,7 +910,7 @@ app.post('/api/admin/organizations', requireAuth, requireSuperAdmin, async (req,
     const q = await queryWithRetry(
       `INSERT INTO organizations(id, code, name, status, created_by)
        VALUES($1::uuid,$2,$3,'active',$4::uuid)
-       RETURNING id, code, name, status, created_at, updated_at`,
+       RETURNING id, code, name, status, subscription_until, created_at, updated_at`,
       [id, code, name, req.user.id], {});
     const organization = q.rows?.[0];
     if (!organization) throw httpError(500, 'Организация не создана', 'CREATE_NOT_CONFIRMED');
@@ -945,6 +947,13 @@ app.patch('/api/admin/organizations/:id', requireAuth, requireSuperAdmin, async 
       const status = String(req.body.status);
       if (!['active','suspended','archived'].includes(status)) throw httpError(400, 'Недопустимый статус организации', 'INVALID_ORG_STATUS');
       params.push(status); sets.push(`status = ${params.length}`);
+    }
+    if (req.body?.subscription_until !== undefined) {
+      const value = req.body.subscription_until;
+      if (value !== null && (typeof value !== 'string' || !DATE_RE.test(value))) {
+        throw httpError(400, 'subscription_until должен быть датой YYYY-MM-DD или null', 'INVALID_SUBSCRIPTION_UNTIL');
+      }
+      params.push(value); sets.push(`subscription_until = ${params.length}`);
     }
     if (!sets.length) throw httpError(400, 'Нет изменений', 'NO_CHANGES');
     const q = await queryWithRetry(
@@ -2212,11 +2221,48 @@ app.use((err, req, res, _next) => {
 });
 
 /* ----------------------------- handler -------------------------------------- */
+async function suspendExpiredOrganizations() {
+  await ensureSchemaNow();
+  const q = await queryWithRetry(
+    `UPDATE organizations
+        SET status = 'suspended', updated_at = now()
+      WHERE subscription_until < CURRENT_DATE
+        AND status = 'active'
+      RETURNING id`,
+    [],
+    {}
+  );
+  const organizations = q.rows || [];
+  for (const organization of organizations) {
+    await audit(null, 'subscription.expired', 'organizations', organization.id, {
+      reason: 'subscription_until_before_today',
+    });
+  }
+  log('subscription expiry sweep:', organizations.length);
+  return organizations.length;
+}
+
+function isTimerEvent(event) {
+  return Array.isArray(event?.messages)
+    && event.messages.some(message =>
+      message?.event_metadata?.event_type === 'yandex.cloud.events.serverless.triggers.TimerMessage'
+    );
+}
+
 const handlerAsync = serverless(app, { binary: false });
 
 module.exports.handler = async (event, context) => {
   // Cold-start оптимизация: не ждём опустошения event loop (пул pg переиспользуется контейнером).
   if (context) context.callbackWaitsForEmptyEventLoop = false;
+  if (isTimerEvent(event)) {
+    try {
+      const suspended = await suspendExpiredOrganizations();
+      return { ok: true, suspended };
+    } catch (e) {
+      console.error('[sten] subscription expiry failed:', e && e.stack ? e.stack : e);
+      throw e;
+    }
+  }
   kickSchema(); // фоновая идемпотентная миграция схемы, не блокирует ответ
   try {
     return await handlerAsync(event, context);
