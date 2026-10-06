@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bot, Copy, FileText, Mic, MicOff, Paperclip, Send, Sparkles, Trash2, UploadCloud, Eye, X, CalendarPlus, Database, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Bot, Copy, FileText, Mic, MicOff, MoreHorizontal, Paperclip, Send, Sparkles, Trash2, UploadCloud, Eye, X, CalendarPlus, Database, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { api } from '../lib/api';
 import { useScope } from '../lib/useScope';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, type User } from '../contexts/AuthContext';
 import { hasScopeId, scopeQuery } from '../lib/scope';
 import { AskRequestSchema, type AskRequest, type AskResponse, type AskSource } from '../lib/contracts/ask';
+import { AppearanceDrawer } from '../features/chat-appearance/AppearanceDrawer';
+import { AppearanceProvider, useAppearanceContext } from '../features/chat-appearance/AppearanceContext';
+import { ChatBackground } from '../features/chat-appearance/ChatBackground';
+import '../features/chat-appearance/themes.css';
 
-type Msg={id:string;role:'user'|'assistant';text:string;sources?:AskSource[]};
+type Msg={id:string;role:'user'|'assistant';text:string;sources?:AskSource[];createdAt?:string};
 type Doc={id:string;name:string;size:number;status:string;chars?:number};
 type DocPreview={id:string;name:string;preview:string;chars:number;truncated:boolean;readOnly:true};
 const starters=['Проанализируй текущий P&L и найди главные причины падения прибыли','Что сильнее всего отклонилось от плана?','Собери план действий для управляющего на сегодня','Проверь ФОТ: часы, производительность и стоимость отклонения'];
@@ -18,8 +22,13 @@ function to64(file:File){return new Promise<string>((ok,no)=>{const r=new FileRe
 const SR:any = typeof window!=='undefined' ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : null;
 
 export default function AI(){
- const[scope]=useScope();
  const{user}=useAuth();
+ return <AppearanceProvider user={user}><AIContent user={user}/></AppearanceProvider>;
+}
+
+function AIContent({user}:{user:User|null}){
+ const[scope]=useScope();
+ const{settings}=useAppearanceContext();
  const key=chatKey(user);
  const[messages,setMessages]=useState<Msg[]>(()=>readMessages(key));
  const hydrateRef=useRef<string|null>(key);
@@ -33,6 +42,7 @@ export default function AI(){
  const[docsCollapsed,setDocsCollapsed]=useState(()=>{try{const v=localStorage.getItem('sten_docs_collapsed');return v===null?true:v==='1'}catch{return true}});
  const[contextAt,setContextAt]=useState('');
  const[listening,setListening]=useState(false);
+ const[appearanceOpen,setAppearanceOpen]=useState(false);
  const file=useRef<HTMLInputElement>(null);
  const recog=useRef<any>(null);
 
@@ -66,7 +76,7 @@ export default function AI(){
    const text=value.trim();
    if(!text||busy)return;
    setPrompt('');
-   const nextMsgs=[...messages,{id:crypto.randomUUID(),role:'user' as const,text}];
+   const nextMsgs=[...messages,{id:crypto.randomUUID(),role:'user' as const,text,createdAt:new Date().toISOString()}];
    setMessages(nextMsgs);
    setBusy(true);
    try{
@@ -83,9 +93,9 @@ export default function AI(){
      };
      const r = await api.post<AskResponse>('/ask', AskRequestSchema.parse(body));
      const p = r;
-     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:String(p.answer??p.message??'Ответ не получен.'),sources:Array.isArray(p.sources)?p.sources:[]}]);
+     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:String(p.answer??p.message??'Ответ не получен.'),sources:Array.isArray(p.sources)?p.sources:[],createdAt:new Date().toISOString()}]);
    }catch(e){
-     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось получить ответ.'}]);
+     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось получить ответ.',createdAt:new Date().toISOString()}]);
    }finally{setBusy(false)}
  }
 
@@ -93,9 +103,9 @@ export default function AI(){
    setBusy(true);
    try{
      await api.post('/api/secretary/events',{title:'STEN · действие по аналитике',description:m.text,start_at:new Date(Date.now()+60*60*1000).toISOString(),event_type:'task',status:'planned',reminder_minutes:30});
-     setMessages(v=>[...v,{id:crypto.randomUUID(),role:'assistant',text:'Действие передано в Секретарь на контроль через 1 час.'}]);
+     setMessages(v=>[...v,{id:crypto.randomUUID(),role:'assistant',text:'Действие передано в Секретарь на контроль через 1 час.',createdAt:new Date().toISOString()}]);
    }catch(e){
-     setMessages(v=>[...v,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось передать действие в Секретарь.'}]);
+     setMessages(v=>[...v,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось передать действие в Секретарь.',createdAt:new Date().toISOString()}]);
    }finally{setBusy(false)}
  }
 
@@ -105,30 +115,30 @@ export default function AI(){
    try{
      for(const f of Array.from(list).slice(0,6)){
        const ext=f.name.split('.').pop()?.toLowerCase();
-       if(!ext||!supported.has(ext)){setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:'Формат «.'+(ext||'?')+'» не поддерживается.'}]);continue}
+       if(!ext||!supported.has(ext)){setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:'Формат «.'+(ext||'?')+'» не поддерживается.',createdAt:new Date().toISOString()}]);continue}
        if(f.size>MAX_DOC_BYTES)throw new Error(f.name+': файл больше 15 МБ');
        await api.post('/ai/documents/upload',{name:f.name,mimeType:f.type||'application/octet-stream',dataBase64:await to64(f)});
      }
      await load();
    }catch(e){
-     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Файл не обработан.'}]);
+     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Файл не обработан.',createdAt:new Date().toISOString()}]);
    }finally{setUpload(false)}
  }
 
  async function showPreview(d:Doc){
    setPreviewBusy(true);
    try{const r=await api.get<DocPreview>('/ai/documents/'+d.id+'/preview');setPreviewDoc((r as any)?.data??r)}
-   catch(e){setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось открыть содержимое документа.'}])}
+   catch(e){setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось открыть содержимое документа.',createdAt:new Date().toISOString()}])}
    finally{setPreviewBusy(false)}
  }
 
  async function removeDoc(d:Doc){
    try{await api.delete('/ai/documents/'+d.id);await load()}
-   catch(e){setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось удалить документ.'}])}
+   catch(e){setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось удалить документ.',createdAt:new Date().toISOString()}])}
  }
 
  function toggleVoice(){
-   if(!SR){setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:'Голосовой ввод не поддерживается этим браузером. Откройте STEN в Chrome или Edge.'}]);return}
+   if(!SR){setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:'Голосовой ввод не поддерживается этим браузером. Откройте STEN в Chrome или Edge.',createdAt:new Date().toISOString()}]);return}
    if(listening){try{recog.current?.stop?.()}catch{}return}
    const r=new SR();
    r.lang='ru-RU';
@@ -154,7 +164,10 @@ export default function AI(){
    try{localStorage.removeItem(LEGACY_KEY)}catch{}
  };
 
- return <div className="page sten-ai-page">
+ const pageClass='page sten-ai-page theme-'+settings.theme+' density-'+settings.density+(settings.showAvatars?'':' appearance-no-avatars')+(settings.showTime?'':' appearance-no-time')+(settings.showSources?'':' appearance-no-sources')+(settings.showActions?'':' appearance-no-actions');
+ const formatTime=(value?:string)=>value?new Date(value).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'';
+
+ return <div className={pageClass}>
    <div className="page-head">
      <div>
        <span className="eyebrow"><span className="status-dot"/> AI · ДАННЫЕ → ДЕЙСТВИЯ</span>
@@ -200,10 +213,15 @@ export default function AI(){
            <b><span className="avatar small"><Sparkles size={13}/></span> STEN</b>
            <small>{readyCount} документов готовы</small>
          </div>
-         <span>факты · расчёты · действия</span>
+         <div className="chat-head-actions">
+           <span>факты · расчёты · действия</span>
+           <button className="chat-appearance-trigger" onClick={()=>setAppearanceOpen(v=>!v)} aria-label="Оформление чата" aria-expanded={appearanceOpen} title="Оформление чата"><MoreHorizontal size={18}/></button>
+         </div>
        </div>
+       {appearanceOpen&&<AppearanceDrawer onClose={()=>setAppearanceOpen(false)}/>}
 
        <div className="chat-body">
+         <ChatBackground kind={settings.background}/>
          {!messages.length?<div className="welcome">
            <div className="welcome-mark"><Bot size={28}/></div>
            <h2>Что разбираем?</h2>
@@ -212,8 +230,9 @@ export default function AI(){
          </div>:messages.map(m=><article className={'message '+m.role} key={m.id}>
            <div className="message-avatar">{m.role==='assistant'?<Sparkles size={14}/>:'Вы'}</div>
            <div className="message-body">
-             {m.role==='assistant'&&<div className="message-header"><span className="message-label">STEN Copilot</span></div>}
+             {m.role==='assistant'&&<div className="message-header"><span className="message-label">STEN Copilot</span>{settings.showTime&&m.createdAt&&<time className="message-time">{formatTime(m.createdAt)}</time>}</div>}
              <div className="message-text">{m.text}</div>
+             {m.role==='user'&&settings.showTime&&m.createdAt&&<time className="message-time">{formatTime(m.createdAt)}</time>}
              {m.sources?.length?<small className="sources">Источники: {m.sources.map(s=>s.title).join(' · ')}</small>:null}
              {m.role==='assistant'&&<div className="quick-actions">
                <button className="copy" onClick={()=>void navigator.clipboard?.writeText(m.text)}><Copy size={13}/> Копировать</button>
