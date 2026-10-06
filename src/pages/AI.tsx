@@ -59,7 +59,12 @@ function AIContent({user}:{user:User|null}){
    try{localStorage.setItem(key,JSON.stringify(messages.slice(-80)));localStorage.removeItem(LEGACY_KEY)}catch{}
  },[messages,key]);
  useEffect(()=>{try{localStorage.setItem('sten_docs_collapsed',docsCollapsed?'1':'0')}catch{}},[docsCollapsed]);
- useEffect(()=>{resizeComposer()},[prompt]);
+ useEffect(()=>{
+   const el=document.querySelector<HTMLTextAreaElement>('.sten-ai-page .composer-box textarea');
+   if(!el)return;
+   el.style.height='auto';
+   el.style.height=Math.min(el.scrollHeight,144)+'px';
+ },[prompt]);
 
  const load=async()=>{
    const seq=++loadSeqRef.current;
@@ -169,13 +174,6 @@ function AIContent({user}:{user:User|null}){
 
  const pageClass='page sten-ai-page theme-'+settings.theme+' density-'+settings.density+(settings.showAvatars?'':' appearance-no-avatars')+(settings.showTime?'':' appearance-no-time')+(settings.showSources?'':' appearance-no-sources')+(settings.showActions?'':' appearance-no-actions');
  const formatTime=(value?:string)=>value?new Date(value).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'';
- const resizeComposer=()=>{
-   const el=document.querySelector<HTMLTextAreaElement>('.sten-ai-page .composer-box textarea');
-   if(!el)return;
-   el.style.height='auto';
-   el.style.height=Math.min(el.scrollHeight,144)+'px';
- };
-
  return <div className={pageClass}>
    <div className="page-head">
      <div>
