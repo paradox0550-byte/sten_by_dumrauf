@@ -8,7 +8,7 @@ import { AskRequestSchema, type AskRequest, type AskResponse, type AskSource } f
 import { AppearanceDrawer } from '../features/chat-appearance/AppearanceDrawer';
 import { AppearanceProvider, useAppearanceContext } from '../features/chat-appearance/AppearanceContext';
 import { ChatBackground } from '../features/chat-appearance/ChatBackground';
-import './AI.css';
+import '../features/chat-appearance/themes.css';
 
 type Msg = {
   id: string;
