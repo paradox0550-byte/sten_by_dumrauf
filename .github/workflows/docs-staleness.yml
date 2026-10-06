@@ -1,0 +1,54 @@
+name: Docs staleness audit
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  docs-staleness:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Report stale docs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          threshold_days=30
+          now=$(date +%s)
+          stale=()
+          while IFS= read -r f; do
+            last=$(git log -1 --format=%cs -- "$f")
+            ts=$(date -d "$last" +%s)
+            age=$(( (now - ts) / 86400 ))
+            if [ "$age" -gt "$threshold_days" ]; then
+              stale+=("$age days — $f")
+            fi
+          done < <(git ls-files 'docs/*.md' 'docs/*.yaml' | sort)
+
+          if [ "${#stale[@]}" -eq 0 ]; then
+            echo "No docs older than $threshold_days days."
+            exit 0
+          fi
+
+          body="## Docs staleness audit
+
+Files not changed for more than $threshold_days days:
+
+"
+          for item in "${stale[@]}"; do
+            body+=" - $item
+"
+          done
+          body+="
+This is an audit signal, not proof that the document is obsolete. Review against runtime/source-of-truth contracts."
+
+          gh issue list --state open --search "Docs staleness audit in:title" --limit 1 | grep -q . ||             gh issue create --title "Docs staleness audit" --body "$body"
