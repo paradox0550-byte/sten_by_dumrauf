@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bot, Copy, FileText, Mic, MicOff, MoreHorizontal, Paperclip, Send, Sparkles, Trash2, UploadCloud, Eye, X, CalendarPlus, Database, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Bot, FileText, Mic, MicOff, MoreHorizontal, Paperclip, Send, Sparkles, Trash2, UploadCloud, Eye, X, Database, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { api } from '../lib/api';
 import { useScope } from '../lib/useScope';
 import { useAuth, type User } from '../contexts/AuthContext';
@@ -8,7 +8,10 @@ import { AskRequestSchema, type AskRequest, type AskResponse, type AskSource } f
 import { AppearanceDrawer } from '../features/chat-appearance/AppearanceDrawer';
 import { AppearanceProvider, useAppearanceContext } from '../features/chat-appearance/AppearanceContext';
 import { ChatBackground } from '../features/chat-appearance/ChatBackground';
+import { MessageRow } from '../features/chat-appearance/MessageRow';
+import type { ChatMessage } from '../features/chat-appearance/types';
 import '../features/chat-appearance/themes.css';
+import '../features/chat-appearance/avatars.css';
 
 type Msg={id:string;role:'user'|'assistant';text:string;sources?:AskSource[];createdAt?:string};
 type Doc={id:string;name:string;size:number;status:string;chars?:number};
@@ -44,6 +47,7 @@ function AIContent({user}:{user:User|null}){
  const[listening,setListening]=useState(false);
  const[appearanceOpen,setAppearanceOpen]=useState(false);
  const[composerFocused,setComposerFocused]=useState(false);
+ const[chatToast,setChatToast]=useState<string|null>(null);
  const[dragOver,setDragOver]=useState(false);
  const file=useRef<HTMLInputElement>(null);
  const recog=useRef<any>(null);
@@ -59,6 +63,7 @@ function AIContent({user}:{user:User|null}){
    try{localStorage.setItem(key,JSON.stringify(messages.slice(-80)));localStorage.removeItem(LEGACY_KEY)}catch{}
  },[messages,key]);
  useEffect(()=>{try{localStorage.setItem('sten_docs_collapsed',docsCollapsed?'1':'0')}catch{}},[docsCollapsed]);
+ useEffect(()=>{if(!chatToast)return;const timer=window.setTimeout(()=>setChatToast(null),2200);return()=>window.clearTimeout(timer)},[chatToast]);
  useEffect(()=>{
    const el=document.querySelector<HTMLTextAreaElement>('.sten-ai-page .composer-box textarea');
    if(!el)return;
@@ -104,16 +109,6 @@ function AIContent({user}:{user:User|null}){
      setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:String(p.answer??p.message??'Ответ не получен.'),sources:Array.isArray(p.sources)?p.sources:[],createdAt:new Date().toISOString()}]);
    }catch(e){
      setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось получить ответ.',createdAt:new Date().toISOString()}]);
-   }finally{setBusy(false)}
- }
-
- async function makeTask(m:Msg){
-   setBusy(true);
-   try{
-     await api.post('/api/secretary/events',{title:'STEN · действие по аналитике',description:m.text,start_at:new Date(Date.now()+60*60*1000).toISOString(),event_type:'task',status:'planned',reminder_minutes:30});
-     setMessages(v=>[...v,{id:crypto.randomUUID(),role:'assistant',text:'Действие передано в Секретарь на контроль через 1 час.',createdAt:new Date().toISOString()}]);
-   }catch(e){
-     setMessages(v=>[...v,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось передать действие в Секретарь.',createdAt:new Date().toISOString()}]);
    }finally{setBusy(false)}
  }
 
@@ -166,6 +161,17 @@ function AIContent({user}:{user:User|null}){
  }
 
  const readyCount=docs.filter(d=>d.status==='ready').length;
+ const showChatToast=(message:string)=>setChatToast(message);
+ const copyMessage=async(text:string)=>{
+   try{
+     await navigator.clipboard.writeText(text);
+     showChatToast('Скопировано');
+   }catch{
+     showChatToast('Не удалось скопировать');
+   }
+ };
+ const secretaryToast=()=>showChatToast('Скоро: сохранение в Секретаря');
+
  const clearChat=()=>{
    setMessages([]);
    if(key){try{localStorage.removeItem(key)}catch{}}
@@ -228,28 +234,41 @@ function AIContent({user}:{user:User|null}){
        </div>
        {appearanceOpen&&<AppearanceDrawer onClose={()=>setAppearanceOpen(false)}/>}
 
-       <div className="chat-body">
+       <div className="chat-body" role="log" aria-live="polite" aria-label="История чата со STEN">
          <ChatBackground kind={settings.background}/>
          {!messages.length?<div className="welcome">
            <div className="welcome-mark"><Bot size={28}/></div>
            <h2>Что разбираем?</h2>
            <p>STEN получает текущие цифры выбранного контура и отвечает только в пределах подтверждённых данных.</p>
            <div className="starter-grid">{starters.map(s=><button key={s} onClick={()=>void ask(s)}>{s}</button>)}</div>
-         </div>:messages.map(m=><article className={'message '+m.role} key={m.id}>
-           <div className="message-avatar">{m.role==='assistant'?<Sparkles size={14}/>:'Вы'}</div>
-           <div className="message-body">
-             {m.role==='assistant'&&<div className="message-header"><span className="message-label">STEN Copilot</span>{settings.showTime&&m.createdAt&&<time className="message-time">{formatTime(m.createdAt)}</time>}</div>}
-             <div className="message-text">{m.text}</div>
-             {m.role==='user'&&settings.showTime&&m.createdAt&&<time className="message-time">{formatTime(m.createdAt)}</time>}
-             {m.sources?.length?<small className="sources">Источники: {m.sources.map(s=>s.title).join(' · ')}</small>:null}
-             {m.role==='assistant'&&<div className="quick-actions">
-               <button className="copy" onClick={()=>void navigator.clipboard?.writeText(m.text)}><Copy size={13}/> Копировать</button>
-               <button className="copy" disabled={busy} onClick={()=>void makeTask(m)}><CalendarPlus size={13}/> В Секретарь</button>
-             </div>}
-           </div>
-         </article>)}
+         </div>:messages.map((m,i)=>{
+           const message:ChatMessage={
+             id:m.id,
+             role:m.role,
+             content:m.text,
+             createdAt:m.createdAt??'',
+             sources:m.sources,
+           };
+           const previousMessage=i>0?{
+             id:messages[i-1].id,
+             role:messages[i-1].role,
+             content:messages[i-1].text,
+             createdAt:messages[i-1].createdAt??'',
+             sources:messages[i-1].sources,
+           }:undefined;
+           return <MessageRow
+             key={m.id}
+             message={message}
+             previousMessage={previousMessage}
+             user={user}
+             onCopy={()=>void copyMessage(m.text)}
+             onToSecretary={secretaryToast}
+             onDetails={()=>undefined}
+           />;
+         })}
          {busy&&<div className="typing" aria-label="STEN готовит ответ"><i/><i/><i/></div>}
        </div>
+       {chatToast&&<div className="chat-toast" role="status" aria-live="polite">{chatToast}</div>}
 
        <div className={'composer '+(composerFocused?'is-focused ':'')+(dragOver?'is-dragover':'')}
          onDragOver={e=>{e.preventDefault();if(!upload)setDragOver(true)}}
