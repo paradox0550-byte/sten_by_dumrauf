@@ -2583,7 +2583,7 @@ textarea:focus-visible {
   border: 1px solid var(--color-brand);
   border-radius: 9px;
   background: var(--color-brand);
-  color: #fff;
+  color: #0B0D10;
   font-size: 14px;
   font-weight: 650;
   display: inline-flex;
