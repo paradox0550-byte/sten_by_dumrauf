@@ -5,7 +5,7 @@ import {useAuth} from '../contexts/AuthContext';
 import {ApiError} from '../lib/api';
 import {StenLogo} from '../components/brand/StenLogo';
 
-function LoginSpinner(){return <svg className="login-spinner" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="7" fill="none" stroke="rgba(255,255,255,.28)" strokeWidth="2"/><circle cx="9" cy="9" r="7" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeDasharray="11 33"><animateTransform attributeName="transform" type="rotate" from="0 9 9" to="360 9 9" dur=".7s" repeatCount="indefinite"/></circle></svg>}
+function LoginSpinner(){return <svg className="login-spinner" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="7" fill="none" stroke="currentColor" strokeWidth="2"/><circle cx="9" cy="9" r="7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="11 33"><animateTransform attributeName="transform" type="rotate" from="0 9 9" to="360 9 9" dur=".7s" repeatCount="indefinite"/></circle></svg>}
 
 export default function AuthSetup(){
   const {user,login}=useAuth();
@@ -65,7 +65,6 @@ export default function AuthSetup(){
               inputMode="email"
               autoFocus
               disabled={busy}
-              aria-invalid={Boolean(err)}
             />
           </label>
 
