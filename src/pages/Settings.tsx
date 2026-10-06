@@ -3,7 +3,7 @@ type Theme='light'|'dark'|'system';const TK='sten_theme_v5',BK='sten_blocks_v5',
 type Messenger='telegram'|'whatsapp';type Metrics={revenue:boolean;cashCard:boolean;discounts:boolean;avgCheck:boolean;checks:boolean;primeCost:boolean;ebitda:boolean;deviation:boolean};
 const metricDefaults:Metrics={revenue:true,cashCard:true,discounts:true,avgCheck:true,checks:true,primeCost:true,ebitda:true,deviation:true};
 export default function Settings(){
- const{signOut}=useAuth();const[scope,setScope]=useScope();const readBlocks=()=>{try{return{...defaults,...JSON.parse(localStorage.getItem(BK)||'{}')}}catch{return{...defaults}}};
+ const{signOut,user}=useAuth();const[scope,setScope]=useScope();const readBlocks=()=>{try{return{...defaults,...JSON.parse(localStorage.getItem(BK)||'{}')}}catch{return{...defaults}}};
  type Skills=AiSkills;
  const defaultSkills:Skills={foodCost:35,laborCost:30,shiftHours:12,tone:'brief',documents:true,history:true,excludeCapex:true};
  const[theme,setTheme]=useState<Theme>((localStorage.getItem(TK)as Theme)||'system');const[blocks,setBlocks]=useState(readBlocks);const[cleared,setCleared]=useState(false);const[skills,setSkills]=useState<Skills>(defaultSkills);const[skillsErrors,setSkillsErrors]=useState<Partial<Record<keyof Skills,string>>>({});const[skillsSaving,setSkillsSaving]=useState(false);const[skillsMessage,setSkillsMessage]=useState('');
