@@ -1,0 +1,157 @@
+ .sten-ai-page .message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  margin: 0 0 12px;
+}
+.sten-ai-page .message-row--grouped { margin-bottom: 4px; }
+.sten-ai-page .message-row--user { justify-content: flex-end; flex-direction: row-reverse; }
+.sten-ai-page .message-avatar-slot {
+  flex: 0 0 32px;
+  width: 32px;
+  min-height: 32px;
+  display: grid;
+  place-items: start center;
+}
+.sten-ai-page .message-avatar-slot--hidden { visibility: hidden; }
+.sten-ai-page.appearance-no-avatars .message-avatar-slot { display: none; }
+.sten-ai-page .message-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 78%;
+}
+.sten-ai-page .message-row--user .message-content { align-items: flex-end; }
+.sten-ai-page .message-bubble {
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--chat-border);
+  border-radius: 10px;
+  background: var(--chat-bubble-ai);
+  color: var(--chat-text);
+  line-height: 1.55;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.sten-ai-page .message-row--user .message-bubble { background: var(--chat-bubble-user); }
+.sten-ai-page .message-time {
+  display: block;
+  order: 2;
+  margin-top: 6px;
+  color: var(--chat-muted);
+  font-size: 9px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.sten-ai-page .message-bubble { order: 1; }
+.sten-ai-page .message-sources { order: 3; display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+.sten-ai-page .message-source-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid var(--chat-border);
+  border-radius: 999px;
+  color: var(--chat-muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sten-ai-page .message-actions {
+  order: 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  opacity: 0;
+  transition: opacity .14s ease;
+}
+.sten-ai-page .message-row:hover .message-actions,
+.sten-ai-page .message-row:focus-within .message-actions { opacity: 1; }
+.sten-ai-page .message-actions button {
+  min-height: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.sten-ai-page .message-actions button:hover { color: var(--text-primary); background: rgba(255,255,255,.04); }
+.sten-ai-page .message-actions button:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
+.sten-ai-page .message-actions button svg { flex: 0 0 auto; }
+.sten-ai-page.density-minimal .message-actions button span { display: none; }
+.sten-ai-page.density-compact .message-actions button span,
+.sten-ai-page.density-comfort .message-actions button span { display: inline; }
+.sten-ai-page.density-comfort .message-actions button { padding: 6px 10px; }
+.sten-ai-page .sten-avatar,
+.sten-ai-page .user-avatar {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+.sten-ai-page .sten-avatar { background: var(--bg-surface); border: 1px solid var(--border-subtle); }
+.sten-ai-page .sten-avatar img { width: 20px; height: 20px; display: block; }
+.sten-ai-page .user-avatar { color: #fff; font-size: 12px; font-weight: 600; line-height: 1; }
+.sten-ai-page .user-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+.sten-ai-page .message-details {
+  order: 5;
+  width: min(100%, 620px);
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--chat-border);
+  border-radius: 8px;
+  background: var(--chat-panel);
+  color: var(--chat-text);
+}
+.sten-ai-page .message-details-section { display: grid; gap: 6px; }
+.sten-ai-page .message-details-sources { display: grid; gap: 6px; }
+.sten-ai-page .message-details-source { display: grid; gap: 2px; padding-top: 6px; border-top: 1px solid var(--chat-border); }
+.sten-ai-page .message-details-source small,
+.sten-ai-page .message-details-source code,
+.sten-ai-page .message-details-source p { color: var(--chat-muted); font-size: 10px; overflow-wrap: anywhere; }
+.sten-ai-page .message-details-meta { display: flex; justify-content: space-between; gap: 12px; padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--chat-border); color: var(--chat-muted); font-size: 10px; }
+.sten-ai-page .message-details-meta span:last-child,
+.sten-ai-page .message-details-meta time { color: var(--chat-text); }
+.sten-ai-page .message-row.no-anim .message-actions { transition: none; }
+.sten-ai-page .chat-toast {
+  position: absolute;
+  right: 16px;
+  bottom: 72px;
+  z-index: 40;
+  max-width: min(320px, calc(100% - 32px));
+  padding: 8px 11px;
+  border: 1px solid var(--chat-border);
+  border-radius: 8px;
+  background: var(--chat-panel);
+  color: var(--chat-text);
+  font-size: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+}
+@media (hover: none) { .sten-ai-page .message-actions { opacity: 1; } }
+@media (max-width: 640px) {
+  .sten-ai-page .message-row { gap: 8px; }
+  .sten-ai-page .message-content { max-width: 86%; }
+  .sten-ai-page .message-time { order: 0; margin: 0 0 5px; }
+  .sten-ai-page .message-bubble { order: 1; }
+  .sten-ai-page .message-sources { order: 2; }
+  .sten-ai-page .message-actions { order: 3; margin-top: 6px; }
+  .sten-ai-page .message-details { order: 4; }
+  .sten-ai-page .chat-toast { right: 8px; bottom: 64px; max-width: calc(100% - 16px); }
+}
+@media (prefers-reduced-motion: reduce) { .sten-ai-page .message-actions { transition: none; } }
