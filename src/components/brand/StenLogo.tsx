@@ -28,6 +28,7 @@ export function StenLogo({
   const cssVars = {
     '--sten-brand': '#5B7CFA',
     '--sten-ink': '#0B0D10',
+    '--sten-muted': '#5B6578',
   } as CSSProperties;
 
   return (
@@ -81,7 +82,7 @@ export function StenLogo({
             <text
               x={variant === 'wordmark' ? 2 : 150}
               y={variant === 'wordmark' ? 86 : 101}
-              fill="#5B6578"
+              fill="var(--sten-muted)"
               fontFamily="Inter, Arial, sans-serif"
               fontSize="15"
               fontWeight="500"
