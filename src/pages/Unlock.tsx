@@ -82,7 +82,6 @@ export default function AuthSetup(){
               autoCorrect="off"
               spellCheck={false}
               disabled={busy}
-              aria-invalid={Boolean(err)}
             />
           </label>
 
