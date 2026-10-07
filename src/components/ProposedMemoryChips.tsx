@@ -41,7 +41,7 @@ export default function ProposedMemoryChips({ items, onResolve, messageId }: Pro
         evidence: item.evidence ?? {},
       });
       setToast('Сохранено в память');
-      onResolve(index);
+      window.setTimeout(() => onResolve(index), 900);
     } catch {
       setToast('Не удалось. Повторить');
     } finally {
