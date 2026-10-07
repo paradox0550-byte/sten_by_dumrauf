@@ -3,8 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity, BarChart3, Bot, CalendarDays, FileSpreadsheet, FileText,
   LayoutDashboard, Menu, Moon, PanelLeft, PanelLeftClose, Settings2,
-  Sun, Users, WalletCards, X, ShieldCheck
-} from 'lucide-react';
+  Sun, Users, WalletCards, X, } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import WorkspaceSelector from './WorkspaceSelector';
 import { useScope } from '../lib/useScope';
@@ -100,7 +99,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="brand-mark" aria-hidden="true"><img src="/brand/sten-mark.svg?v=5.0.2" alt="" /></div>
             <div className="brand-copy">
               <b>STEN</b>
-              <small>Executive Cockpit · v5.0.2</small>
+              <small>Рабочий кабинет</small>
             </div>
             <button className="mobile-close" onClick={() => setMobileMenu(false)} aria-label="Закрыть меню"><X size={18} /></button>
           </div>
@@ -127,7 +126,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {user?.role === 'super_admin' && <>
               <div className="nav-section-label" style={{ marginTop: 18 }}>Система</div>
               <NavLink to="/admin/organizations" onClick={() => setMobileMenu(false)}>
-                <ShieldCheck size={17} />
                 <span>Организации</span>
               </NavLink>
             </>}
@@ -135,11 +133,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="sidebar-bottom">
-          <div className="security-boundary">
-            <div><span>SECURITY BOUNDARY</span><i /></div>
-            <b>API Gateway · JWT</b>
-            <small>Браузер → API → backend</small>
-          </div>
           <div className="sidebar-profile">
             <div className="avatar">{name.slice(0, 1)}</div>
             <div><b>{name}</b><small>персональный режим</small></div>
@@ -198,10 +191,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             ))}
           </div>
 
-          <div className="security-status" title="Браузер не обращается напрямую к БД или Yandex Cloud">
-            <i />
-          </div>
-
           <div className="top-actions">
             <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}>
               {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
@@ -211,7 +200,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="avatar">{name.slice(0, 1)}</div>
             <div className="top-profile-info">
               <b>{name}</b>
-              <small>{user?.role === 'super_admin' ? 'Администратор' : 'Пользователь'}</small>
+              <small>{user?.position || (user?.role === 'super_admin' ? 'Администратор' : 'Сотрудник')}</small>
             </div>
           </div>
         </header>
