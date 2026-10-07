@@ -165,7 +165,7 @@ export default function AdminOrganizations() {
                   <td><code>{org.code}</code></td>
                   <td><span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><UserRound size={14} />{org.user_count}</span></td>
                   <td>{org.subscription_until ? new Date(`${org.subscription_until}T00:00:00`).toLocaleDateString('ru-RU') : <span className="muted">Не оплачено</span>}</td>
-                  <td><span className={`status-badge ${org.status === 'active' ? 'ok' : org.status === 'suspended' ? 'warn' : 'muted'}`}>{org.status === 'active' ? 'Активна' : org.status === 'suspended' ? 'Приостановлена' : 'Архив'}</span></td>
+                  <td><span className={`badge badge--${org.status === 'active' ? 'success' : org.status === 'suspended' ? 'warning' : 'neutral'}`}>{org.status === 'active' ? 'Активна' : org.status === 'suspended' ? 'Приостановлена' : 'В архиве'}</span></td>
                   <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button className="secondary-button" onClick={() => void renewMonth(org)} disabled={renewingId === org.id}>
                       {renewingId === org.id ? 'Продлеваем…' : 'Продлить на месяц'}
