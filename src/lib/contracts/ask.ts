@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ProposedMemory } from './memory';
 
 /**
  * Явный интерфейс запроса POST /ask.
@@ -48,6 +49,7 @@ export interface AskResponse {
   sources?: AskSource[];
   tools_used?: Array<{ name: string; args?: unknown; ok?: boolean; ms?: number }>;
   tool_results?: Array<{ name: string; args?: unknown; result?: unknown }>;
+  proposed_memory: ProposedMemory[] | null;
 }
 
 export const AskResponseSchema = z.object({
@@ -61,4 +63,10 @@ export const AskResponseSchema = z.object({
     kind: z.string().optional(),
     excerpt: z.string().optional(),
   })).optional(),
+  proposed_memory: z.array(z.object({
+    kind: z.enum(['fact','decision','cause','action','manager_note','pattern']),
+    title: z.string(),
+    content: z.string(),
+    evidence: z.record(z.unknown()).optional(),
+  })).nullable().optional(),
 }).passthrough();
