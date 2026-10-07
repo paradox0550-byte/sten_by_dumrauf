@@ -10,11 +10,15 @@ type AskDeviationResponse = { tool_results?:Array<{name:string;args?:unknown;res
 export interface DeviationsWidgetProps { period:string; scope:Scope }
 
 function Card({item,positive,onAnalyze}:{item:DeviationItem;positive?:boolean;onAnalyze:(item:DeviationItem)=>void}) {
-  const severity=item.severity==='high'?'high':'medium';
+  const severity=item.severity==='high'?'high':item.severity==='medium'?'medium':'low';
+  const badgeClass=positive||item.favorable===true?'success':severity==='high'?'danger':severity==='medium'?'warning':'neutral';
+  const badgeText=positive||item.favorable===true?'Благоприятно':severity==='high'?'Высокий':severity==='medium'?'Средний':'Низкий';
+  const cardSeverity=item.severity==='high'?'high':'medium';
   const pct=item.delta_pct===null?'—':formatPercent(item.delta_pct,1);
-  const className='deviations-widget__card deviations-widget__card--'+(positive?'positive':severity);
+  const className='deviations-widget__card deviations-widget__card--'+(positive?'positive':cardSeverity);
   return <article className={className}>
     <span className="deviations-widget__article">{item.article}</span>
+    <span className={`badge badge--${badgeClass}`}>{badgeText}</span>
     <div className="deviations-widget__numbers"><strong className="deviations-widget__value">{formatMoneyAuto(item.delta_abs)}</strong><span className="deviations-widget__pct">{pct}</span></div>
     <button className="deviations-widget__action" type="button" onClick={()=>onAnalyze(item)}>Разобрать в AI</button>
   </article>;
