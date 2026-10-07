@@ -1,8 +1,8 @@
 import {createContext,useCallback,useContext,useEffect,useMemo,useState} from 'react';
 import {api,clearSession,AUTH_EXPIRED_EVENT} from '../lib/api';
 
-export type User={id:string;email?:string;firstName?:string;lastName?:string;role?:string;organizationId?:string|null;permissions?:Record<string,string>};
-type Ctx={user:User|null;loading:boolean;signOut:()=>void;login:(email:string,password:string)=>Promise<void>};
+export type User={id:string;email?:string;firstName?:string;lastName?:string;position?:string;telegramChatId?:string;role?:string;organizationId?:string|null;permissions?:Record<string,string>};
+type Ctx={user:User|null;loading:boolean;signOut:()=>void;login:(email:string,password:string)=>Promise<void>;refresh:()=>Promise<void>};
 const C=createContext<Ctx|null>(null), USER='sten_user',TOKEN='sten_token';
 
 export function AuthProvider({children}:{children:React.ReactNode}){
@@ -19,6 +19,7 @@ export function AuthProvider({children}:{children:React.ReactNode}){
       setUser(null);
     }finally{setLoading(false)}
   },[]);
+  const refresh=useCallback(async()=>{try{const r=await api.get<{user:User}>('/auth/me');setUser(r.user);localStorage.setItem(USER,JSON.stringify(r.user))}catch{}},[]);
   useEffect(()=>{void restore()},[restore]);
   useEffect(()=>{
     const handler=()=>{
@@ -36,6 +37,6 @@ export function AuthProvider({children}:{children:React.ReactNode}){
     localStorage.setItem(USER,JSON.stringify(r.user));
     setUser(r.user);
   },[]);
-  return <C.Provider value={useMemo(()=>({user,loading,signOut,login}),[user,loading,signOut,login])}>{children}</C.Provider>
+  return <C.Provider value={useMemo(()=>({user,loading,signOut,login,refresh}),[user,loading,signOut,login,refresh])}>{children}</C.Provider>
 }
 export function useAuth(){const c=useContext(C);if(!c)throw new Error('AuthProvider is missing');return c}
