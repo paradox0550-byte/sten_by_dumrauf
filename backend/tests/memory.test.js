@@ -30,7 +30,7 @@ function fakeDb(initial=[]) {
       if (sql.startsWith('SELECT id, organization_id') && sql.includes('FROM ai_memory WHERE id=')) {
         return {rows: rows.filter(row=>row.id===params[0] && row.organization_id===params[1])};
       }
-      if (sql.startsWith('SELECT id, organization_id') && sql.includes('FROM ai_memory WHERE')) {
+      if ((sql.startsWith('SELECT id, organization_id') || sql.startsWith('SELECT id, kind')) && sql.includes('FROM ai_memory WHERE')) {
         const org=params[0];
         let out=rows.filter(row=>row.organization_id===org);
         if (sql.includes("confidence='confirmed'")) out=out.filter(row=>row.confidence==='confirmed');
