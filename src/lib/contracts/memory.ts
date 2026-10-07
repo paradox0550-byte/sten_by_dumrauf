@@ -1,6 +1,21 @@
 export type MemoryKind = 'fact' | 'decision' | 'cause' | 'action' | 'manager_note' | 'pattern';
 export type MemoryConfidence = 'unconfirmed' | 'confirmed' | 'rejected';
 
+export const MEMORY_KIND_LABEL: Record<MemoryKind, string> = {
+  fact: 'Факт',
+  decision: 'Решение',
+  cause: 'Причина',
+  action: 'Действие',
+  manager_note: 'Заметка',
+  pattern: 'Паттерн',
+};
+
+export const MEMORY_CONFIDENCE_LABEL: Record<MemoryConfidence, string> = {
+  confirmed: 'Подтверждено',
+  unconfirmed: 'Не подтверждено',
+  rejected: 'Отклонено',
+};
+
 export interface Memory {
   id: string;
   organization_id: string;
