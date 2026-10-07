@@ -769,3 +769,572 @@
     transition: none;
   }
 }
+
+
+/* ==========================================================================
+   STEN AI Visual Polish v1
+   Executive Cockpit: quiet, dense, analytical.
+   Scoped to STEN AI. No layout/API/behavior changes.
+   ========================================================================== */
+
+.sten-ai-page {
+  background-image: none;
+  background-color: var(--bg-app);
+}
+
+.sten-ai-page .page-head {
+  align-items: flex-end;
+  gap: 20px;
+  margin-bottom: 14px;
+}
+
+.sten-ai-page .page-head > div:first-child {
+  min-width: 0;
+}
+
+.sten-ai-page .page-head h1 {
+  margin-bottom: 4px;
+  font-size: clamp(28px, 3vw, 36px);
+  letter-spacing: -0.035em;
+}
+
+.sten-ai-page .page-head p {
+  max-width: 720px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.sten-ai-page .page-head .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 6px;
+}
+
+.sten-ai-page .page-head .status-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: none;
+}
+
+.sten-ai-page .ai-grid {
+  grid-template-columns: minmax(240px, 290px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.sten-ai-page .docs-panel,
+.sten-ai-page .chat {
+  min-width: 0;
+  overflow: hidden;
+  border-color: var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.sten-ai-page .docs-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 600px;
+  padding: 0;
+  background: var(--bg-surface);
+}
+
+.sten-ai-page .docs-panel .panel-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 46px;
+  margin: 0;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.sten-ai-page .docs-panel .panel-title > span {
+  min-width: 18px;
+  padding: 2px 5px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1.1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.sten-ai-page .docs-toggle {
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.sten-ai-page .docs-toggle:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-subtle);
+  border-color: var(--border-strong);
+}
+
+.sten-ai-page .docs-panel > .dashboard-note {
+  margin: 0;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.sten-ai-page .upload-box {
+  min-height: 84px;
+  margin: 10px;
+  padding: 12px;
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 9px;
+  background: var(--bg-surface-subtle);
+  color: var(--text-primary);
+  text-align: center;
+  cursor: pointer;
+}
+
+.sten-ai-page .upload-box:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--bg-surface);
+}
+
+.sten-ai-page .upload-box svg {
+  color: var(--color-brand);
+}
+
+.sten-ai-page .upload-box b {
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.sten-ai-page .upload-box small {
+  max-width: 220px;
+  color: var(--text-muted);
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.sten-ai-page .doc-list {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0 10px;
+}
+
+.sten-ai-page .doc-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 28px 28px;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sten-ai-page .doc-row > svg {
+  color: var(--text-muted);
+}
+
+.sten-ai-page .doc-row > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.sten-ai-page .doc-row b {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 10px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sten-ai-page .doc-row small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sten-ai-page .icon-button.compact {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+}
+
+.sten-ai-page .docs-panel > p.dashboard-note {
+  margin: 0;
+  padding: 9px 12px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.sten-ai-page .empty {
+  padding: 24px 8px;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-align: center;
+}
+
+.sten-ai-page .chat {
+  min-height: 600px;
+  display: flex;
+  flex-direction: column;
+  background: var(--chat-bg);
+}
+
+.sten-ai-page .chat-head {
+  flex: 0 0 auto;
+  min-height: 50px;
+  padding: 7px 10px 7px 12px;
+  border-bottom: 1px solid var(--chat-border);
+}
+
+.sten-ai-page .chat-head > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.sten-ai-page .chat-head b {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.sten-ai-page .chat-head small {
+  color: var(--chat-muted);
+  font-size: 8px;
+}
+
+.sten-ai-page .chat-head-actions > span {
+  font-size: 8px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.sten-ai-page .avatar.small {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--chat-border);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--chat-accent) 8%, var(--chat-panel));
+  color: var(--chat-accent);
+}
+
+.sten-ai-page .chat-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 24px clamp(18px, 4vw, 54px);
+  scrollbar-gutter: stable;
+}
+
+.sten-ai-page .welcome {
+  width: min(760px, 100%);
+  min-height: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 0 44px;
+}
+
+.sten-ai-page .welcome-mark {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 14px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--chat-accent) 8%, var(--chat-panel));
+}
+
+.sten-ai-page .welcome h2 {
+  margin: 0;
+  color: var(--chat-text);
+  font-size: clamp(20px, 2vw, 26px);
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+
+.sten-ai-page .welcome p {
+  max-width: 620px;
+  margin: 7px 0 18px;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.sten-ai-page .starter-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.sten-ai-page .starter-grid button {
+  min-height: 58px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 10px;
+  line-height: 1.4;
+  transition: border-color .14s ease, background-color .14s ease;
+}
+
+.sten-ai-page .starter-grid button:hover {
+  transform: none;
+}
+
+.sten-ai-page .message-row {
+  max-width: 900px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.sten-ai-page .message-content {
+  max-width: min(78%, 760px);
+}
+
+.sten-ai-page .message-bubble {
+  padding: 10px 12px;
+  border-radius: 9px;
+  font-size: 12px;
+  line-height: 1.58;
+  box-shadow: none;
+}
+
+.sten-ai-page .message-row--assistant .message-bubble {
+  border-left: 2px solid color-mix(in srgb, var(--chat-accent) 65%, transparent);
+}
+
+.sten-ai-page .message-row--user .message-bubble {
+  border-color: color-mix(in srgb, var(--chat-accent) 22%, var(--chat-border));
+}
+
+.sten-ai-page .message-actions {
+  margin-top: 5px;
+}
+
+.sten-ai-page .message-actions button {
+  min-height: 22px;
+  height: 22px;
+  font-size: 10px;
+}
+
+.sten-ai-page .message-source-chip {
+  min-height: 19px;
+  font-size: 9px;
+}
+
+.sten-ai-page .typing {
+  width: min(900px, 100%);
+  margin: 0 auto;
+  padding: 8px 40px;
+}
+
+.sten-ai-page .composer {
+  flex: 0 0 auto;
+  min-height: 44px;
+  max-height: 144px;
+  padding: 8px 12px 9px;
+  border-top: 1px solid var(--chat-border);
+}
+
+.sten-ai-page .composer-box {
+  min-height: 42px;
+  grid-template-columns: 30px minmax(0, 1fr) 30px 36px;
+  gap: 5px;
+  padding: 4px 5px;
+  border-radius: 10px;
+}
+
+.sten-ai-page .composer-box textarea {
+  min-height: 22px;
+  max-height: 120px;
+  padding: 5px 3px;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.sten-ai-page .composer-box .icon-button,
+.sten-ai-page .composer-box .send {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  border-radius: 8px;
+}
+
+.sten-ai-page .composer-box .send {
+  width: 36px;
+  min-width: 36px;
+}
+
+.sten-ai-page .composer-footer {
+  min-height: 16px;
+  padding: 3px 3px 0;
+  font-size: 8px;
+}
+
+.sten-ai-page .composer-footer .composer-context {
+  color: var(--chat-muted);
+}
+
+.sten-ai-page .chat-toast {
+  right: 14px;
+  bottom: 86px;
+  z-index: 20;
+  border-color: var(--chat-border);
+  border-radius: 8px;
+  background: var(--chat-panel);
+  color: var(--chat-text);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+  font-size: 10px;
+}
+
+.sten-ai-page .modal-card.document-preview {
+  width: min(760px, calc(100% - 24px));
+  max-height: min(80vh, 720px);
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.sten-ai-page .document-preview-text {
+  max-height: 52vh;
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--bg-surface-subtle);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.sten-ai-page.docs-collapsed .docs-panel {
+  background: var(--bg-surface);
+}
+
+.sten-ai-page.docs-collapsed .docs-panel .panel-title {
+  border-bottom: 0;
+}
+
+@media (max-width: 900px) {
+  .sten-ai-page .ai-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sten-ai-page .docs-panel {
+    min-height: 0;
+    max-height: 260px;
+  }
+
+  .sten-ai-page .docs-panel .doc-list {
+    max-height: 140px;
+  }
+
+  .sten-ai-page .chat {
+    min-height: 560px;
+  }
+}
+
+@media (max-width: 767px) {
+  .sten-ai-page .page-head {
+    align-items: stretch;
+  }
+
+  .sten-ai-page .page-head p {
+    max-width: 100%;
+    font-size: 11px;
+  }
+
+  .sten-ai-page .ai-grid {
+    gap: 8px;
+  }
+
+  .sten-ai-page .chat {
+    min-height: calc(100dvh - 250px);
+    border-radius: 10px;
+  }
+
+  .sten-ai-page .chat-head {
+    min-height: 46px;
+    padding-inline: 9px;
+  }
+
+  .sten-ai-page .chat-body {
+    padding: 16px 10px;
+  }
+
+  .sten-ai-page .welcome {
+    padding: 20px 2px 28px;
+    justify-content: flex-start;
+  }
+
+  .sten-ai-page .starter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sten-ai-page .message-row {
+    gap: 6px;
+  }
+
+  .sten-ai-page .message-content {
+    max-width: calc(100% - 36px);
+  }
+
+  .sten-ai-page .message-bubble {
+    font-size: 12px;
+  }
+
+  .sten-ai-page .composer {
+    padding: 7px 8px 8px;
+  }
+
+  .sten-ai-page .composer-footer {
+    display: none;
+  }
+
+  .sten-ai-page .chat-toast {
+    bottom: 62px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sten-ai-page .starter-grid button,
+  .sten-ai-page .composer,
+  .sten-ai-page .composer-box {
+    transition: none;
+  }
+}
