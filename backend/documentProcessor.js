@@ -1,9 +1,53 @@
-const XLSX=require('xlsx');
+const XLSX=require('@e965/xlsx');
 const zlib=require('zlib');
 function norm(s){return String(s??'').normalize('NFC').toLocaleLowerCase('ru-RU').replace(/[^a-zа-яё0-9]+/gu,'')}
 function text(v){if(v===null||v===undefined||v==='')return '';if(v instanceof Date)return v.toISOString().slice(0,10);return typeof v==='number'?String(v):String(v).trim()}
 function num(v){if(typeof v==='number'&&Number.isFinite(v))return v;if(typeof v!=='string')return null;const s=v.replace(/\u00a0/g,'').replace(/ /g,'').replace(/,/g,'.').replace(/[^0-9.\-]/g,'');return s&&Number.isFinite(Number(s))?Number(s):null}
-function zipEntries(b){const out=[];let p=0;while(p+30<=b.length){if(b.readUInt32LE(p)!==0x04034b50){p++;continue}const m=b.readUInt16LE(p+8),cs=b.readUInt32LE(p+18),us=b.readUInt32LE(p+22),nl=b.readUInt16LE(p+26),el=b.readUInt16LE(p+28);const name=b.subarray(p+30,p+30+nl).toString('utf8'),start=p+30+nl+el,d=b.subarray(start,start+cs);try{const x=m===0?d:m===8?zlib.inflateRawSync(d):null;if(x)out.push({name,data:x,size:us})}catch{}p=start+cs}return out}
+// Лимиты против zip-bomb (H-7 из SECURITY_AUDIT_2026-10).
+// MAX_ZIP_ENTRIES — сколько файлов может быть внутри архива.
+// MAX_ZIP_TOTAL_BYTES — суммарный распакованный размер.
+// MAX_ZIP_ENTRY_BYTES — размер одной распакованной записи.
+const MAX_ZIP_ENTRIES = 500;
+const MAX_ZIP_TOTAL_BYTES = 64 * 1024 * 1024;
+const MAX_ZIP_ENTRY_BYTES = 16 * 1024 * 1024;
+
+function zipEntries(b) {
+  const out = [];
+  let p = 0;
+  let totalUncompressed = 0;
+  while (p + 30 <= b.length) {
+    if (out.length >= MAX_ZIP_ENTRIES) throw new Error('ZIP archive contains too many entries');
+    if (b.readUInt32LE(p) !== 0x04034b50) { p++; continue; }
+    const m = b.readUInt16LE(p + 8);
+    const cs = b.readUInt32LE(p + 18);
+    const us = b.readUInt32LE(p + 22);
+    const nl = b.readUInt16LE(p + 26);
+    const el = b.readUInt16LE(p + 28);
+    const name = b.subarray(p + 30, p + 30 + nl).toString('utf8');
+    const start = p + 30 + nl + el;
+    const d = b.subarray(start, start + cs);
+    try {
+      let x;
+      if (m === 0) {
+        if (us > MAX_ZIP_ENTRY_BYTES) throw new Error('ZIP entry too large: ' + name);
+        x = d;
+      } else if (m === 8) {
+        const cap = Math.min(us > 0 ? us : MAX_ZIP_ENTRY_BYTES, MAX_ZIP_ENTRY_BYTES);
+        x = zlib.inflateRawSync(d, { maxOutputLength: cap });
+      } else {
+        p = start + cs;
+        continue;
+      }
+      totalUncompressed += x.length;
+      if (totalUncompressed > MAX_ZIP_TOTAL_BYTES) throw new Error('ZIP archive total uncompressed size exceeds limit');
+      out.push({ name, data: x, size: us });
+    } catch (err) {
+      throw err;
+    }
+    p = start + cs;
+  }
+  return out;
+}
 function docxText(b){const e=zipEntries(b).find(x=>x.name==='word/document.xml');if(!e)throw new Error('DOCX: document.xml not found');return e.data.toString('utf8').replace(/<w:tab[^>]*\/>/g,'\t').replace(/<w:br[^>]*\/>/g,'\n').replace(/<\/w:p>/g,'\n').replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").replace(/&quot;/g,'"').replace(/[ \t]+/g,' ').replace(/\n\s*\n+/g,'\n').trim()}
 const aliases={revenue:['выручка','доход','revenue','оборот'],cogs:['себестоимость','cogs','фудкост','закупки','продукты'],personnel:['фот','зарплата','payroll','персонал','фонд оплаты'],opex:['opex','операционные расходы','аренда','коммунальные'],depreciation:['амортизация'],interest:['проценты','кредиты'],tax:['налоги','налог'],other:['прочее','другое','other']};
 function levenshtein(a,b){
