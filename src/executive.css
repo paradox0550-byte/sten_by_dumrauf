@@ -574,6 +574,7 @@ textarea {
   }
 
   .mobile-bottom-nav a.active,
+  .mobile-bottom-nav button.active,
   .mobile-bottom-nav button:hover {
     color: var(--color-brand);
   }
@@ -3200,7 +3201,7 @@ html[data-reduce-motion='true'] .executive-shell .analytics-report-table {
   background: var(--bg-inset);
   color: var(--text-primary);
 }
-.memory-filter-field--limit { max-width: 120px; }
+.memory-filter-field--limit { max-width: 190px; }
 
 .memory-list { display: grid; gap: 12px; }
 .memory-card {
