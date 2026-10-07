@@ -5,6 +5,7 @@ import { useScope } from '../lib/useScope';
 import { hasScopeId, scopeQuery } from '../lib/scope';
 import { formatMoneyAuto } from '../lib/format';
 import TrendLine from '../components/TrendLine';
+import { DeviationsWidget } from '../components/DeviationsWidget';
 
 type Row = { article: string; plan: number | null; fact: number | null; source?: string };
 type Calc = { revenue: number | null; cogs: number | null; personnel: number | null; overtime: number | null; labor: number | null; operatingExpenses: number | null; ebitda: number | null; primeCostPercent: number | null; primeCostStatus: string; foodCostPercent: number | null; personnelPercent: number | null; opexPercent: number | null; ebitdaMargin: number | null };
@@ -96,6 +97,7 @@ export default function Dashboard() {
       </div>
       {!hasScopeId(scope) && <div className="import-result warn">Выберите проект, филиал, ресторан или подразделение в Настройках → Рабочий контур.</div>}
       {error && <div className="error">{error}</div>}
+      <DeviationsWidget period={scope.period} scope={scope} />
       {loading ? <div className="panel empty">Собираем рабочий день…</div> : !rows.length ? <div className="panel empty-state"><b>Нет данных за выбранный период</b><span>Загрузите P&L или введите подтверждённые данные. STEN не создаёт синтетический факт.</span></div> : <>
         <section className="analytics-summary"><div><span className="eyebrow">ЧТО ПРОИЗОШЛО</span><p>Выручка {formatMoneyAuto(fact?.revenue)} · EBITDA {formatMoneyAuto(fact?.ebitda)} · Prime Cost {prime == null ? '—' : prime.toFixed(1).replace('.', ',') + ' %'}</p></div><div className="analytics-summary-delta"><small>План / факт</small><strong>{formatMoneyAuto(fact?.revenue)}</strong><span>{formatMoneyAuto(plan?.revenue)} · Δ {day.revenueGap == null ? '—' : formatMoneyAuto(day.revenueGap)}</span></div></section>
         <section className="analytics-kpi-strip">{metrics.map(([label, fv, pv]) => <article key={label}><small>{label}</small><strong>{formatMoneyAuto(fv)}</strong><span>План {formatMoneyAuto(pv)}</span></article>)}<article><small>Prime Cost</small><strong>{prime == null ? '—' : prime.toFixed(1).replace('.', ',') + ' %'}</strong><span>{status}</span></article></section>

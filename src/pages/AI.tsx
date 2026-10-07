@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Bot, FileText, Mic, MicOff, MoreHorizontal, Paperclip, Send, Sparkles, Trash2, UploadCloud, Eye, X, Database, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { api } from '../lib/api';
 import { useScope } from '../lib/useScope';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth, type User } from '../contexts/AuthContext';
 import { hasScopeId, scopeQuery } from '../lib/scope';
 import { AskRequestSchema, type AskRequest, type AskResponse, type AskSource } from '../lib/contracts/ask';
@@ -31,6 +32,8 @@ export default function AI(){
 
 function AIContent({user}:{user:User|null}){
  const[scope]=useScope();
+ const[searchParams]=useSearchParams();
+ const initialQuery=searchParams.get('q')?.trim()||'';
  const{settings}=useAppearanceContext();
  const key=chatKey(user);
  const[messages,setMessages]=useState<Msg[]>(()=>readMessages(key));
@@ -47,6 +50,7 @@ function AIContent({user}:{user:User|null}){
  const[listening,setListening]=useState(false);
  const[appearanceOpen,setAppearanceOpen]=useState(false);
  const[composerFocused,setComposerFocused]=useState(false);
+ useEffect(()=>{if(initialQuery)setPrompt(initialQuery)},[initialQuery]);
  const[chatToast,setChatToast]=useState<string|null>(null);
  const[dragOver,setDragOver]=useState(false);
  const file=useRef<HTMLInputElement>(null);
@@ -277,7 +281,7 @@ function AIContent({user}:{user:User|null}){
          {dragOver&&<div className="composer-drop-hint"><UploadCloud size={16}/> Отпустите файл — STEN добавит его в документы</div>}
          <div className="composer-box">
            <button className="icon-button composer-attach" onClick={()=>file.current?.click()} aria-label="Прикрепить документ" title="Добавить документ"><Paperclip size={18}/></button>
-           <textarea value={prompt} onFocus={()=>setComposerFocused(true)} onBlur={()=>setComposerFocused(false)} onChange={e=>setPrompt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void ask()}}} placeholder={listening?'Говорите…':'Напишите запрос к текущим данным…'} rows={1} aria-label="Запрос к STEN AI"/>
+           <textarea value={prompt} onFocus={(e)=>{setComposerFocused(true);requestAnimationFrame(()=>e.currentTarget.scrollIntoView({behavior:'smooth',block:'center'}))}} onBlur={()=>setComposerFocused(false)} onChange={e=>setPrompt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void ask()}}} placeholder={listening?'Говорите…':'Напишите запрос к текущим данным…'} rows={1} aria-label="Запрос к STEN AI"/>
            <button className={'icon-button'+(listening?' mic-active':'')} onClick={toggleVoice} aria-label={listening?'Остановить запись':'Голосовой ввод'} title={SR?'Голосовой ввод (Chrome / Edge)':'Голосовой ввод не поддерживается этим браузером'}>
              {listening?<MicOff size={18}/>:<Mic size={18}/>}
            </button>

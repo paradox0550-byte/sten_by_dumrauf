@@ -7,6 +7,7 @@ import { z } from 'zod';
 export interface AskRequest {
   question: string;
   messages?: { role: 'user' | 'assistant' | 'system' | 'tool'; content: string }[];
+  include_tool_results?: boolean;
   scope?: {
     period: string;
     project_id: string | null;
@@ -22,6 +23,7 @@ export const AskRequestSchema: z.ZodType<AskRequest> = z.object({
     role: z.enum(['user', 'assistant', 'system', 'tool']),
     content: z.string().max(20000),
   })).max(50).optional(),
+  include_tool_results: z.boolean().optional().default(false),
   scope: z.object({
     period: z.string(),
     project_id: z.string().nullable(),
@@ -44,6 +46,8 @@ export interface AskResponse {
   message?: string;
   model?: string;
   sources?: AskSource[];
+  tools_used?: Array<{ name: string; args?: unknown; ok?: boolean; ms?: number }>;
+  tool_results?: Array<{ name: string; args?: unknown; result?: unknown }>;
 }
 
 export const AskResponseSchema = z.object({

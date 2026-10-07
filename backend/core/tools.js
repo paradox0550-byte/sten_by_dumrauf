@@ -6,6 +6,10 @@ const { enforcePolicy } = require('./policy');
 const YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/u;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/u;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+const SEVERITY_HIGH_ABS = 100_000;
+const SEVERITY_HIGH_PCT = 10;
+const SEVERITY_MED_ABS = 30_000;
+const SEVERITY_MED_PCT = 5;
 
 function httpError(status, message, code) {
   const error = new Error(message);
@@ -22,6 +26,14 @@ const scopeFields = {
 };
 
 const pnlSchema = z.object({
+  period: z.string().regex(YM_RE),
+  project_id: z.string().optional().default(''),
+  branch_id: z.string().optional().default(''),
+  restaurant_id: z.string().optional().default(''),
+  department_id: z.string().optional().default(''),
+}).strict();
+
+const deviationSchema = z.object({
   period: z.string().regex(YM_RE),
   project_id: z.string().optional().default(''),
   branch_id: z.string().optional().default(''),
@@ -76,6 +88,131 @@ function scopeFromArgs(args) {
     branch_id: String(args.branch_id || ''),
     restaurant_id: String(args.restaurant_id || ''),
     department_id: String(args.department_id || ''),
+  };
+}
+
+async function findDeviations(user, rawArgs, ctx) {
+  const args = parseArgs(deviationSchema, rawArgs);
+  if (!UUID_RE.test(String(user.organizationId || ''))) {
+    throw httpError(403, 'Организация не назначена пользователю.', 'NO_ORG_SCOPE');
+  }
+  const scope = { ...scopeFromArgs(args), period: args.period };
+  const rows = await ctx.queryWithRetry(
+    `SELECT rows::text FROM pnl_entries
+      WHERE organization_id=$1::uuid AND period=$2
+        AND ($3::text='' OR project_id=$3)
+        AND ($4::text='' OR branch_id=$4)
+        AND ($5::text='' OR restaurant_id=$5)
+        AND ($6::text='' OR department_id=$6)`,
+    [user.organizationId, args.period, scope.project_id, scope.branch_id, scope.restaurant_id, scope.department_id],
+    { orgId: user.organizationId }
+  );
+  const all = [];
+  for (const row of rows.rows || []) {
+    try {
+      const parsed = JSON.parse(row.rows);
+      if (Array.isArray(parsed)) all.push(...parsed);
+    } catch {}
+  }
+
+  let aggregated = ctx.aggregateRows(all);
+  const txRows = await ctx.queryWithRetry(
+    `SELECT article, SUM(amount) AS total, COUNT(*)::int AS count
+       FROM pnl_transactions
+      WHERE organization_id=$1::uuid AND period=$2
+        AND ($3::text='' OR project_id=$3)
+        AND ($4::text='' OR branch_id=$4)
+        AND ($5::text='' OR restaurant_id=$5)
+        AND ($6::text='' OR department_id=$6)
+      GROUP BY article`,
+    [user.organizationId, args.period, scope.project_id, scope.branch_id, scope.restaurant_id, scope.department_id],
+    { orgId: user.organizationId }
+  );
+  const txByKey = new Map((txRows.rows || []).map(row => [
+    ctx.canonicalArticleKey(row.article),
+    { total: Number(row.total || 0), count: Number(row.count || 0) },
+  ]));
+  aggregated = aggregated.map(row => {
+    const tx = txByKey.get(ctx.canonicalArticleKey(row.article));
+    if (!tx) return row;
+    return {
+      ...row,
+      fact: row.fact === null || row.fact === undefined ? tx.total : Number(row.fact) + tx.total,
+      transaction_total: tx.total,
+      transaction_count: tx.count,
+      source: [row.source, 'transactions'].filter(Boolean).join(','),
+    };
+  });
+
+  if (!aggregated.length) {
+    return {
+      period: args.period,
+      scope,
+      critical: [],
+      positive: [],
+      missing: [],
+      total_impact: 0,
+      has_data: false,
+    };
+  }
+
+  const expenseKeys = new Set([
+    'cogs', 'payroll', 'personnel', 'overtime', 'opex', 'other_operating',
+    'depreciation', 'interest', 'tax', 'other',
+  ]);
+  const rowsByKey = new Map();
+  for (const row of aggregated) {
+    const key = ctx.canonicalArticleKey(row.article);
+    const plan = row.plan === null || row.plan === undefined ? null : Number(row.plan);
+    const fact = row.fact === null || row.fact === undefined ? null : Number(row.fact);
+    const delta_abs = plan !== null && fact !== null ? fact - plan : null;
+    const delta_pct = delta_abs !== null && plan !== 0 ? (delta_abs / Math.abs(plan)) * 100 : null;
+    let severity = null;
+    if (delta_abs !== null) {
+      const abs = Math.abs(delta_abs);
+      const pct = delta_pct === null ? null : Math.abs(delta_pct);
+      severity = abs >= SEVERITY_HIGH_ABS || (pct !== null && pct >= SEVERITY_HIGH_PCT) ? 'high'
+        : abs >= SEVERITY_MED_ABS || (pct !== null && pct >= SEVERITY_MED_PCT) ? 'medium'
+        : 'low';
+    }
+    const favorable = delta_abs === null ? null : expenseKeys.has(key) ? delta_abs <= 0 : delta_abs >= 0;
+    const item = {
+      article: row.article,
+      key,
+      plan,
+      fact,
+      delta_abs,
+      delta_pct,
+      favorable,
+      severity,
+      source: row.source || 'manual',
+    };
+    rowsByKey.set(key, item);
+  }
+
+  const allItems = [...rowsByKey.values()];
+  const missing = allItems.filter(item => item.plan === null || item.fact === null);
+  const critical = allItems
+    .filter(item => item.favorable === false && (item.severity === 'high' || item.severity === 'medium'))
+    .sort((a, b) => {
+      if (a.delta_abs === null) return 1;
+      if (b.delta_abs === null) return -1;
+      return Math.abs(b.delta_abs) - Math.abs(a.delta_abs);
+    })
+    .slice(0, 5);
+  const positive = allItems
+    .filter(item => item.favorable === true && (item.severity === 'high' || item.severity === 'medium'))
+    .sort((a, b) => Math.abs(b.delta_abs) - Math.abs(a.delta_abs))
+    .slice(0, 3);
+
+  return {
+    period: args.period,
+    scope,
+    critical,
+    positive,
+    missing,
+    total_impact: critical.reduce((sum, item) => sum + Math.abs(item.delta_abs || 0), 0),
+    has_data: true,
   };
 }
 
@@ -250,6 +387,13 @@ const TOOLS = [
     parameters: { type:'object', properties:{ period:{type:'string',description:'YYYY-MM'}, ...scopeFields }, required:['period'] },
     policy: ['requireAuth','requireOrg','assertScopeAccess'],
     handler: getPnl,
+  },
+  {
+    name: 'find_deviations',
+    description: 'Найти значимые отклонения факта от плана в P&L за период. Возвращает критические и положительные отклонения с financial impact.',
+    parameters: { type:'object', properties:{ period:{type:'string',description:'YYYY-MM'}, ...scopeFields }, required:['period'] },
+    policy: ['requireAuth','requireOrg','assertScopeAccess'],
+    handler: findDeviations,
   },
   {
     name: 'get_fot',

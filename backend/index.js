@@ -507,6 +507,7 @@ const AskSchema = z.object({
   sources: z.array(z.unknown()).optional(),
   system: z.string().max(20000).optional(),
   scope: ScopeSchema.optional(),
+  include_tool_results: z.boolean().optional().default(false),
 }).passthrough();
 
 const DocumentUploadSchema = z.object({
@@ -2194,6 +2195,7 @@ const SYSTEM_PROMPT = [
   'Финансовые расчёты выполняет детерминированный калькулятор backend; не пересчитывай цифры сам.',
   'Контекст ресторана является жёсткой границей: анализируй только выбранный restaurant_id и его дочерний department/branch/project scope. Не смешивай данные разных ресторанов. Если ресторан не определён — не делай точечных выводов о конкретной точке.',
   'Если вопрос не относится к бизнесу, финансам или операционке ресторана — отвечай прямо и кратко, без шаблонов про P&L, план/факт и отклонения.',
+  'Если пользователь спрашивает «что не так», «что важно», «покажи проблемы», «разбери период» — сначала вызови find_deviations, чтобы получить детерминированный список отклонений. Не полагайся на то, что ты сам найдёшь отклонения в P&L.',
   'Если ты обнаружил устойчивый факт, причину или решение, которое стоит запомнить, добавь в конец ответа блок: ПРЕДЛОЖЕНИЕ ПАМЯТИ: [{"kind": "...", "title": "...", "content": "...", "evidence": {...}}]. Не выдумывай. Только то, что действительно подтверждено данными.',
   'Никогда не дублируй текст ответа. Ответ выдаётся один раз, целиком.',
   'ПРАВИЛА ЗНАКОВ: Для расходных статей (COGS, ФОТ, OPEX, себестоимость, зарплата) снижение факта относительно плана — БЛАГОПРИЯТНО (экономия). Рост — НЕБЛАГОПРИЯТНО (перерасход). Для доходных статей (Выручка, EBITDA) рост факта относительно плана — благоприятно, снижение — неблагоприятно. Никогда не называй экономию по расходам «минусом» в негативном смысле. Если ФОТ факт 1,5 млн ниже плана 1,7 млн — это экономия 200 тыс., это плюс для бизнеса.',
@@ -2271,7 +2273,24 @@ app.post('/ask', requireAuth, async (req, res, next) => {
     }
 
     const toolsUsed = [];
-    let completion = await callYandexGPTWithTools(messages);
+    let completion = null;
+    const forceDeviationTool = question === '__find_deviations__';
+    if (forceDeviationTool) {
+      const rawScope = body.scope || {};
+      const toolArgs = {
+        period: String(rawScope.period || ''),
+        project_id: String(rawScope.project_id || ''),
+        branch_id: String(rawScope.branch_id || ''),
+        restaurant_id: String(rawScope.restaurant_id || ''),
+        department_id: String(rawScope.department_id || ''),
+      };
+      const started = Date.now();
+      const result = await executeTool(req.user, 'find_deviations', toolArgs, ctx);
+      toolsUsed.push({ name: 'find_deviations', args: toolArgs, ok: true, ms: Date.now() - started, result });
+      completion = { text: '', toolCalls: [] };
+    } else {
+      completion = await callYandexGPTWithTools(messages);
+    }
     if (completion.toolCalls.length) {
       const assistantToolCalls = completion.toolCalls.map(call => {
         const fc = call?.functionCall || call?.function_call;
@@ -2289,7 +2308,7 @@ app.post('/ask', requireAuth, async (req, res, next) => {
         const started = Date.now();
         const result = await executeTool(req.user, name, args, ctx);
         const ms = Date.now() - started;
-        toolsUsed.push({ name, args, ok: true, ms });
+        toolsUsed.push({ name, args, ok: true, ms, result });
         toolResults.push({ functionResult: { name, content: JSON.stringify(result) } });
       }
       messages.push({ role: 'tool', toolResultList: { toolResults } });
@@ -2311,6 +2330,9 @@ app.post('/ask', requireAuth, async (req, res, next) => {
       sources: body.sources ?? [],
       tools_used: toolsUsed,
       proposed_memory: parsedAnswer.proposed_memory,
+      ...(body.include_tool_results ? {
+        tool_results: toolsUsed.map(tool => ({ name: tool.name, args: tool.args, result: tool.result })),
+      } : {}),
     });
   } catch (e) { next(e); }
 });
