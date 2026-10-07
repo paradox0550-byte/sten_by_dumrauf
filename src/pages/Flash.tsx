@@ -1,6 +1,8 @@
 ﻿import { useEffect, useState } from 'react';
 import { Activity, AlertTriangle, RefreshCw, Save, Pencil, X } from 'lucide-react';
 import { api } from '../lib/api';
+import { useScope } from '../lib/useScope';
+import FlashIncomeInput from '../components/FlashIncomeInput';
 import { ReportWriteSchema, type ReportWrite } from '../lib/contracts/reports';
 
 type Calc = {
@@ -34,6 +36,7 @@ export default function Flash() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [form, setForm] = useState<Record<string, string>>({});
+  const [scope] = useScope();
 
   async function load() {
     setLoading(true); setError(''); setMessage('');
@@ -122,6 +125,8 @@ export default function Flash() {
           </button>
         </div>
       </div>
+
+      <FlashIncomeInput period={date.slice(0, 7)} scope={{ ...scope, period: date.slice(0, 7) }} onSaved={() => void load()} />
 
       <section className="panel flash-date">
         <label className="settings-field">
