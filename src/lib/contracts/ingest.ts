@@ -1,5 +1,3 @@
-import type { Scope } from '../scope';
-
 export interface ParsedMessage {
   date: string | null;
   revenue: number | null;
@@ -18,8 +16,15 @@ export interface IngestMessageResponse {
   requiresBinding: boolean;
 }
 
+export interface IngestScope {
+  project_id?: string | null;
+  branch_id?: string | null;
+  restaurant_id?: string | null;
+  department_id?: string | null;
+}
+
 export interface IngestConfirmPayload {
   date: string;
   parsed: ParsedMessage;
-  scope: Scope & { restaurant_id: string };
+  scope: IngestScope;
 }
