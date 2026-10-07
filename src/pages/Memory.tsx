@@ -1,29 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Brain, MoreHorizontal, Search, Trash2, Check, X } from 'lucide-react';
+import { Brain, ChevronDown, MoreHorizontal, Search, Trash2, Check, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api, deleteMemory, listMemory, updateMemoryConfidence } from '../lib/api';
+import { MEMORY_CONFIDENCE_LABEL, MEMORY_KIND_LABEL } from '../lib/contracts/memory';
 import type { Memory, MemoryConfidence, MemoryFilters, MemoryKind } from '../lib/contracts/memory';
 
 const kinds: Array<{ value: MemoryKind | ''; label: string }> = [
-  { value: '', label: 'Все' }, { value: 'fact', label: 'fact' }, { value: 'decision', label: 'decision' },
-  { value: 'cause', label: 'cause' }, { value: 'action', label: 'action' }, { value: 'manager_note', label: 'manager_note' },
-  { value: 'pattern', label: 'pattern' },
+  { value: '', label: 'Все' },
+  ...Object.entries(MEMORY_KIND_LABEL).map(([value, label]) => ({ value: value as MemoryKind, label })),
 ];
 const confidences: Array<{ value: MemoryConfidence | ''; label: string }> = [
-  { value: '', label: 'Все' }, { value: 'confirmed', label: 'confirmed' },
-  { value: 'unconfirmed', label: 'unconfirmed' }, { value: 'rejected', label: 'rejected' },
+  { value: '', label: 'Все' },
+  ...Object.entries(MEMORY_CONFIDENCE_LABEL).map(([value, label]) => ({ value: value as MemoryConfidence, label })),
 ];
 const kindBadge: Record<MemoryKind, string> = {
   fact: 'brand', decision: 'success', cause: 'warning', action: 'neutral', manager_note: 'neutral', pattern: 'neutral',
 };
 const confidenceBadge: Record<MemoryConfidence, string> = { confirmed: 'success', unconfirmed: 'neutral', rejected: 'danger' };
-const kindLabel: Record<MemoryKind, string> = {
-  fact: 'Факт', decision: 'Решение', cause: 'Причина', action: 'Действие', manager_note: 'Заметка', pattern: 'Паттерн',
-};
-const confidenceLabel: Record<MemoryConfidence, string> = {
-  confirmed: 'Подтверждено', unconfirmed: 'Не подтверждено', rejected: 'Отклонено',
-};
-
 type Restaurant = { id: string; name: string; kind?: string };
 
 function extractRestaurants(value: unknown): Restaurant[] {
@@ -136,27 +129,29 @@ export default function Memory() {
           </div>
         </header>
 
-        <section className="memory-filters" aria-label="Фильтры памяти">
-          {renderFilters('Kind', kinds, kind, value => setKind(value as MemoryKind | ''))}
-          {renderFilters('Confidence', confidences, confidence, value => setConfidence(value as MemoryConfidence | ''))}
+        {(memories.length > 0 || Boolean(kind || confidence || restaurantId || since)) && <section className="memory-filters" aria-label="Фильтры памяти">
+          {renderFilters('Тип', kinds, kind, value => setKind(value as MemoryKind | ''))}
+          {renderFilters('Уверенность', confidences, confidence, value => setConfidence(value as MemoryConfidence | ''))}
           <label className="memory-filter-field">
-            <span>Restaurant</span>
-            <select value={restaurantId} onChange={event => setRestaurantId(event.target.value)} aria-label="Ресторан памяти">
+            <span>Ресторан</span>
+            <div className="memory-filter-select">
+              <select value={restaurantId} onChange={event => setRestaurantId(event.target.value)} aria-label="Ресторан памяти">
               <option value="">Все рестораны</option>
               {restaurants.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
+            </select><ChevronDown className="memory-filter-select__icon" size={15} aria-hidden="true" />
+            </div>
           </label>
           <label className="memory-filter-field">
-            <span>Since</span>
+            <span>С даты</span>
             <input type="date" value={since} onChange={event => setSince(event.target.value)} aria-label="Память с даты" />
           </label>
           <label className="memory-filter-field memory-filter-field--limit">
-            <span>Limit</span>
+            <span>Показать последних</span>
             <select value={limit} onChange={event => setLimit(Number(event.target.value))} aria-label="Количество записей памяти">
-              {[20, 50, 100].map(value => <option key={value} value={value}>{value}</option>)}
+              {[20, 50, 100, 200].map(value => <option key={value} value={value}>{value}</option>)}
             </select>
           </label>
-        </section>
+        </section>}
 
         <main className="memory-list" aria-live="polite">
           {loading ? Array.from({ length: 3 }).map((_, index) => <div className="memory-card memory-card--skeleton" key={index}><span/><span/><span/></div>) :
@@ -164,8 +159,8 @@ export default function Memory() {
               <article className="memory-card" key={memory.id}>
                 <div className="memory-card__top">
                   <div className="memory-card__badges">
-                    <span className={'badge badge--' + kindBadge[memory.kind]}>{kindLabel[memory.kind]}</span>
-                    <span className={'badge badge--' + confidenceBadge[memory.confidence]}>{confidenceLabel[memory.confidence]}</span>
+                    <span className={'badge badge--' + kindBadge[memory.kind]}>{MEMORY_KIND_LABEL[memory.kind]}</span>
+                    <span className={'badge badge--' + confidenceBadge[memory.confidence]}>{MEMORY_CONFIDENCE_LABEL[memory.confidence]}</span>
                   </div>
                   <div className="memory-card__menu">
                     <button type="button" className="icon-button compact" aria-label={'Меню памяти: ' + memory.title} aria-expanded={menuId === memory.id} onClick={() => setMenuId(menuId === memory.id ? null : memory.id)}><MoreHorizontal size={16} /></button>
@@ -193,6 +188,7 @@ export default function Memory() {
                 <Brain size={30} />
                 <h2>Память пока пуста</h2>
                 <p>STEN начнёт запоминать, когда вы подтвердите предложения из чата</p>
+                <button type="button" className="primary-button" onClick={() => navigate('/ai')}>Открыть чат STEN AI →</button>
               </div>
             )}
         </main>
