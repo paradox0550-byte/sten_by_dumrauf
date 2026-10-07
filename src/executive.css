@@ -2721,3 +2721,273 @@ html[data-reduce-motion='true'] *::after {
   scroll-behavior: auto !important;
   transition-duration: 0.01ms !important;
 }
+
+/* ==========================================================================
+   STEN v5.0.2 — Final Executive Cockpit visual polish
+   Frontend-only: palette, responsive shell, motion and shared surfaces.
+   ========================================================================== */
+
+:root {
+  --bg-base: #f7f8fb;
+  --bg-surface: #ffffff;
+  --bg-elevated: #f1f3f7;
+  --border-subtle: #d4dae3;
+  --text-primary: #0b0d10;
+  --text-secondary: #2f3844;
+  --text-tertiary: #6b7280;
+  --color-brand: #5b7cfa;
+  --color-brand-hover: #7a94fb;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --ui-radius-sm: 6px;
+  --ui-radius-md: 10px;
+  --ui-radius-lg: 14px;
+  --bg-app: var(--bg-base);
+  --bg-surface-subtle: var(--bg-elevated);
+  --text-muted: var(--text-tertiary);
+}
+[data-theme='dark'] {
+  --bg-base: #0b0f1a;
+  --bg-surface: #131826;
+  --bg-elevated: #1a2030;
+  --border-subtle: #232938;
+  --text-primary: #e8ecf5;
+  --text-secondary: #9ca3b5;
+  --text-tertiary: #6b7280;
+  --color-brand: #5b7cfa;
+  --color-brand-hover: #7a94fb;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --bg-app: var(--bg-base);
+  --bg-surface-subtle: var(--bg-elevated);
+  --text-muted: var(--text-tertiary);
+  --bg: var(--bg-base);
+  --surface: var(--bg-surface);
+  --surface2: var(--bg-elevated);
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
+  --line: var(--border-subtle);
+  --accent: var(--color-brand);
+  --accent2: var(--color-brand);
+  --good: var(--color-success);
+  --danger: var(--color-danger);
+  --warning: var(--color-warning);
+}
+html, body, #root { background: var(--bg-base); color: var(--text-primary); }
+body { min-width: 0; overflow-x: hidden; }
+.executive-shell, .executive-shell .main, .executive-shell .content, .executive-shell .page { min-width: 0; }
+.executive-shell { background: var(--bg-base); }
+
+.executive-shell .panel,
+.executive-shell .metric-card,
+.executive-shell .pnl-kpi,
+.executive-shell .budget-kpi,
+.executive-shell .docs-panel,
+.executive-shell .analytics-gap-section,
+.executive-shell .analytics-kpi-strip > article {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ui-radius-md);
+  box-shadow: none;
+}
+.executive-shell .panel { padding: 18px 20px; }
+
+@media (hover: hover) {
+  .executive-shell .metric-card:hover,
+  .executive-shell .pnl-kpi:hover,
+  .executive-shell .budget-kpi:hover,
+  .executive-shell .analytics-kpi-strip > article:hover {
+    border-color: color-mix(in srgb, var(--color-brand) 35%, var(--border-subtle));
+  }
+  .executive-shell .primary-button:hover:not(:disabled) {
+    background: var(--color-brand-hover);
+    border-color: var(--color-brand-hover);
+  }
+  .executive-shell .secondary-button:hover:not(:disabled),
+  .executive-shell .icon-button:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-brand) 6%, var(--bg-surface));
+  }
+  .executive-shell .financial-table tbody tr:hover td,
+  .executive-shell .analytics-report-table > div:not(.analytics-report-head):hover {
+    background: color-mix(in srgb, var(--color-brand) 4%, var(--bg-surface));
+  }
+}
+.executive-shell .primary-button:active:not(:disabled) {
+  background: linear-gradient(90deg, color-mix(in srgb, #fff 18%, var(--color-brand)) 0 12%, var(--color-brand) 42%);
+  background-size: 180% 100%;
+  animation: sten-primary-sweep 200ms ease-out;
+}
+.executive-shell button:focus-visible,
+.executive-shell a:focus-visible,
+.executive-shell input:focus-visible,
+.executive-shell select:focus-visible,
+.executive-shell textarea:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+.executive-shell .sidebar nav a { position: relative; min-height: 36px; }
+.executive-shell .sidebar nav a.active::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 50%;
+  width: 4px;
+  height: 22px;
+  border-radius: 0 3px 3px 0;
+  background: var(--color-brand);
+  transform: translateY(-50%) scaleY(0);
+  transform-origin: center;
+  animation: sten-sidebar-active 200ms ease-out forwards;
+}
+
+.sten-skeleton, .skeleton, .skeleton-card, .skeleton-row {
+  background: linear-gradient(90deg, rgba(255,255,255,.03) 0%, rgba(255,255,255,.07) 50%, rgba(255,255,255,.03) 100%);
+  background-size: 200% 100%;
+  animation: sten-shimmer 1.6s infinite linear;
+}
+[data-theme='light'] .sten-skeleton,
+[data-theme='light'] .skeleton,
+[data-theme='light'] .skeleton-card,
+[data-theme='light'] .skeleton-row {
+  background: linear-gradient(90deg, rgba(11,13,16,.03) 0%, rgba(11,13,16,.07) 50%, rgba(11,13,16,.03) 100%);
+  background-size: 200% 100%;
+}
+
+.executive-shell .content > * { animation: sten-page-enter 180ms ease-out both; }
+.executive-shell .metric-card,
+.executive-shell .pnl-kpi,
+.executive-shell .budget-kpi { animation: sten-card-enter 320ms ease-out both; }
+.executive-shell .metric-card:nth-child(2),
+.executive-shell .pnl-kpi:nth-child(2),
+.executive-shell .budget-kpi:nth-child(2) { animation-delay: 40ms; }
+.executive-shell .metric-card:nth-child(3),
+.executive-shell .pnl-kpi:nth-child(3),
+.executive-shell .budget-kpi:nth-child(3) { animation-delay: 80ms; }
+.executive-shell .metric-card:nth-child(4),
+.executive-shell .pnl-kpi:nth-child(4),
+.executive-shell .budget-kpi:nth-child(4) { animation-delay: 120ms; }
+.executive-shell .financial-table,
+.executive-shell .analytics-report-table { animation: sten-table-enter 400ms ease-out both; }
+
+@keyframes sten-page-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes sten-card-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes sten-table-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sten-sidebar-active { to { transform: translateY(-50%) scaleY(1); } }
+@keyframes sten-primary-sweep { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@keyframes sten-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@keyframes sten-live-pulse { 0%,100% { opacity: 1; } 50% { opacity: .6; } }
+.sten-live, .live-indicator { animation: sten-live-pulse 2s ease-in-out infinite; }
+
+.executive-shell .table-wrap,
+.executive-shell .financial-table-wrap,
+.executive-shell .pnl-edit-table {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+@media (max-width: 900px) {
+  .executive-shell .table-wrap table,
+  .executive-shell .financial-table { min-width: 640px; }
+  .executive-shell .table-wrap th:first-child,
+  .executive-shell .table-wrap td:first-child,
+  .executive-shell .financial-table th:first-child,
+  .executive-shell .financial-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--bg-surface);
+  }
+}
+
+@media (min-width: 1201px) {
+  .executive-shell .sidebar { width: 240px; }
+  .executive-shell .main { margin-left: 240px; width: calc(100% - 240px); }
+  .executive-shell .content { padding-inline: 32px; }
+}
+@media (min-width: 641px) and (max-width: 900px) {
+  .executive-shell .sidebar {
+    width: 64px;
+    min-width: 64px;
+    padding-inline: 8px;
+    overflow-x: hidden;
+  }
+  .executive-shell .main { margin-left: 64px; width: calc(100% - 64px); }
+  .executive-shell .brand { justify-content: center; }
+  .executive-shell .brand-copy,
+  .executive-shell .nav-section-label,
+  .executive-shell .sidebar nav a span,
+  .executive-shell .sidebar-profile > div:last-child { display: none; }
+  .executive-shell .sidebar nav a { justify-content: center; padding-inline: 0; }
+  .executive-shell .sidebar-profile { justify-content: center; }
+  .executive-shell .content { padding: 20px; }
+  .executive-shell .metric-grid,
+  .executive-shell .pnl-kpis,
+  .executive-shell .budget-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .executive-shell .top-nav { gap: 4px; }
+  .executive-shell .top-nav a span { display: none; }
+  .executive-shell .top-nav a { min-width: 36px; justify-content: center; }
+}
+@media (min-width: 901px) and (max-width: 1200px) {
+  .executive-shell .sidebar { width: 200px; }
+  .executive-shell .main { margin-left: 200px; width: calc(100% - 200px); }
+  .executive-shell .content { padding: 20px; }
+  .executive-shell .top-nav a { padding-inline: 7px; }
+  .executive-shell .top-nav a span { display: none; }
+  .executive-shell .metric-grid,
+  .executive-shell .pnl-kpis,
+  .executive-shell .budget-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .executive-shell .sidebar { width: min(86vw, 320px); min-width: 0; }
+  .executive-shell .main { width: 100%; margin-left: 0; }
+  .executive-shell .content { width: 100%; padding: 14px 12px calc(84px + env(safe-area-inset-bottom)); }
+  .executive-shell .top-nav { display: none; }
+  .executive-shell .top-context { min-width: 0; flex: 1 1 auto; }
+  .executive-shell .top-actions, .executive-shell .top-profile { flex-shrink: 0; }
+  .executive-shell .top-profile-info { display: none; }
+  .executive-shell .metric-grid,
+  .executive-shell .pnl-kpis,
+  .executive-shell .budget-kpis,
+  .executive-shell .analytics-kpi-strip { grid-template-columns: 1fr; }
+  .executive-shell .head-actions { grid-template-columns: 1fr; }
+  .executive-shell .page-head h1 { font-size: 24px; }
+  .executive-shell .panel { padding: 16px; }
+  .executive-shell .mobile-bottom-nav a,
+  .executive-shell .mobile-bottom-nav button,
+  .executive-shell .icon-button,
+  .executive-shell .mobile-menu,
+  .executive-shell .workspace-btn { min-width: 36px; min-height: 36px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .executive-shell *, .executive-shell *::before, .executive-shell *::after {
+    animation: none;
+    scroll-behavior: auto;
+  }
+  .executive-shell .content > *,
+  .executive-shell .metric-card,
+  .executive-shell .pnl-kpi,
+  .executive-shell .budget-kpi,
+  .executive-shell .financial-table,
+  .executive-shell .analytics-report-table,
+  .executive-shell .chat-body article.message {
+    animation: sten-reduced-fade 200ms ease-out both;
+  }
+}
+html[data-reduce-motion='true'] .executive-shell *,
+html[data-reduce-motion='true'] .executive-shell *::before,
+html[data-reduce-motion='true'] .executive-shell *::after {
+  animation: none;
+  scroll-behavior: auto;
+}
+html[data-reduce-motion='true'] .executive-shell .content > *,
+html[data-reduce-motion='true'] .executive-shell .metric-card,
+html[data-reduce-motion='true'] .executive-shell .pnl-kpi,
+html[data-reduce-motion='true'] .executive-shell .budget-kpi,
+html[data-reduce-motion='true'] .executive-shell .financial-table,
+html[data-reduce-motion='true'] .executive-shell .analytics-report-table {
+  animation: sten-reduced-fade 200ms ease-out both;
+}
+@keyframes sten-reduced-fade { from { opacity: 0; } to { opacity: 1; } }
