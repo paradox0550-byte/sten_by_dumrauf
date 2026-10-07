@@ -2647,3 +2647,77 @@ textarea:focus-visible {
     gap: 14px;
   }
 }
+
+
+/* Settings — readable personal appearance controls. */
+.settings-subsection {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.settings-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.font-size-choices .choice {
+  min-height: 42px;
+  gap: 6px;
+}
+
+.font-size-choices .choice small {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.font-size-choices .choice.active small {
+  color: var(--color-brand-strong);
+}
+
+.settings-accessibility-row {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* User-selected text scale. Kept intentionally restrained so financial grids
+   and compact controls do not jump in size or break their layout. */
+html[data-font-scale='110'] body {
+  font-size: 15.4px;
+}
+
+html[data-font-scale='120'] body {
+  font-size: 16.8px;
+}
+
+html[data-font-scale='110'] .page p,
+html[data-font-scale='120'] .page p,
+html[data-font-scale='110'] .page label,
+html[data-font-scale='120'] .page label,
+html[data-font-scale='110'] .page small,
+html[data-font-scale='120'] .page small,
+html[data-font-scale='110'] .page input,
+html[data-font-scale='120'] .page input,
+html[data-font-scale='110'] .page button,
+html[data-font-scale='120'] .page button,
+html[data-font-scale='110'] .topbar,
+html[data-font-scale='120'] .topbar,
+html[data-font-scale='110'] .sidebar,
+html[data-font-scale='120'] .sidebar {
+  font-size: calc(1em * var(--sten-font-scale, 1));
+}
+
+html[data-font-scale='110'] { --sten-font-scale: 1.05; }
+html[data-font-scale='120'] { --sten-font-scale: 1.1; }
+
+html[data-reduce-motion='true'] *,
+html[data-reduce-motion='true'] *::before,
+html[data-reduce-motion='true'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0.01ms !important;
+}
