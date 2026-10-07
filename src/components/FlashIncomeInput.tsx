@@ -144,7 +144,8 @@ export default function FlashIncomeInput({ period, scope, onSaved }: Props) {
         <span>{period}</span>
       </div>
       <textarea
-        ref={fieldRef}\n        className="flash-income-input__field"
+        ref={fieldRef}
+        className="flash-income-input__field"
         rows={2}
         maxLength={4000}
         aria-label="Сообщение по доходам за день"
