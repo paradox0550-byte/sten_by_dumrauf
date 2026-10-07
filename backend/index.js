@@ -21,6 +21,8 @@ const documentProcessor = require('./documentProcessor');
 const { convertWithMarkItDown } = require('./markitdownClient');
 const { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { buildSkillPrompt } = require('./core/skills');
+const { TOOLS, executeTool } = require('./core/tools');
+const { createMemory, listMemory, updateMemoryConfidence, deleteMemory, loadMemoryContext } = require('./core/memory');
 
 /* ----------------------------- ENV --------------------------------------- */
 /* ВАЖНО: секреты читаются ТОЛЬКО из переменных окружения функции (Lockbox/KMS).
@@ -225,6 +227,29 @@ await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS report_date DATE
     await query(`CREATE INDEX IF NOT EXISTS idx_org_unit_access_user ON org_unit_access(organization_id, user_id, unit_id);`);
     await query(`CREATE TABLE IF NOT EXISTS workspace_bindings (id UUID PRIMARY KEY, organization_id UUID NOT NULL, channel TEXT NOT NULL, subject_id TEXT NOT NULL, unit_id UUID NOT NULL, is_default BOOLEAN NOT NULL DEFAULT false, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (organization_id, channel, subject_id));`);
     await query(`CREATE INDEX IF NOT EXISTS idx_workspace_bindings_lookup ON workspace_bindings(organization_id, channel, subject_id);`);
+    await query(`CREATE TABLE IF NOT EXISTS ai_memory (
+      id UUID PRIMARY KEY,
+      organization_id UUID NOT NULL,
+      project_id TEXT NOT NULL DEFAULT '',
+      branch_id TEXT NOT NULL DEFAULT '',
+      restaurant_id TEXT NOT NULL DEFAULT '',
+      department_id TEXT NOT NULL DEFAULT '',
+      kind TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      evidence_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+      confidence TEXT NOT NULL DEFAULT 'unconfirmed',
+      source_message_id TEXT,
+      confirmed_by_user_id UUID,
+      confirmed_at TIMESTAMPTZ,
+      created_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_ai_memory_org_scope
+      ON ai_memory(organization_id, restaurant_id, kind, created_at DESC);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_ai_memory_org_created
+      ON ai_memory(organization_id, created_at DESC);`);
     _schemaReady = true; log('schema: ready'); return true;
   } catch (e) { log('schema attempt failed:', e.message); return false; }
 }
@@ -720,6 +745,108 @@ async function callYandexGPT(messages) {
     throw httpError(502, 'Связь с YandexGPT недоступна', 'AI_UNREACHABLE');
   } finally {
     clearTimeout(timer);
+  }
+}
+
+async function callYandexGPTWithTools(messages) {
+  const uri = modelUri();
+  if (!uri || !ENV.YANDEXGPT_API_KEY) {
+    throw httpError(503, 'YandexGPT не сконфигурирован (YANDEXGPT_API_KEY / YC_FOLDER_ID / YANDEXGPT_MODEL)', 'AI_UNAVAILABLE');
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ENV.YANDEXGPT_TIMEOUT_MS);
+  try {
+    const res = await fetch(ENV.YANDEXGPT_BASE_URL + '/completion', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Api-Key ${ENV.YANDEXGPT_API_KEY}`,
+        'Content-Type': 'application/json',
+        'X-Request-Id': uuid(),
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        modelUri: uri,
+        completionOptions: {
+          stream: true,
+          temperature: ENV.YANDEXGPT_TEMPERATURE,
+          maxTokens: String(ENV.YANDEXGPT_MAX_TOKENS),
+        },
+        messages,
+        tools: TOOLS.map(tool => ({ function: { name: tool.name, description: tool.description, parameters: tool.parameters } })),
+      }),
+    });
+    if (!res.ok) {
+      const upstream = await res.text().catch(() => '');
+      log('yandexgpt tools http error:', res.status, upstream.slice(0, 300));
+      throw httpError(502, 'YandexGPT вернул ошибку. Повторите запрос позже.', 'AI_UPSTREAM_ERROR');
+    }
+    const decoder = new TextDecoder('utf-8');
+    let buf = '';
+    let text = '';
+    let toolCalls = [];
+    for await (const chunk of res.body) {
+      buf += decoder.decode(chunk, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, idx).trim();
+        buf = buf.slice(idx + 1);
+        if (!line) continue;
+        try {
+          const evt = JSON.parse(line);
+          const message = evt?.result?.alternatives?.[0]?.message;
+          if (message?.text) text = message.text;
+          const calls = message?.toolCallList?.toolCalls || message?.tool_call_list?.tool_calls;
+          if (Array.isArray(calls) && calls.length) toolCalls = calls;
+        } catch {}
+      }
+    }
+    if (toolCalls.length) return { text: text.trim(), toolCalls };
+    if (!text.trim()) throw httpError(502, 'YandexGPT вернул пустой ответ', 'AI_EMPTY_RESPONSE');
+    return { text: text.trim(), toolCalls: [] };
+  } catch (e) {
+    if (e?.status === 502 || e?.status === 503) throw e;
+    if (e?.name === 'AbortError') throw httpError(504, 'Превышен таймаут YandexGPT', 'AI_TIMEOUT');
+    throw httpError(502, 'Связь с YandexGPT недоступна', 'AI_UNREACHABLE');
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function intelligenceContext() {
+  return {
+    queryWithRetry,
+    aggregateRows,
+    rollupAgg,
+    calculatePnl,
+    canonicalArticleKey,
+    assertScopeAccess,
+    audit,
+    memory: {
+      listMemory: (user, filter) => listMemory(user, filter, intelligenceContext()),
+    },
+  };
+}
+
+function parseProposedMemory(answer) {
+  const source = String(answer || '').trim();
+  const match = /ПРЕДЛОЖЕНИЕ ПАМЯТИ:\s*(\[[\s\S]*?\])\s*$/u.exec(source);
+  if (!match) return { answer: source, proposed_memory: null };
+  try {
+    const parsed = JSON.parse(match[1]);
+    if (!Array.isArray(parsed)) return { answer: source, proposed_memory: null };
+    const allowed = new Set(['fact','decision','cause','action','manager_note','pattern']);
+    const clean = parsed.filter(item =>
+      item && typeof item === 'object' && allowed.has(item.kind) &&
+      typeof item.title === 'string' && typeof item.content === 'string'
+    ).map(item => ({
+      kind: item.kind,
+      title: item.title,
+      content: item.content,
+      evidence: item.evidence && typeof item.evidence === 'object' ? item.evidence : {},
+    }));
+    return { answer: source.slice(0, match.index).trim(), proposed_memory: clean };
+  } catch {
+    return { answer: source, proposed_memory: null };
   }
 }
 
@@ -2042,6 +2169,7 @@ const SYSTEM_PROMPT = [
   'Финансовые расчёты выполняет детерминированный калькулятор backend; не пересчитывай цифры сам.',
   'Контекст ресторана является жёсткой границей: анализируй только выбранный restaurant_id и его дочерний department/branch/project scope. Не смешивай данные разных ресторанов. Если ресторан не определён — не делай точечных выводов о конкретной точке.',
   'Если вопрос не относится к бизнесу, финансам или операционке ресторана — отвечай прямо и кратко, без шаблонов про P&L, план/факт и отклонения.',
+  'Если ты обнаружил устойчивый факт, причину или решение, которое стоит запомнить, добавь в конец ответа блок: ПРЕДЛОЖЕНИЕ ПАМЯТИ: [{"kind": "...", "title": "...", "content": "...", "evidence": {...}}]. Не выдумывай. Только то, что действительно подтверждено данными.',
   'Никогда не дублируй текст ответа. Ответ выдаётся один раз, целиком.',
   'ПРАВИЛА ЗНАКОВ: Для расходных статей (COGS, ФОТ, OPEX, себестоимость, зарплата) снижение факта относительно плана — БЛАГОПРИЯТНО (экономия). Рост — НЕБЛАГОПРИЯТНО (перерасход). Для доходных статей (Выручка, EBITDA) рост факта относительно плана — благоприятно, снижение — неблагоприятно. Никогда не называй экономию по расходам «минусом» в негативном смысле. Если ФОТ факт 1,5 млн ниже плана 1,7 млн — это экономия 200 тыс., это плюс для бизнеса.',
 ].join('\n');
@@ -2052,8 +2180,17 @@ app.post('/ask', requireAuth, async (req, res, next) => {
     const question = String(body.question || body.prompt || '').trim();
     if (!question && !Array.isArray(body.messages)) throw httpError(400, 'Пустой вопрос', 'EMPTY_QUESTION');
 
+    const ctx = intelligenceContext();
+    const selectedContext = body.scope ? await resolveWorkspaceContext(req.user, body.scope, false) : null;
+    const memCtx = await loadMemoryContext(req.user, selectedContext, 15, ctx);
+
     const messages = [];
     messages.push({ role: 'system', text: (body.system ? String(body.system) + '\n\n' : '') + SYSTEM_PROMPT });
+    messages.push({
+      role: 'system',
+      text: 'Структурированная память STEN (confirmed и unconfirmed):\nconfirmed — проверено пользователем, unconfirmed — гипотеза\n' +
+        JSON.stringify(memCtx).slice(0, 8000),
+    });
     if (Array.isArray(body.messages) && body.messages.length) {
       for (const m of body.messages.slice(-20)) {
         if (m.role === 'system') continue;
@@ -2064,39 +2201,40 @@ app.post('/ask', requireAuth, async (req, res, next) => {
     if (!_last || _last.role !== 'user' || _last.text !== question) {
       messages.push({ role: 'user', text: question });
     }
-    // Детерминированный financial-context (если вопрос про деньги — даём реальные числа из БД).
-    const wantsFinance = PAYROLL_KEYWORDS.some(k => ruLower(question).includes(k)) || ruLower(question).includes('прибыл') || ruLower(question).includes('p&l');
-    if (req.user.organizationId) {  // всегда грузим P&L-контекст для AI, без фильтра wantsFinance
+
+    if (req.user.organizationId) {
       const rawScope = body.scope || {};
-      const selectedContext = await resolveWorkspaceContext(req.user, rawScope, false);
-      if (selectedContext.restaurant_id) await assertRestaurantAccess(req.user, selectedContext.restaurant_id);
-      // Период валидируем отдельно; ресторан/проект/филиал/отдел берём из server-authoritative context.
-      const selected = { ...selectedContext, period: YM_RE.test(String(rawScope.period || '')) ? String(rawScope.period) : new Date().toISOString().slice(0, 7) };
-      const ym = selected.period;
+      const selected = selectedContext || await resolveWorkspaceContext(req.user, rawScope, false);
+      if (selected.restaurant_id) await assertRestaurantAccess(req.user, selected.restaurant_id);
+      const selectedWithPeriod = {
+        ...selected,
+        period: YM_RE.test(String(rawScope.period || '')) ? String(rawScope.period) : new Date().toISOString().slice(0, 7),
+      };
+      const ym = selectedWithPeriod.period;
       const rows = await safeQuery(`SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2
         AND ($3::text = '' OR project_id = $3)
         AND ($4::text = '' OR branch_id = $4)
         AND ($5::text = '' OR restaurant_id = $5)
         AND ($6::text = '' OR department_id = $6)
-        LIMIT 200`, [req.user.organizationId, ym, selected.project_id || '', selected.branch_id || '', selected.restaurant_id || '', selected.department_id || ''], []);
+        LIMIT 200`, [req.user.organizationId, ym, selectedWithPeriod.project_id || '', selectedWithPeriod.branch_id || '', selectedWithPeriod.restaurant_id || '', selectedWithPeriod.department_id || ''], []);
       const all = [];
       for (const r of rows) { try { const p = JSON.parse(r.rows); if (Array.isArray(p)) all.push(...p); } catch {} }
       if (all.length) {
         const agg = aggregateRows(all);
         const calc = calculatePnl(rollupAgg(agg));
-        messages.splice(1, 0, { role: 'system', text: 'Контекст P&L выбранной области (реальные данные БД, план/факт в ₽):\n' + JSON.stringify({ agg, calc }).slice(0, 12000) });
+        messages.splice(2, 0, { role: 'system', text: 'Контекст P&L выбранной области (реальные данные БД, план/факт в ₽):\n' + JSON.stringify({ agg, calc }).slice(0, 12000) });
       } else {
-        messages.splice(1, 0, { role: 'system', text: `Данных P&L за ${ym} в базе нет. Сообщите об этом пользователю прямо.` });
+        messages.splice(2, 0, { role: 'system', text: `Данных P&L за ${ym} в базе нет. Сообщите об этом пользователю прямо.` });
       }
     }
-    if (body.context) messages.splice(1, 0, { role: 'system', text: String(body.context).slice(0, 12000) });
+    if (body.context) messages.splice(2, 0, { role: 'system', text: String(body.context).slice(0, 12000) });
 
     const skillRows = await safeQuery('SELECT config_json FROM ai_skill_settings WHERE organization_id=$1::uuid LIMIT 1',[req.user.organizationId],[]);
     const skillConfig = skillRows[0]?.config_json && typeof skillRows[0].config_json === 'object' ? skillRows[0].config_json : {};
-    messages.splice(1, 0, { role: 'system', text: buildSkillPrompt(question, skillConfig) });
+    messages.splice(2, 0, { role: 'system', text: buildSkillPrompt(question, skillConfig) });
     if (skillConfig.history === false) {
       const lastUser = [...messages].reverse().find(m => m.role === 'user');
-      messages.splice(1, messages.length - 1, ...(lastUser ? [lastUser] : []));
+      messages.splice(2, messages.length - 1, ...(lastUser ? [lastUser] : []));
     }
     if (skillConfig.documents !== false) {
       const docs = await safeQuery(
@@ -2104,11 +2242,51 @@ app.post('/ask', requireAuth, async (req, res, next) => {
         [req.user.organizationId], []
       );
       const docContext = docs.filter(d => d.extracted_text).map(d => `Документ: ${d.name}\\n${String(d.extracted_text).slice(0, 12000)}`).join('\\n\\n').slice(0, 36000);
-      if (docContext) messages.splice(1, 0, { role: 'system', text: 'КОНТЕКСТ ДОКУМЕНТОВ:\\n' + docContext });
+      if (docContext) messages.splice(2, 0, { role: 'system', text: 'КОНТЕКСТ ДОКУМЕНТОВ:\\n' + docContext });
     }
-    const answer = await callYandexGPT(messages);
-    await audit(req.user, 'sten.ask', 'ask', null, { length: answer.length });
-    ok(res, { answer, model: ENV.YANDEXGPT_MODEL, sources: body.sources ?? [] });
+
+    const toolsUsed = [];
+    let completion = await callYandexGPTWithTools(messages);
+    if (completion.toolCalls.length) {
+      const assistantToolCalls = completion.toolCalls.map(call => {
+        const fc = call?.functionCall || call?.function_call;
+        return { functionCall: { name: String(fc?.name || ''), arguments: fc?.arguments ?? {} } };
+      });
+      messages.push({ role: 'assistant', toolCallList: { toolCalls: assistantToolCalls } });
+      const toolResults = [];
+      for (const call of completion.toolCalls) {
+        const fc = call?.functionCall || call?.function_call;
+        const name = String(fc?.name || '');
+        let args = fc?.arguments ?? {};
+        if (typeof args === 'string') {
+          try { args = JSON.parse(args); } catch { throw httpError(400, `Некорректные arguments для tool ${name}`, 'TOOL_ARGUMENTS_INVALID'); }
+        }
+        const started = Date.now();
+        const result = await executeTool(req.user, name, args, ctx);
+        const ms = Date.now() - started;
+        toolsUsed.push({ name, args, ok: true, ms });
+        toolResults.push({ functionResult: { name, content: JSON.stringify(result) } });
+      }
+      messages.push({ role: 'tool', toolResultList: { toolResults } });
+      completion = await callYandexGPTWithTools(messages);
+      if (completion.toolCalls.length) {
+        throw httpError(409, 'STEN достиг лимита одного шага tools. Повторный вызов инструмента запрещён.', 'TOOL_ITERATION_LIMIT');
+      }
+    }
+
+    const parsedAnswer = parseProposedMemory(completion.text);
+    await audit(req.user, 'sten.ask', 'ask', null, {
+      length: parsedAnswer.answer.length,
+      tools_used: toolsUsed.map(tool => tool.name),
+      proposed_memory: Boolean(parsedAnswer.proposed_memory),
+    });
+    ok(res, {
+      answer: parsedAnswer.answer,
+      model: ENV.YANDEXGPT_MODEL,
+      sources: body.sources ?? [],
+      tools_used: toolsUsed,
+      proposed_memory: parsedAnswer.proposed_memory,
+    });
   } catch (e) { next(e); }
 });
 
@@ -2203,6 +2381,63 @@ app.get('/fot-analytics', requireAuth, requireOrg, async (req, res, next) => {
     const rows = await safeQuery(`SELECT period, department, hours, amount FROM payroll_records WHERE organization_id=$1::uuid ORDER BY period DESC LIMIT 5000`, [req.user.organizationId], null);
     if (!rows) return res.status(503).json({ error: { message: 'Данные ФОТ временно недоступны', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
     ok(res, { records: rows });
+  } catch (e) { next(e); }
+});
+
+/* ---- STEN AI structured memory ---- */
+const AiMemoryCreateSchema = z.object({
+  scope: z.object({
+    project_id: z.string().uuid().nullable().optional(),
+    branch_id: z.string().uuid().nullable().optional(),
+    restaurant_id: z.string().uuid().nullable().optional(),
+    department_id: z.string().uuid().nullable().optional(),
+  }).strict().default({}),
+  kind: z.enum(['fact','decision','cause','action','manager_note','pattern']),
+  title: z.string().trim().min(1).max(300),
+  content: z.string().trim().min(1).max(50000),
+  evidence: z.record(z.unknown()).optional(),
+}).strict();
+
+const AiMemoryConfidenceSchema = z.object({
+  confidence: z.enum(['confirmed','rejected']),
+}).strict();
+
+app.get('/api/ai/memory', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const result = await listMemory(req.user, {
+      kind: req.query.kind ? String(req.query.kind) : undefined,
+      restaurant_id: req.query.restaurant_id ? String(req.query.restaurant_id) : undefined,
+      since: req.query.since ? String(req.query.since) : undefined,
+      limit: req.query.limit ? String(req.query.limit) : undefined,
+      confidence: req.query.confidence ? String(req.query.confidence) : 'confirmed',
+    }, intelligenceContext());
+    await audit(req.user, 'ai_memory.listed', 'ai_memory', null, { count: result.memories.length });
+    ok(res, result);
+  } catch (e) { next(e); }
+});
+
+app.post('/api/ai/memory', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const body = parseOr400(AiMemoryCreateSchema, req.body ?? {});
+    const memory = await createMemory(req.user, body, intelligenceContext());
+    ok(res, { memory, confirmed: true }, 201);
+  } catch (e) { next(e); }
+});
+
+app.patch('/api/ai/memory/:id', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(String(req.params.id))) throw httpError(400, 'Некорректный id памяти', 'BAD_ID');
+    const body = parseOr400(AiMemoryConfidenceSchema, req.body ?? {});
+    const memory = await updateMemoryConfidence(req.user, req.params.id, body.confidence, intelligenceContext());
+    ok(res, { memory, confirmed: true });
+  } catch (e) { next(e); }
+});
+
+app.delete('/api/ai/memory/:id', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(String(req.params.id))) throw httpError(400, 'Некорректный id памяти', 'BAD_ID');
+    await deleteMemory(req.user, req.params.id, intelligenceContext());
+    ok(res, { deleted: true, confirmed: true });
   } catch (e) { next(e); }
 });
 
