@@ -146,6 +146,70 @@
   --chip-font-size: 12px;
 }
 
+/* STEN brand background — static diagonal light slices behind all content. */
+.sten-brand-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.sten-brand-bg::before,
+.sten-brand-bg::after {
+  content: '';
+  position: absolute;
+  width: 62vw;
+  height: 62vw;
+  background: linear-gradient(
+    135deg,
+    rgba(91,124,250,0.06) 0%,
+    rgba(58,87,214,0.04) 100%
+  );
+  clip-path: polygon(0 0, 100% 0, 62% 100%, 0 100%);
+}
+
+.sten-brand-bg::before {
+  top: -22vw;
+  left: -22vw;
+}
+
+.sten-brand-bg::after {
+  bottom: -22vw;
+  right: -22vw;
+  transform: rotate(180deg);
+}
+
+@media (max-width: 640px) {
+  .sten-brand-bg::before,
+  .sten-brand-bg::after {
+    width: 90vw;
+    height: 90vw;
+  }
+
+  .sten-brand-bg::before {
+    top: -35vw;
+    left: -35vw;
+  }
+
+  .sten-brand-bg::after {
+    bottom: -35vw;
+    right: -35vw;
+  }
+}
+
+[data-theme='light'] .sten-brand-bg {
+  opacity: 0.3;
+}
+
+.sten-app,
+.layout,
+main,
+.app-content {
+  position: relative;
+  z-index: 1;
+}
+
 html,
 body,
 #root {
