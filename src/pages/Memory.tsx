@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Brain, MoreHorizontal, Search, Trash2, Check, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api, deleteMemory, listMemory, updateMemoryConfidence } from '../lib/api';
-import { useScope } from '../lib/useScope';
 import type { Memory, MemoryConfidence, MemoryFilters, MemoryKind } from '../lib/contracts/memory';
 
 const kinds: Array<{ value: MemoryKind | ''; label: string }> = [
@@ -44,11 +43,10 @@ function formatDate(value: string) {
 
 export default function Memory() {
   const navigate = useNavigate();
-  const [scope] = useScope();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [kind, setKind] = useState<MemoryKind | ''>('');
-  const [confidence, setConfidence] = useState<MemoryConfidence | ''>('confirmed');
+  const [confidence, setConfidence] = useState<MemoryConfidence | ''>('');
   const [restaurantId, setRestaurantId] = useState('');
   const [since, setSince] = useState('');
   const [limit, setLimit] = useState(50);
@@ -68,7 +66,12 @@ export default function Memory() {
     setLoading(true);
     try {
       const [memoryResponse, contextResponse] = await Promise.all([
-        listMemory(filters),
+        confidence
+          ? listMemory(filters)
+          : Promise.all((['confirmed', 'unconfirmed', 'rejected'] as const).map(value => listMemory({ ...filters, confidence: value })))
+              .then(results => ({
+                memories: results.flatMap(result => result.memories).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).slice(0, limit),
+              })),
         api.get<unknown>('/api/b2b/context'),
       ]);
       setMemories(memoryResponse.memories ?? []);
@@ -82,10 +85,6 @@ export default function Memory() {
   };
 
   useEffect(() => { void load(); }, [kind, confidence, restaurantId, since, limit]);
-
-  useEffect(() => {
-    if (scope.restaurantId && !restaurantId) setRestaurantId(scope.restaurantId);
-  }, [scope.restaurantId]);
 
   const update = async (id: string, next: 'confirmed' | 'rejected') => {
     try {
