@@ -1,7 +1,5 @@
 'use strict';
 
-const crypto = require('crypto');
-
 const RATE_LIMIT = 30;
 const WINDOW_MS = 60_000;
 const buckets = new Map();
