@@ -82,7 +82,7 @@
   --danger: var(--color-danger);
   --warning: var(--color-warning);
   --hair: 1px solid var(--border-subtle);
-  --focus: 0 0 0 2px color-mix(in oklch, var(--color-brand) 28%, transparent);
+  --focus: 0 0 0 2px var(--color-brand-glow);
 }
 
 [data-theme='dark'] {
@@ -128,7 +128,7 @@
   --danger: var(--color-danger);
   --warning: var(--color-warning);
   --hair: 1px solid var(--border-subtle);
-  --focus: 0 0 0 2px color-mix(in oklch, var(--color-brand) 35%, transparent);
+  --focus: 0 0 0 2px var(--color-brand-glow);
 }
 
 /* ─── Tier 3: Component tokens ───────────────────────────── */
@@ -231,7 +231,7 @@ textarea {
 input,
 select,
 textarea {
-  background: var(--bg-surface);
+  background: var(--bg-inset);
   border-color: var(--border-subtle);
   color: var(--text-primary);
 }
@@ -344,7 +344,7 @@ textarea {
 .flash-prime strong,
 .pnl-edit-row > strong,
 .pnl-edit-row > span {
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -693,8 +693,8 @@ textarea:focus-visible {
 }
 
 .primary-button:hover:not(:disabled) {
-  background: color-mix(in oklch, var(--color-brand) 88%, var(--text-primary));
-  border-color: color-mix(in oklch, var(--color-brand) 88%, var(--text-primary));
+  background: var(--color-brand-hover);
+  border-color: var(--color-brand-hover);
 }
 
 .secondary-button {
@@ -734,7 +734,7 @@ textarea:focus-visible {
 .executive-shell textarea {
   border-color: var(--border-subtle);
   border-radius: var(--ui-radius-xs);
-  background: var(--bg-surface);
+  background: var(--bg-inset);
   color: var(--text-primary);
 }
 
@@ -756,7 +756,7 @@ textarea:focus-visible {
 .settings-field select {
   min-height: var(--ui-control-h);
   border-radius: var(--ui-radius-xs);
-  background: var(--bg-surface-subtle);
+  background: var(--bg-inset);
 }
 
 /* Workspace/scope controls share the same surface and density */
@@ -1298,7 +1298,7 @@ textarea:focus-visible {
 .executive-shell .metric-card strong,
 .budget-kpi strong,
 .analytics-kpi-strip > article strong {
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-size: clamp(22px, 1.304rem + 0.357vw, 26px);
   font-weight: 600;
@@ -1527,7 +1527,7 @@ textarea:focus-visible {
   border-radius: var(--ui-radius-sm);
 }
 .analytics-summary-delta strong {
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 22px;
   font-variant-numeric: tabular-nums;
   color: var(--color-success);
@@ -1581,7 +1581,7 @@ textarea:focus-visible {
   font-weight: 700;
 }
 .driver-tree strong {
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -1611,7 +1611,7 @@ textarea:focus-visible {
   min-width: 48px;
 }
 .secretary-date b {
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 20px;
   font-weight: 700;
   color: var(--text-primary);
@@ -1813,6 +1813,12 @@ textarea:focus-visible {
   line-height: 1.6;
   color: var(--text-primary);
   white-space: pre-wrap;
+}
+
+.chat-body pre,
+.chat-body code,
+.document-preview-text {
+  background: var(--bg-inset);
 }
 
 /* Workspace grid compact */
@@ -2800,7 +2806,12 @@ html[data-reduce-motion='true'] *::after {
   --text-secondary: #2f3844;
   --text-tertiary: #6b7280;
   --color-brand: #5b7cfa;
-  --color-brand-hover: #7a94fb;
+  --color-brand-hover: #6e8dff;
+  --bg-inset: #0a0d16;
+  --color-brand-glow: rgba(91,124,250,0.35);
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+               "JetBrains Mono", Consolas, monospace;
+  --border-width: 1px;
   --color-success: #16a34a;
   --color-warning: #d97706;
   --color-danger: #dc2626;
@@ -2820,7 +2831,7 @@ html[data-reduce-motion='true'] *::after {
   --text-secondary: #9ca3b5;
   --text-tertiary: #6b7280;
   --color-brand: #5b7cfa;
-  --color-brand-hover: #7a94fb;
+  --color-brand-hover: #6e8dff;
   --color-success: #34d399;
   --color-warning: #fbbf24;
   --color-danger: #f87171;
@@ -3080,7 +3091,7 @@ html[data-reduce-motion='true'] .executive-shell .analytics-report-table {
 .deviations-widget__card:last-child { margin-bottom:0; }
 .deviations-widget__article { display:block; overflow:hidden; margin-bottom:7px; color:var(--text-primary); font-size:13px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
 .deviations-widget__numbers { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
-.deviations-widget__value,.deviations-widget__pct { font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; }
+.deviations-widget__value,.deviations-widget__pct { font-family:var(--font-mono); font-variant-numeric:tabular-nums; }
 .deviations-widget__value { color:var(--text-primary); font-size:14px; font-weight:650; }
 .deviations-widget__pct { color:var(--text-secondary); font-size:12px; }
 .deviations-widget__card--high .deviations-widget__value { color:var(--color-danger); }
@@ -3106,3 +3117,23 @@ html[data-reduce-motion='true'] .executive-shell .analytics-report-table {
   .deviations-widget__column--positive { order:3; }
   .deviations-widget__head { align-items:flex-start; flex-direction:column; gap:4px; }
 }
+
+
+/* Unified semantic badges — compact, dense, no glow. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.badge--danger  { background: rgba(248,113,113,0.15); color: #F87171; }
+.badge--warning { background: rgba(251,191,36,0.15);  color: #FBBF24; }
+.badge--success { background: rgba(52,211,153,0.15);  color: #34D399; }
+.badge--brand   { background: rgba(91,124,250,0.15);  color: #7A94FB; }
+.badge--neutral { background: rgba(156,163,181,0.12); color: #9CA3B5; }
