@@ -172,6 +172,8 @@ async function ensureSchemaNow() {
     await query(`ALTER TABLE ai_documents ADD COLUMN IF NOT EXISTS extracted_text TEXT;`);
     await query(`ALTER TABLE ai_documents ADD COLUMN IF NOT EXISTS extraction_json JSONB;`);
     await query(`CREATE INDEX IF NOT EXISTS idx_ai_documents_org ON ai_documents(organization_id, created_at DESC);`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS position TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT;`);
     await query(`CREATE TABLE IF NOT EXISTS messenger_settings (organization_id UUID PRIMARY KEY, provider TEXT NOT NULL DEFAULT 'telegram', send_time TEXT NOT NULL DEFAULT '21:00', scope_json JSONB NOT NULL DEFAULT '{}'::jsonb, metrics_json JSONB NOT NULL DEFAULT '{"revenue":true,"cashCard":true,"discounts":true,"avgCheck":true,"checks":true,"primeCost":true,"ebitda":true,"deviation":true}'::jsonb, telegram_chat_id TEXT, whatsapp_phone TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
     await query(`CREATE TABLE IF NOT EXISTS ai_skill_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
     await query(`CREATE TABLE IF NOT EXISTS analytics_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
@@ -322,6 +324,7 @@ async function authenticate(req) {
   if (!UUID_RE.test(uid)) return null; // никаких «admin»-подставок из claims
   const rows = await safeQuery(
     `SELECT u.id, u.email, u.role, u.organization_id, u.first_name, u.last_name,
+            u.position, u.telegram_chat_id,
             o.status AS organization_status
        FROM users u
        LEFT JOIN organizations o ON o.id = u.organization_id
@@ -334,6 +337,7 @@ async function authenticate(req) {
   return {
     id: u.id, email: u.email, role: u.role,
     firstName: u.first_name, lastName: u.last_name,
+    position: u.position || '', telegramChatId: u.telegram_chat_id || '',
     organizationId: u.organization_id || ENV.DEFAULT_ORG_ID || null,
     organizationStatus: u.organization_status || null,
     permissions: { '*': 'edit' },
@@ -343,6 +347,7 @@ function publicUser(user) {
   return {
     id: user.id, email: user.email, role: user.role,
     firstName: user.firstName, lastName: user.lastName,
+    position: user.position || '', telegramChatId: user.telegramChatId || '',
     organizationId: user.organizationId, permissions: user.permissions,
   };
 }
@@ -1656,6 +1661,26 @@ app.put('/api/analytics/settings',requireAuth,requireOrg,async(req,res,next)=>{t
     [req.user.organizationId,JSON.stringify(config),req.user.id],{orgId:req.user.organizationId});
   await audit(req.user,'analytics.settings.updated','analytics_settings',req.user.organizationId,{keys:Object.keys(config)});
   ok(res,{saved:true,confirmed:true,settings:config});
+}catch(e){next(e)}});
+
+app.get('/api/profile',requireAuth,async(req,res,next)=>{try{
+ const rows=await safeQuery('SELECT id,email,first_name,last_name,position,telegram_chat_id,role,organization_id FROM users WHERE id=$1::uuid AND is_active=true LIMIT 1',[req.user.id],[]);
+ const u=rows[0]; if(!u) throw httpError(404,'Профиль не найден','PROFILE_NOT_FOUND');
+ ok(res,{profile:{id:u.id,email:u.email,firstName:u.first_name||'',lastName:u.last_name||'',position:u.position||'',telegramChatId:u.telegram_chat_id||'',role:u.role||'',organizationId:u.organization_id||null}});
+}catch(e){next(e)}});
+
+app.put('/api/profile',requireAuth,async(req,res,next)=>{try{
+ const firstName=String(req.body?.firstName??'').trim().normalize('NFC');
+ const lastName=String(req.body?.lastName??'').trim().normalize('NFC');
+ const position=String(req.body?.position??'').trim().normalize('NFC');
+ const telegramChatId=String(req.body?.telegramChatId??'').trim();
+ if(firstName.length>80||lastName.length>80||position.length>120||telegramChatId.length>80) throw httpError(400,'Проверьте данные профиля','PROFILE_INVALID');
+ if(telegramChatId && !/^-?\\d{5,20}$/u.test(telegramChatId)) throw httpError(400,'Telegram ID должен содержать только цифры, можно с минусом','TELEGRAM_ID_INVALID');
+ const q=await queryWithRetry('UPDATE users SET first_name=$1,last_name=$2,position=$3,telegram_chat_id=$4 WHERE id=$5::uuid AND is_active=true RETURNING id,email,first_name,last_name,position,telegram_chat_id,role,organization_id',[firstName||null,lastName||null,position,telegramChatId||null,req.user.id],{});
+ const u=q.rows?.[0]; if(!u) throw httpError(404,'Профиль не найден','PROFILE_NOT_FOUND');
+ if(telegramChatId && UUID_RE.test(String(req.user.organizationId||''))) await queryWithRetry('INSERT INTO messenger_settings(organization_id,telegram_chat_id,updated_at,updated_by) VALUES($1::uuid,$2,now(),$3) ON CONFLICT(organization_id) DO UPDATE SET telegram_chat_id=excluded.telegram_chat_id,updated_at=now(),updated_by=excluded.updated_by',[req.user.organizationId,telegramChatId,req.user.id],{orgId:req.user.organizationId});
+ await audit(req.user,'profile.updated','users',u.id,{fields:['first_name','last_name','position','telegram_chat_id']});
+ ok(res,{saved:true,confirmed:true,profile:{id:u.id,email:u.email,firstName:u.first_name||'',lastName:u.last_name||'',position:u.position||'',telegramChatId:u.telegram_chat_id||'',role:u.role||'',organizationId:u.organization_id||null}});
 }catch(e){next(e)}});
 
 app.get('/api/messenger/settings',requireAuth,requireOrg,async(req,res,next)=>{try{
