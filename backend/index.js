@@ -2356,6 +2356,15 @@ app.get('/api/ingest/message',(req,res)=>{
 });
 app.post('/api/ingest/message',async(req,res,next)=>{try{
  const body=req.body||{};
+ const isTelegram = Boolean(body?.message || body?.edited_message);
+ if (isTelegram) {
+  const expected = String(process.env.TELEGRAM_WEBHOOK_SECRET || '');
+  const provided = String(req.headers['x-telegram-bot-api-secret-token'] || '');
+  if (!expected) return res.status(503).json({ ok: false, error: 'webhook_secret_not_configured' });
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.status(403).json({ ok: false, error: 'forbidden' });
+ }
  const telegramText=body?.message?.text||body?.edited_message?.text;
  const telegramChat=body?.message?.chat?.id||body?.edited_message?.chat?.id;
  const waMessage=body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
