@@ -26,11 +26,7 @@ test('assertScopeAccess rejects a foreign scope', async () => {
 
 test('31st tool call in one minute is rate-limited with 429', async () => {
   const tool={policy:['rateLimit']};
-  for(let i=0;i<30;i++) await enforcePolicy({...user,id:`rate-test-${i}`},tool,{},{}); 
-  await assert.rejects(
-    () => enforcePolicy({...user,id:'rate-test-single'},tool,{},{}),
-    () => false,
-  );
-  for(let i=0;i<30;i++) await enforcePolicy(user,tool,{},{}); 
-  await assert.rejects(() => enforcePolicy(user,tool,{},{}), error => error.status === 429);
+  const rateUser = {...user,id:'rate-test-single'};
+  for(let i=0;i<30;i++) await enforcePolicy(rateUser,tool,{},{});
+  await assert.rejects(() => enforcePolicy(rateUser,tool,{},{}), error => error.status === 429);
 });
