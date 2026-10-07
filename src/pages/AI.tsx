@@ -10,11 +10,13 @@ import { AppearanceDrawer } from '../features/chat-appearance/AppearanceDrawer';
 import { AppearanceProvider, useAppearanceContext } from '../features/chat-appearance/AppearanceContext';
 import { ChatBackground } from '../features/chat-appearance/ChatBackground';
 import { MessageRow } from '../features/chat-appearance/MessageRow';
+import ProposedMemoryChips from '../components/ProposedMemoryChips';
+import type { ProposedMemory } from '../lib/contracts/memory';
 import type { ChatMessage } from '../features/chat-appearance/types';
 import '../features/chat-appearance/themes.css';
 import '../features/chat-appearance/avatars.css';
 
-type Msg={id:string;role:'user'|'assistant';text:string;sources?:AskSource[];createdAt?:string};
+type Msg={id:string;role:'user'|'assistant';text:string;sources?:AskSource[];createdAt?:string;proposedMemory?:ProposedMemory[]};
 type Doc={id:string;name:string;size:number;status:string;chars?:number};
 type DocPreview={id:string;name:string;preview:string;chars:number;truncated:boolean;readOnly:true};
 const starters=['Проанализируй текущий P&L и найди главные причины падения прибыли','Что сильнее всего отклонилось от плана?','Собери план действий для управляющего на сегодня','Проверь ФОТ: часы, производительность и стоимость отклонения'];
@@ -64,7 +66,7 @@ function AIContent({user}:{user:User|null}){
  },[key]);
  useEffect(()=>{
    if(!key||hydrateRef.current!==key)return;
-   try{localStorage.setItem(key,JSON.stringify(messages.slice(-80)));localStorage.removeItem(LEGACY_KEY)}catch{}
+   try{const persisted=messages.slice(-80).map(({proposedMemory,...message})=>message);localStorage.setItem(key,JSON.stringify(persisted));localStorage.removeItem(LEGACY_KEY)}catch{}
  },[messages,key]);
  useEffect(()=>{try{localStorage.setItem('sten_docs_collapsed',docsCollapsed?'1':'0')}catch{}},[docsCollapsed]);
  useEffect(()=>{if(!chatToast)return;const timer=window.setTimeout(()=>setChatToast(null),2200);return()=>window.clearTimeout(timer)},[chatToast]);
@@ -110,7 +112,7 @@ function AIContent({user}:{user:User|null}){
      };
      const r = await api.post<AskResponse>('/ask', AskRequestSchema.parse(body));
      const p = r;
-     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:String(p.answer??p.message??'Ответ не получен.'),sources:Array.isArray(p.sources)?p.sources:[],createdAt:new Date().toISOString()}]);
+     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:String(p.answer??p.message??'Ответ не получен.'),sources:Array.isArray(p.sources)?p.sources:[],proposedMemory:Array.isArray(p.proposed_memory)?p.proposed_memory:null??undefined,createdAt:new Date().toISOString()}]);
    }catch(e){
      setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось получить ответ.',createdAt:new Date().toISOString()}]);
    }finally{setBusy(false)}
@@ -268,7 +270,17 @@ function AIContent({user}:{user:User|null}){
              onCopy={()=>void copyMessage(m.text)}
              onToSecretary={secretaryToast}
              onDetails={()=>undefined}
-           />;
+           />
+           {m.role === 'assistant' && m.proposedMemory && m.proposedMemory.length > 0 && (
+             <ProposedMemoryChips
+               items={m.proposedMemory}
+               messageId={m.id}
+               onResolve={(index) => setMessages(current => current.map(item => item.id === m.id
+                 ? { ...item, proposedMemory: item.proposedMemory?.filter((_, itemIndex) => itemIndex !== index) }
+                 : item
+               ))}
+             />
+           )};
          })}
          {busy&&<div className="typing" aria-label="STEN готовит ответ"><i/><i/><i/></div>}
        </div>
