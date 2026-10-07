@@ -1,0 +1,320 @@
+# КОНТЕКСТ ДЛЯ НОВОГО ЧАТА — STEN
+
+Актуальность: 2026-10-07.
+Репозиторий: paradox0550-byte/sten_by_dumrauf
+Основная ветка: main
+Продукт: STEN — Smart Tracking & Economic Navigator.
+Позиционирование: российский B2B рабочий кабинет руководителя ресторанного бизнеса.
+
+## 1. Главные правила работы
+
+- Проверять фактическое состояние main и PR, а не доверять предположениям.
+- Не выдавать непроверенное за готовое.
+- Не мерджить PR без явного разрешения Александра.
+- Один PR = одна понятная задача.
+- Перед PR: typecheck, lint, tests, build.
+- Backend, API Gateway, Cloud Function, Lockbox и deployment не менять в frontend-задачах без явного разрешения.
+- Визуальные проверки в реальном браузере выполняет человек; GitHub/Codex не считаются заменой browser QA.
+- Не использовать mock/random/fake production data.
+- Missing != zero: отсутствующие данные остаются null.
+- Расчёт выполняется до интерпретации AI.
+- Для финансовых расчётов должен быть понятен источник и формула.
+- Если требование конфликтует с реальным кодом, сначала сообщить о конфликте и предложить безопасное решение.
+
+## 2. Продуктовая модель
+
+STEN должен помогать руководителю пройти цепочку:
+revenue → COGS → payroll → OPEX → EBITDA → net profit → analytics → actions.
+
+Ключевой принцип: Data over decoration.
+
+Роли и контекст:
+- руководитель операций;
+- несколько ресторанов/проектов/филиалов;
+- Scope: период → проект → branch → restaurant → department;
+- отделы, не относящиеся к выбранному branch, нельзя сравнивать с ним.
+
+## 3. Executive Cockpit
+
+Целевой дизайн: STEN v5.0.2 + Executive Cockpit.
+
+Desktop:
+- 1440px+: Executive Sidebar;
+- глобальный header;
+- Scope selector: Все 4 ресторана / Тверская / Арбат / Патриаршие / Сити;
+- масштаб ₽ / тыс. ₽ / млн ₽.
+
+Responsive:
+- <=640: mobile;
+- <=900: tablet portrait;
+- <=1200: tablet landscape/small laptop;
+- >=1201: desktop.
+
+Требования:
+- светлая и тёмная темы;
+- без glassmorphism и тяжёлого blur;
+- финансовая контрастность;
+- компактность;
+- никаких декоративных элементов, которые мешают работе.
+
+Основные токены:
+--bg-base: #0B0F1A
+--bg-surface: #131826
+--bg-elevated: #1A2030
+--border-subtle: #232938
+--text-primary: #E8ECF5
+--text-secondary: #9CA3B5
+--text-tertiary: #6B7280
+--color-brand: #5B7CFA
+--color-brand-hover: #7A94FB
+--color-success: #34D399
+--color-warning: #FBBF24
+--color-danger: #F87171
+
+UI radius:
+sm 6px / md 10px / lg 14px.
+
+Карточки:
+border 1px --border-subtle;
+radius 10px;
+padding 18px 20px;
+shadow none.
+
+Числа: JetBrains Mono/tabular-nums.
+UI: Inter.
+
+## 4. Текущий frontend state
+
+PR #47 — Chat Appearance v1:
+- 6 тем;
+- 3 density;
+- настройки сохраняются через AppearanceContext.
+
+PR #50 — Chat Avatars + Message Flow.
+
+PR #51 — Intelligence Layer v1:
+- Tool Registry;
+- Policy Layer;
+- persistent AI memory;
+- YandexGPT tool calling.
+
+PR #52 — compact Composer:
+- composer min-height 44px;
+- max-height 144px;
+- textarea 22–120px;
+- messages имеют собственный scroll.
+
+PR #54 — personal profile + cleaner STEN UI:
+- профиль пользователя;
+- упрощённый Settings;
+- backend profile API;
+- был CI syntax failure, затем изменения вошли в main.
+
+PR #55 — Settings accessibility repair:
+- FontSize 100/110/120;
+- reduced motion;
+- localStorage appearance keys;
+- profile sync;
+- рабочие разделы;
+- Telegram reports;
+- analytics;
+- session.
+CI прошёл.
+
+PR #56 — final visual polish:
+- branch: feat/visual-polish-final;
+- status на 2026-10-07: OPEN, НЕ MERGED;
+- head: 55b9f0588a5a17dacdbb2c659fd98a3e6a21df0c;
+- base main: e8fb4ebef8e8c582c4d0ff4f5bacdbe2993fe063;
+- изменён только src/executive.css;
+- +270 / -0;
+- CI зелёный;
+- production build проходит;
+- точная дельта gzip относительно main не подтверждена текущим CI;
+- browser QA человеком ещё нужен.
+
+Не считать PR #56 смерженным, пока это явно не подтверждено GitHub.
+
+## 5. Intelligence Layer
+
+В backend/core:
+- get_pnl
+- get_fot
+- get_sales
+- get_documents
+- get_memory
+- get_secretary_context
+
+Policy:
+- auth;
+- organization;
+- scope;
+- role;
+- rate limit.
+
+Persistent memory:
+- ai_memory;
+- GET/POST/PATCH/DELETE /api/ai/memory;
+- confidence states;
+- confirmation metadata.
+
+YandexGPT:
+- backend only;
+- tool calling;
+- /ask возвращает tools_used и proposed_memory;
+- нельзя переносить API keys на frontend.
+
+ВАЖНО:
+Backend v5.0.2 подтверждён текущим backend/index.js.
+Не записывать в контекст неподтверждённые claims о монетизации, organizations.subscription_until или suspendExpiredOrganizations без фактической проверки соответствующих файлов.
+
+## 6. Finance / P&L
+
+Формулы:
+- revenue = hall + delivery;
+- food cost norm 25–35%;
+- personnel = salaries + KPI;
+- OPEX: rent/utilities/marketing/repair/household;
+- OPEX norm: 3.0% до 2.5m revenue, 2.9% выше;
+- EBITDA = revenue − cost − OPEX;
+- net = EBITDA − depreciation − interest − taxes.
+
+Метрики:
+- avg check;
+- turnover;
+- delivery share;
+- cancellations;
+- ABC по sales qty/revenue/profit/food cost%;
+- OLAP plan/fact by category/location.
+
+P&L colour logic:
+- favourable expense negative → green;
+- unfavourable expense positive → red;
+- revenue negative → red.
+
+## 7. STEN AI
+
+Поддерживаемые входы:
+- Excel;
+- photo;
+- Word;
+- документы.
+
+Incoming documents:
+MarkItDown должен использоваться первым там, где это предусмотрено ingestion flow.
+
+AI currentData должен содержать рассчитанные значения, а не заставлять модель самостоятельно считать финансовые показатели.
+
+Secretary:
+- отдельный operational/DB context;
+- без доступа к GPT memory;
+- не смешивать scope Secretary с AI memory.
+
+## 8. Settings
+
+Пользовательские настройки, а не техническая консоль:
+- Мои данные;
+- Внешний вид;
+- Рабочие разделы;
+- Отчёты в Telegram;
+- Аналитика;
+- Сеанс.
+
+Профиль:
+- имя;
+- фамилия;
+- должность;
+- Telegram ID.
+
+Внешний вид:
+- theme;
+- font scale 100/110/120;
+- reduced motion.
+
+Не возвращать в пользовательский Settings без необходимости:
+- Bell/технические статусы;
+- latency;
+- Cloud Security Boundary;
+- программные детали API;
+- прочий developer noise.
+
+## 9. Auth / multi-tenancy
+
+Направление продукта:
+- email + password registration confirmation;
+- либо login + password + organization ID;
+- создание organization ID — только admin.
+
+Главный принцип:
+- контексты организаций изолированы;
+- нельзя показать финансовые/сменные данные другого ресторана;
+- Telegram profile/context не должен обходить organization boundary.
+
+Не менять auth/backend только ради визуальной задачи.
+
+## 10. Очередь
+
+P0:
+- browser QA PR #56;
+- после ручной проверки — отдельное решение о merge.
+
+P1:
+- фон с диагональными slices, только если он не ухудшает читаемость;
+- голос STEN через Yandex SpeechKit (STT + TTS);
+- Action Center;
+- Driver Tree EBITDA/Revenue/ФОТ;
+- ФОТ → hours → productivity → cost of deviation;
+- Мой день.
+
+P2:
+- anydoc / локальная конвертация документов;
+- Memory UI;
+- Data Center: source/formula/freshness;
+- sales guests/checks/avg check/daypart/channels;
+- Menu Engineering;
+- procurement/inventory;
+- forecasting/scenarios;
+- Daily Brief в Telegram.
+
+P3:
+- ECC минимальный профиль: 12 skills / 5 hooks / 3 agents — только после определения реального value и границ.
+
+## 11. Ruflo / agent architecture
+
+Брать только полезные паттерны:
+- persistent memory/RAG;
+- semantic search;
+- MCP/tool registry;
+- task routing;
+- workflows;
+- security/policy gates.
+
+Не переносить без доказанной необходимости:
+- swarm/autopilot;
+- federation;
+- self-training.
+
+## 12. Lessons
+
+Известные проблемы:
+- TS1005 может быть вызван синтаксическим повреждением при copy-paste;
+- TS2322 unknown нужно сужать типами, не any;
+- Yandex API Gateway не поддерживает YAML anchors — options нужно разворачивать;
+- OpenAPI 3.0 exclusiveMinimum — boolean;
+- Unicode quotes / zero-width characters могут ломать код;
+- browser QA нельзя объявлять выполненным по одному CI;
+- "+N/-0" вместо ожидаемого отката — повод проверить diff;
+- frontend CI не должен менять backend;
+- секреты нельзя помещать в чат/репозиторий; при утечке нужна ротация.
+
+## 13. Перед началом нового задания
+
+1. Проверить main.
+2. Проверить актуальные открытые PR, если задача касается текущей очереди.
+3. Найти фактический код, а не угадывать путь.
+4. Зафиксировать scope.
+5. Сделать минимальный PR.
+6. Запустить проверки.
+7. Проверить diff/stat.
+8. Отдельно отметить, что CI доказал, а что требует ручной проверки.
+9. Не merge без явного разрешения.
