@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Bot, FileText, Mic, MicOff, MoreHorizontal, Paperclip, Send, Sparkles, Trash2, UploadCloud, Eye, X, Database, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { api } from '../lib/api';
 import { useScope } from '../lib/useScope';
@@ -262,7 +262,7 @@ function AIContent({user}:{user:User|null}){
              createdAt:messages[i-1].createdAt??'',
              sources:messages[i-1].sources,
            }:undefined;
-           return <>
+           return <Fragment key={m.id}>
              <MessageRow
                key={m.id}
                message={message}
@@ -282,7 +282,7 @@ function AIContent({user}:{user:User|null}){
                  ))}
                />
              )}
-           </>;
+           </Fragment>;
          })}
          {busy&&<div className="typing" aria-label="STEN готовит ответ"><i/><i/><i/></div>}
        </div>
