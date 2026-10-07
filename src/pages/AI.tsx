@@ -67,8 +67,8 @@ function AIContent({user}:{user:User|null}){
  useEffect(()=>{
    const el=document.querySelector<HTMLTextAreaElement>('.sten-ai-page .composer-box textarea');
    if(!el)return;
-   el.style.height='auto';
-   el.style.height=Math.min(el.scrollHeight,144)+'px';
+   el.style.height='22px';
+   el.style.height=Math.min(el.scrollHeight,120)+'px';
  },[prompt]);
 
  const load=async()=>{
@@ -270,7 +270,7 @@ function AIContent({user}:{user:User|null}){
        </div>
        {chatToast&&<div className="chat-toast" role="status" aria-live="polite">{chatToast}</div>}
 
-       <div className={'composer '+(composerFocused?'is-focused ':'')+(dragOver?'is-dragover':'')}
+       <div className={'composer sten-composer '+(composerFocused?'is-focused ':'')+(dragOver?'is-dragover':'')}
          onDragOver={e=>{e.preventDefault();if(!upload)setDragOver(true)}}
          onDragLeave={()=>setDragOver(false)}
          onDrop={e=>{e.preventDefault();setDragOver(false);void uploadFiles(e.dataTransfer.files)}}>
