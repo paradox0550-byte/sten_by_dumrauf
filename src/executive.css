@@ -3536,3 +3536,17 @@ html[data-reduce-motion='true'] .memory-card--skeleton span { animation: none; }
   .flash-income-spinner { animation: none; }
 }
 html[data-reduce-motion='true'] .flash-income-spinner { animation: none; }
+
+
+/* STEN Memory Markdown export action. */
+.memory-page__export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.memory-page__export-btn:disabled { opacity: .55; cursor: not-allowed; }
+.memory-export-spinner { animation: memory-export-spin .8s linear infinite; }
+@keyframes memory-export-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .memory-export-spinner { animation: none; } }
+html[data-reduce-motion='true'] .memory-export-spinner { animation: none; }

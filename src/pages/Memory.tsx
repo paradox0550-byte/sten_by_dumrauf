@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Brain, ChevronDown, MoreHorizontal, Search, Trash2, Check, X } from 'lucide-react';
+import { Brain, ChevronDown, MoreHorizontal, Search, Trash2, Check, X, Download, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { buildMemoryFilename, buildMemoryMarkdown } from '../lib/memory-export';
 import { api, deleteMemory, listMemory, updateMemoryConfidence } from '../lib/api';
 import { MEMORY_CONFIDENCE_LABEL, MEMORY_KIND_LABEL } from '../lib/contracts/memory';
 import type { Memory, MemoryConfidence, MemoryFilters, MemoryKind } from '../lib/contracts/memory';
@@ -34,8 +36,24 @@ function formatDate(value: string) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+function extractOrganizationName(value: unknown): string | undefined {
+  const data = value as {
+    organization?: { name?: unknown } | unknown;
+    organization_name?: unknown;
+    context?: { organization?: { name?: unknown } | unknown; organization_name?: unknown };
+  } | null;
+  const candidates = [
+    typeof data?.organization === 'object' && data.organization ? (data.organization as { name?: unknown }).name : undefined,
+    data?.organization_name,
+    typeof data?.context?.organization === 'object' && data.context.organization ? (data.context.organization as { name?: unknown }).name : undefined,
+    data?.context?.organization_name,
+  ];
+  return candidates.find((item): item is string => typeof item === 'string' && item.length > 0);
+}
+
 export default function Memory() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [kind, setKind] = useState<MemoryKind | ''>('');
@@ -46,6 +64,8 @@ export default function Memory() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
   const [menuId, setMenuId] = useState<string | null>(null);
+  const [organizationName, setOrganizationName] = useState<string | undefined>();
+  const [exporting, setExporting] = useState(false);
 
   const filters = useMemo<MemoryFilters>(() => ({
     ...(kind ? { kind } : {}),
@@ -69,6 +89,7 @@ export default function Memory() {
       ]);
       setMemories(memoryResponse.memories ?? []);
       setRestaurants(extractRestaurants(contextResponse));
+      setOrganizationName(extractOrganizationName(contextResponse));
       setToast(null);
     } catch {
       setToast('Не удалось. Повторить');
@@ -86,6 +107,42 @@ export default function Memory() {
       setToast(next === 'confirmed' ? 'Память подтверждена' : 'Память отклонена');
     } catch {
       setToast('Не удалось. Повторить');
+    }
+  };
+
+  const exportMarkdown = async () => {
+    if (!memories.length || exporting) return;
+    setExporting(true);
+    try {
+      const activeFilters: MemoryFilters = {
+        ...(kind ? { kind } : {}),
+        ...(confidence ? { confidence } : {}),
+        ...(restaurantId ? { restaurant_id: restaurantId } : {}),
+        ...(since ? { since } : {}),
+      };
+      const response = await listMemory({ ...activeFilters, limit: 500 });
+      const exportedMemories = response.memories ?? [];
+      const md = buildMemoryMarkdown(exportedMemories, {
+        organizationName: organizationName || user?.organizationId || 'STEN',
+        exportedAt: new Date().toISOString(),
+        filters: activeFilters,
+        total: exportedMemories.length,
+      });
+      const filename = buildMemoryFilename(user?.organizationId || organizationName || 'sten');
+      const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setToast('Память выгружена (' + exportedMemories.length + ' записей)');
+    } catch {
+      setToast('Не удалось выгрузить. Повторить');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -126,6 +183,10 @@ export default function Memory() {
             <span className="eyebrow"><Brain size={14} /> MEMORY · КОНТЕКСТ</span>
             <h1>Память STEN</h1>
             <p>Что система помнит о вашем ресторане</p>
+            <button type="button" className="secondary-button memory-page__export-btn" onClick={() => void exportMarkdown()} disabled={!memories.length || exporting} aria-label="Скачать память в формате Markdown">
+              {exporting ? <Loader2 size={15} className="memory-export-spinner" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
+              {exporting ? 'Выгрузка…' : 'Скачать Markdown ↓'}
+            </button>
           </div>
         </header>
 
