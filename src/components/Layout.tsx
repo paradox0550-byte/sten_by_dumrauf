@@ -104,12 +104,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <button className="mobile-close" onClick={() => setMobileMenu(false)} aria-label="Закрыть меню"><X size={18} /></button>
           </div>
 
-          <div className="assistant-chip">
-            <i />
-            <span>Данные прежде декора</span>
-            <small>LIVE</small>
-          </div>
-
           <nav aria-label="Навигация контура">
             <div className="nav-section-label">ОПЕРАЦИОННЫЙ КОНТУР</div>
             {items.map(([to, label, Icon]) => (
@@ -153,7 +147,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
           <div className="top-context">
             <span className="crumb">{items.find(x => x[0] === location.pathname)?.[1] || 'Рабочий контур'}</span>
-            <span className="period-chip">{periodLabel} · MTD</span>
+            <span className="period-chip">{periodLabel} · с начала месяца</span>
           </div>
 
           <nav className="top-nav" aria-label="Основная навигация">
