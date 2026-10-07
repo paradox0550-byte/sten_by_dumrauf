@@ -112,7 +112,7 @@ function AIContent({user}:{user:User|null}){
      };
      const r = await api.post<AskResponse>('/ask', AskRequestSchema.parse(body));
      const p = r;
-     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:String(p.answer??p.message??'Ответ не получен.'),sources:Array.isArray(p.sources)?p.sources:[],proposedMemory:Array.isArray(p.proposed_memory)?p.proposed_memory:null??undefined,createdAt:new Date().toISOString()}]);
+     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:String(p.answer??p.message??'Ответ не получен.'),sources:Array.isArray(p.sources)?p.sources:[],proposedMemory:Array.isArray(p.proposed_memory)?p.proposed_memory:undefined,createdAt:new Date().toISOString()}]);
    }catch(e){
      setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось получить ответ.',createdAt:new Date().toISOString()}]);
    }finally{setBusy(false)}
