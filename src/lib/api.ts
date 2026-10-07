@@ -13,7 +13,7 @@ export async function listMemory(filters: MemoryFilters = {}): Promise<MemoryLis
   if (filters.kind) params.set('kind', filters.kind);
   if (filters.restaurant_id) params.set('restaurant_id', filters.restaurant_id);
   if (filters.since) params.set('since', filters.since);
-  if (filters.limit !== undefined) params.set('limit', String(filters.limit));
+  if (filters.limit !== undefined) params.set('limit', String(Math.min(filters.limit, 50)));
   if (filters.confidence) params.set('confidence', filters.confidence);
   const query = params.toString();
   return api.get<MemoryListResponse>('/api/ai/memory' + (query ? '?' + query : ''));
