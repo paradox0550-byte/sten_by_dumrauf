@@ -1483,7 +1483,7 @@ app.get('/api/pnl', requireAuth, requireOrg, async (req, res, next) => {
 app.post('/api/pnl', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const body = parseOr400(PnlWriteSchema, req.body ?? {});
-    if (body.restaurant_id) await assertRestaurantAccess(req.user, body.restaurant_id);
+    await assertScopeAccess(req.user, body);
     const cleanRows = body.rows.map(r => ({
       id: r.id || null,
       article: String(r.article).normalize('NFC').trim(),
@@ -1529,7 +1529,7 @@ app.post('/api/pnl/approve', requireAuth, requireOrg, async (req, res, next) => 
   try {
     if (!APPROVER_ROLES.has(String(req.user.role || '').toLowerCase())) throw httpError(403, 'У Вас нет права утверждать план.', 'FORBIDDEN_APPROVAL');
     const s = scopeFromQuery(req.body || {});
-    if (s.restaurant_id) await assertRestaurantAccess(req.user, s.restaurant_id);
+    await assertScopeAccess(req.user, s);
     if (!YM_RE.test(s.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
     const exists = await safeQuery(
       `SELECT 1 FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1`,
@@ -2365,7 +2365,7 @@ app.post('/api/ingest/message/confirm',requireAuth,requireOrg,async(req,res,next
  const explicit=b.scope||{};
  const s={period:b.date.slice(0,7),project_id:explicit.project_id||'',branch_id:explicit.branch_id||'',restaurant_id:explicit.restaurant_id||'',department_id:explicit.department_id||''};
  if(!s.restaurant_id) throw httpError(422,'Для подтверждения отчёта необходимо выбрать ресторан.','RESTAURANT_CONTEXT_REQUIRED');
- await assertRestaurantAccess(req.user,s.restaurant_id);
+  await assertScopeAccess(req.user, s);
  const existing=await safeQuery('SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1',[req.user.organizationId,s.period,s.project_id||'',s.branch_id||'',s.restaurant_id||'',s.department_id||''],[]);
  let rows=[];try{rows=existing[0]?.rows?JSON.parse(existing[0].rows):[]}catch{rows=[]}
  const idx=rows.findIndex(r=>canonicalArticleKey(r.article)==='revenue');
