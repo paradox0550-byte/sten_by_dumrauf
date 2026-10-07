@@ -420,7 +420,7 @@ const TOOLS = [
     name: 'get_memory',
     description: 'Получить структурированную память STEN с фильтрами по kind, ресторану, дате и confidence.',
     parameters: { type:'object', properties:{ kind:{type:'string',enum:['fact','decision','cause','action','manager_note','pattern']}, restaurant_id:{type:'string'}, since:{type:'string'}, limit:{type:'integer',minimum:1,maximum:50,default:20}, confidence:{type:'string',enum:['unconfirmed','confirmed','rejected'],default:'confirmed'} }, required:[] },
-    policy: ['requireAuth','requireOrg'],
+    policy: ['requireAuth','requireOrg','assertScopeAccess'],
     handler: getMemory,
   },
   {
