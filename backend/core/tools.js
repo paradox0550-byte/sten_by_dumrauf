@@ -29,7 +29,13 @@ const pnlSchema = z.object({
   department_id: z.string().optional().default(''),
 }).strict();
 
-const fotSchema = z.object({ period: z.string().regex(YM_RE) }).strict();
+const fotSchema = z.object({
+  period: z.string().regex(YM_RE),
+  project_id: z.string().optional().default(''),
+  branch_id: z.string().optional().default(''),
+  restaurant_id: z.string().optional().default(''),
+  department_id: z.string().optional().default(''),
+}).strict();
 
 const salesSchema = z.object({
   date: z.string().regex(DATE_RE),
@@ -142,7 +148,7 @@ async function getPnl(user, rawArgs, ctx) {
 
 async function getFot(user, rawArgs, ctx) {
   const args = parseArgs(fotSchema, rawArgs);
-  const scope = scopeFromArgs(rawArgs);
+  const scope = scopeFromArgs(args);
   if (Object.values(scope).some(Boolean)) {
     return { error: 'FOT_SCOPE_NOT_IMPLEMENTED' };
   }
@@ -248,7 +254,7 @@ const TOOLS = [
   {
     name: 'get_fot',
     description: 'Получить ФОТ организации за период. Scope ФОТ пока не реализован и безопасно возвращает FOT_SCOPE_NOT_IMPLEMENTED.',
-    parameters: { type:'object', properties:{ period:{type:'string',description:'YYYY-MM'} }, required:['period'] },
+    parameters: { type:'object', properties:{ period:{type:'string',description:'YYYY-MM'}, ...scopeFields }, required:['period'] },
     policy: ['requireAuth','requireOrg'],
     handler: getFot,
   },
