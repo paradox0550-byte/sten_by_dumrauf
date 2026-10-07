@@ -262,25 +262,27 @@ function AIContent({user}:{user:User|null}){
              createdAt:messages[i-1].createdAt??'',
              sources:messages[i-1].sources,
            }:undefined;
-           return <MessageRow
-             key={m.id}
-             message={message}
-             previousMessage={previousMessage}
-             user={user}
-             onCopy={()=>void copyMessage(m.text)}
-             onToSecretary={secretaryToast}
-             onDetails={()=>undefined}
-           />
-           {m.role === 'assistant' && m.proposedMemory && m.proposedMemory.length > 0 && (
-             <ProposedMemoryChips
-               items={m.proposedMemory}
-               messageId={m.id}
-               onResolve={(index) => setMessages(current => current.map(item => item.id === m.id
-                 ? { ...item, proposedMemory: item.proposedMemory?.filter((_, itemIndex) => itemIndex !== index) }
-                 : item
-               ))}
+           return <>
+             <MessageRow
+               key={m.id}
+               message={message}
+               previousMessage={previousMessage}
+               user={user}
+               onCopy={()=>void copyMessage(m.text)}
+               onToSecretary={secretaryToast}
+               onDetails={()=>undefined}
              />
-           )};
+             {m.role === 'assistant' && m.proposedMemory && m.proposedMemory.length > 0 && (
+               <ProposedMemoryChips
+                 items={m.proposedMemory}
+                 messageId={m.id}
+                 onResolve={(index) => setMessages(current => current.map(item => item.id === m.id
+                   ? { ...item, proposedMemory: item.proposedMemory?.filter((_, itemIndex) => itemIndex !== index) }
+                   : item
+                 ))}
+               />
+             )}
+           </>;
          })}
          {busy&&<div className="typing" aria-label="STEN готовит ответ"><i/><i/><i/></div>}
        </div>
