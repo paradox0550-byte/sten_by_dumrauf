@@ -4341,3 +4341,30 @@ html {
   line-height: 1.4;
 }
 }
+
+/* STEN AI composer height contract — compact by default, grows only while typing */
+.sten-ai-page .sten-composer {
+  flex: 0 0 auto;
+  min-height: 44px;
+  max-height: 144px;
+  box-sizing: border-box;
+}
+
+.sten-ai-page .sten-composer textarea {
+  min-height: 22px;
+  max-height: 120px;
+  resize: none;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.sten-ai-page .chat {
+  min-height: 0;
+}
+
+.sten-ai-page .chat-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
