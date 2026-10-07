@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Check, X } from 'lucide-react';
 import { createMemory } from '../lib/api';
+import { useScope } from '../lib/useScope';
 import type { ProposedMemory } from '../lib/contracts/memory';
 
 interface Props {
@@ -19,6 +20,7 @@ const kindLabel: Record<ProposedMemory['kind'], string> = {
 };
 
 export default function ProposedMemoryChips({ items, onResolve, messageId }: Props) {
+  const [scope] = useScope();
   const [busy, setBusy] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -27,7 +29,12 @@ export default function ProposedMemoryChips({ items, onResolve, messageId }: Pro
     setToast(null);
     try {
       await createMemory({
-        scope: {},
+        scope: {
+          project_id: scope.projectId ?? null,
+          branch_id: scope.branchId ?? null,
+          restaurant_id: scope.restaurantId ?? null,
+          department_id: scope.departmentId ?? null,
+        },
         kind: item.kind,
         title: item.title,
         content: item.content,
