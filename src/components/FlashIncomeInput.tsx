@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Check, LoaderCircle, Pencil } from 'lucide-react';
 import { ApiError, api } from '../lib/api';
-import type { ParsedMessage } from '../lib/contracts/ingest';
+import type { IngestConfirmPayload, IngestMessageResponse, ParsedMessage } from '../lib/contracts/ingest';
 import type { Scope } from '../lib/scope';
 
 interface Restaurant {
@@ -49,6 +49,7 @@ function errorMessage(error: unknown) {
 
 export default function FlashIncomeInput({ period, scope, onSaved }: Props) {
   const [text, setText] = useState('');
+  const fieldRef = useRef<HTMLTextAreaElement>(null);
   const [parsed, setParsed] = useState<ParsedMessage | null>(null);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [selectedDate, setSelectedDate] = useState('');
@@ -79,13 +80,7 @@ export default function FlashIncomeInput({ period, scope, onSaved }: Props) {
     setError(null);
     setToast(null);
     try {
-      const response = await api.post<{
-        ok: boolean;
-        parsed: ParsedMessage;
-        context: { restaurant_id: string; restaurant_name: string } | null;
-        requiresConfirmation: boolean;
-        requiresBinding: boolean;
-      }>('/api/ingest/message', { text: value, source: 'manual' });
+      const response = await api.post<IngestMessageResponse>('/api/ingest/message', { text: value, source: 'manual' });
       setParsed(response.parsed);
       setSelectedDate(response.parsed.date ?? '');
       if (response.context?.restaurant_id) {
@@ -116,11 +111,17 @@ export default function FlashIncomeInput({ period, scope, onSaved }: Props) {
     setError(null);
     setToast(null);
     try {
-      await api.post('/api/ingest/message/confirm', {
+      const payload: IngestConfirmPayload = {
         date: effectiveDate,
         parsed,
-        scope: { ...scope, restaurant_id: selectedRestaurant || scope.restaurantId },
-      });
+        scope: {
+          project_id: scope.projectId ?? null,
+          branch_id: scope.branchId ?? null,
+          restaurant_id: selectedRestaurant || scope.restaurantId || null,
+          department_id: scope.departmentId ?? null,
+        },
+      };
+      await api.post('/api/ingest/message/confirm', payload);
       setToast('Сохранено');
       onSaved();
       window.setTimeout(clear, 500);
@@ -143,7 +144,7 @@ export default function FlashIncomeInput({ period, scope, onSaved }: Props) {
         <span>{period}</span>
       </div>
       <textarea
-        className="flash-income-input__field"
+        ref={fieldRef}\n        className="flash-income-input__field"
         rows={2}
         maxLength={4000}
         aria-label="Сообщение по доходам за день"
@@ -196,7 +197,7 @@ export default function FlashIncomeInput({ period, scope, onSaved }: Props) {
             <button type="button" className="primary-button" disabled={isLoading || isConfirming || needsDate || needsRestaurant} onClick={() => void confirm()}>
               {isConfirming ? <><LoaderCircle size={14} className="flash-income-spinner" /> Сохраняем…</> : <><Check size={14} /> Подтвердить и сохранить</>}
             </button>
-            <button type="button" className="secondary-button" disabled={isLoading || isConfirming} onClick={() => setError(null)}>
+            <button type="button" className="secondary-button" disabled={isLoading || isConfirming} onClick={() => { setError(null); fieldRef.current?.focus(); }}>
               <Pencil size={14} /> Исправить
             </button>
           </div>
