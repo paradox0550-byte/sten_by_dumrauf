@@ -1,7 +1,7 @@
 import {createContext,useCallback,useContext,useEffect,useMemo,useState} from 'react';
 import {api,clearSession,AUTH_EXPIRED_EVENT} from '../lib/api';
 
-export type User={id:string;email?:string;firstName?:string;lastName?:string;role?:string;organizationId?:string|null;permissions?:Record<string,string>};
+export type User={id:string;email?:string;firstName?:string;lastName?:string;position?:string;telegramChatId?:string;role?:string;organizationId?:string|null;permissions?:Record<string,string>};
 type Ctx={user:User|null;loading:boolean;signOut:()=>void;login:(email:string,password:string)=>Promise<void>};
 const C=createContext<Ctx|null>(null), USER='sten_user',TOKEN='sten_token';
 
