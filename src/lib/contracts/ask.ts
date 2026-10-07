@@ -1,5 +1,5 @@
-import { z } from 'zod';
 import type { ProposedMemory } from './memory';
+import { z } from 'zod';
 
 /**
  * Явный интерфейс запроса POST /ask.
