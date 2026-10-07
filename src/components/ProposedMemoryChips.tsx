@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Check, X } from 'lucide-react';
 import { createMemory } from '../lib/api';
 import { useScope } from '../lib/useScope';
+import { MEMORY_KIND_LABEL } from '../lib/contracts/memory';
 import type { ProposedMemory } from '../lib/contracts/memory';
 
 interface Props {
@@ -9,15 +10,6 @@ interface Props {
   onResolve: (index: number) => void;
   messageId: string;
 }
-
-const kindLabel: Record<ProposedMemory['kind'], string> = {
-  fact: 'Факт',
-  decision: 'Решение',
-  cause: 'Причина',
-  action: 'Действие',
-  manager_note: 'Заметка',
-  pattern: 'Паттерн',
-};
 
 export default function ProposedMemoryChips({ items, onResolve, messageId }: Props) {
   const [scope] = useScope();
@@ -61,7 +53,7 @@ export default function ProposedMemoryChips({ items, onResolve, messageId }: Pro
         {items.map((item, index) => (
           <article className="proposed-memory__chip" key={item.title + index}>
             <div className="proposed-memory__meta">
-              <span className="badge badge--brand">{kindLabel[item.kind]}</span>
+              <span className="badge badge--brand">{MEMORY_KIND_LABEL[item.kind]}</span>
             </div>
             <strong>{item.title}</strong>
             <p>{item.content}</p>
