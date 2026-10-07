@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, LoaderCircle, Pencil, RotateCcw } from 'lucide-react';
+import { Check, LoaderCircle, Pencil } from 'lucide-react';
 import { ApiError, api } from '../lib/api';
 import type { ParsedMessage } from '../lib/contracts/ingest';
 import type { Scope } from '../lib/scope';
@@ -92,9 +92,14 @@ export default function FlashIncomeInput({ period, scope, onSaved }: Props) {
         setSelectedRestaurant(response.context.restaurant_id);
       }
       if (!response.parsed.date) setSelectedDate('');
-      if (!response.parsed.restaurant && !scope.restaurantId) {
+      if (!scope.restaurantId) {
         const context = await api.get<unknown>('/api/b2b/context');
-        setRestaurants(extractRestaurants(context));
+        const available = extractRestaurants(context);
+        setRestaurants(available);
+        if (!response.context?.restaurant_id && response.parsed.restaurant) {
+          const match = available.find(item => item.name.toLowerCase() === response.parsed.restaurant?.toLowerCase());
+          if (match) setSelectedRestaurant(match.id);
+        }
       }
     } catch (e) {
       const message = errorMessage(e);
