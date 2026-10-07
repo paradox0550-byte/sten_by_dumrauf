@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Activity, BarChart3, Bot, CalendarDays, FileSpreadsheet, FileText,
+  Activity, BarChart3, Bot, Brain, CalendarDays, FileSpreadsheet, FileText,
   LayoutDashboard, Menu, Moon, PanelLeft, PanelLeftClose, Settings2,
   Sun, Users, WalletCards, X, } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -59,6 +59,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const items = useMemo(() => [
     ['/sten', 'STEN AI', Bot],
+    ['/memory', 'Память', Brain],
     ['/dashboard', 'Мой день', LayoutDashboard],
     ['/flash', 'Flash', Activity],
     ['/pnl', 'P&L', FileSpreadsheet],
