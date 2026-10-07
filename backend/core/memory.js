@@ -93,6 +93,9 @@ async function listMemory(user, filter = {}, ctx = {}) {
     throw httpError(400, `Ошибка фильтра: ${issue.path.join('.') || 'filter'} — ${issue.message}`, 'VALIDATION_ERROR');
   }
   const f = parsed.data;
+  if (f.restaurant_id && typeof ctx.assertScopeAccess === 'function') {
+    await ctx.assertScopeAccess(user, { restaurant_id: f.restaurant_id });
+  }
   const params = [user.organizationId];
   const where = ['organization_id=$1::uuid'];
   if (f.kind) { params.push(f.kind); where.push(`kind=$${params.length}`); }
