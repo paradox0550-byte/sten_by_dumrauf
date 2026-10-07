@@ -59,8 +59,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const items = useMemo(() => [
     ['/sten', 'STEN AI', Bot],
-    ['/memory', 'Память', Brain],
     ['/dashboard', 'Мой день', LayoutDashboard],
+    ['/secretary', 'Секретарь', CalendarDays],
     ['/flash', 'Flash', Activity],
     ['/pnl', 'P&L', FileSpreadsheet],
     ['/budget', 'Бюджет', BarChart3],
@@ -68,7 +68,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     ['/team', 'Команда и ФОТ', Users],
     ['/documents', 'Документы', FileText],
     ['/finances', 'Финансы', WalletCards],
-    ['/secretary', 'Секретарь', CalendarDays],
   ] as const, []);
 
   const name = user
@@ -118,12 +117,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <span>{label}</span>
               </NavLink>
             ))}
-            {user?.role === 'super_admin' && <>
-              <div className="nav-section-label" style={{ marginTop: 18 }}>Система</div>
-              <NavLink to="/admin/organizations" onClick={() => setMobileMenu(false)}>
-                <span>Организации</span>
-              </NavLink>
-            </>}
+            <div className="nav-section-label" style={{ marginTop: 18 }}>Система</div>
+            <NavLink to="/memory" onClick={() => setMobileMenu(false)}>
+              <Brain size={17} />
+              <span>Память</span>
+            </NavLink>
+            {user?.role === 'super_admin' && <NavLink to="/admin/organizations" onClick={() => setMobileMenu(false)}>
+              <span>Организации</span>
+            </NavLink>}
           </nav>
         </div>
 
@@ -176,7 +177,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <WorkspaceSelector value={scope} onChange={setScope} variant="compact" />
           </div>
 
-          <div className="global-scale" role="group" aria-label="Масштаб финансовых значений">
+          {["/pnl","/flash","/budget","/analytics","/finances"].includes(location.pathname) && <div className="global-scale" role="group" aria-label="Масштаб финансовых значений">
             {([['RUB', '₽'], ['THOUSAND', 'тыс. ₽'], ['MILLION', 'млн ₽']] as const).map(([value, label]) => (
               <button
                 key={value}
@@ -184,7 +185,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 onClick={() => setScale(value)}
               >{label}</button>
             ))}
-          </div>
+          </div>}
 
           <div className="top-actions">
             <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}>
@@ -210,7 +211,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span>{label}</span>
           </NavLink>
         ))}
-        <button onClick={() => viewNavigate(navigate,'/settings')} aria-label="Настройки"><Settings2 size={18} /><span>Настройки</span></button>
+        <button className={location.pathname === '/memory' ? 'active' : ''} onClick={() => viewNavigate(navigate,'/settings')} aria-label="Настройки" aria-current={location.pathname === '/memory' ? 'page' : undefined}><Settings2 size={18} /><span>Настройки</span></button>
       </nav>
     </div>
   );
