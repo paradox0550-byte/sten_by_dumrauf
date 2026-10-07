@@ -8,6 +8,8 @@ import { useAnalyticsSettings, type AnalyticsSettings } from '../lib/useAnalytic
 
 type Theme = 'light' | 'dark' | 'system';
 type FontSize = '100' | '110' | '120';
+type BlockVisibility = Record<'dashboard' | 'pnl' | 'finances' | 'budget', boolean>;
+
 type Metrics = {
   revenue: boolean;
   cashCard: boolean;
@@ -24,7 +26,7 @@ const FONT_SIZE_KEY = 'sten_font_size_v1';
 const MOTION_KEY = 'sten_reduce_motion_v1';
 const BLOCKS_KEY = 'sten_blocks_v5';
 
-const defaults = {
+const defaults: BlockVisibility = {
   dashboard: true,
   pnl: true,
   finances: true,
@@ -65,9 +67,15 @@ export default function Settings() {
     return value === '100' || value === '110' || value === '120' ? value : '100';
   });
   const [reduceMotion, setReduceMotion] = useState(() => localStorage.getItem(MOTION_KEY) === 'true');
-  const [blocks, setBlocks] = useState(() => {
+  const [blocks, setBlocks] = useState<BlockVisibility>(() => {
     try {
-      return { ...defaults, ...JSON.parse(localStorage.getItem(BLOCKS_KEY) || '{}') };
+      const stored = JSON.parse(localStorage.getItem(BLOCKS_KEY) || '{}') as Partial<BlockVisibility>;
+      return {
+        dashboard: stored.dashboard === true ? true : stored.dashboard === false ? false : defaults.dashboard,
+        pnl: stored.pnl === true ? true : stored.pnl === false ? false : defaults.pnl,
+        finances: stored.finances === true ? true : stored.finances === false ? false : defaults.finances,
+        budget: stored.budget === true ? true : stored.budget === false ? false : defaults.budget,
+      };
     } catch {
       return { ...defaults };
     }
@@ -150,8 +158,8 @@ export default function Settings() {
     setFontSize(value);
   };
 
-  const setBlock = (key: string, value: boolean) => {
-    const next = { ...blocks, [key]: value };
+  const setBlock = (key: keyof BlockVisibility, value: boolean) => {
+    const next: BlockVisibility = { ...blocks, [key]: value };
     setBlocks(next);
     localStorage.setItem(BLOCKS_KEY, JSON.stringify(next));
   };
@@ -311,7 +319,7 @@ export default function Settings() {
         <section className="panel">
           <h2>Рабочие разделы</h2>
           <p className="muted">Можно убрать раздел из меню. Данные не удаляются.</p>
-          {Object.entries(blocks).map(([key, value]) => (
+          {(Object.entries(blocks) as Array<[keyof BlockVisibility, boolean]>).map(([key, value]) => (
             <label className="toggle-row" key={key}>
               <span>
                 <b>{({ dashboard: 'Обзор', pnl: 'P&L', finances: 'Финансы', budget: 'Бюджет' } as Record<string, string>)[key]}</b>
