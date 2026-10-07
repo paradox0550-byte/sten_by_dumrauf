@@ -1,0 +1,3189 @@
+# Backend Deploy Bundle
+
+Как использовать: открой этот файл, скопируй содержимое каждой секции в редактор Cloud Function в указанный файл. Порядок неважен, но публиковать только когда все три вставлены.
+
+> Важно: код ниже взят без изменений из актуального `main`. На текущем `main` endpoint `/healthz` возвращает `version: 5.0.2`, поэтому smoke-test ниже ожидает 5.0.2. Версия 5.1.0 потребовала бы изменения backend и в этот docs-PR не входит.
+
+## FILE: backend/core/tools.js
+
+```js
+'use strict';
+
+const { z } = require('zod');
+const { enforcePolicy } = require('./policy');
+
+const YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/u;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/u;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+const SEVERITY_HIGH_ABS = 100_000;
+const SEVERITY_HIGH_PCT = 10;
+const SEVERITY_MED_ABS = 30_000;
+const SEVERITY_MED_PCT = 5;
+
+function httpError(status, message, code) {
+  const error = new Error(message);
+  error.status = status;
+  error.code = code || `HTTP_${status}`;
+  return error;
+}
+
+const scopeFields = {
+  project_id: { type: 'string', description: 'UUID проекта' },
+  branch_id: { type: 'string', description: 'UUID филиала' },
+  restaurant_id: { type: 'string', description: 'UUID ресторана' },
+  department_id: { type: 'string', description: 'UUID отдела' },
+};
+
+const pnlSchema = z.object({
+  period: z.string().regex(YM_RE),
+  project_id: z.string().optional().default(''),
+  branch_id: z.string().optional().default(''),
+  restaurant_id: z.string().optional().default(''),
+  department_id: z.string().optional().default(''),
+}).strict();
+
+const deviationSchema = z.object({
+  period: z.string().regex(YM_RE),
+  project_id: z.string().optional().default(''),
+  branch_id: z.string().optional().default(''),
+  restaurant_id: z.string().optional().default(''),
+  department_id: z.string().optional().default(''),
+}).strict();
+
+const fotSchema = z.object({
+  period: z.string().regex(YM_RE),
+  project_id: z.string().optional().default(''),
+  branch_id: z.string().optional().default(''),
+  restaurant_id: z.string().optional().default(''),
+  department_id: z.string().optional().default(''),
+}).strict();
+
+const salesSchema = z.object({
+  date: z.string().regex(DATE_RE),
+  restaurant_id: z.string().optional().default(''),
+}).strict();
+
+const documentsSchema = z.object({
+  limit: z.number().int().min(1).max(30).optional().default(10),
+  status: z.string().trim().min(1).max(60).optional().default('ready'),
+}).strict();
+
+const memorySchema = z.object({
+  kind: z.enum(['fact','decision','cause','action','manager_note','pattern']).optional(),
+  restaurant_id: z.string().optional(),
+  since: z.string().refine(value => !Number.isNaN(Date.parse(value)), 'since должен быть ISO date'),
+  limit: z.number().int().min(1).max(50).optional().default(20),
+  confidence: z.enum(['unconfirmed','confirmed','rejected']).optional().default('confirmed'),
+}).partial().strict();
+
+const secretarySchema = z.object({
+  from: z.string().refine(value => !Number.isNaN(Date.parse(value)), 'from должен быть ISO date').optional(),
+  to: z.string().refine(value => !Number.isNaN(Date.parse(value)), 'to должен быть ISO date').optional(),
+  mine: z.boolean().optional().default(true),
+}).strict();
+
+function parseArgs(schema, args) {
+  const parsed = schema.safeParse(args ?? {});
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    throw httpError(400, `Некорректные параметры tool: ${first.path.join('.') || 'args'} — ${first.message}`, 'TOOL_ARGUMENTS_INVALID');
+  }
+  return parsed.data;
+}
+
+function scopeFromArgs(args) {
+  return {
+    project_id: String(args.project_id || ''),
+    branch_id: String(args.branch_id || ''),
+    restaurant_id: String(args.restaurant_id || ''),
+    department_id: String(args.department_id || ''),
+  };
+}
+
+async function findDeviations(user, rawArgs, ctx) {
+  const args = parseArgs(deviationSchema, rawArgs);
+  if (!UUID_RE.test(String(user.organizationId || ''))) {
+    throw httpError(403, 'Организация не назначена пользователю.', 'NO_ORG_SCOPE');
+  }
+  const scope = { ...scopeFromArgs(args), period: args.period };
+  const rows = await ctx.queryWithRetry(
+    `SELECT rows::text FROM pnl_entries
+      WHERE organization_id=$1::uuid AND period=$2
+        AND ($3::text='' OR project_id=$3)
+        AND ($4::text='' OR branch_id=$4)
+        AND ($5::text='' OR restaurant_id=$5)
+        AND ($6::text='' OR department_id=$6)`,
+    [user.organizationId, args.period, scope.project_id, scope.branch_id, scope.restaurant_id, scope.department_id],
+    { orgId: user.organizationId }
+  );
+  const all = [];
+  for (const row of rows.rows || []) {
+    try {
+      const parsed = JSON.parse(row.rows);
+      if (Array.isArray(parsed)) all.push(...parsed);
+    } catch {}
+  }
+
+  let aggregated = ctx.aggregateRows(all);
+  const txRows = await ctx.queryWithRetry(
+    `SELECT article, SUM(amount) AS total, COUNT(*)::int AS count
+       FROM pnl_transactions
+      WHERE organization_id=$1::uuid AND period=$2
+        AND ($3::text='' OR project_id=$3)
+        AND ($4::text='' OR branch_id=$4)
+        AND ($5::text='' OR restaurant_id=$5)
+        AND ($6::text='' OR department_id=$6)
+      GROUP BY article`,
+    [user.organizationId, args.period, scope.project_id, scope.branch_id, scope.restaurant_id, scope.department_id],
+    { orgId: user.organizationId }
+  );
+  const txByKey = new Map((txRows.rows || []).map(row => [
+    ctx.canonicalArticleKey(row.article),
+    { total: Number(row.total || 0), count: Number(row.count || 0) },
+  ]));
+  aggregated = aggregated.map(row => {
+    const tx = txByKey.get(ctx.canonicalArticleKey(row.article));
+    if (!tx) return row;
+    return {
+      ...row,
+      fact: row.fact === null || row.fact === undefined ? tx.total : Number(row.fact) + tx.total,
+      transaction_total: tx.total,
+      transaction_count: tx.count,
+      source: [row.source, 'transactions'].filter(Boolean).join(','),
+    };
+  });
+
+  if (!aggregated.length) {
+    return {
+      period: args.period,
+      scope,
+      critical: [],
+      positive: [],
+      missing: [],
+      total_impact: 0,
+      has_data: false,
+    };
+  }
+
+  const expenseKeys = new Set([
+    'cogs', 'payroll', 'personnel', 'overtime', 'opex', 'other_operating',
+    'depreciation', 'interest', 'tax', 'other',
+  ]);
+  const rowsByKey = new Map();
+  for (const row of aggregated) {
+    const key = ctx.canonicalArticleKey(row.article);
+    const plan = row.plan === null || row.plan === undefined ? null : Number(row.plan);
+    const fact = row.fact === null || row.fact === undefined ? null : Number(row.fact);
+    const delta_abs = plan !== null && fact !== null ? fact - plan : null;
+    const delta_pct = delta_abs !== null && plan !== 0 ? (delta_abs / Math.abs(plan)) * 100 : null;
+    let severity = null;
+    if (delta_abs !== null) {
+      const abs = Math.abs(delta_abs);
+      const pct = delta_pct === null ? null : Math.abs(delta_pct);
+      severity = abs >= SEVERITY_HIGH_ABS || (pct !== null && pct >= SEVERITY_HIGH_PCT) ? 'high'
+        : abs >= SEVERITY_MED_ABS || (pct !== null && pct >= SEVERITY_MED_PCT) ? 'medium'
+        : 'low';
+    }
+    const favorable = delta_abs === null ? null : expenseKeys.has(key) ? delta_abs <= 0 : delta_abs >= 0;
+    const item = {
+      article: row.article,
+      key,
+      plan,
+      fact,
+      delta_abs,
+      delta_pct,
+      favorable,
+      severity,
+      source: row.source || 'manual',
+    };
+    rowsByKey.set(key, item);
+  }
+
+  const allItems = [...rowsByKey.values()];
+  const missing = allItems.filter(item => item.plan === null || item.fact === null);
+  const critical = allItems
+    .filter(item => item.favorable === false && (item.severity === 'high' || item.severity === 'medium'))
+    .sort((a, b) => {
+      if (a.delta_abs === null) return 1;
+      if (b.delta_abs === null) return -1;
+      return Math.abs(b.delta_abs) - Math.abs(a.delta_abs);
+    })
+    .slice(0, 5);
+  const positive = allItems
+    .filter(item => item.favorable === true && (item.severity === 'high' || item.severity === 'medium'))
+    .sort((a, b) => Math.abs(b.delta_abs) - Math.abs(a.delta_abs))
+    .slice(0, 3);
+
+  return {
+    period: args.period,
+    scope,
+    critical,
+    positive,
+    missing,
+    total_impact: critical.reduce((sum, item) => sum + Math.abs(item.delta_abs || 0), 0),
+    has_data: true,
+  };
+}
+
+async function getPnl(user, rawArgs, ctx) {
+  const args = parseArgs(pnlSchema, rawArgs);
+  if (!UUID_RE.test(String(user.organizationId || ''))) throw httpError(403, 'Организация не назначена пользователю.', 'NO_ORG_SCOPE');
+  const scope = { ...scopeFromArgs(args), period: args.period };
+  const rows = await ctx.queryWithRetry(
+    `SELECT rows::text FROM pnl_entries
+      WHERE organization_id=$1::uuid AND period=$2
+        AND ($3::text='' OR project_id=$3)
+        AND ($4::text='' OR branch_id=$4)
+        AND ($5::text='' OR restaurant_id=$5)
+        AND ($6::text='' OR department_id=$6)`,
+    [user.organizationId, args.period, scope.project_id, scope.branch_id, scope.restaurant_id, scope.department_id],
+    { orgId: user.organizationId }
+  );
+  const all = [];
+  for (const row of rows.rows || []) {
+    try {
+      const parsed = JSON.parse(row.rows);
+      if (Array.isArray(parsed)) all.push(...parsed);
+    } catch {}
+  }
+
+  let aggregated = ctx.aggregateRows(all);
+  const txRows = await ctx.queryWithRetry(
+    `SELECT article, SUM(amount) AS total, COUNT(*)::int AS count
+       FROM pnl_transactions
+      WHERE organization_id=$1::uuid AND period=$2
+        AND ($3::text='' OR project_id=$3)
+        AND ($4::text='' OR branch_id=$4)
+        AND ($5::text='' OR restaurant_id=$5)
+        AND ($6::text='' OR department_id=$6)
+      GROUP BY article`,
+    [user.organizationId, args.period, scope.project_id, scope.branch_id, scope.restaurant_id, scope.department_id],
+    { orgId: user.organizationId }
+  );
+  const txByKey = new Map((txRows.rows || []).map(row => [
+    ctx.canonicalArticleKey(row.article),
+    { total: Number(row.total || 0), count: Number(row.count || 0) },
+  ]));
+  aggregated = aggregated.map(row => {
+    const tx = txByKey.get(ctx.canonicalArticleKey(row.article));
+    if (!tx) return row;
+    return {
+      ...row,
+      fact: row.fact === null || row.fact === undefined ? tx.total : Number(row.fact) + tx.total,
+      transaction_total: tx.total,
+      transaction_count: tx.count,
+      source: [row.source, 'transactions'].filter(Boolean).join(','),
+    };
+  });
+
+  const factInput = ctx.rollupAgg(aggregated);
+  const planRows = aggregated.map(row => ({ ...row, fact: row.plan, plan: null }));
+  const planInput = ctx.rollupAgg(planRows);
+  const summary = {
+    revenuePlan: aggregated.find(row => ctx.canonicalArticleKey(row.article) === 'revenue')?.plan ?? null,
+    revenueFact: aggregated.find(row => ctx.canonicalArticleKey(row.article) === 'revenue')?.fact ?? null,
+    filledRows: aggregated.filter(row => row.plan !== null || row.fact !== null).length,
+    scope,
+    calculated: {
+      fact: ctx.calculatePnl(factInput),
+      plan: ctx.calculatePnl(planInput),
+    },
+  };
+  return { period: args.period, scope, rows: aggregated, summary, calculated: summary.calculated, count: all.length };
+}
+
+async function getFot(user, rawArgs, ctx) {
+  const args = parseArgs(fotSchema, rawArgs);
+  const scope = scopeFromArgs(args);
+  if (Object.values(scope).some(Boolean)) {
+    return { error: 'FOT_SCOPE_NOT_IMPLEMENTED' };
+  }
+  const result = await ctx.queryWithRetry(
+    `SELECT period, department, hours, amount
+       FROM payroll_records
+      WHERE organization_id=$1::uuid
+      ORDER BY period DESC LIMIT 5000`,
+    [user.organizationId],
+    { orgId: user.organizationId }
+  );
+  return { period: args.period, records: result.rows || [] };
+}
+
+async function getSales(user, rawArgs, ctx) {
+  const args = parseArgs(salesSchema, rawArgs);
+  const restaurantId = args.restaurant_id || '';
+  const scope = { project_id:'', branch_id:'', restaurant_id:restaurantId, department_id:'' };
+  const result = await ctx.queryWithRetry(
+    `SELECT id, report_date, project_id, branch_id, restaurant_id, department_id, values_json, note, created_at, updated_at
+       FROM daily_reports
+      WHERE organization_id=$1::uuid
+        AND report_date=$2::date
+        AND ($3::text='' OR restaurant_id=$3)
+      ORDER BY created_at DESC`,
+    [user.organizationId, args.date, restaurantId],
+    { orgId: user.organizationId }
+  );
+  const reports = (result.rows || []).map(row => {
+    const values = row.values_json && typeof row.values_json === 'object' ? row.values_json : {};
+    const checks = Number(values.checks);
+    const revenue = Number(values.revenue);
+    const calculated = {
+      avgCheck: Number.isFinite(revenue) && Number.isFinite(checks) && checks > 0 ? revenue / checks : null,
+    };
+    return { ...row, values_json: values, calculated };
+  });
+  return { date: args.date, scope, reports };
+}
+
+async function getDocuments(user, rawArgs, ctx) {
+  const args = parseArgs(documentsSchema, rawArgs);
+  const result = await ctx.queryWithRetry(
+    `SELECT id, name, status, created_at, length(extracted_text) AS chars,
+            LEFT(COALESCE(extracted_text,''), 1500) AS preview
+       FROM ai_documents
+      WHERE organization_id=$1::uuid AND status=$2
+      ORDER BY created_at DESC LIMIT $3`,
+    [user.organizationId, args.status, args.limit],
+    { orgId: user.organizationId }
+  );
+  return {
+    documents: (result.rows || []).map(row => ({
+      id: row.id,
+      name: row.name,
+      chars: Number(row.chars || 0),
+      createdAt: row.created_at,
+      preview: row.preview || '',
+    })),
+  };
+}
+
+async function getMemory(user, rawArgs, ctx) {
+  const result = await ctx.memory.listMemory(user, rawArgs ?? {});
+  return { memories: result.memories || [] };
+}
+
+async function getSecretaryContext(user, rawArgs, ctx) {
+  const args = parseArgs(secretarySchema, rawArgs);
+  const from = args.from || new Date().toISOString();
+  const to = args.to || new Date(Date.now() + 7 * 86400000).toISOString();
+  if (new Date(to) <= new Date(from)) throw httpError(400, 'to должен быть позже from', 'BAD_DATE_RANGE');
+  const userFilter = args.mine ? ' AND user_id=$4::text' : '';
+  const params = [user.organizationId, from, to];
+  if (args.mine) params.push(user.id);
+  const events = await ctx.queryWithRetry(
+    `SELECT id, user_id, title, description, event_type, start_at, end_at, status, reminder_minutes, location, created_at, updated_at
+       FROM secretary_events
+      WHERE organization_id=$1::uuid AND start_at >= $2::timestamptz AND start_at < $3::timestamptz${userFilter}
+      ORDER BY start_at ASC LIMIT 500`,
+    params,
+    { orgId: user.organizationId }
+  );
+  const notes = await ctx.queryWithRetry(
+    `SELECT id, user_id, title, content, source, created_at, updated_at
+       FROM secretary_notes
+      WHERE organization_id=$1::uuid${args.mine ? ' AND user_id=$2::text' : ''}
+      ORDER BY updated_at DESC LIMIT 200`,
+    args.mine ? [user.organizationId, user.id] : [user.organizationId],
+    { orgId: user.organizationId }
+  );
+  return { events: events.rows || [], notes: notes.rows || [] };
+}
+
+const TOOLS = [
+  {
+    name: 'get_pnl',
+    description: 'Получить детерминированный P&L выбранного периода и scope.',
+    parameters: { type:'object', properties:{ period:{type:'string',description:'YYYY-MM'}, ...scopeFields }, required:['period'] },
+    policy: ['requireAuth','requireOrg','assertScopeAccess'],
+    handler: getPnl,
+  },
+  {
+    name: 'find_deviations',
+    description: 'Найти значимые отклонения факта от плана в P&L за период. Возвращает критические и положительные отклонения с financial impact.',
+    parameters: { type:'object', properties:{ period:{type:'string',description:'YYYY-MM'}, ...scopeFields }, required:['period'] },
+    policy: ['requireAuth','requireOrg','assertScopeAccess'],
+    handler: findDeviations,
+  },
+  {
+    name: 'get_fot',
+    description: 'Получить ФОТ организации за период. Scope ФОТ пока не реализован и безопасно возвращает FOT_SCOPE_NOT_IMPLEMENTED.',
+    parameters: { type:'object', properties:{ period:{type:'string',description:'YYYY-MM'}, ...scopeFields }, required:['period'] },
+    policy: ['requireAuth','requireOrg'],
+    handler: getFot,
+  },
+  {
+    name: 'get_sales',
+    description: 'Получить ежедневный отчёт продаж за дату и, при наличии, ресторан.',
+    parameters: { type:'object', properties:{ date:{type:'string',description:'YYYY-MM-DD'}, restaurant_id:{type:'string',description:'UUID ресторана, optional'} }, required:['date'] },
+    policy: ['requireAuth','requireOrg','assertScopeAccess'],
+    handler: getSales,
+  },
+  {
+    name: 'get_documents',
+    description: 'Получить метаданные документов STEN с безопасным превью до 1500 символов.',
+    parameters: { type:'object', properties:{ limit:{type:'integer',minimum:1,maximum:30,default:10}, status:{type:'string',default:'ready'} }, required:[] },
+    policy: ['requireAuth','requireOrg'],
+    handler: getDocuments,
+  },
+  {
+    name: 'get_memory',
+    description: 'Получить структурированную память STEN с фильтрами по kind, ресторану, дате и confidence.',
+    parameters: { type:'object', properties:{ kind:{type:'string',enum:['fact','decision','cause','action','manager_note','pattern']}, restaurant_id:{type:'string'}, since:{type:'string'}, limit:{type:'integer',minimum:1,maximum:50,default:20}, confidence:{type:'string',enum:['unconfirmed','confirmed','rejected'],default:'confirmed'} }, required:[] },
+    policy: ['requireAuth','requireOrg'],
+    handler: getMemory,
+  },
+  {
+    name: 'get_secretary_context',
+    description: 'Получить контекст Секретаря: события и заметки пользователя или всей организации.',
+    parameters: { type:'object', properties:{ from:{type:'string'}, to:{type:'string'}, mine:{type:'boolean',default:true} }, required:[] },
+    policy: ['requireAuth','requireOrg'],
+    handler: getSecretaryContext,
+  },
+];
+
+function findTool(name) {
+  return TOOLS.find(tool => tool.name === name) || null;
+}
+
+async function executeTool(user, name, args, ctx = {}) {
+  const tool = findTool(name);
+  if (!tool) throw httpError(404, `Tool не найден: ${name}`, 'TOOL_NOT_FOUND');
+  await enforcePolicy(user, tool, args, ctx);
+  if (typeof tool.handler !== 'function') throw httpError(500, `Tool ${name} не имеет handler`, 'TOOL_HANDLER_MISSING');
+  return tool.handler(user, args, ctx);
+}
+
+module.exports = { TOOLS, findTool, executeTool };
+```
+
+## FILE: backend/core/skills.js
+
+```js
+'use strict';
+
+const SKILLS = {
+  general: {
+    triggers: [],
+    prompt: `РЕЖИМ СВОБОДНОГО ОТВЕТА:
+Пользователь задал вопрос, не относящийся к бизнесу, финансам или операционке ресторана.
+Отвечай по существу вопроса, в том формате, который уместен именно для этого запроса:
+— просят стих / четверостишье / песню — дай стих (или четверостишье) как просили.
+— просят объяснить понятие — объясни простыми словами.
+— просят шутку / анекдот — пошути.
+— просят перевод — переведи.
+— приветствие / small talk — ответь коротко и по-человечески.
+Жёсткие запреты в этом режиме:
+· НЕ навязывай бизнес-рамку (P&L, план/факт, отклонения, EBITDA).
+· НЕ спрашивай про период, проект, филиал или ресторан.
+· НЕ проси «данные P&L» или «выгрузку из кассы».
+· НЕ предлагай «передать действие в Секретарь» без прямой просьбы.
+· НЕ добавляй дисклеймеры про «отсутствие данных» — вопрос не про данные.
+Будь естественным. Если стих — то стих, а не «для анализа стихотворения мне нужны данные».`
+  },
+
+  finance: {
+    triggers: ['p&l', 'pnl', 'бюджет', 'выручк', 'себестоим', 'фот', 'opex', 'ebitda', 'прибыл', 'маржин', 'cash flow', 'денежн', 'инвестиц', 'capex', 'рентабельн', 'отклонен', 'не так', 'что не так', 'проблем', 'разбери', 'что важно', 'что происходит'],
+    prompt: `ФИНАНСОВЫЙ КОНТРОЛЕР (CFO Mode):
+1. СТРУКТУРА ДАННЫХ: Всегда разделяй PLAN (план), FACT (факт), CONFIRMED (подтверждено документами) и MISSING (отсутствует/не подтверждено). Никогда не заменяй отсутствие данных нулем — маркируй как 'N/A' или 'Требует уточнения'.
+2. МЕТРИКИ HOReCa: Анализируй через призму ключевых метрик: Food Cost % (себестоимость продуктов/выручка), Labor Cost % (ФОТ/выручка), Prime Cost (Food+Labor), EBITDA Margin, Average Check, Revenue per Available Seat Hour (RevPASH).
+3. ИСТОЧНИКИ: Для каждого числа указывай: период (день/неделя/месяц), источник (касса/склад/банк/ручной ввод) и статус достоверности.
+4. ОТКЛОНЕНИЯ: При отклонении FACT от PLAN >5% применяй анализ: Цена vs Объем vs Микс. Выявляй корневую причину (ценовое давление, порча, воровство, ошибка учета).
+5. ЗАПРЕТЫ: Не смешивай Capex (инвестиции) с Opex (операционные расходы). Не экстраполируй тренды без сезонных коэффициентов.`
+  },
+
+  excel: {
+    triggers: ['excel', 'xlsx', 'xlsm', 'csv', 'таблиц', 'файл', 'импорт', 'экспорт', 'парсинг', 'структур'],
+    prompt: `ЭКСПЕРТ ПО ДАННЫМ И EXCEL:
+1. PROVENANCE (ПРОИСХОЖДЕНИЕ): При работе с файлами всегда указывай: имя файла, лист, диапазон ячеек (A1:B10), заголовки столбцов. Если данные извлечены — подтверждай исходную строку.
+2. ЦЕЛОСТНОСТЬ: Никогда не меняй исходные значения молча. Если исправляешь ошибку (опечатка, формат даты), создавай новую колонку 'Исправлено' с комментарием.
+3. ТИПИЗАЦИЯ: Строго соблюдай типы данных: даты как ISO 8601, деньги как Decimal (не Float), проценты как 0.XX. Обнаруживай аномалии формата (текст вместо числа).
+4. СТРУКТУРА: Предлагай нормализацию данных: разделение ФИО, адресов, дат. Выявляй дубликаты по ключевым полям (ID сотрудника, ID заказа).
+5. БЕЗОПАСНОСТЬ: Не загружай файлы с макросами (.xlsm) для исполнения. Работай только с данными.`
+  },
+
+  operations: {
+    triggers: ['ресторан', 'гость', 'сервис', 'качество', 'списан', 'стоп-лист', 'кухн', 'управляющ', 'смен', 'зал', 'бар', 'техник', 'оборудован', 'санитар'],
+    prompt: `ОПЕРАЦИОННЫЙ ДИРЕКТОР (COO Mode):
+1. ФРЕЙМВОРК АНАЛИЗА: Факт → Корневая причина (5 Why) → Риск (низкий/средний/критический) → Действие → Срок → Ответственный → KPI контроля.
+2. СТАНДАРТЫ КАЧЕСТВА: Оценивай через NPS (Net Promoter Score), CSI (Customer Satisfaction Index), время отдачи заказа, процент возвратов блюд.
+3. УПРАВЛЕНИЕ ЗАПАСАМИ: Анализируй списания по причинам: порча (срок годности), брак (кухня), перепроизводство (ошибка прогноза), воровство. Связывай со стоп-листами и доступностью позиций.
+4. ТЕХНИЧЕСКОЕ СОСТОЯНИЕ: Отслеживай простои оборудования, влияние на скорость сервиса и потери выручки.
+5. ЗАПРЕТЫ: Не придумывай причины без данных из журналов инцидентов, отзывов гостей или отчетов управляющего. Различай системные проблемы и разовые сбои.`
+  },
+
+  people: {
+    triggers: ['персонал', 'сотрудник', 'зарплат', 'фот', 'мотивац', 'обучен', 'график', 'найм', 'увольнен', 'текучесть', 'kpi', 'преми'],
+    prompt: `HR-ДИРЕКТОР И УПРАВЛЕНИЕ ПЕРСОНАЛОМ:
+1. ФОТ-АНАЛИЗ: Разделяй ФОТ на постоянную часть (оклад) и переменную (KPI, чаевые, премии). Рассчитывай Labor Cost % и производительность труда (выручка на одного сотрудника в час).
+2. ГРАФИКИ И НОРМЫ: Проверяй соблюдение трудового законодательства РФ: максимальная длительность смены, перерывы, сверхурочные. Выявляй переработки и недоработки.
+3. ТЕКУЧЕСТЬ: Анализируй причины увольнений (exit interview), срок адаптации новых сотрудников, влияние текучести на качество сервиса.
+4. КОМПЕТЕНЦИИ: Связывай результаты обучения с изменением метрик (скорость обслуживания, снижение ошибок).
+5. ЗАПРЕТЫ: Не выдумывай сотрудников, часы работы или начисления. Все расчеты зарплат должны быть верифицированы табелями и приказами.`
+  },
+
+  marketing: {
+    triggers: ['маркетинг', 'реклама', 'акци', 'средний чек', 'конверси', 'повторн', 'лояльн', 'продвижен', 'трафик', 'ром'],
+    prompt: `МАРКЕТОЛОГ И АНАЛИТИК РОСТА:
+1. ROI АКТИВНОСТЕЙ: Связывай каждую маркетинговую активность с измеримым результатом: ROMI (Return on Marketing Investment), CAC (Cost of Customer Acquisition), LTV (Lifetime Value).
+2. СЕГМЕНТАЦИЯ ГОСТЕЙ: Анализируй через RFM-модель (Recency, Frequency, Monetary). Выявляй VIP-гостей, теряющихся клиентов и новых.
+3. МЕДИА-МИКС: Отделяй органический трафик от платного. Оценивай эффективность каналов: соцсети, агрегаторы, наружная реклама, email-рассылки.
+4. ЦЕНООБРАЗОВАНИЕ: Анализируй эластичность спроса, реакцию на изменение цен, эффективность акций (скидка vs подарок).
+5. ЗАПРЕТЫ: Не путай корреляцию с причинно-следственной связью. Отделяй факт роста выручки от сезонности или внешних факторов (праздники, погода).`
+  },
+
+  procurement: {
+    triggers: ['закуп', 'поставщик', 'остатк', 'food cost', 'фудкост', 'продукт', 'себестоим', 'накладн', 'логистик', 'склад', 'инвентариз'],
+    prompt: `ДИРЕКТОР ПО ЗАКУПКАМ И ЛОГИСТИКЕ:
+1. FOOD COST CONTROL: Рассчитывай фактический Food Cost % ежедневно. Сравнивай с теоретическим (по техкартам). Выявляй расхождения: перерасход, недолив, ошибки в приемке.
+2. УПРАВЛЕНИЕ ПОСТАВЩИКАМИ: Анализируй цены закупок vs рыночные индексы. Оценивай надежность поставщиков (срывы поставок, качество товара).
+3. ОСТАТКИ И СПИСАНИЯ: Применяй ABC-XYZ анализ запасов. Контролируй оборачиваемость товаров. Выявляй залежалые позиции и риски порчи.
+4. ТЕХКАРТЫ: Проверяй актуальность технологических карт, соответствие рецептур фактическому расходу.
+5. ЗАПРЕТЫ: Не принимай нормы расхода без указания источника (техкарта, исторические данные). Не игнорируй сезонные колебания цен на продукты.`
+  },
+
+  compliance: {
+    triggers: ['роспотребнадзор', 'роскомнадзор', 'санитар', 'закон', 'норматив', 'проверк', 'безопасн', 'персональн', 'данные', 'оферт', 'договор'],
+    prompt: `ЮРИДИЧЕСКИЙ КОМПЛАЕНС И БЕЗОПАСНОСТЬ:
+1. РЕГУЛЯТОРЫ: Учитывай требования Роспотребнадзора (СанПиН), Роскомнадзора (152-ФЗ о персональных данных), трудовой кодекс РФ.
+2. ЗАЩИТА ДАННЫХ: Все персональные данные сотрудников и гостей должны быть обезличены при анализе. Не сохраняй чувствительные данные в открытом виде.
+3. ДОКУМЕНТАЦИЯ: Проверяй наличие необходимых документов: договоры с поставщиками, трудовые договоры, журналы инструктажей, сертификаты на продукцию.
+4. РИСКИ: Выявляй юридические риски: штрафы, приостановка деятельности, репутационный ущерб.
+5. ЗАПРЕТЫ: Не давай юридических консультаций. Только выявление рисков и рекомендации обратиться к юристу.`
+  },
+
+  management: {
+    triggers: [],
+    prompt: `ЦИФРОВОЙ ОПЕРАЦИОННЫЙ ДИРЕКТОР (CEO/COO View):
+1. СТРУКТУРА ОТВЕТА: Вывод (Executive Summary) → Ключевые факты (Data) → Проблема/Возможность → Рекомендуемые действия (Action Plan) → Срок → Ответственный → KPI контроля.
+2. ПРИОРИТЕТИЗАЦИЯ: Используй матрицу Эйзенхауэра (Срочно/Важно). Фокусируйся на действиях с наибольшим влиянием на прибыль и качество.
+3. СИСТЕМНОЕ МЫШЛЕНИЕ: Видишь связь между отделами: как закупки влияют на кухню, как кухня на сервис, как сервис на повторные визиты.
+4. НЕОПРЕДЕЛЕННОСТЬ: Если данных недостаточно, четко укажи: 'Для точного ответа не хватает: [список данных]. Предварительная оценка основана на [допущения].'
+5. ТОН: Профессиональный, лаконичный, ориентированный на результат. Без воды и общих фраз.`
+  }
+};
+
+const BUSINESS_SKILLS = ['finance','excel','operations','people','marketing','procurement','compliance'];
+
+function selectSkills(question) {
+  const q = String(question || '').normalize('NFC').toLocaleLowerCase('ru-RU');
+
+  const specialized = Object.entries(SKILLS)
+    .filter(([name]) => BUSINESS_SKILLS.includes(name))
+    .filter(([, s]) => s.triggers.some(t => q.includes(t)))
+    .map(([name, s]) => ({ name, prompt: s.prompt }));
+
+  // Есть бизнес-контекст → добавляем управленческую структуру поверх
+  if (specialized.length) {
+    return [...specialized, { name: 'management', prompt: SKILLS.management.prompt }];
+  }
+
+  // Нет бизнес-триггеров → режим свободного ответа, без навязывания P&L
+  return [{ name: 'general', prompt: SKILLS.general.prompt }];
+}
+
+function buildSkillPrompt(question, config = {}) {
+  const skills = selectSkills(question);
+  const isGeneral = skills.length === 1 && skills[0].name === 'general';
+  const skillBlocks = skills.map(s => `### SKILL: ${s.name.toUpperCase()}\n${s.prompt}`).join('\n\n---\n\n');
+
+  const lines = [];
+
+  if (!isGeneral) {
+    // Пороговые значения — только в бизнес-режиме
+    if (Number.isFinite(Number(config.foodCost))) {
+      lines.push(`⚠️ КРИТИЧЕСКИЙ ПОРОГ: Food Cost не должен превышать ${Number(config.foodCost)}%.`);
+    }
+    if (Number.isFinite(Number(config.laborCost))) {
+      lines.push(`⚠️ КРИТИЧЕСКИЙ ПОРОГ: Labor Cost не должен превышать ${Number(config.laborCost)}%.`);
+    }
+    if (Number.isFinite(Number(config.shiftHours))) {
+      lines.push(`⚠️ ЮРИДИЧЕСКОЕ ОГРАНИЧЕНИЕ: Максимальная длительность смены — ${Number(config.shiftHours)} часов (ТК РФ).`);
+    }
+
+    // Tone — только в бизнес-режиме
+    if (config.tone === 'expanded') {
+      lines.push('📝 TONE: Детальный разбор с примерами, но без повторов. Используй маркированные списки для структурирования.');
+    } else if (config.tone === 'official') {
+      lines.push('📝 TONE: Строго официальный стиль. Только факты, цифры и ссылки на источники. Без эмоциональных оценок.');
+    } else {
+      lines.push('📝 TONE: Кратко, по делу, с фокусом на ближайшее действие. Используй структуру: Проблема → Решение → Срок.');
+    }
+
+    if (config.excludeCapex !== false) {
+      lines.push('💰 ВАЖНО: Не смешивай разовые инвестиционные расходы (Capex) с операционными (Opex). Анализируй их отдельно.');
+    }
+
+    lines.push('🔒 БЕЗОПАСНОСТЬ: Не обрабатывай и не выводи персональные данные (ФИО, телефоны, паспорта) в открытом виде. Используй маскирование.');
+  }
+
+  // Глобальный запрет на дубли — во всех режимах
+  lines.push('🚫 НЕ ДУБЛИРУЙ ТЕКСТ: Выдай финальный ответ один раз, целиком. Не повторяй предложения, абзацы или строки. Никаких «ТакжеТакже» или «ДляДля».');
+
+  return [skillBlocks, ...lines].filter(Boolean).join('\n');
+}
+
+module.exports = { SKILLS, selectSkills, buildSkillPrompt };```
+
+## FILE: backend/index.js
+
+```js
+'use strict';
+/* ============================================================================
+   STEN Backend — Express + serverless-http (Yandex Cloud Functions)
+   Version: 5.0.2
+   Контракты: docs/API_GATEWAY_SPEC_2026-09-29.yaml, docs/BACKEND_ENV_CONTRACT.md, docs/DEPLOYMENT_CURRENT.md,
+              docs/PNL_MANUAL_ENTRY_CONTRACT.md, docs/SCOPE_CONTRACT.md
+   Правила:
+   - Missing != zero: отсутствующая величина остаётся null, никогда не выдумывается.
+   - Нет хардкода секретов; нет синтетического пользователя при отсутствии JWT.
+   - YandexGPT вызывается только со стороны backend; ключи не покидают функцию.
+   ========================================================================== */
+
+const express    = require('express');
+const serverless = require('serverless-http');
+const { Pool }   = require('pg');
+const crypto     = require('crypto');
+const bcrypt     = require('bcryptjs');
+const { z }      = require('zod');
+const XLSX       = require('xlsx');
+const documentProcessor = require('./documentProcessor');
+const { convertWithMarkItDown } = require('./markitdownClient');
+const { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { buildSkillPrompt } = require('./core/skills');
+const { TOOLS, executeTool } = require('./core/tools');
+const { createMemory, listMemory, updateMemoryConfidence, deleteMemory, loadMemoryContext } = require('./core/memory');
+
+/* ----------------------------- ENV --------------------------------------- */
+/* ВАЖНО: секреты читаются ТОЛЬКО из переменных окружения функции (Lockbox/KMS).
+   Фолбэки безопасны: пустая строка вместо «реального» секрета, 'change-me-in-cloud'
+   запрещён в продакшене (см. assertProductionSecrets). */
+const INSECURE_JWT_FALLBACK = 'change-me-in-cloud';
+
+const ENV = {
+  NODE_ENV: process.env.NODE_ENV || 'production',
+  JWT_SECRET: process.env.JWT_SECRET || INSECURE_JWT_FALLBACK,
+  JWT_TTL_SEC: parseInt(process.env.JWT_TTL_SECONDS || String(30 * 24 * 3600), 10),
+  ALLOWED_ORIGINS: (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN || '*').split(',').map(s => s.trim()).filter(Boolean),
+  ADMIN_ID: process.env.ADMIN_ID || 'admin',
+  ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@sten.local',
+  ADMIN_ROLE: process.env.ADMIN_ROLE || 'super_admin',
+  ADMIN_FIRST_NAME: process.env.ADMIN_FIRST_NAME || 'Александр',
+  ADMIN_LAST_NAME: process.env.ADMIN_LAST_NAME || 'Думрауф',
+  DEFAULT_ORG_ID: process.env.DEFAULT_ORG_ID || null,
+  DB_HOST: process.env.DB_HOST,
+  DB_PORT: parseInt(process.env.DB_PORT || '6432', 10),
+  DB_NAME: process.env.DB_NAME,
+  DB_USER: process.env.DB_USER,
+  DB_PASSWORD: process.env.DB_PASSWORD,
+  YANDEXGPT_API_KEY: process.env.YANDEXGPT_API_KEY,
+  YC_FOLDER_ID: process.env.YC_FOLDER_ID,
+  YANDEXGPT_MODEL: process.env.YANDEXGPT_MODEL || 'yandexgpt',
+  YANDEXGPT_BASE_URL: process.env.YANDEXGPT_BASE_URL || 'https://llm.api.cloud.yandex.net/foundationModels/v1',
+  YANDEXGPT_TIMEOUT_MS: Number(process.env.YANDEXGPT_TIMEOUT_MS || 60000),
+  YANDEXGPT_MAX_TOKENS: Number(process.env.YANDEXGPT_MAX_TOKENS || 8000),
+  YANDEXGPT_TEMPERATURE: Number(process.env.YANDEXGPT_TEMPERATURE || 0.2),
+  VISION_OCR_URL: process.env.VISION_OCR_URL || 'https://ocr.api.cloud.yandex.net/ocr/v1/recognizeText',
+  MARKITDOWN_URL: process.env.MARKITDOWN_URL || '',
+  MARKITDOWN_TOKEN: process.env.MARKITDOWN_TOKEN || '',
+  MARKITDOWN_ENABLED: String(process.env.MARKITDOWN_ENABLED || 'false').toLowerCase() === 'true',
+  MARKITDOWN_TIMEOUT_MS: Number(process.env.MARKITDOWN_TIMEOUT_MS || 60000),
+  STORAGE_BUCKET: process.env.OBJECT_STORAGE_BUCKET || process.env.YC_BUCKET_NAME,
+  STORAGE_ENDPOINT: process.env.OBJECT_STORAGE_ENDPOINT || 'https://storage.yandexcloud.net',
+  STORAGE_REGION: process.env.OBJECT_STORAGE_REGION || 'ru-central1',
+  AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
+  AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
+  BCRYPT_ROUNDS: 12,
+  MAX_UPLOAD_BYTES: 15 * 1024 * 1024,
+  DEBUG: process.env.DEBUG === '1',
+};
+
+function assertProductionSecrets() {
+  if (ENV.NODE_ENV === 'production' && ENV.JWT_SECRET === INSECURE_JWT_FALLBACK) {
+    const err = new Error('[sten] FATAL: JWT_SECRET is not set. Refusing to start in production.');
+    console.error(err.message);
+    throw err;
+  }
+}
+assertProductionSecrets();
+
+/* ----------------------------- utils -------------------------------------- */
+const log = (...args) => { if (ENV.DEBUG) console.log('[sten]', ...args); };
+const uuid = () => crypto.randomUUID();
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+// Все regex — с флагом u (корректная обработка UTF-8/кириллицы).
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/u;
+const DATE_RE  = /^\d{4}-\d{2}-\d{2}$/u;
+const TIME_RE  = /^([01]\d|2[0-3]):[0-5]\d$/u;
+const YM_RE    = /^\d{4}-(0[1-9]|1[0-2])$/u;
+const UUID_RE  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+const PAYROLL_KEYWORDS = ['payroll', 'табел', 'часы', 'смены', 'фот', 'зарплат', 'начисл', 'выплат'];
+
+const ruLower = (s) => String(s ?? '').normalize('NFC').toLocaleLowerCase('ru-RU');
+const normKey = (s) => ruLower(s).replace(/[^a-zа-яё0-9]+/gu, '');
+
+function httpError(status, message, code) {
+  const e = new Error(message);
+  e.status = status;
+  e.code = code || `HTTP_${status}`;
+  return e;
+}
+
+/* ----------------------------- database ----------------------------------- */
+let _pool = null;
+function db() {
+  if (_pool) return _pool;                 // пул переиспользуется между cold/warm вызовами
+  if (!ENV.DB_HOST) { log('db: no DB_HOST, pool disabled'); return null; }
+  _pool = new Pool({
+    host: ENV.DB_HOST, port: ENV.DB_PORT, database: ENV.DB_NAME, user: ENV.DB_USER, password: ENV.DB_PASSWORD,
+    ssl: { rejectUnauthorized: false }, max: 10, idleTimeoutMillis: 30000, connectionTimeoutMillis: 15000,
+    statement_timeout: 25000, query_timeout: 25000, keepAlive: true, statement_cache_size: 0, application_name: 'sten-api',
+  });
+  _pool.on('error', e => log('db pool error:', e.message));
+  return _pool;
+}
+async function query(text, params = []) {
+  const p = db(); if (!p) throw new Error('DB not configured'); return p.query(text, params);
+}
+async function safeQuery(text, params = [], fallback = []) {
+  try { const r = await query(text, params); return r.rows ?? fallback; }
+  catch (e) { log('safeQuery error:', e.message); return fallback; }
+}
+async function orgQuery(text, params = [], orgId) {
+  // Как safeQuery, но устанавливает app.org_id в сессии клиента.
+  // Нужно для таблиц с RLS-политикой на app.org_id (pnl_entries, pnl_transactions).
+  try {
+    const r = await query(text, params); log('orgQuery rows:', r.rows?.length ?? 0);
+    return r.rows ?? [];
+  } catch (e) { log('orgQuery error:', e.message); return []; }
+}
+
+function isTransientDbError(e) {
+  const codes = ['57P01', '57P02', '57P03', '08006', '08003', '08000', 'ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED'];
+  const msg = String(e?.message || '').toLocaleLowerCase('ru-RU');
+  return codes.includes(e?.code) || msg.includes('connection terminated') || msg.includes('timeout');
+}
+async function queryWithRetry(text, params = [], opts = {}) {
+  let lastErr; const attempts = opts.attempts || 4;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const client = await db().connect();
+    try {
+      if (opts.orgId) await client.query("SELECT set_config('app.org_id', $1, false)", [opts.orgId]);
+      return await client.query(text, params);
+    } catch (e) {
+      lastErr = e;
+      if (isTransientDbError(e) && attempt < attempts - 1) { await sleep(300 * Math.pow(2, attempt)); continue; }
+      throw e;
+    } finally { client.release(); }
+  }
+  throw lastErr;
+}
+
+let _schemaReady = false, _schemaPromise = null;
+async function ensureSchemaNow() {
+  if (_schemaReady || !ENV.DB_HOST) { _schemaReady = true; return true; }
+  try {
+    await query(`CREATE TABLE IF NOT EXISTS pnl_reports (id UUID PRIMARY KEY, organization_id UUID NOT NULL, project_id TEXT NOT NULL DEFAULT 'default', name TEXT NOT NULL, period_start TEXT NOT NULL, period_end TEXT NOT NULL, currency TEXT NOT NULL DEFAULT 'RUB', lines JSONB NOT NULL DEFAULT '[]'::jsonb, source TEXT NOT NULL DEFAULT 'manual', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by TEXT);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_pnl_reports_org ON pnl_reports(organization_id, project_id);`);
+    await query(`CREATE TABLE IF NOT EXISTS secretary_notes (id UUID PRIMARY KEY, organization_id UUID NOT NULL, user_id TEXT, title TEXT, content TEXT, source TEXT DEFAULT 'manual', audio_url TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    await query(`CREATE TABLE IF NOT EXISTS secretary_events (id UUID PRIMARY KEY, organization_id UUID NOT NULL, user_id TEXT, title TEXT NOT NULL, description TEXT, event_type TEXT NOT NULL DEFAULT 'meeting', start_at TIMESTAMPTZ NOT NULL, end_at TIMESTAMPTZ, status TEXT NOT NULL DEFAULT 'planned', reminder_minutes INTEGER, location TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_secretary_events_org_time ON secretary_events(organization_id, start_at);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_secretary_notes_org ON secretary_notes(organization_id, created_at DESC);`);
+    // P&L ручного ввода: scope (project/branch/restaurant/department) + период + строки статей.
+    await query(`CREATE TABLE IF NOT EXISTS pnl_entries (organization_id UUID NOT NULL, period TEXT NOT NULL, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', rows JSONB NOT NULL DEFAULT '[]'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT, PRIMARY KEY (organization_id, period, project_id, branch_id, restaurant_id, department_id));`);
+    await query(`CREATE TABLE IF NOT EXISTS pnl_transactions (id UUID PRIMARY KEY, organization_id UUID NOT NULL, period TEXT NOT NULL, transaction_date DATE NOT NULL, type TEXT NOT NULL, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', article TEXT NOT NULL, amount NUMERIC(18,2) NOT NULL, comment TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by TEXT);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_pnl_transactions_scope ON pnl_transactions(organization_id, period, project_id, branch_id, restaurant_id, department_id, transaction_date);`);
+    await query(`CREATE TABLE IF NOT EXISTS pnl_approvals (organization_id UUID NOT NULL, period TEXT NOT NULL, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'draft', approved_by UUID, approved_at TIMESTAMPTZ, PRIMARY KEY (organization_id, period, project_id, branch_id, restaurant_id, department_id));`);
+    // Журнал аудита всех записей (финансовый контур обязан иметь provenance).
+    await query(`CREATE TABLE IF NOT EXISTS audit_log (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id UUID, user_id TEXT, action TEXT NOT NULL, entity TEXT NOT NULL, entity_id TEXT, details JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    // Документы STEN (evidence pipeline): meta в БД, тело — в Object Storage.
+    await query(`CREATE TABLE IF NOT EXISTS ai_documents (id UUID PRIMARY KEY, organization_id UUID NOT NULL, user_id TEXT, name TEXT NOT NULL, mime_type TEXT, size_bytes BIGINT, storage_key TEXT, status TEXT NOT NULL DEFAULT 'stored', error TEXT, extracted_text TEXT, extraction_json JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    await query(`ALTER TABLE ai_documents ADD COLUMN IF NOT EXISTS extracted_text TEXT;`);
+    await query(`ALTER TABLE ai_documents ADD COLUMN IF NOT EXISTS extraction_json JSONB;`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_ai_documents_org ON ai_documents(organization_id, created_at DESC);`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS position TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT;`);
+    await query(`CREATE TABLE IF NOT EXISTS messenger_settings (organization_id UUID PRIMARY KEY, provider TEXT NOT NULL DEFAULT 'telegram', send_time TEXT NOT NULL DEFAULT '21:00', scope_json JSONB NOT NULL DEFAULT '{}'::jsonb, metrics_json JSONB NOT NULL DEFAULT '{"revenue":true,"cashCard":true,"discounts":true,"avgCheck":true,"checks":true,"primeCost":true,"ebitda":true,"deviation":true}'::jsonb, telegram_chat_id TEXT, whatsapp_phone TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
+    await query(`CREATE TABLE IF NOT EXISTS ai_skill_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
+    await query(`CREATE TABLE IF NOT EXISTS analytics_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
+    // Ежедневные отчёты (/reports контракт OpenAPI).
+    await query(`CREATE TABLE IF NOT EXISTS daily_reports (id UUID PRIMARY KEY, organization_id UUID NOT NULL, report_date DATE NOT NULL, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', values_json JSONB NOT NULL DEFAULT '{}'::jsonb, note TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS branch_id TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS restaurant_id TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS department_id TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE daily_reports DROP CONSTRAINT IF EXISTS daily_reports_organization_id_report_date_key;`);
+    await query(`DROP INDEX IF EXISTS daily_reports_org_date_uniq;`);
+    await query(`CREATE UNIQUE INDEX IF NOT EXISTS daily_reports_org_scope_date_uniq ON daily_reports(organization_id, report_date, project_id, branch_id, restaurant_id, department_id);`);
+await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS report_date DATE;`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS values_json JSONB DEFAULT '{}'::jsonb;`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS note TEXT;`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();`);
+
+    // Совместимость со старой схемой daily_reports: переносим date -> report_date, убираем старую колонку.
+    await query(`DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_reports' AND column_name='date') THEN UPDATE daily_reports SET report_date = COALESCE(report_date, date) WHERE report_date IS NULL; ALTER TABLE daily_reports ALTER COLUMN date DROP NOT NULL; ALTER TABLE daily_reports DROP COLUMN date; END IF; END $$;`);
+    // Multi-tenant core: system organizations + memberships. organization_id remains the server-authoritative tenant boundary.
+    await query(`CREATE TABLE IF NOT EXISTS organizations (
+      id UUID PRIMARY KEY,
+      code TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      subscription_until DATE,
+      created_by UUID,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      CONSTRAINT organizations_status_check CHECK (status IN ('active','suspended','archived'))
+    );`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_organizations_status ON organizations(status, created_at DESC);`);
+    await query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS subscription_until DATE;`);
+    await query(`CREATE TABLE IF NOT EXISTS organization_memberships (
+      organization_id UUID NOT NULL,
+      user_id UUID NOT NULL,
+      role TEXT NOT NULL DEFAULT 'member',
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (organization_id, user_id)
+    );`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_org_memberships_user ON organization_memberships(user_id, status);`);
+    await query(`CREATE TABLE IF NOT EXISTS org_units (id UUID PRIMARY KEY, organization_id UUID NOT NULL, parent_id UUID, kind TEXT NOT NULL, name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    // Одноразовая миграция: удалить дубликаты pnl_entries с пустым project_id.
+    try {
+      await query(`DELETE FROM pnl_entries WHERE project_id = '' AND period >= '2026-01' AND period <= '2026-12'`);
+    } catch (e) { log('cleanup pnl_entries duplicates:', e.message); }
+    await query(`CREATE INDEX IF NOT EXISTS idx_org_units_org ON org_units(organization_id);`);
+    await query(`CREATE TABLE IF NOT EXISTS workspace_contexts (organization_id UUID NOT NULL, user_id TEXT NOT NULL, restaurant_id UUID, project_id UUID, branch_id UUID, department_id UUID, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (organization_id, user_id));`);
+    await query(`CREATE TABLE IF NOT EXISTS org_unit_access (organization_id UUID NOT NULL, user_id TEXT NOT NULL, unit_id UUID NOT NULL, access_level TEXT NOT NULL DEFAULT 'manage', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (organization_id, user_id, unit_id));`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_org_unit_access_user ON org_unit_access(organization_id, user_id, unit_id);`);
+    await query(`CREATE TABLE IF NOT EXISTS workspace_bindings (id UUID PRIMARY KEY, organization_id UUID NOT NULL, channel TEXT NOT NULL, subject_id TEXT NOT NULL, unit_id UUID NOT NULL, is_default BOOLEAN NOT NULL DEFAULT false, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (organization_id, channel, subject_id));`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_workspace_bindings_lookup ON workspace_bindings(organization_id, channel, subject_id);`);
+    await query(`CREATE TABLE IF NOT EXISTS ai_memory (
+      id UUID PRIMARY KEY,
+      organization_id UUID NOT NULL,
+      project_id TEXT NOT NULL DEFAULT '',
+      branch_id TEXT NOT NULL DEFAULT '',
+      restaurant_id TEXT NOT NULL DEFAULT '',
+      department_id TEXT NOT NULL DEFAULT '',
+      kind TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      evidence_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+      confidence TEXT NOT NULL DEFAULT 'unconfirmed',
+      source_message_id TEXT,
+      confirmed_by_user_id UUID,
+      confirmed_at TIMESTAMPTZ,
+      created_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_ai_memory_org_scope
+      ON ai_memory(organization_id, restaurant_id, kind, created_at DESC);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_ai_memory_org_created
+      ON ai_memory(organization_id, created_at DESC);`);
+    _schemaReady = true; log('schema: ready'); return true;
+  } catch (e) { log('schema attempt failed:', e.message); return false; }
+}
+function kickSchema() {
+  if (_schemaReady || _schemaPromise) return;
+  _schemaPromise = (async () => {
+    for (let i = 0; i < 5 && !_schemaReady; i++) {
+      if (await ensureSchemaNow()) break;
+      await sleep(500 * Math.pow(2, i));
+    }
+    _schemaPromise = null;
+  })().catch(e => log('kickSchema error:', e.message));
+}
+
+/* ----------------------------- CORS --------------------------------------- */
+function resolveOrigin(reqOrigin) {
+  if (ENV.ALLOWED_ORIGINS.includes('*')) return '*';
+  if (reqOrigin && ENV.ALLOWED_ORIGINS.includes(reqOrigin)) return reqOrigin;
+  return null; // unknown origin: do not echo a foreign origin
+}
+function corsMiddleware(req, res, next) {
+  const origin = resolveOrigin(req.headers.origin);
+  if (origin) {
+    if (origin) res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  }
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Request-ID');
+  res.header('Access-Control-Expose-Headers', 'Content-Type, X-Request-ID');
+  res.header('Access-Control-Max-Age', '86400');
+  res.header('Vary', 'Origin');
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  next();
+}
+
+/* ----------------------------- JWT ----------------------------------------- */
+function b64url(buf) { return Buffer.from(buf).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_'); }
+function createJWT(payload) {
+  const header = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const now = Math.floor(Date.now() / 1000);
+  const body = b64url(JSON.stringify({ ...payload, iat: now, exp: now + ENV.JWT_TTL_SEC }));
+  const sig = b64url(crypto.createHmac('sha256', ENV.JWT_SECRET).update(`${header}.${body}`).digest());
+  return `${header}.${body}.${sig}`;
+}
+function verifyJWT(token) {
+  if (!token || typeof token !== 'string') return null;
+  const parts = token.split('.'); if (parts.length !== 3) return null;
+  const [h, p, s] = parts;
+  const expected = b64url(crypto.createHmac('sha256', ENV.JWT_SECRET).update(`${h}.${p}`).digest());
+  const a = Buffer.from(String(s)); const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const data = JSON.parse(Buffer.from(p, 'base64url').toString('utf8'));
+    if (data.exp && data.exp < Math.floor(Date.now() / 1000)) return null;
+    return data;
+  } catch { return null; }
+}
+
+/* ----------------------------- auth ---------------------------------------- */
+/* Исправление безопасности: несуществующий users.id больше НЕ порождает
+   синтетического super_admin. При недоступной БД или отсутствии пользователя
+   запрос отклоняется с 401. Offline-bypass запрещён контрактом. */
+async function authenticate(req) {
+  const h = req.headers.authorization || '';
+  const m = /^Bearer\s+(.+)$/iu.exec(h);
+  if (!m) return null;
+  const claims = verifyJWT(m[1]);
+  if (!claims) return null;
+  const uid = String(claims.userId || '');
+  if (!UUID_RE.test(uid)) return null; // никаких «admin»-подставок из claims
+  const rows = await safeQuery(
+    `SELECT u.id, u.email, u.role, u.organization_id, u.first_name, u.last_name,
+            u.position, u.telegram_chat_id,
+            o.status AS organization_status
+       FROM users u
+       LEFT JOIN organizations o ON o.id = u.organization_id
+      WHERE u.id = $1::uuid AND u.is_active = true LIMIT 1`,
+    [uid], null
+  );
+  if (!rows) return null; // БД недоступна → отказ, а не фолбэк-пользователь
+  const u = rows[0];
+  if (!u) return null;    // пользователь удалён/деактивирован
+  return {
+    id: u.id, email: u.email, role: u.role,
+    firstName: u.first_name, lastName: u.last_name,
+    position: u.position || '', telegramChatId: u.telegram_chat_id || '',
+    organizationId: u.organization_id || ENV.DEFAULT_ORG_ID || null,
+    organizationStatus: u.organization_status || null,
+    permissions: { '*': 'edit' },
+  };
+}
+function publicUser(user) {
+  return {
+    id: user.id, email: user.email, role: user.role,
+    firstName: user.firstName, lastName: user.lastName,
+    position: user.position || '', telegramChatId: user.telegramChatId || '',
+    organizationId: user.organizationId, permissions: user.permissions,
+  };
+}
+function requireAuth(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: { message: 'Требуется авторизация', code: 'UNAUTHORIZED', requestId: req.requestId } });
+  next();
+}
+function requireOrg(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: { message: 'Требуется авторизация', code: 'UNAUTHORIZED', requestId: req.requestId } });
+  if (!UUID_RE.test(String(req.user.organizationId || ''))) {
+    return res.status(403).json({ error: { message: 'Организация не назначена пользователю', code: 'NO_ORG_SCOPE', requestId: req.requestId } });
+  }
+  if (String(req.user.organizationStatus || '') !== 'active') {
+    return res.status(403).json({ error: { message: 'Рабочий контур организации закрыт', code: 'ORG_ACCESS_CLOSED', requestId: req.requestId } });
+  }
+  next();
+}
+
+/* ----------------------------- finance core -------------------------------- */
+/* Missing != zero: отсутствующая величина остаётся null/undefined в расчётах,
+   производный показатель без данных — null, а не выдуманный 0. */
+function numOrNull(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+function sumDefined(values) {
+  const present = values.filter(v => v !== null && v !== undefined);
+  if (!present.length) return null;
+  return present.reduce((a, b) => a + b, 0);
+}
+function pctOf(v, base) {
+  const b = numOrNull(base); const x = numOrNull(v);
+  if (x === null || b === null || b === 0) return null;
+  return (x / b) * 100;
+}
+function pnl({ revenue, cogs, personnel, overtime, opex, other, other_operating, depreciation, interest, tax } = {}) {
+  const r = {
+    revenue: numOrNull(revenue), cogs: numOrNull(cogs), personnel: numOrNull(personnel),
+    overtime: numOrNull(overtime), opex: numOrNull(opex), other: numOrNull(other),
+    otherOperating: numOrNull(other_operating), depreciation: numOrNull(depreciation),
+    interest: numOrNull(interest), tax: numOrNull(tax),
+  };
+  const labor = sumDefined([r.personnel, r.overtime]);
+  const operatingOther = sumDefined([r.otherOperating, r.other]);
+  const operatingExpenses = sumDefined([r.opex, operatingOther]);
+  const costs = sumDefined([r.cogs, labor, operatingExpenses]);
+  r.labor = labor;
+  r.operatingExpenses = operatingExpenses;
+  r.ebitda = (r.revenue !== null && costs !== null) ? r.revenue - costs : null;
+  r.primeCostPercent = (r.revenue !== null && labor !== null && r.cogs !== null && r.revenue !== 0)
+    ? ((r.cogs + labor) / r.revenue) * 100 : null;
+  r.primeCostStatus = r.primeCostPercent === null ? 'missing'
+    : r.primeCostPercent <= 60 ? 'normal'
+    : r.primeCostPercent <= 65 ? 'attention' : 'critical';
+  r.otherOperatingPercent = pctOf(operatingOther, r.revenue);
+  r.otherOperatingRequiresReview = r.otherOperatingPercent !== null && r.otherOperatingPercent > 5;
+  r.overtimePercentOfLabor = pctOf(r.overtime, labor);
+  const belowEbitda = sumDefined([r.depreciation, r.interest, r.tax]);
+  r.netProfit = (r.ebitda !== null && belowEbitda !== null) ? r.ebitda - belowEbitda : null;
+  r.foodCostPercent = pctOf(r.cogs, r.revenue);
+  r.personnelPercent = pctOf(labor, r.revenue);
+  r.opexPercent = pctOf(operatingExpenses, r.revenue);
+  r.ebitdaMargin = pctOf(r.ebitda, r.revenue);
+  r.netMargin = pctOf(r.netProfit, r.revenue);
+  r.formulaVersion = 'pnl-v3-prime-cost';
+  r.provenance = 'deterministic-backend-calculator';
+  return r;
+}
+function calculatePnl(input = {}) {
+  const r = pnl(input);
+  return {
+    ...r,
+    foodCost: { revenue: r.revenue, cogs: r.cogs, amount: r.cogs, percent: r.foodCostPercent },
+    personnelCost: { revenue: r.revenue, personnel: r.personnel, overtime: r.overtime, labor: r.labor, percent: r.personnelPercent },
+    overtimeAmount: r.overtime,
+    primeCost: { percent: r.primeCostPercent, status: r.primeCostStatus, formula: '(COGS + Labor) / Revenue * 100' },
+    review: { otherOperatingRequiresReview: r.otherOperatingRequiresReview, otherOperatingPercent: r.otherOperatingPercent },
+    margins: {
+      foodCostPercent: r.foodCostPercent, personnelPercent: r.personnelPercent,
+      opexPercent: r.opexPercent, ebitdaMargin: r.ebitdaMargin, netMargin: r.netMargin,
+    },
+  };
+}
+function delta(actual, plan) {
+  const a = numOrNull(actual), p = numOrNull(plan);
+  return {
+    actual: a, plan: p,
+    absolute: (a !== null && p !== null) ? a - p : null,
+    percent: (a !== null && p !== null && p !== 0) ? ((a - p) / Math.abs(p)) * 100 : null,
+  };
+}
+
+/* ----------------------------- zod schemas ---------------------------------- */
+const ScopeSchema = z.object({
+  period: z.string().regex(YM_RE, 'period должен быть ГГГГ-ММ'),
+  project_id: z.string().trim().max(120).optional().nullable(),
+  branch_id: z.string().trim().max(120).optional().nullable(),
+  restaurant_id: z.string().trim().max(120).optional().nullable(),
+  department_id: z.string().trim().max(120).optional().nullable(),
+}).strict();
+
+const PnlRowSchema = z.object({
+  id: z.string().max(120).optional(),
+  article: z.string().min(1).max(240),
+  plan: z.number().finite().nullable().optional(),
+  fact: z.number().finite().nullable().optional(),
+  source: z.string().max(60).nullable().optional(),
+}).strict();
+
+const PnlWriteSchema = ScopeSchema.extend({
+  rows: z.array(PnlRowSchema).min(1).max(2000),
+}).strict();
+
+const PnlTransactionSchema = ScopeSchema.extend({
+  date: z.string().regex(DATE_RE, 'date должен быть ГГГГ-ММ-ДД'),
+  type: z.enum(['expense','income']),
+  article: z.string().trim().min(1).max(240),
+  amount: z.number().finite().positive(),
+  comment: z.string().trim().max(2000).nullable().optional(),
+}).strict();
+
+const PnlCalculateSchema = z.object({
+  period: z.string().regex(YM_RE).optional(),
+  organization_id: z.string().uuid().optional(),
+  revenue: z.number().finite().nullable().optional(),
+  cogs: z.number().finite().nullable().optional(),
+  personnel: z.number().finite().nullable().optional(),
+  opex: z.number().finite().nullable().optional(),
+  depreciation: z.number().finite().nullable().optional(),
+  interest: z.number().finite().nullable().optional(),
+  tax: z.number().finite().nullable().optional(),
+  other: z.number().finite().nullable().optional(),
+  raw: z.object({
+    revenue: z.number().finite().nullable(),
+    cogs: z.number().finite().nullable(),
+    personnel: z.number().finite().nullable(),
+    opex: z.number().finite().nullable(),
+    depreciation: z.number().finite().nullable(),
+    interest: z.number().finite().nullable(),
+    tax: z.number().finite().nullable(),
+    other: z.number().finite().nullable(),
+  }).partial().strict().optional(),
+}).catchall(z.unknown());
+
+
+const AskSchema = z.object({
+  question: z.string().max(8000).optional(),
+  prompt: z.string().max(8000).optional(),
+  messages: z.array(z.object({
+    role: z.enum(['system', 'user', 'assistant', 'tool']),
+    content: z.string().max(20000),
+    tool_call_id: z.string().max(120).optional(),
+    tool_calls: z.array(z.unknown()).optional(),
+  }).passthrough()).max(50).optional(),
+  context: z.string().max(20000).optional(),
+  sources: z.array(z.unknown()).optional(),
+  system: z.string().max(20000).optional(),
+  scope: ScopeSchema.optional(),
+  include_tool_results: z.boolean().optional().default(false),
+}).passthrough();
+
+const DocumentUploadSchema = z.object({
+  name: z.string().min(1).max(300),
+  dataBase64: z.string().min(8),
+  mimeType: z.string().max(120).optional(),
+}).strict();
+
+const PnlImportSchema = ScopeSchema.extend({
+  name: z.string().min(1).max(300),
+  dataBase64: z.string().min(8),
+  mimeType: z.string().max(120).optional(),
+}).strict();
+
+/* Секретарь: заметки/итоги/задачи. Детерминированный CRUD — GPT не участвует.
+   Правила (docs/SECRETARY_REFERRER_SPEC.md): не придумывать события; запись
+   считается сохранённой только после readback-подтверждения; каждое изменение
+   идёт в audit_log; доступ минимальный (scope = организация пользователя). */
+const SecretaryNoteCreateSchema = z.object({
+  title: z.string().trim().min(1).max(300),
+  content: z.string().trim().max(50000).default(''),
+  source: z.string().trim().max(60).default('manual'),
+  audio_url: z.string().trim().url().max(500).nullable().optional(),
+}).strict();
+const SecretaryNotePatchSchema = z.object({
+  title: z.string().trim().min(1).max(300).optional(),
+  content: z.string().trim().max(50000).optional(),
+  audio_url: z.string().trim().url().max(500).nullable().optional(),
+}).strict().refine(v => Object.keys(v).length > 0, { message: 'Пустое обновление' });
+
+const ReportWriteSchema = z.object({
+  date: z.string().regex(DATE_RE),
+  values: z.record(z.string().max(120), z.number().finite()),
+  note: z.string().max(4000).nullable().optional(),
+  project_id: z.string().trim().max(120).optional().nullable(),
+  branch_id: z.string().trim().max(120).optional().nullable(),
+  restaurant_id: z.string().trim().max(120).optional().nullable(),
+  department_id: z.string().trim().max(120).optional().nullable(),
+}).strict();
+
+const AiSkillsSchema = z.object({
+  foodCost: z.number().finite().min(0).max(100).optional(),
+  laborCost: z.number().finite().min(0).max(100).optional(),
+  shiftHours: z.number().finite().min(1).max(24).optional(),
+  tone: z.enum(['brief','expanded','official']).optional(),
+  documents: z.boolean().optional(),
+  history: z.boolean().optional(),
+  excludeCapex: z.boolean().optional(),
+}).strict();
+
+const AnalyticsSettingsSchema = z.object({
+  financial: z.boolean().optional(),
+  labor: z.boolean().optional(),
+  forecast: z.boolean().optional(),
+  foodTarget: z.number().finite().min(0).max(100).optional(),
+  laborTarget: z.number().finite().min(0).max(100).optional(),
+}).strict();
+
+const MessengerSettingsSchema = z.object({
+  provider: z.enum(['telegram','whatsapp']),
+  send_time: z.string().regex(TIME_RE),
+  scope: z.record(z.string().max(120), z.string().max(240)).default({}),
+  metrics: z.object({
+    revenue:z.boolean(),cashCard:z.boolean(),discounts:z.boolean(),avgCheck:z.boolean(),checks:z.boolean(),
+    primeCost:z.boolean(),ebitda:z.boolean(),deviation:z.boolean()
+  }).strict(),
+  telegram_chat_id: z.string().max(120).nullable().optional(),
+  whatsapp_phone: z.string().max(40).nullable().optional(),
+}).strict();
+
+const ReportsSendSchema = z.object({
+  date:z.string().regex(DATE_RE),
+  provider:z.enum(['telegram','whatsapp']).optional(),
+  recipient:z.string().max(160).optional(),
+  metrics:z.object({
+    revenue:z.boolean().optional(),cashCard:z.boolean().optional(),discounts:z.boolean().optional(),avgCheck:z.boolean().optional(),checks:z.boolean().optional(),
+    primeCost:z.boolean().optional(),ebitda:z.boolean().optional(),deviation:z.boolean().optional()
+  }).strict().optional(),
+  scope:ScopeSchema.optional(),
+}).strict();
+
+const IngestMessageSchema = z.object({
+  text:z.string().trim().min(1).max(12000).optional(),
+  source:z.enum(['telegram','whatsapp','manual']).default('manual'),
+  confirmationToken:z.string().max(200).nullable().optional(),
+}).passthrough();
+const IngestConfirmSchema = z.object({
+ date:z.string().regex(DATE_RE),
+ parsed:z.object({
+  date:z.string().regex(DATE_RE).nullable(),revenue:z.number().finite().nullable(),cash:z.number().finite().nullable(),card:z.number().finite().nullable(),
+  discounts:z.number().finite().nullable(),checks:z.number().finite().nullable(),restaurant:z.string().nullable()
+ }).strict(),
+ scope:ScopeSchema.optional()
+}).strict();
+
+const PayrollRowSchema = z.object({
+  date: z.string().regex(DATE_RE),
+  department: z.string().min(1).max(120).optional(),
+  position: z.string().min(1).max(120).optional(),
+  hours: z.number().finite().nonnegative(),
+  pay: z.number().finite().nonnegative(),
+  revenue: z.number().finite().nonnegative().optional(),
+});
+
+function parseOr400(schema, data) {
+  const r = schema.safeParse(data);
+  if (!r.success) {
+    const first = r.error.issues[0];
+    throw httpError(400, `Ошибка валидации: ${first.path.join('.') || 'body'} — ${first.message}`, 'VALIDATION_ERROR');
+  }
+  return r.data;
+}
+
+/* ----------------------------- object storage ------------------------------- */
+let _s3 = null;
+function s3() {
+  if (_s3) return _s3;
+  if (!ENV.STORAGE_BUCKET || !ENV.AWS_ACCESS_KEY_ID || !ENV.AWS_SECRET_ACCESS_KEY) return null;
+  _s3 = new S3Client({
+    region: ENV.STORAGE_REGION, endpoint: ENV.STORAGE_ENDPOINT,
+    credentials: { accessKeyId: ENV.AWS_ACCESS_KEY_ID, secretAccessKey: ENV.AWS_SECRET_ACCESS_KEY },
+  });
+  return _s3;
+}
+async function storagePut(key, body, contentType) {
+  const c = s3();
+  if (!c) throw httpError(503, 'Object Storage не настроен (OBJECT_STORAGE_BUCKET / AWS keys)', 'STORAGE_UNAVAILABLE');
+  await c.send(new PutObjectCommand({ Bucket: ENV.STORAGE_BUCKET, Key: key, Body: body, ContentType: contentType }));
+  return { bucket: ENV.STORAGE_BUCKET, key };
+}
+async function storageList(prefix) {
+  const c = s3();
+  if (!c) return [];
+  try {
+    const r = await c.send(new ListObjectsV2Command({ Bucket: ENV.STORAGE_BUCKET, Prefix: prefix, MaxKeys: 200 }));
+    return r.Contents ?? [];
+  } catch (e) { log('storageList error:', e.message); return []; }
+}
+async function storageGetBuffer(key) {
+  const c = s3();
+  if (!c) throw httpError(503, 'Object Storage не настроен', 'STORAGE_UNAVAILABLE');
+  const r = await c.send(new GetObjectCommand({ Bucket: ENV.STORAGE_BUCKET, Key: key }));
+  return Buffer.from(await r.Body.transformToByteArray());
+}
+
+/* ----------------------------- audit ---------------------------------------- */
+async function audit(user, action, entity, entityId, details) {
+  await safeQuery(
+    'INSERT INTO audit_log (id, organization_id, user_id, action, entity, entity_id, details) VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6,$7)',
+    [uuid(), user?.organizationId || null, user?.id || null, action, entity, entityId ? String(entityId) : null, JSON.stringify(details ?? {})]
+  );
+}
+
+/* ----------------------------- YandexGPT ------------------------------------ */
+function modelUri() {
+  const m = ENV.YANDEXGPT_MODEL;
+  if (m.startsWith('gpt://')) return m;
+  if (!ENV.YC_FOLDER_ID) return null;
+  return `gpt://${ENV.YC_FOLDER_ID}/${m}/latest`;
+}
+async function parseSalesReportWithFunctionCalling(text){
+ const uri=modelUri();
+ if(!uri||!ENV.YANDEXGPT_API_KEY)throw httpError(503,'YandexGPT не сконфигурирован','AI_UNAVAILABLE');
+ const body={modelUri:uri,messages:[
+  {role:'system',text:'Ты — парсер отчётов о выручке ресторана. Извлеки date, revenue, cash, card, discounts, checks, restaurant. Если поле не найдено — null. Не выдумывай. Верни только вызов функции parse_sales_report.'},
+  {role:'user',text}
+ ],tools:[{function:{name:'parse_sales_report',description:'Извлекает поля отчёта о выручке ресторана из сообщения менеджера.',parameters:{type:'object',properties:{
+  date:{type:['string','null'],description:'Дата YYYY-MM-DD или null, если дата отсутствует в сообщении.'},
+  revenue:{type:['number','null'],description:'Общая выручка в рублях или null.'},
+  cash:{type:['number','null'],description:'Наличные в рублях или null.'},
+  card:{type:['number','null'],description:'Безнал/карта в рублях или null.'},
+  discounts:{type:['number','null'],description:'Скидки в рублях или null.'},
+  checks:{type:['number','null'],description:'Количество чеков или null.'},
+  restaurant:{type:['string','null'],description:'Название ресторана или null.'}
+ },required:['date','revenue','cash','card','discounts','checks','restaurant']}}}],toolChoice:{type:'function',function:{name:'parse_sales_report'}}};
+ const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),ENV.YANDEXGPT_TIMEOUT_MS);
+ try{
+  const r=await fetch(ENV.YANDEXGPT_BASE_URL+'/completion',{method:'POST',headers:{Authorization:'Api-Key '+ENV.YANDEXGPT_API_KEY,'Content-Type':'application/json','X-Request-Id':uuid()},signal:controller.signal,body:JSON.stringify(body)});
+  if(!r.ok)throw httpError(502,'YandexGPT не вернул structured tool call','AI_UPSTREAM_ERROR');
+  const decoder=new TextDecoder('utf-8');let buf='';let tool=null;
+  for await(const chunk of r.body){buf+=decoder.decode(chunk,{stream:true});let nl;while((nl=buf.indexOf('\n'))>=0){const line=buf.slice(0,nl).trim();buf=buf.slice(nl+1);if(!line)continue;try{const evt=JSON.parse(line);tool=evt?.result?.alternatives?.[0]?.message?.toolCallList?.[0]||evt?.result?.alternatives?.[0]?.message?.ToolCallList?.[0]||tool}catch{}}}
+  const args=tool?.functionCall?.arguments||tool?.function_call?.arguments;
+  if(!args)throw httpError(502,'YandexGPT не вернул parse_sales_report','AI_TOOL_CALL_MISSING');
+  const parsed=typeof args==='string'?JSON.parse(args):args;
+  const clean={date:DATE_RE.test(String(parsed.date||''))?String(parsed.date):null,revenue:numOrNull(parsed.revenue),cash:numOrNull(parsed.cash),card:numOrNull(parsed.card),discounts:numOrNull(parsed.discounts),checks:numOrNull(parsed.checks),restaurant:parsed.restaurant?String(parsed.restaurant):null};
+  return clean;
+ }catch(e){if(e?.status)throw e;if(e?.name==='AbortError')throw httpError(504,'Превышен таймаут YandexGPT','AI_TIMEOUT');throw httpError(502,'Не удалось распознать сообщение','AI_UNREACHABLE')}finally{clearTimeout(timer)}
+}
+async function callYandexGPT(messages) {
+  const uri = modelUri();
+  if (!uri || !ENV.YANDEXGPT_API_KEY) {
+    throw httpError(503, 'YandexGPT не сконфигурирован (YANDEXGPT_API_KEY / YC_FOLDER_ID / YANDEXGPT_MODEL)', 'AI_UNAVAILABLE');
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ENV.YANDEXGPT_TIMEOUT_MS);
+  try {
+    const res = await fetch(ENV.YANDEXGPT_BASE_URL + '/completion', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Api-Key ${ENV.YANDEXGPT_API_KEY}`,
+        'Content-Type': 'application/json',
+        'X-Request-Id': uuid(),
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        modelUri: uri,
+        completionOptions: {
+          stream: true,
+          temperature: ENV.YANDEXGPT_TEMPERATURE,
+          maxTokens: String(ENV.YANDEXGPT_MAX_TOKENS),
+        },
+        messages,
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      log('yandexgpt http error:', res.status, text.slice(0, 300));
+      throw httpError(502, 'YandexGPT вернул ошибку. Повторите запрос позже.', 'AI_UPSTREAM_ERROR');
+    }
+    // NDJSON-стрим: собираем текстовые чанки (UTF-8, кириллица сохраняется как есть).
+    const decoder = new TextDecoder('utf-8');
+    let buf = ''; let answer = '';
+    for await (const chunk of res.body) {
+      buf += decoder.decode(chunk, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, idx).trim(); buf = buf.slice(idx + 1);
+        if (!line) continue;
+        try {
+          const evt = JSON.parse(line);
+          const alt = evt?.result?.alternatives?.[0];
+          if (alt?.message?.text) answer = alt.message.text;
+        } catch { /* partial json — пропускаем */ }
+      }
+    }
+    if (!answer.trim()) throw httpError(502, 'YandexGPT вернул пустой ответ', 'AI_EMPTY_RESPONSE');
+    return answer.trim();
+  } catch (e) {
+    if (e?.status === 502 || e?.status === 503) throw e;
+    if (e?.name === 'AbortError') throw httpError(504, 'Превышен таймаут обращения к YandexGPT', 'AI_TIMEOUT');
+    throw httpError(502, 'Связь с YandexGPT недоступна', 'AI_UNREACHABLE');
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function callYandexGPTWithTools(messages) {
+  const uri = modelUri();
+  if (!uri || !ENV.YANDEXGPT_API_KEY) {
+    throw httpError(503, 'YandexGPT не сконфигурирован (YANDEXGPT_API_KEY / YC_FOLDER_ID / YANDEXGPT_MODEL)', 'AI_UNAVAILABLE');
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ENV.YANDEXGPT_TIMEOUT_MS);
+  try {
+    const res = await fetch(ENV.YANDEXGPT_BASE_URL + '/completion', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Api-Key ${ENV.YANDEXGPT_API_KEY}`,
+        'Content-Type': 'application/json',
+        'X-Request-Id': uuid(),
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        modelUri: uri,
+        completionOptions: {
+          stream: true,
+          temperature: ENV.YANDEXGPT_TEMPERATURE,
+          maxTokens: String(ENV.YANDEXGPT_MAX_TOKENS),
+        },
+        messages,
+        tools: TOOLS.map(tool => ({ function: { name: tool.name, description: tool.description, parameters: tool.parameters } })),
+      }),
+    });
+    if (!res.ok) {
+      const upstream = await res.text().catch(() => '');
+      log('yandexgpt tools http error:', res.status, upstream.slice(0, 300));
+      throw httpError(502, 'YandexGPT вернул ошибку. Повторите запрос позже.', 'AI_UPSTREAM_ERROR');
+    }
+    const decoder = new TextDecoder('utf-8');
+    let buf = '';
+    let text = '';
+    let toolCalls = [];
+    for await (const chunk of res.body) {
+      buf += decoder.decode(chunk, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, idx).trim();
+        buf = buf.slice(idx + 1);
+        if (!line) continue;
+        try {
+          const evt = JSON.parse(line);
+          const message = evt?.result?.alternatives?.[0]?.message;
+          if (message?.text) text = message.text;
+          const calls = message?.toolCallList?.toolCalls || message?.tool_call_list?.tool_calls;
+          if (Array.isArray(calls) && calls.length) toolCalls = calls;
+        } catch {}
+      }
+    }
+    if (toolCalls.length) return { text: text.trim(), toolCalls };
+    if (!text.trim()) throw httpError(502, 'YandexGPT вернул пустой ответ', 'AI_EMPTY_RESPONSE');
+    return { text: text.trim(), toolCalls: [] };
+  } catch (e) {
+    if (e?.status === 502 || e?.status === 503) throw e;
+    if (e?.name === 'AbortError') throw httpError(504, 'Превышен таймаут YandexGPT', 'AI_TIMEOUT');
+    throw httpError(502, 'Связь с YandexGPT недоступна', 'AI_UNREACHABLE');
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function intelligenceContext() {
+  return {
+    queryWithRetry,
+    aggregateRows,
+    rollupAgg,
+    calculatePnl,
+    canonicalArticleKey,
+    assertScopeAccess,
+    audit,
+    memory: {
+      listMemory: (user, filter) => listMemory(user, filter, intelligenceContext()),
+    },
+  };
+}
+
+function parseProposedMemory(answer) {
+  const source = String(answer || '').trim();
+  const match = /ПРЕДЛОЖЕНИЕ ПАМЯТИ:\s*(\[[\s\S]*?\])\s*$/u.exec(source);
+  if (!match) return { answer: source, proposed_memory: null };
+  try {
+    const parsed = JSON.parse(match[1]);
+    if (!Array.isArray(parsed)) return { answer: source, proposed_memory: null };
+    const allowed = new Set(['fact','decision','cause','action','manager_note','pattern']);
+    const clean = parsed.filter(item =>
+      item && typeof item === 'object' && allowed.has(item.kind) &&
+      typeof item.title === 'string' && typeof item.content === 'string'
+    ).map(item => ({
+      kind: item.kind,
+      title: item.title,
+      content: item.content,
+      evidence: item.evidence && typeof item.evidence === 'object' ? item.evidence : {},
+    }));
+    return { answer: source.slice(0, match.index).trim(), proposed_memory: clean };
+  } catch {
+    return { answer: source, proposed_memory: null };
+  }
+}
+
+/* ----------------------------- XLSX import ---------------------------------- */
+const ARTICLE_ALIASES = {
+  revenue:       ['выручка', 'доход', 'revenue', 'оборот', 'выручкавсего'],
+  cogs:          ['себестоимость', 'sebestoimost', 'cogs', 'фудкост', 'foodcost', 'закупки', 'продукты'],
+  personnel:     ['фот', 'personnel', 'payroll', 'зарплата', 'ФОТ', 'персонал', 'фондооплаты'],
+  opex:          ['opex', 'расходы', 'аренда', 'коммунальные', 'эксплуатационные'],
+  depreciation:  ['амортизация', 'depreciation'],
+  interest:      ['проценты', 'interest', 'кредиты'],
+  tax:           ['налоги', 'tax', 'налог'],
+  other:         ['прочее', 'other', 'ишеe', 'другое'],
+};
+function classifyArticle(name) {
+  const k = normKey(name);
+  if (!k) return 'other_operating';
+  
+  for (const [key, aliases] of Object.entries(ARTICLE_ALIASES)) {
+    if (aliases.some(a => normKey(a) === k)) return key;
+  }
+  for (const [key, aliases] of Object.entries(ARTICLE_ALIASES)) {
+    if (aliases.some(a => { const na = normKey(a); return na && k.includes(na); })) return key;
+  }
+  return 'other_operating';
+}
+function parseNumberCell(v) {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v !== 'string') return null;
+  const s = v.replace(/\u00a0/g, ' ').replace(/\s+/g, '').replace(/₽/gu, '').replace(/%$/u, '').replace(',', '.');
+  if (!s || !/^-?\d+(?:\.\d+)?$/u.test(s)) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+function headerIndex(headers, words) {
+  return headers.findIndex(v => {
+    const k = normKey(v);
+    return words.some(w => k === normKey(w) || k.includes(normKey(w)));
+  });
+}
+function xlsxToRows(buffer) {
+  const wb = XLSX.read(buffer, { type: 'buffer', cellDates: false, cellNF: false, cellText: false });
+  const out = [];
+  for (const sheetName of wb.SheetNames) {
+    const ws = wb.Sheets[sheetName];
+    if (!ws) continue;
+    const grid = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+    if (!Array.isArray(grid) || !grid.length) continue;
+
+    let labelCol = 0, planCol = -1, factCol = -1, headerRow = -1;
+    for (let ri = 0; ri < Math.min(grid.length, 12); ri++) {
+      const row = Array.isArray(grid[ri]) ? grid[ri] : [];
+      const texts = row.map(v => String(v ?? ''));
+      const p = headerIndex(texts, ['план','plan','бюджет']);
+      const f = headerIndex(texts, ['факт','fact','actual']);
+      if (p >= 0 || f >= 0) {
+        headerRow = ri;
+        planCol = p;
+        factCol = f;
+        const l = headerIndex(texts, ['статья','наименование','показатель','article','name']);
+        if (l >= 0) labelCol = l;
+        break;
+      }
+    }
+
+    const start = headerRow >= 0 ? headerRow + 1 : 0;
+    for (let ri = start; ri < grid.length; ri++) {
+      const line = Array.isArray(grid[ri]) ? grid[ri] : [];
+      if (!line.length) continue;
+      let foundLabelCol = labelCol;
+      if (typeof line[foundLabelCol] !== 'string' || !String(line[foundLabelCol]).trim()) {
+        foundLabelCol = line.findIndex(v => typeof v === 'string' && String(v).trim().length);
+      }
+      if (foundLabelCol < 0) continue;
+      const label = String(line[foundLabelCol]).trim();
+      const article = classifyArticle(label);
+      if (!article) continue;
+
+      let plan = planCol >= 0 ? parseNumberCell(line[planCol]) : null;
+      let fact = factCol >= 0 ? parseNumberCell(line[factCol]) : null;
+      if (planCol < 0 || factCol < 0) {
+        const numeric = [];
+        for (let ci = foundLabelCol + 1; ci < line.length; ci++) {
+          const n = parseNumberCell(line[ci]);
+          if (n !== null) numeric.push({ ci, n });
+        }
+        if (planCol < 0) plan = numeric[0]?.n ?? null;
+        if (factCol < 0) fact = numeric[1]?.n ?? numeric[0]?.n ?? null;
+      }
+      out.push({
+        id: crypto.randomUUID(),
+        article,
+        label,
+        plan,
+        fact,
+        source: `xlsx:${sheetName}`,
+        sheet: sheetName,
+        sourceRow: ri + 1,
+        sourceCellPlan: planCol >= 0 ? XLSX.utils.encode_cell({ r: ri, c: planCol }) : null,
+        sourceCellFact: factCol >= 0 ? XLSX.utils.encode_cell({ r: ri, c: factCol }) : null,
+      });
+    }
+  }
+  return out;
+}
+
+/* ----------------------------- express app ---------------------------------- */
+const app = express();
+app.disable('x-powered-by');
+app.use(corsMiddleware);
+app.use(express.json({ limit: '12mb' }));
+
+// Request-ID сквозной (frontend шлёт X-Request-ID).
+app.use((req, res, next) => {
+  const id = req.headers['x-request-id'] || uuid();
+  req.requestId = id;
+  res.setHeader('X-Request-ID', id);
+  next();
+});
+// Auth-context: не подставляем синтетического пользователя. req.user = null → 401 на requireAuth.
+app.use(async (req, _res, next) => {
+  try { req.user = await authenticate(req); } catch (e) { log('authMiddleware error:', e.message); req.user = null; }
+  next();
+});
+
+const ok = (res, data, status = 200) => res.status(status).json({ ok: true, data, requestId: res.req?.requestId || undefined });
+
+/* ---- health ---- */
+app.get('/healthz', async (_req, res) => {
+  const dbOk = !!ENV.DB_HOST;
+  let dbReachable = false;
+  if (dbOk) {
+    try { await query('SELECT 1'); dbReachable = true; kickSchema(); } catch (e) { log('healthz db:', e.message); }
+  }
+  ok(res, {
+    status: 'ok',
+    version: '5.0.2',
+    time: new Date().toISOString(),
+    db: dbOk ? (dbReachable ? 'connected' : 'configured-unreachable') : 'not-configured',
+    ai: ENV.YANDEXGPT_API_KEY ? 'configured' : 'not-configured',
+    storage: ENV.STORAGE_BUCKET ? 'configured' : 'not-configured',
+  });
+});
+
+/* ---- auth: legacy PIN unlock PARKED ----
+   Старый POST /auth/unlock намеренно отключён.
+   Новый auth-контур (email/password + email verification + organization membership)
+   подключается отдельно. Не возвращать PIN-login в production без отдельного решения.
+   ---- auth: me ---- */
+app.get('/auth/me', requireAuth, (req, res) => ok(res, { user: publicUser(req.user) }));
+function requireSuperAdmin(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: { message: 'Требуется авторизация', code: 'UNAUTHORIZED', requestId: req.requestId } });
+  if (String(req.user.role || '') !== 'super_admin') {
+    return res.status(403).json({ error: { message: 'Раздел доступен только системному администратору STEN', code: 'SUPER_ADMIN_REQUIRED', requestId: req.requestId } });
+  }
+  next();
+}
+function normalizeOrgCode(value) {
+  return String(value || '').trim().toUpperCase().replace(/\s+/gu, '-').replace(/[^A-Z0-9_-]/gu, '').slice(0, 32);
+}
+function generateOrgCode() {
+  return `ORG-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+}
+app.get('/api/admin/organizations', requireAuth, requireSuperAdmin, async (req, res, next) => {
+  try {
+    const rows = await safeQuery(
+      `SELECT o.id, o.code, o.name, o.status, o.subscription_until, o.created_at, o.updated_at,
+              COUNT(om.user_id)::int AS user_count
+         FROM organizations o
+         LEFT JOIN organization_memberships om ON om.organization_id = o.id AND om.status = 'active'
+        GROUP BY o.id ORDER BY o.created_at DESC`, [], null);
+    if (!rows) return res.status(503).json({ error: { message: 'Организации временно недоступны (БД)', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
+    ok(res, { organizations: rows });
+  } catch (e) { next(e); }
+});
+app.post('/api/admin/organizations', requireAuth, requireSuperAdmin, async (req, res, next) => {
+  try {
+    const name = String(req.body?.name || '').trim().normalize('NFC');
+    if (name.length < 2 || name.length > 160) throw httpError(400, 'Название организации: от 2 до 160 символов', 'INVALID_ORG_NAME');
+    let code = normalizeOrgCode(req.body?.code);
+    if (!code) code = generateOrgCode();
+    if (code.length < 3) throw httpError(400, 'ID организации должен содержать минимум 3 символа', 'INVALID_ORG_CODE');
+    const existing = await safeQuery('SELECT id FROM organizations WHERE code = $1 LIMIT 1', [code], null);
+    if (!existing) return res.status(503).json({ error: { message: 'БД временно недоступна', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
+    if (existing.length) throw httpError(409, 'Такой ID организации уже существует', 'ORG_CODE_EXISTS');
+    const id = uuid();
+    const ownerEmail = String(req.body?.ownerEmail || '').trim().toLowerCase();
+    const q = await queryWithRetry(
+      `INSERT INTO organizations(id, code, name, status, created_by)
+       VALUES($1::uuid,$2,$3,'active',$4::uuid)
+       RETURNING id, code, name, status, subscription_until, created_at, updated_at`,
+      [id, code, name, req.user.id], {});
+    const organization = q.rows?.[0];
+    if (!organization) throw httpError(500, 'Организация не создана', 'CREATE_NOT_CONFIRMED');
+    let owner = null;
+    if (ownerEmail && EMAIL_RE.test(ownerEmail)) {
+      const ur = await queryWithRetry(
+        `UPDATE users SET organization_id = $1::uuid
+          WHERE lower(email) = lower($2) AND is_active = true
+          RETURNING id, email, first_name, last_name, role`,
+        [id, ownerEmail], {});
+      owner = ur.rows?.[0] || null;
+      if (owner) {
+        await queryWithRetry(
+          `INSERT INTO organization_memberships(organization_id,user_id,role,status)
+           VALUES($1::uuid,$2::uuid,'owner','active')
+           ON CONFLICT(organization_id,user_id) DO UPDATE SET role='owner',status='active',updated_at=now()`,
+          [id, owner.id], {});
+      }
+    }
+    await audit(req.user, 'admin.organization.created', 'organizations', id, { code, name, ownerEmail: ownerEmail || null, ownerAssigned: Boolean(owner) });
+    ok(res, { organization: { ...organization, user_count: owner ? 1 : 0 }, ownerAssigned: Boolean(owner), owner: owner ? { id: owner.id, email: owner.email, firstName: owner.first_name, lastName: owner.last_name, role: owner.role } : null }, 201);
+  } catch (e) { next(e); }
+});
+app.patch('/api/admin/organizations/:id', requireAuth, requireSuperAdmin, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный ID организации', 'BAD_ORG_ID');
+    const sets = [], params = [req.params.id];
+    if (req.body?.name !== undefined) {
+      const name = String(req.body.name).trim().normalize('NFC');
+      if (name.length < 2 || name.length > 160) throw httpError(400, 'Некорректное название организации', 'INVALID_ORG_NAME');
+      params.push(name); sets.push(`name = ${params.length}`);
+    }
+    if (req.body?.status !== undefined) {
+      const status = String(req.body.status);
+      if (!['active','suspended','archived'].includes(status)) throw httpError(400, 'Недопустимый статус организации', 'INVALID_ORG_STATUS');
+      params.push(status); sets.push(`status = ${params.length}`);
+    }
+    if (req.body?.subscription_until !== undefined) {
+      const value = req.body.subscription_until;
+      if (value !== null && (typeof value !== 'string' || !DATE_RE.test(value))) {
+        throw httpError(400, 'subscription_until должен быть датой YYYY-MM-DD или null', 'INVALID_SUBSCRIPTION_UNTIL');
+      }
+      params.push(value); sets.push(`subscription_until = ${params.length}`);
+    }
+    if (!sets.length) throw httpError(400, 'Нет изменений', 'NO_CHANGES');
+    const q = await queryWithRetry(
+      `UPDATE organizations SET ${sets.join(', ')}, updated_at=now()
+        WHERE id=$1::uuid
+        RETURNING id, code, name, status, created_at, updated_at`,
+      params, {});
+    if (!q.rows?.[0]) throw httpError(404, 'Организация не найдена', 'ORG_NOT_FOUND');
+    await audit(req.user, 'admin.organization.updated', 'organizations', req.params.id, { fields: Object.keys(req.body || {}) });
+    ok(res, { organization: q.rows[0] });
+  } catch (e) { next(e); }
+});
+app.get('/api/admin/organizations/:id/users', requireAuth, requireSuperAdmin, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный ID организации', 'BAD_ORG_ID');
+    const rows = await safeQuery(
+      `SELECT u.id, u.email, u.first_name, u.last_name, u.role, u.is_active,
+              om.role AS organization_role, om.status AS membership_status
+         FROM users u
+         JOIN organization_memberships om ON om.user_id = u.id AND om.organization_id = $1::uuid
+        WHERE om.status = 'active'
+        ORDER BY u.last_name NULLS LAST, u.first_name NULLS LAST, u.email`,
+      [req.params.id], null);
+    if (!rows) return res.status(503).json({ error: { message: 'Пользователи временно недоступны (БД)', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
+    ok(res, { users: rows });
+  } catch (e) { next(e); }
+});
+
+
+/* ---- P&L scope helpers ---- */
+function scopeFromQuery(q) {
+  return {
+    period: String(q.period || ''),
+    project_id: String(q.project_id || ''),
+    branch_id: String(q.branch_id || ''),
+    restaurant_id: String(q.restaurant_id || ''),
+    department_id: String(q.department_id || ''),
+  };
+}
+const ALIASES = {
+  revenue: 'revenue', выручка: 'revenue',
+  cogs: 'cogs', себестоимость: 'cogs',
+  payroll: 'payroll', personnel: 'payroll', фот: 'payroll',
+  opex: 'opex', 'операционные расходы': 'opex', 'операционные затраты': 'opex',
+  overtime: 'overtime', 'переработки': 'overtime', 'сверхурочные': 'overtime', 'overtime hours': 'overtime',
+  other_operating: 'other_operating', 'прочее операционные': 'other_operating', 'other operating': 'other_operating',
+  depreciation: 'depreciation', амортизация: 'depreciation',
+  interest: 'interest', проценты: 'interest',
+  tax: 'tax', налоги: 'tax',
+  other: 'other', прочее: 'other',
+};
+function normalizeArticleKey(value) {
+  return String(value || '').normalize('NFC').trim().toLocaleLowerCase('ru-RU').replace(/[–—-]+/g, ' ').replace(/\s+/g, ' ');
+}
+function canonicalArticleKey(value) {
+  const key = normalizeArticleKey(value);
+  return ALIASES[key] || key;
+}
+function canonicalArticleLabel(value) {
+  switch (canonicalArticleKey(value)) {
+    case 'revenue': return 'Выручка';
+    case 'cogs': return 'Себестоимость';
+    case 'payroll': return 'ФОТ';
+    case 'opex': return 'OPEX';
+    case 'depreciation': return 'Амортизация';
+    case 'interest': return 'Проценты';
+    case 'tax': return 'Налоги';
+    case 'other': return 'Прочее';
+    default: return String(value || '').trim() || 'Без названия';
+  }
+}
+function aggregateRows(rows) {
+  const byArticle = new Map();
+  for (const r of rows) {
+    const key = canonicalArticleKey(r.article);
+    const cur = byArticle.get(key) || { article: canonicalArticleLabel(r.article), plan: null, fact: null, sources: new Set() };
+    if (r.plan !== null && r.plan !== undefined && Number.isFinite(Number(r.plan))) cur.plan = (cur.plan ?? 0) + Number(r.plan);
+    if (r.fact !== null && r.fact !== undefined && Number.isFinite(Number(r.fact))) cur.fact = (cur.fact ?? 0) + Number(r.fact);
+    if (r.source) cur.sources.add(String(r.source));
+    byArticle.set(key, cur);
+  }
+  return [...byArticle.values()].map(x => ({ ...x, source: [...x.sources].join(',') || null }));
+}
+function rollupAgg(agg) {
+  const byKey = new Map((agg || []).map(x => [canonicalArticleKey(x.article), x]));
+  const pick = (key, field = 'fact') => {
+    const row = byKey.get(canonicalArticleKey(key));
+    return row && row[field] !== undefined ? row[field] : null;
+  };
+  return {
+    revenue: pick('revenue'),
+    cogs: pick('cogs'),
+    personnel: pick('payroll'),
+    overtime: pick('overtime'),
+    opex: pick('opex'),
+    other_operating: pick('other_operating'),
+    depreciation: pick('depreciation'),
+    interest: pick('interest'),
+    tax: pick('tax'),
+    other: pick('other'),
+  };
+}
+
+/* ---- authoritative workspace context / chat-room binding ------------------ */
+const WorkspaceContextSchema = z.object({
+  restaurant_id: z.string().uuid().nullable(),
+  project_id: z.string().uuid().nullable().optional(),
+  branch_id: z.string().uuid().nullable().optional(),
+  department_id: z.string().uuid().nullable().optional(),
+}).strict();
+
+const BindingSchema = z.object({
+  channel: z.enum(['telegram','whatsapp','web']),
+  subject_id: z.string().trim().min(1).max(160),
+  unit_id: z.string().uuid(),
+  is_default: z.boolean().optional(),
+}).strict();
+
+async function getAccessibleRestaurants(user) {
+  const explicit = await safeQuery(
+    `SELECT u.id,u.name,u.parent_id,u.kind
+       FROM org_units u
+       JOIN org_unit_access a ON a.unit_id=u.id AND a.organization_id=u.organization_id
+      WHERE u.organization_id=$1::uuid AND a.user_id=$2
+        AND u.kind='restaurant'
+      ORDER BY u.name`,
+    [user.organizationId, user.id], null
+  );
+  if (explicit && explicit.length) return explicit;
+  if (['super_admin','owner'].includes(String(user.role || '').toLowerCase())) {
+    return safeQuery(
+      `SELECT id,name,parent_id,kind FROM org_units WHERE organization_id=$1::uuid AND kind='restaurant' ORDER BY name`,
+      [user.organizationId], []
+    );
+  }
+  return [];
+}
+
+async function assertRestaurantAccess(user, restaurantId) {
+  if (!restaurantId) return true;
+  const r = await safeQuery(
+    'SELECT id, parent_id, kind FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' LIMIT 1',
+    [restaurantId, user.organizationId], null
+  );
+  if (!r?.[0]) throw httpError(404, 'Ресторан не найден в текущей организации.', 'RESTAURANT_NOT_FOUND');
+  const explicit = await safeQuery(
+    'SELECT 1 FROM org_unit_access WHERE organization_id=$1::uuid AND user_id=$2 AND unit_id=$3::uuid LIMIT 1',
+    [user.organizationId, user.id, restaurantId], []
+  );
+  if (explicit.length || ['super_admin','owner'].includes(String(user.role || '').toLowerCase())) return true;
+  throw httpError(403, 'Нет доступа к выбранному ресторану.', 'RESTAURANT_FORBIDDEN');
+}
+
+async function assertScopeAccess(user, scope = {}) {
+  const restaurantIds = new Set();
+  if (scope.restaurant_id) restaurantIds.add(String(scope.restaurant_id));
+  if (scope.department_id) {
+    const rows = await safeQuery(
+      'SELECT parent_id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'department\' LIMIT 1',
+      [scope.department_id,user.organizationId], null
+    );
+    if (!rows?.[0]) throw httpError(404,'Отдел не найден в текущей организации.','DEPARTMENT_NOT_FOUND');
+    if (rows[0].parent_id) restaurantIds.add(String(rows[0].parent_id));
+  }
+  if (scope.branch_id) {
+    const rows = await safeQuery(
+      'SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' ORDER BY id',
+      [scope.branch_id,user.organizationId], null
+    );
+    if (!rows) throw httpError(503,'Не удалось проверить доступ к филиалу.','SCOPE_ACCESS_CHECK_FAILED');
+    rows.forEach(r => restaurantIds.add(String(r.id)));
+  }
+  if (scope.project_id) {
+    const branches = await safeQuery(
+      'SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'branch\' ORDER BY id',
+      [scope.project_id,user.organizationId], null
+    );
+    if (!branches) throw httpError(503,'Не удалось проверить доступ к проекту.','SCOPE_ACCESS_CHECK_FAILED');
+    for (const b of branches) {
+      const restaurants = await safeQuery(
+        'SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' ORDER BY id',
+        [b.id,user.organizationId], null
+      );
+      if (!restaurants) throw httpError(503,'Не удалось проверить доступ к проекту.','SCOPE_ACCESS_CHECK_FAILED');
+      restaurants.forEach(r => restaurantIds.add(String(r.id)));
+    }
+  }
+  for (const id of restaurantIds) await assertRestaurantAccess(user,id);
+  return true;
+}
+
+async function resolveWorkspaceContext(user, supplied = {}, persist = false) {
+  const requestedRestaurant = supplied.restaurant_id ? String(supplied.restaurant_id) : null;
+  if (requestedRestaurant) await assertRestaurantAccess(user, requestedRestaurant);
+  let current = null;
+  const saved = await safeQuery(
+    'SELECT restaurant_id,project_id,branch_id,department_id FROM workspace_contexts WHERE organization_id=$1::uuid AND user_id=$2 LIMIT 1',
+    [user.organizationId, user.id], []
+  );
+  if (saved[0]) current = saved[0];
+  const restaurantId = requestedRestaurant || current?.restaurant_id || null;
+  await assertScopeAccess(user, {
+    project_id: supplied.project_id ?? current?.project_id ?? '',
+    branch_id: supplied.branch_id ?? current?.branch_id ?? '',
+    restaurant_id: restaurantId || '',
+    department_id: supplied.department_id ?? current?.department_id ?? '',
+  });
+  if (persist) {
+    await queryWithRetry(
+      `INSERT INTO workspace_contexts(organization_id,user_id,restaurant_id,project_id,branch_id,department_id,updated_at)
+       VALUES($1::uuid,$2,$3::uuid,$4::uuid,$5::uuid,$6::uuid,now())
+       ON CONFLICT(organization_id,user_id) DO UPDATE SET restaurant_id=excluded.restaurant_id,project_id=excluded.project_id,branch_id=excluded.branch_id,department_id=excluded.department_id,updated_at=now()`,
+      [user.organizationId,user.id,restaurantId,supplied.project_id||null,supplied.branch_id||null,supplied.department_id||null],
+      {orgId:user.organizationId}
+    );
+  }
+  return {
+    restaurant_id: restaurantId,
+    project_id: supplied.project_id ?? current?.project_id ?? null,
+    branch_id: supplied.branch_id ?? current?.branch_id ?? null,
+    department_id: supplied.department_id ?? current?.department_id ?? null,
+  };
+}
+
+app.get('/api/b2b/context', requireAuth, requireOrg, async (req,res,next)=>{try{
+  const restaurants=await getAccessibleRestaurants(req.user);
+  const saved=await safeQuery('SELECT restaurant_id,project_id,branch_id,department_id,updated_at FROM workspace_contexts WHERE organization_id=$1::uuid AND user_id=$2 LIMIT 1',[req.user.organizationId,req.user.id],[]);
+  ok(res,{context:saved[0]||{restaurant_id:null,project_id:null,branch_id:null,department_id:null},restaurants});
+}catch(e){next(e)}});
+
+app.put('/api/b2b/context', requireAuth, requireOrg, async (req,res,next)=>{try{
+  const body=parseOr400(WorkspaceContextSchema,req.body??{});
+  const context=await resolveWorkspaceContext(req.user,body,true);
+  await audit(req.user,'workspace.context.changed','workspace_contexts',req.user.id,{restaurant_id:context.restaurant_id});
+  ok(res,{context,confirmed:true});
+}catch(e){next(e)}});
+
+app.get('/api/b2b/bindings', requireAuth, requireOrg, async (req,res,next)=>{try{
+  const rows=await safeQuery(
+    `SELECT b.id,b.channel,b.subject_id,b.unit_id,u.name AS unit_name,b.is_default,b.created_at,b.updated_at
+       FROM workspace_bindings b JOIN org_units u ON u.id=b.unit_id AND u.organization_id=b.organization_id
+      WHERE b.organization_id=$1::uuid ORDER BY b.channel,b.subject_id`,
+    [req.user.organizationId], []
+  );
+  ok(res,{bindings:rows});
+}catch(e){next(e)}});
+
+app.post('/api/b2b/bindings', requireAuth, requireOrg, async (req,res,next)=>{try{
+  const body=parseOr400(BindingSchema,req.body??{});
+  await assertRestaurantAccess(req.user,body.unit_id);
+  const unit=await safeQuery('SELECT id,kind FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',[body.unit_id,req.user.organizationId],[]);
+  if(unit[0]?.kind!=='restaurant') throw httpError(400,'Связать канал можно только с рестораном.','BINDING_UNIT_INVALID');
+  if(body.is_default) await queryWithRetry('UPDATE workspace_bindings SET is_default=false,updated_at=now() WHERE organization_id=$1::uuid AND channel=$2',[req.user.organizationId,body.channel],{orgId:req.user.organizationId});
+  const id=uuid();
+  const saved=await queryWithRetry(
+    `INSERT INTO workspace_bindings(id,organization_id,channel,subject_id,unit_id,is_default,updated_at)
+     VALUES($1::uuid,$2::uuid,$3,$4,$5::uuid,$6,now())
+     ON CONFLICT(organization_id,channel,subject_id) DO UPDATE SET unit_id=excluded.unit_id,is_default=excluded.is_default,updated_at=now()
+     RETURNING id,channel,subject_id,unit_id,is_default`,
+    [id,req.user.organizationId,body.channel,body.subject_id,body.unit_id,Boolean(body.is_default)],
+    {orgId:req.user.organizationId}
+  );
+  const savedRow=await safeQuery('SELECT b.id,b.channel,b.subject_id,b.unit_id,u.name AS unit_name,b.is_default FROM workspace_bindings b JOIN org_units u ON u.id=b.unit_id WHERE b.id=$1::uuid AND b.organization_id=$2::uuid LIMIT 1',[saved?.[0]?.id || id,req.user.organizationId],null);
+  await audit(req.user,'workspace.binding.saved','workspace_bindings',saved?.[0]?.id || id,{channel:body.channel,subject_id:body.subject_id,unit_id:body.unit_id});
+  ok(res,{binding:savedRow?.[0]||null,confirmed:Boolean(savedRow?.[0])},201);
+}catch(e){next(e)}});
+
+app.delete('/api/b2b/bindings/:id', requireAuth, requireOrg, async(req,res,next)=>{try{
+  if(!UUID_RE.test(req.params.id)) throw httpError(400,'Некорректный id связи','BAD_ID');
+  const del=await queryWithRetry('DELETE FROM workspace_bindings WHERE id=$1::uuid AND organization_id=$2::uuid RETURNING id',[req.params.id,req.user.organizationId],{orgId:req.user.organizationId});
+  if(!del.rows.length) throw httpError(404,'Связь не найдена','NOT_FOUND');
+  await audit(req.user,'workspace.binding.deleted','workspace_bindings',req.params.id,{});
+  ok(res,{deleted:true,confirmed:true});
+}catch(e){next(e)}});
+
+async function resolveInboundBinding(user, channel, subjectId) {
+  if (!subjectId) return null;
+  const rows = user?.organizationId
+    ? await safeQuery(
+        'SELECT b.id,b.unit_id,b.is_default,u.name AS unit_name FROM workspace_bindings b JOIN org_units u ON u.id=b.unit_id AND u.organization_id=b.organization_id WHERE b.organization_id=$1::uuid AND b.channel=$2 AND b.subject_id=$3 LIMIT 1',
+        [user.organizationId,channel,String(subjectId)],[])
+    : await safeQuery(
+        'SELECT b.id,b.organization_id,b.unit_id,b.is_default,u.name AS unit_name FROM workspace_bindings b JOIN org_units u ON u.id=b.unit_id AND u.organization_id=b.organization_id WHERE b.channel=$1 AND b.subject_id=$2 ORDER BY b.is_default DESC,b.updated_at DESC LIMIT 1',
+        [channel,String(subjectId)],[]);
+  return rows[0]||null;
+}
+
+/* ---- P&L transactions: отдельный журнал фактических доходов/расходов ---- */
+app.get('/api/pnl/transactions', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const q = scopeFromQuery(req.query);
+    await assertScopeAccess(req.user, q);
+    if (!YM_RE.test(q.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
+    const rows = await safeQuery(
+      `SELECT id, transaction_date, type, article, amount, comment, created_at
+       FROM pnl_transactions
+       WHERE organization_id=$1::uuid AND period=$2
+         AND ($3::text='' OR project_id=$3)
+         AND ($4::text='' OR branch_id=$4)
+         AND ($5::text='' OR restaurant_id=$5)
+         AND ($6::text='' OR department_id=$6)
+       ORDER BY transaction_date DESC, created_at DESC LIMIT 1000`,
+      [req.user.organizationId,q.period,q.project_id,q.branch_id,q.restaurant_id,q.department_id], []
+    );
+    ok(res,{period:q.period,scope:q,transactions:rows.map(x=>({...x,amount:Number(x.amount)})),count:rows.length});
+  } catch(e){next(e);}
+});
+
+app.post('/api/pnl/transactions', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const body=parseOr400(PnlTransactionSchema,req.body??{});
+    await assertScopeAccess(req.user, body);
+    if(body.date.slice(0,7)!==body.period) throw httpError(400,'Дата операции не относится к выбранному периоду','DATE_PERIOD_MISMATCH');
+    const scope=[body.project_id||'',body.branch_id||'',body.restaurant_id||'',body.department_id||''];
+    const existing=await safeQuery(
+      `SELECT rows::text FROM pnl_entries
+       WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1`,
+      [req.user.organizationId,body.period,...scope],[]
+    );
+    let rows=[];
+    try{rows=existing[0]?.rows?JSON.parse(existing[0].rows):[]}catch{rows=[]}
+    const articleKey=canonicalArticleKey(body.article);
+    const articleExists=rows.some(r=>canonicalArticleKey(r.article)===articleKey);
+    if(!articleExists) throw httpError(422,'Статья не найдена в P&L выбранного рабочего контура. Сначала добавьте её в основной P&L.','ARTICLE_NOT_IN_PNL');
+    const id=uuid();
+    await queryWithRetry(
+      `INSERT INTO pnl_transactions(id,organization_id,period,transaction_date,type,project_id,branch_id,restaurant_id,department_id,article,amount,comment,created_by)
+       VALUES($1::uuid,$2::uuid,$3,$4::date,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      [id,req.user.organizationId,body.period,body.date,body.type,body.project_id||'',body.branch_id||'',body.restaurant_id||'',body.department_id||'',body.article.trim(),body.amount,body.comment||null,req.user.id],
+      {orgId:req.user.organizationId}
+    );
+    const verify=await safeQuery(
+      `SELECT id,transaction_date,type,article,amount,comment,created_at FROM pnl_transactions WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1`,
+      [id,req.user.organizationId],null
+    );
+    const confirmed=Boolean(verify?.[0]);
+    await audit(req.user,confirmed?'pnl.transaction.confirmed':'pnl.transaction.unconfirmed','pnl_transactions',id,{period:body.period,type:body.type,article:body.article,amount:body.amount,scope});
+    if(!confirmed) return res.status(500).json({error:{message:'Операция сохранена не подтверждена сервером (readback failed)',code:'TRANSACTION_NOT_CONFIRMED',requestId:req.requestId}});
+    ok(res,{saved:true,confirmed:true,transaction:{...verify[0],amount:Number(verify[0].amount)}},201);
+  } catch(e){next(e);}
+});
+
+/* ---- GET /api/pnl — readback по scope (All = все дочерние внутри родителя) ---- */
+app.get('/api/pnl', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const s = scopeFromQuery(req.query);
+    await assertScopeAccess(req.user, s);
+    if (!YM_RE.test(s.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
+    const rows = await safeQuery(
+      `SELECT rows::text FROM pnl_entries
+        WHERE organization_id = $1::uuid AND period = $2
+          AND ($3::text = '' OR project_id = $3)
+          AND ($4::text = '' OR branch_id = $4)
+          AND ($5::text = '' OR restaurant_id = $5)
+          AND ($6::text = '' OR department_id = $6)`,
+      [req.user.organizationId, s.period, s.project_id, s.branch_id, s.restaurant_id, s.department_id]
+    );
+    const all = [];
+    for (const r of rows) { try { const parsed = JSON.parse(r.rows); if (Array.isArray(parsed)) all.push(...parsed); } catch { /* ignore broken json row */ } }
+    let aggregated = aggregateRows(all);
+    const txRows = await safeQuery(
+      `SELECT article, SUM(amount) AS total, COUNT(*)::int AS count
+       FROM pnl_transactions
+       WHERE organization_id=$1::uuid AND period=$2
+         AND ($3::text='' OR project_id=$3)
+         AND ($4::text='' OR branch_id=$4)
+         AND ($5::text='' OR restaurant_id=$5)
+         AND ($6::text='' OR department_id=$6)
+       GROUP BY article`,
+      [req.user.organizationId,s.period,s.project_id,s.branch_id,s.restaurant_id,s.department_id]
+    );
+    const txByKey=new Map(txRows.map(x=>[canonicalArticleKey(x.article),{total:Number(x.total||0),count:Number(x.count||0)}]));
+    aggregated=aggregated.map(x=>{
+      const tx=txByKey.get(canonicalArticleKey(x.article));
+      if(!tx)return x;
+      return {...x,fact:x.fact===null||x.fact===undefined?tx.total:Number(x.fact)+tx.total,transaction_total:tx.total,transaction_count:tx.count,source:[x.source,'transactions'].filter(Boolean).join(',')};
+    });
+    const filled = aggregated.filter(x => x.plan !== null || x.fact !== null).length;
+    const fact = rollupAgg(aggregated);
+    const planRows = aggregated.map(x => ({ ...x, fact: x.plan, plan: null }));
+    const plan = rollupAgg(planRows);
+    const summary = {
+      revenuePlan: (() => { const o = aggregated.find(x => normKey(x.article) === normKey('revenue') || normKey(x.article) === normKey('выручка')); return o ? (o.plan ?? null) : null; })(),
+      revenueFact: (() => { const o = aggregated.find(x => normKey(x.article) === normKey('revenue') || normKey(x.article) === normKey('выручка')); return o ? (o.fact ?? null) : null; })(),
+      filledRows: filled,
+      scope: s,
+      calculated: { fact: calculatePnl(fact), plan: calculatePnl(plan) },
+    };
+    ok(res, { period: s.period, scope: s, rows: aggregated, summary, calculated: summary.calculated, count: all.length });
+  } catch (e) { next(e); }
+});
+
+/* ---- POST /api/pnl — сохранение scope+периода + READBACK подтверждение ---- */
+app.post('/api/pnl', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const body = parseOr400(PnlWriteSchema, req.body ?? {});
+    if (body.restaurant_id) await assertRestaurantAccess(req.user, body.restaurant_id);
+    const cleanRows = body.rows.map(r => ({
+      id: r.id || null,
+      article: String(r.article).normalize('NFC').trim(),
+      plan: r.plan ?? null,
+      fact: r.fact ?? null,
+      source: r.source || 'manual',
+    }));
+    const writeRes = await queryWithRetry(
+      `INSERT INTO pnl_entries (organization_id, period, project_id, branch_id, restaurant_id, department_id, rows, updated_at, updated_by)
+       VALUES ($1::uuid,$2,$3,$4,$5,$6,$7::jsonb, now(), $8)
+       ON CONFLICT (organization_id, period, project_id, branch_id, restaurant_id, department_id)
+       DO UPDATE SET rows = excluded.rows, updated_at = now(), updated_by = excluded.updated_by
+       RETURNING jsonb_array_length(rows) AS saved_count`,
+      [req.user.organizationId, body.period, body.project_id || '', body.branch_id || '', body.restaurant_id || '', body.department_id || '', JSON.stringify(cleanRows), req.user.id],
+      { orgId: req.user.organizationId }
+    );
+    // Подтверждение через RETURNING — readback в той же сессии, что и запись.
+    const savedCount = writeRes?.rows?.[0]?.saved_count ?? -1;
+    const confirmed = savedCount === cleanRows.length;
+    await audit(req.user, confirmed ? 'pnl.save.confirmed' : 'pnl.save.unconfirmed', 'pnl_entries', `${body.period}|${body.project_id || ''}|${body.branch_id || ''}|${body.restaurant_id || ''}|${body.department_id || ''}`, { rows: cleanRows.length });
+    if (!confirmed) {
+      return res.status(500).json({ error: { message: 'Сохранение не подтверждено сервером (readback failed)', code: 'SAVE_NOT_CONFIRMED', requestId: req.requestId } });
+    }
+    ok(res, { saved: true, confirmed: true, count: savedCount, period: body.period });
+  } catch (e) { next(e); }
+});
+
+/* ---- P&L approval ---- */
+const APPROVER_ROLES = new Set((process.env.PNL_APPROVER_ROLES || 'super_admin,admin,director,owner').split(',').map(x => x.trim().toLowerCase()).filter(Boolean));
+app.get('/api/pnl/approval', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const s = scopeFromQuery(req.query);
+    if (s.restaurant_id) await assertRestaurantAccess(req.user, s.restaurant_id);
+    if (!YM_RE.test(s.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
+    const rows = await safeQuery(
+      `SELECT status, approved_by, approved_at FROM pnl_approvals WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1`,
+      [req.user.organizationId, s.period, s.project_id, s.branch_id, s.restaurant_id, s.department_id], []
+    );
+    ok(res, { status: rows[0]?.status || 'draft', approvedAt: rows[0]?.approved_at || null, canApprove: APPROVER_ROLES.has(String(req.user.role || '').toLowerCase()), scope: s });
+  } catch (e) { next(e); }
+});
+app.post('/api/pnl/approve', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!APPROVER_ROLES.has(String(req.user.role || '').toLowerCase())) throw httpError(403, 'У Вас нет права утверждать план.', 'FORBIDDEN_APPROVAL');
+    const s = scopeFromQuery(req.body || {});
+    if (s.restaurant_id) await assertRestaurantAccess(req.user, s.restaurant_id);
+    if (!YM_RE.test(s.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
+    const exists = await safeQuery(
+      `SELECT 1 FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1`,
+      [req.user.organizationId, s.period, s.project_id, s.branch_id, s.restaurant_id, s.department_id], []
+    );
+    if (!exists?.length) throw httpError(409, 'Нельзя утвердить план: P&L для выбранной области не сохранён.', 'PNL_NOT_FOUND');
+    await queryWithRetry(
+      `INSERT INTO pnl_approvals (organization_id,period,project_id,branch_id,restaurant_id,department_id,status,approved_by,approved_at)
+       VALUES ($1::uuid,$2,$3,$4,$5,$6,'approved',$7,now())
+       ON CONFLICT (organization_id,period,project_id,branch_id,restaurant_id,department_id)
+       DO UPDATE SET status='approved',approved_by=excluded.approved_by,approved_at=now()`,
+      [req.user.organizationId,s.period,s.project_id,s.branch_id,s.restaurant_id,s.department_id,req.user.id], { orgId:req.user.organizationId }
+    );
+    await audit(req.user,'pnl.approved','pnl_approvals',`${s.period}|${s.project_id}|${s.branch_id}|${s.restaurant_id}|${s.department_id}`,{});
+    ok(res,{status:'approved',approvedAt:new Date().toISOString(),scope:s});
+  } catch(e){next(e);}
+});
+
+/* ---- POST /api/pnl/calculate — детерминированный калькулятор ---- */
+app.post('/api/pnl/calculate', requireAuth, (req, res, next) => {
+  try {
+    const body = parseOr400(PnlCalculateSchema, req.body ?? {});
+    const src = (body.raw && typeof body.raw === 'object') ? body.raw : body;
+    ok(res, calculatePnl(src));
+  } catch (e) { next(e); }
+});
+
+/* ---- POST /api/pnl/import — Excel → строки статей (без молчаливой записи) ---- */
+app.post('/api/pnl/import', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const body = parseOr400(PnlImportSchema, req.body ?? {});
+    let buf;
+    try { buf = Buffer.from(body.dataBase64, 'base64'); } catch { throw httpError(400, 'dataBase64 некорректен', 'BAD_BASE64'); }
+    if (!buf.length || buf.length > ENV.MAX_UPLOAD_BYTES) throw httpError(413, 'Файл пуст или превышает лимит 15 МБ', 'FILE_TOO_LARGE');
+    let rows = [];
+    try { rows = documentProcessor.xlsxRows(buf); } catch (e) { throw httpError(400, `Не удалось разобрать файл: ${e.message}`, 'XLSX_PARSE_ERROR'); }
+    if (!rows.length) throw httpError(400, 'В файле не найдено распознанных статей (нужны подписанные строки: выручка, себестоимость, ФОТ, OPEX…)', 'NO_ARTICLES_DETECTED');
+    // Импорт НЕ пишет в БД молча: возвращаем candidate rows для явного решения пользователя.
+    await audit(req.user, 'pnl.import.prepared', 'pnl_import', body.name, { detected: rows.length, period: body.period });
+    ok(res, {
+      detected: rows.length,
+      period: body.period,
+      rows,
+      totals: calculatePnl(rollupAgg(aggregateRows(rows))),
+      requiresConfirmation: true,
+    }, 202);
+  } catch (e) { next(e); }
+});
+
+function buildPlanFactAnalysis(agg) {
+  const expenseKeys = new Set(['cogs','payroll','overtime','opex','other_operating','depreciation','interest','tax','other']);
+  return (agg || []).map(row => {
+    const plan = numOrNull(row.plan), fact = numOrNull(row.fact);
+    const absolute = plan !== null && fact !== null ? fact - plan : null;
+    const percent = plan !== null && fact !== null && plan !== 0 ? (absolute / Math.abs(plan)) * 100 : null;
+    const key = canonicalArticleKey(row.article);
+    const favorable = absolute === null ? null : expenseKeys.has(key) ? absolute <= 0 : absolute >= 0;
+    return { article: row.article, key, plan, fact, absolute, percent, favorable, source: row.source ?? null };
+  });
+}
+
+function metricValue(values,key){const v=values?.[key];return typeof v==='number'&&Number.isFinite(v)?v:null;}
+function fmtRub(v){return v===null||v===undefined?'Нет данных':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(v)+' ₽';}
+function fmtPct(v){return v===null||v===undefined?'Нет данных':Number(v).toFixed(1).replace('.',',')+'%';}
+function reportText(date, restaurant, values, pnlData, metrics){
+  const revenue=metricValue(values,'revenue'), cash=metricValue(values,'cash'), card=metricValue(values,'card'), discounts=metricValue(values,'discounts'), checks=metricValue(values,'checks');
+  const avgCheck=metricValue(values,'avgCheck') ?? (revenue!==null&&checks!==null&&checks>0?revenue/checks:null);
+  const p=calculatePnl(rollupAgg(pnlData));
+  const primeCost=(p.revenue!==null&&p.cogs!==null&&p.personnel!==null&&p.revenue!==0)?((p.cogs+p.personnel)/p.revenue)*100:null;
+  const revenuePlan=pnlData.find(x=>canonicalArticleKey(x.article)==='revenue')?.plan;
+  const deviation=(p.revenue!==null&&revenuePlan!==null&&Number.isFinite(revenuePlan)&&revenuePlan!==0)?((p.revenue-revenuePlan)/revenuePlan)*100:null;
+  const lines=['📊 STEN · Итоги смены за '+date];
+  if(restaurant)lines.push('Ресторан: '+restaurant);
+  lines.push('');
+  if(metrics.revenue)lines.push('💰 Выручка: '+fmtRub(revenue));
+  if(metrics.cashCard)lines.push('   ├ Наличные: '+fmtRub(cash)+(revenue!==null&&cash!==null&&revenue!==0?' ('+fmtPct(cash/revenue*100)+')':'')+' · Карта: '+fmtRub(card)+(revenue!==null&&card!==null&&revenue!==0?' ('+fmtPct(card/revenue*100)+')':''));
+  if(metrics.discounts)lines.push('   └ Скидки: '+fmtRub(discounts)+(revenue!==null&&discounts!==null&&revenue!==0?' ('+fmtPct(discounts/revenue*100)+')':''));
+  if(metrics.avgCheck)lines.push('📈 Средний чек: '+fmtRub(avgCheck));
+  if(metrics.checks)lines.push('🧾 Чеков: '+(checks===null?'Нет данных':String(checks)));
+  if(metrics.primeCost)lines.push('🔥 Prime Cost: '+fmtPct(primeCost));
+  if(metrics.ebitda)lines.push('📊 EBITDA: '+fmtRub(p.ebitda)+(p.ebitdaMargin!==null?' ('+fmtPct(p.ebitdaMargin)+')':''));
+  if(metrics.deviation)lines.push('⚠️ Отклонение от плана: '+(Number.isFinite(deviation)?fmtPct(deviation):'Нет данных'));
+  return lines.join('\n');
+}
+async function sendTelegram(chatId,textBody){
+  const token=process.env.TELEGRAM_BOT_TOKEN;
+  if(!token)throw httpError(503,'Telegram Bot API не настроен (TELEGRAM_BOT_TOKEN)','MESSENGER_NOT_CONFIGURED');
+  const r=await fetch('https://api.telegram.org/bot'+token+'/sendMessage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,text:textBody})});
+  if(!r.ok)throw httpError(502,'Telegram не принял отчёт','MESSENGER_UPSTREAM_ERROR');
+  return {provider:'telegram',sent:true};
+}
+async function sendWhatsApp(phone,textBody){
+  const token=process.env.WHATSAPP_ACCESS_TOKEN,phoneId=process.env.WHATSAPP_PHONE_NUMBER_ID,version=process.env.WHATSAPP_API_VERSION;
+  if(!token||!phoneId||!version)throw httpError(503,'WhatsApp Business API не настроен','MESSENGER_NOT_CONFIGURED');
+  const r=await fetch('https://graph.facebook.com/'+version+'/'+phoneId+'/messages',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({messaging_product:'whatsapp',to:phone,type:'text',text:{body:textBody}})});
+  if(!r.ok)throw httpError(502,'WhatsApp Business API не принял отчёт','MESSENGER_UPSTREAM_ERROR');
+  return {provider:'whatsapp',sent:true};
+}
+async function loadReportMetrics(user,date,scope){
+  const s=scope||{period:date.slice(0,7),project_id:'',branch_id:'',restaurant_id:'',department_id:''};
+  const reportRows=await safeQuery('SELECT values_json FROM daily_reports WHERE organization_id=$1::uuid AND report_date=$2::date AND ($3::text=\'\' OR project_id=$3) AND ($4::text=\'\' OR branch_id=$4) AND ($5::text=\'\' OR restaurant_id=$5) AND ($6::text=\'\' OR department_id=$6) LIMIT 1',[user.organizationId,date,s.project_id||'',s.branch_id||'',s.restaurant_id||'',s.department_id||''],[]);
+  const values=reportRows[0]?.values_json||{};
+  const rows=await safeQuery('SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND ($3::text=\'\' OR project_id=$3) AND ($4::text=\'\' OR branch_id=$4) AND ($5::text=\'\' OR restaurant_id=$5) AND ($6::text=\'\' OR department_id=$6)',[user.organizationId,s.period,s.project_id||'',s.branch_id||'',s.restaurant_id||'',s.department_id||''],[]);
+  const all=[];for(const r of rows){try{const parsed=JSON.parse(r.rows);if(Array.isArray(parsed))all.push(...parsed)}catch{}}
+  const pnlData=aggregateRows(all);
+  return {values,pnlData};
+}
+
+app.get('/api/ai/skills',requireAuth,requireOrg,async(req,res,next)=>{try{
+  const rows=await safeQuery('SELECT config_json,updated_at FROM ai_skill_settings WHERE organization_id=$1::uuid LIMIT 1',[req.user.organizationId],[]);
+  ok(res,{settings:rows[0]?{...rows[0].config_json,updated_at:rows[0].updated_at}:null});
+ }catch(e){next(e)}});
+
+app.put('/api/ai/skills',requireAuth,requireOrg,async(req,res,next)=>{try{
+  const config=parseOr400(AiSkillsSchema,req.body??{});
+  await queryWithRetry('INSERT INTO ai_skill_settings(organization_id,config_json,updated_at,updated_by) VALUES($1::uuid,$2::jsonb,now(),$3) ON CONFLICT(organization_id) DO UPDATE SET config_json=excluded.config_json,updated_at=now(),updated_by=excluded.updated_by',
+    [req.user.organizationId,JSON.stringify(config),req.user.id],{orgId:req.user.organizationId});
+  await audit(req.user,'ai.skills.updated','ai_skill_settings',req.user.organizationId,{keys:Object.keys(config)});
+  ok(res,{saved:true,confirmed:true,settings:config});
+}catch(e){next(e)}});
+
+app.get('/api/analytics/settings',requireAuth,requireOrg,async(req,res,next)=>{try{
+  const rows=await safeQuery('SELECT config_json,updated_at FROM analytics_settings WHERE organization_id=$1::uuid LIMIT 1',[req.user.organizationId],[]);
+  ok(res,{settings:rows[0]?{...rows[0].config_json,updated_at:rows[0].updated_at}:null});
+}catch(e){next(e)}});
+
+app.put('/api/analytics/settings',requireAuth,requireOrg,async(req,res,next)=>{try{
+  const config=parseOr400(AnalyticsSettingsSchema,req.body??{});
+  await queryWithRetry('INSERT INTO analytics_settings(organization_id,config_json,updated_at,updated_by) VALUES($1::uuid,$2::jsonb,now(),$3) ON CONFLICT(organization_id) DO UPDATE SET config_json=excluded.config_json,updated_at=now(),updated_by=excluded.updated_by',
+    [req.user.organizationId,JSON.stringify(config),req.user.id],{orgId:req.user.organizationId});
+  await audit(req.user,'analytics.settings.updated','analytics_settings',req.user.organizationId,{keys:Object.keys(config)});
+  ok(res,{saved:true,confirmed:true,settings:config});
+}catch(e){next(e)}});
+
+app.get('/api/profile',requireAuth,async(req,res,next)=>{try{
+ const rows=await safeQuery('SELECT id,email,first_name,last_name,position,telegram_chat_id,role,organization_id FROM users WHERE id=$1::uuid AND is_active=true LIMIT 1',[req.user.id],[]);
+ const u=rows[0]; if(!u) throw httpError(404,'Профиль не найден','PROFILE_NOT_FOUND');
+ ok(res,{profile:{id:u.id,email:u.email,firstName:u.first_name||'',lastName:u.last_name||'',position:u.position||'',telegramChatId:u.telegram_chat_id||'',role:u.role||'',organizationId:u.organization_id||null}});
+}catch(e){next(e)}});
+
+app.put('/api/profile',requireAuth,async(req,res,next)=>{try{
+ const firstName=String(req.body?.firstName??'').trim().normalize('NFC');
+ const lastName=String(req.body?.lastName??'').trim().normalize('NFC');
+ const position=String(req.body?.position??'').trim().normalize('NFC');
+ const telegramChatId=String(req.body?.telegramChatId??'').trim();
+ if(firstName.length>80||lastName.length>80||position.length>120||telegramChatId.length>80) throw httpError(400,'Проверьте данные профиля','PROFILE_INVALID');
+ if(telegramChatId && !/^-?\\d{5,20}$/u.test(telegramChatId)) throw httpError(400,'Telegram ID должен содержать только цифры, можно с минусом','TELEGRAM_ID_INVALID');
+ const q=await queryWithRetry('UPDATE users SET first_name=$1,last_name=$2,position=$3,telegram_chat_id=$4 WHERE id=$5::uuid AND is_active=true RETURNING id,email,first_name,last_name,position,telegram_chat_id,role,organization_id',[firstName||null,lastName||null,position,telegramChatId||null,req.user.id],{});
+ const u=q.rows?.[0]; if(!u) throw httpError(404,'Профиль не найден','PROFILE_NOT_FOUND');
+ if(telegramChatId && UUID_RE.test(String(req.user.organizationId||''))) await queryWithRetry('INSERT INTO messenger_settings(organization_id,telegram_chat_id,updated_at,updated_by) VALUES($1::uuid,$2,now(),$3) ON CONFLICT(organization_id) DO UPDATE SET telegram_chat_id=excluded.telegram_chat_id,updated_at=now(),updated_by=excluded.updated_by',[req.user.organizationId,telegramChatId,req.user.id],{orgId:req.user.organizationId});
+ await audit(req.user,'profile.updated','users',u.id,{fields:['first_name','last_name','position','telegram_chat_id']});
+ ok(res,{saved:true,confirmed:true,profile:{id:u.id,email:u.email,firstName:u.first_name||'',lastName:u.last_name||'',position:u.position||'',telegramChatId:u.telegram_chat_id||'',role:u.role||'',organizationId:u.organization_id||null}});
+}catch(e){next(e)}});
+
+app.get('/api/messenger/settings',requireAuth,requireOrg,async(req,res,next)=>{try{
+ const rows=await safeQuery('SELECT provider,send_time,scope_json,metrics_json,telegram_chat_id,whatsapp_phone,updated_at FROM messenger_settings WHERE organization_id=$1::uuid LIMIT 1',[req.user.organizationId],[]);
+ const s=rows[0];ok(res,{settings:s?{provider:s.provider,send_time:s.send_time,scope:s.scope_json,metrics:s.metrics_json,telegram_chat_id:s.telegram_chat_id,whatsapp_phone:s.whatsapp_phone,updated_at:s.updated_at}:null});
+}catch(e){next(e)}});
+
+app.post('/api/messenger/settings',requireAuth,requireOrg,async(req,res,next)=>{try{
+ const b=parseOr400(MessengerSettingsSchema,req.body??{});
+ await queryWithRetry('INSERT INTO messenger_settings(organization_id,provider,send_time,scope_json,metrics_json,telegram_chat_id,whatsapp_phone,updated_at,updated_by) VALUES($1::uuid,$2,$3,$4::jsonb,$5::jsonb,$6,$7,now(),$8) ON CONFLICT(organization_id) DO UPDATE SET provider=excluded.provider,send_time=excluded.send_time,scope_json=excluded.scope_json,metrics_json=excluded.metrics_json,telegram_chat_id=excluded.telegram_chat_id,whatsapp_phone=excluded.whatsapp_phone,updated_at=now(),updated_by=excluded.updated_by',[req.user.organizationId,b.provider,b.send_time,JSON.stringify(b.scope),JSON.stringify(b.metrics),b.telegram_chat_id||null,b.whatsapp_phone||null,req.user.id],{orgId:req.user.organizationId});
+ await audit(req.user,'messenger.settings.updated','messenger_settings',req.user.organizationId,{provider:b.provider});
+ ok(res,{saved:true,confirmed:true});
+}catch(e){next(e)}});
+
+app.post('/api/reports/send',requireAuth,requireOrg,async(req,res,next)=>{try{
+ const b=parseOr400(ReportsSendSchema,req.body??{});
+ const settingsRows=await safeQuery('SELECT provider,scope_json,metrics_json,telegram_chat_id,whatsapp_phone FROM messenger_settings WHERE organization_id=$1::uuid LIMIT 1',[req.user.organizationId],[]);
+ const settings=settingsRows[0]||{};
+ const provider=b.provider||settings.provider;
+ const metrics={revenue:true,cashCard:true,discounts:true,avgCheck:true,checks:true,primeCost:true,ebitda:true,deviation:true,...(settings.metrics_json||{}),...(b.metrics||{})};
+ const recipient=b.recipient||(provider==='telegram'?settings.telegram_chat_id:settings.whatsapp_phone);
+ if(!provider||!recipient)throw httpError(400,'Не выбран мессенджер или получатель','MESSENGER_RECIPIENT_REQUIRED');
+ const scope=b.scope||settings.scope_json||{};
+ await assertScopeAccess(req.user,scope);
+ const data=await loadReportMetrics(req.user,b.date,scope);
+ const restaurant=scope.restaurant_id||data.values.restaurant||null;
+ const textBody=reportText(b.date,restaurant,data.values,data.pnlData,metrics);
+ const result=provider==='telegram'?await sendTelegram(recipient,textBody):await sendWhatsApp(recipient,textBody);
+ await audit(req.user,'report.sent','daily_reports',b.date,{provider,metrics});
+ ok(res,{...result,date:b.date,preview:textBody});
+}catch(e){next(e)}});
+
+/* ---- reports ---- */
+app.get('/reports', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const date = req.query.date ? String(req.query.date) : null;
+    const reportScope = scopeFromQuery({ ...req.query, period: date ? String(date).slice(0,7) : new Date().toISOString().slice(0,7) });
+    await assertScopeAccess(req.user, reportScope);
+    const rows = await safeQuery(
+      `SELECT id, report_date, project_id, branch_id, restaurant_id, department_id, values_json, note, updated_at
+         FROM daily_reports
+        WHERE organization_id = $1::uuid
+          AND ($2::date IS NULL OR report_date = $2::date)
+          AND ($3::text='' OR project_id=$3)
+          AND ($4::text='' OR branch_id=$4)
+          AND ($5::text='' OR restaurant_id=$5)
+          AND ($6::text='' OR department_id=$6)
+        ORDER BY report_date DESC LIMIT 366`,
+      [req.user.organizationId, date, reportScope.project_id, reportScope.branch_id, reportScope.restaurant_id, reportScope.department_id], []
+    );
+    const reports = [];
+    for (const r of rows) {
+      const values = r.values_json || {};
+      const scope = { period: String(r.report_date).slice(0, 7), project_id: r.project_id || '', branch_id: r.branch_id || '', restaurant_id: r.restaurant_id || '', department_id: r.department_id || '' };
+      const pnlRows = await safeQuery('SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1',
+        [req.user.organizationId, scope.period, scope.project_id, scope.branch_id, scope.restaurant_id, scope.department_id], []);
+      const all = [];
+      for (const item of pnlRows) { try { const parsed = JSON.parse(item.rows); if (Array.isArray(parsed)) all.push(...parsed); } catch {} }
+      const aggregated = aggregateRows(all);
+      const fact = calculatePnl(rollupAgg(aggregated));
+      reports.push({ id: r.id, date: r.report_date, values, note: r.note, updatedAt: r.updated_at, calculated: fact });
+    }
+    ok(res, { reports });
+  } catch (e) { next(e); }
+});
+app.post('/reports', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const body = parseOr400(ReportWriteSchema, req.body ?? {});
+    const reportScope = { project_id: body.project_id || '', branch_id: body.branch_id || '', restaurant_id: body.restaurant_id || '', department_id: body.department_id || '' };
+    await assertScopeAccess(req.user, reportScope);
+    await queryWithRetry(
+      `INSERT INTO daily_reports (id, organization_id, report_date, project_id, branch_id, restaurant_id, department_id, values_json, note)
+       VALUES ($1::uuid,$2::uuid,$3::date,$4,$5,$6,$7,$8::jsonb,$9)
+       ON CONFLICT (organization_id, report_date, project_id, branch_id, restaurant_id, department_id)
+       DO UPDATE SET values_json = excluded.values_json, note = excluded.note, updated_at = now()`,
+      [uuid(), req.user.organizationId, body.date, reportScope.project_id, reportScope.branch_id, reportScope.restaurant_id, reportScope.department_id, JSON.stringify(body.values), body.note ?? null],
+      { orgId: req.user.organizationId }
+    );
+    await audit(req.user, 'report.upsert', 'daily_reports', body.date, { keys: Object.keys(body.values).length });
+    ok(res, { saved: true, date: body.date });
+  } catch (e) { next(e); }
+});
+app.delete('/reports/:date', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!DATE_RE.test(req.params.date)) throw httpError(400, 'Некорректная дата', 'BAD_DATE');
+    const reportScope = scopeFromQuery({ ...req.query, period: req.params.date.slice(0,7) });
+    await assertScopeAccess(req.user, reportScope);
+    await queryWithRetry('DELETE FROM daily_reports WHERE organization_id = $1::uuid AND report_date = $2::date AND ($3::text=\'\' OR project_id=$3) AND ($4::text=\'\' OR branch_id=$4) AND ($5::text=\'\' OR restaurant_id=$5) AND ($6::text=\'\' OR department_id=$6)',
+      [req.user.organizationId, req.params.date, reportScope.project_id, reportScope.branch_id, reportScope.restaurant_id, reportScope.department_id], { orgId: req.user.organizationId });
+    await audit(req.user, 'report.delete', 'daily_reports', req.params.date, {});
+    ok(res, { deleted: true, date: req.params.date });
+  } catch (e) { next(e); }
+});
+
+/* ---- Секретарь: календарь, встречи и задачи, без GPT ---- */
+app.get('/api/secretary/events', requireAuth, requireOrg, async(req,res,next)=>{try{const from=String(req.query.from||new Date().toISOString()),to=String(req.query.to||new Date(Date.now()+31*86400000).toISOString());const rows=await safeQuery(`SELECT id,title,description,event_type,start_at,end_at,status,reminder_minutes,location,created_at,updated_at FROM secretary_events WHERE organization_id=$1::uuid AND start_at >= $2::timestamptz AND start_at < $3::timestamptz ORDER BY start_at ASC`,[req.user.organizationId,from,to],[]);ok(res,{events:rows||[]})}catch(e){next(e)}});
+app.post('/api/secretary/events', requireAuth, requireOrg, async(req,res,next)=>{try{const b=req.body||{};if(!String(b.title||'').trim()||!b.start_at)throw httpError(400,'Название и начало события обязательны','BAD_EVENT');const id=uuid();const q=await queryWithRetry(`INSERT INTO secretary_events(id,organization_id,user_id,title,description,event_type,start_at,end_at,status,reminder_minutes,location) VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7::timestamptz,$8::timestamptz,$9,$10,$11) RETURNING id,title,description,event_type,start_at,end_at,status,reminder_minutes,location,created_at,updated_at`,[id,req.user.organizationId,req.user.id,String(b.title).trim(),b.description||null,b.event_type||'meeting',b.start_at,b.end_at||null,b.status||'planned',b.reminder_minutes==null?30:Number(b.reminder_minutes),b.location||null],{orgId:req.user.organizationId});if(!q?.rows?.[0])throw httpError(500,'Событие не сохранено','SAVE_NOT_CONFIRMED');await audit(req.user,'secretary.event.created','secretary_events',id,{title:q.rows[0].title});ok(res,{event:q.rows[0],confirmed:true},201)}catch(e){next(e)}});
+app.patch('/api/secretary/events/:id', requireAuth, requireOrg, async(req,res,next)=>{try{if(!UUID_RE.test(req.params.id))throw httpError(400,'Некорректный id','BAD_ID');const b=req.body||{},f=[],p=[req.params.id,req.user.organizationId];for(const [k,col] of [['title','title'],['description','description'],['event_type','event_type'],['start_at','start_at'],['end_at','end_at'],['status','status'],['reminder_minutes','reminder_minutes'],['location','location']])if(b[k]!==undefined){p.push(b[k]);f.push(`${col} = ${p.length}${k==='start_at'||k==='end_at'?'::timestamptz':''}`)}if(!f.length)throw httpError(400,'Нет изменений','NO_CHANGES');const q=await queryWithRetry(`UPDATE secretary_events SET ${f.join(',')},updated_at=now() WHERE id=$1::uuid AND organization_id=$2::uuid RETURNING id,title,description,event_type,start_at,end_at,status,reminder_minutes,location,created_at,updated_at`,p,{orgId:req.user.organizationId});if(!q?.rows?.[0])throw httpError(404,'Событие не найдено','NOT_FOUND');await audit(req.user,'secretary.event.updated','secretary_events',req.params.id,{fields:Object.keys(b)});ok(res,{event:q.rows[0],confirmed:true})}catch(e){next(e)}});
+app.delete('/api/secretary/events/:id', requireAuth, requireOrg, async(req,res,next)=>{try{if(!UUID_RE.test(req.params.id))throw httpError(400,'Некорректный id','BAD_ID');const q=await queryWithRetry('DELETE FROM secretary_events WHERE id=$1::uuid AND organization_id=$2::uuid RETURNING id',[req.params.id,req.user.organizationId],{orgId:req.user.organizationId});if(!q?.rows?.[0])throw httpError(404,'Событие не найдено','NOT_FOUND');await audit(req.user,'secretary.event.deleted','secretary_events',req.params.id,{});ok(res,{deleted:true,confirmed:true})}catch(e){next(e)}});
+
+/* ---- Секретарь: заметки/итоги встреч (детерминированный CRUD, без GPT) ---- */
+app.get('/api/secretary/notes', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '100'), 10) || 100, 1), 500);
+    const rows = await safeQuery(
+      `SELECT id, title, content, source, audio_url, created_at, updated_at
+         FROM secretary_notes
+        WHERE organization_id = $1::uuid AND ($2::uuid IS NULL OR user_id = $2::text)
+        ORDER BY updated_at DESC LIMIT $3`,
+      [req.user.organizationId, req.query.mine === '1' ? req.user.id : null, limit],
+      null
+    );
+    if (!rows) return res.status(503).json({ error: { message: 'Заметки временно недоступны (БД)', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
+    ok(res, { notes: rows });
+  } catch (e) { next(e); }
+});
+
+app.post('/api/secretary/notes', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const body = parseOr400(SecretaryNoteCreateSchema, req.body ?? {});
+    const noteId = uuid();
+    await queryWithRetry(
+      `INSERT INTO secretary_notes (id, organization_id, user_id, title, content, source, audio_url)
+       VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6,$7)`,
+      [noteId, req.user.organizationId, req.user.id,
+       body.title.normalize('NFC'), body.content.normalize('NFC'), body.source, body.audio_url ?? null],
+      { orgId: req.user.organizationId }
+    );
+    // Readback-подтверждение: «сохранено» только если БД вернула запись.
+    const verify = await safeQuery(
+      `SELECT id, title, content, source, audio_url, created_at, updated_at
+         FROM secretary_notes WHERE id = $1::uuid AND organization_id = $2::uuid LIMIT 1`,
+      [noteId, req.user.organizationId], null
+    );
+    const saved = verify?.[0] || null;
+    await audit(req.user, saved ? 'secretary.note.created' : 'secretary.note.unconfirmed', 'secretary_notes', noteId, { title: body.title });
+    if (!saved) {
+      return res.status(500).json({ error: { message: 'Сохранение не подтверждено сервером (readback failed)', code: 'SAVE_NOT_CONFIRMED', requestId: req.requestId } });
+    }
+    ok(res, { note: saved, confirmed: true }, 201);
+  } catch (e) { next(e); }
+});
+
+app.patch('/api/secretary/notes/:id', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный id заметки', 'BAD_ID');
+    const body = parseOr400(SecretaryNotePatchSchema, req.body ?? {});
+    const sets = []; const params = [req.params.id, req.user.organizationId];
+    if (body.title !== undefined)     { params.push(body.title.normalize('NFC'));   sets.push(`title = $${params.length}`); }
+    if (body.content !== undefined)   { params.push(body.content.normalize('NFC')); sets.push(`content = $${params.length}`); }
+    if (body.audio_url !== undefined) { params.push(body.audio_url ?? null);        sets.push(`audio_url = $${params.length}`); }
+    let saved = null;
+    try {
+      const upd = await queryWithRetry(
+        `UPDATE secretary_notes SET ${sets.join(', ')}, updated_at = now()
+          WHERE id = $1::uuid AND organization_id = $2::uuid
+          RETURNING id, title, content, source, audio_url, created_at, updated_at`,
+        params,
+        { orgId: req.user.organizationId }
+      );
+      saved = upd?.rows?.[0] || null;
+    } catch (e) { log('secretary patch error:', e.message); }
+    if (!saved) {
+      await audit(req.user, 'secretary.note.update.failed', 'secretary_notes', req.params.id, { fields: Object.keys(body) });
+      return res.status(404).json({ error: { message: 'Заметка не найдена или недоступна', code: 'NOT_FOUND', requestId: req.requestId } });
+    }
+    await audit(req.user, 'secretary.note.updated', 'secretary_notes', req.params.id, { fields: Object.keys(body) });
+    ok(res, { note: saved, confirmed: true });
+  } catch (e) { next(e); }
+});
+
+app.delete('/api/secretary/notes/:id', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный id заметки', 'BAD_ID');
+    const del = await queryWithRetry(
+      `DELETE FROM secretary_notes WHERE id = $1::uuid AND organization_id = $2::uuid RETURNING id`,
+      [req.params.id, req.user.organizationId],
+      { orgId: req.user.organizationId }
+    );
+    if (!del?.rows?.length) {
+      return res.status(404).json({ error: { message: 'Заметка не найдена', code: 'NOT_FOUND', requestId: req.requestId } });
+    }
+    // Readback: убеждаемся, что записи больше нет.
+    const gone = await safeQuery(`SELECT 1 FROM secretary_notes WHERE id=$1::uuid LIMIT 1`, [req.params.id], null);
+    await audit(req.user, 'secretary.note.deleted', 'secretary_notes', req.params.id, { verified: !gone || gone.length === 0 });
+    ok(res, { deleted: true, id: req.params.id });
+  } catch (e) { next(e); }
+});
+
+/* ---- org tree (scope: Project → Branch → Restaurant → Department) ---- */
+app.get('/api/b2b/org/tree', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    let rows = await safeQuery(
+      `SELECT id, name, parent_id, kind FROM org_units WHERE organization_id = $1::uuid ORDER BY name`,
+      [req.user.organizationId], null
+    );
+    if (!rows) {
+      return res.status(503).json({ error: { message: 'Справочник организации временно недоступен (БД)', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
+    }
+    // Пустой справочник остаётся пустым: STEN не создаёт фиктивные рестораны/отделы.
+    const byId = new Map(rows.map(r => [r.id, { ...r, children: [] }]));
+    const roots = [];
+    for (const node of byId.values()) {
+      const parent = node.parent_id ? byId.get(node.parent_id) : null;
+      if (parent) parent.children.push(node); else roots.push(node);
+    }
+    ok(res, { tree: roots });
+  } catch (e) { next(e); }
+});
+
+/* ---- org_units CRUD (создание/переименование/удаление узлов контура) ---- */
+const OrgUnitCreateSchema = z.object({
+  kind: z.enum(['project','branch','restaurant','department']),
+  name: z.string().trim().min(1).max(200),
+  parent_id: z.string().uuid().nullable().optional(),
+}).strict();
+
+const OrgUnitPatchSchema = z.object({
+  name: z.string().trim().min(1).max(200).optional(),
+}).strict();
+
+app.post('/api/b2b/org/units', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const body = parseOr400(OrgUnitCreateSchema, req.body ?? {});
+    if (body.kind !== 'project') {
+      if (!body.parent_id) throw httpError(400, body.kind + ': нужен parent_id', 'PARENT_REQUIRED');
+      const parent = await safeQuery(
+        'SELECT id, kind FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
+        [body.parent_id, req.user.organizationId], null
+      );
+      if (!parent || !parent[0]) throw httpError(404, 'Родительский узел не найден', 'PARENT_NOT_FOUND');
+      const expected = { branch:'project', restaurant:'branch', department:'restaurant' }[body.kind];
+      if (parent[0].kind !== expected) throw httpError(400, 'Родитель для ' + body.kind + ' должен быть ' + expected, 'PARENT_KIND_MISMATCH');
+    } else if (body.parent_id) {
+      throw httpError(400, 'project не может иметь parent', 'PARENT_NOT_ALLOWED');
+    }
+    const id = uuid();
+    await queryWithRetry(
+      'INSERT INTO org_units (id, organization_id, parent_id, kind, name) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5)',
+      [id, req.user.organizationId, body.parent_id || null, body.kind, body.name],
+      { orgId: req.user.organizationId }
+    );
+    const verify = await safeQuery(
+      'SELECT id, name, parent_id, kind FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
+      [id, req.user.organizationId], null
+    );
+    if (!verify || !verify[0]) throw httpError(500, 'Не удалось подтвердить создание', 'SAVE_NOT_CONFIRMED');
+    await audit(req.user, 'org.unit.created', 'org_units', id, { kind: body.kind, name: body.name });
+    ok(res, { unit: verify[0], confirmed: true }, 201);
+  } catch (e) { next(e); }
+});
+
+app.patch('/api/b2b/org/units/:id', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный id', 'BAD_ID');
+    const body = parseOr400(OrgUnitPatchSchema, req.body ?? {});
+    if (body.name === undefined) throw httpError(400, 'Нет изменений', 'NO_CHANGES');
+    const upd = await queryWithRetry(
+      'UPDATE org_units SET name=$1, updated_at=now() WHERE id=$2::uuid AND organization_id=$3::uuid RETURNING id, name, parent_id, kind',
+      [body.name, req.params.id, req.user.organizationId],
+      { orgId: req.user.organizationId }
+    );
+    if (!upd || !upd.rows || !upd.rows[0]) throw httpError(404, 'Узел не найден', 'NOT_FOUND');
+    await audit(req.user, 'org.unit.updated', 'org_units', req.params.id, { fields: ['name'] });
+    ok(res, { unit: upd.rows[0], confirmed: true });
+  } catch (e) { next(e); }
+});
+
+app.delete('/api/b2b/org/units/:id', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный id', 'BAD_ID');
+    const kids = await safeQuery(
+      'SELECT 1 FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
+      [req.params.id, req.user.organizationId], null
+    );
+    if (kids && kids.length) throw httpError(409, 'Нельзя удалить: есть дочерние узлы. Сначала удалите их.', 'HAS_CHILDREN');
+    const del = await queryWithRetry(
+      'DELETE FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid RETURNING id',
+      [req.params.id, req.user.organizationId],
+      { orgId: req.user.organizationId }
+    );
+    if (!del || !del.rows || !del.rows.length) throw httpError(404, 'Узел не найден', 'NOT_FOUND');
+    await audit(req.user, 'org.unit.deleted', 'org_units', req.params.id, {});
+    ok(res, { deleted: true, confirmed: true });
+  } catch (e) { next(e); }
+});
+function decodePdfText(buffer) {
+  const raw = buffer.toString('latin1');
+  const parts = [];
+  const re = /\\((?:\\\\.|[^\\)])*\\)\\s*T[Jj]/g;
+  let m;
+  while ((m = re.exec(raw))) {
+    const s = m[0].replace(/\\s*T[Jj]$/,'').slice(1,-1)
+      .replace(/\\\\([\\\\()])/g,'$1')
+      .replace(/\\n/g,'\n').replace(/\\r/g,'\r');
+    if (s.trim()) parts.push(s);
+  }
+  const hex = /<([0-9A-Fa-f]{4,})>\\s*T[Jj]/g;
+  while ((m = hex.exec(raw))) {
+    try { const b = Buffer.from(m[1], 'hex'); const s = b.toString('utf16be'); if (s.trim()) parts.push(s); } catch {}
+  }
+  return parts.join(' ').replace(/\\s{2,}/g,' ').trim();
+}
+function extractDocxXml(buffer) {
+  const text = buffer.toString('binary');
+  const marker = 'word/document.xml';
+  const at = text.indexOf(marker);
+  if (at < 0) return '';
+  const start = Math.max(0, text.lastIndexOf('PK\x03\x04', at));
+  if (start < 0) return '';
+  const view = Buffer.from(buffer);
+  const nameLen = view.readUInt16LE(start + 26);
+  const extraLen = view.readUInt16LE(start + 28);
+  const compSize = view.readUInt32LE(start + 18);
+  const pos = start + 30 + nameLen + extraLen;
+  if (pos + compSize > view.length) return '';
+  try {
+    const zlib = require('zlib');
+    const method = view.readUInt16LE(start + 8);
+    const data = view.subarray(pos, pos + compSize);
+    const xml = method === 8
+      ? zlib.inflateRawSync(data).toString('utf8')
+      : data.toString('utf8');
+    return xml
+      .replace(/<w:tab[^>]*\/>/g, '\t')
+      .replace(/<w:br[^>]*\/>/g, '\n')
+      .replace(/<\/w:p>/g, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&#39;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n\s*\n+/g, '\n')
+      .trim();
+  } catch {
+    return '';
+  }
+}
+
+async function extractDocument(buf, name, mime) {
+  const ext = String(name).split('.').pop()?.toLowerCase() || '';
+  const markitdownEnv = {
+    MARKITDOWN_URL: ENV.MARKITDOWN_URL,
+    MARKITDOWN_TOKEN: ENV.MARKITDOWN_TOKEN,
+    MARKITDOWN_ENABLED: ENV.MARKITDOWN_ENABLED,
+    MARKITDOWN_TIMEOUT_MS: ENV.MARKITDOWN_TIMEOUT_MS,
+  };
+
+  // MarkItDown is the primary normalization layer. STEN keeps its deterministic
+  // XLSX parser after conversion so plan/fact/sourceCell precision is preserved.
+  let normalized = null;
+  if (ENV.MARKITDOWN_ENABLED && ENV.MARKITDOWN_URL) {
+    normalized = await convertWithMarkItDown(buf, name, mime, markitdownEnv);
+  }
+
+  if (['xlsx', 'xlsm', 'xls'].includes(ext)) {
+    const rows = xlsxToRows(buf);
+    const meta = {
+      type: 'spreadsheet',
+      engine: normalized?.meta?.engine || 'sten-xlsx',
+      engineVersion: normalized?.meta?.engineVersion || null,
+      normalizedMarkdown: Boolean(normalized?.markdown),
+      sourceFormat: normalized?.meta?.sourceFormat || mime,
+      sheets: [...new Set(rows.map(r => r.sheet))],
+      rows,
+    };
+    const deterministicText = rows
+      .map(r => [r.label, r.plan, r.fact].filter(v => v !== null && v !== undefined).join(' | '))
+      .join('\n');
+    return {
+      text: normalized?.markdown ? normalized.markdown : deterministicText,
+      meta,
+    };
+  }
+
+  if (normalized?.markdown) {
+    return {
+      text: normalized.markdown,
+      meta: {
+        ...normalized.meta,
+        type: 'document',
+        format: ext || mime,
+      },
+    };
+  }
+
+  // Compatibility fallback while MarkItDown is being provisioned or for a
+  // format/version it cannot convert. This is never the primary path.
+  if (['csv', 'txt', 'md', 'json'].includes(ext) || String(mime).startsWith('text/')) {
+    return {
+      text: buf.toString('utf8').replace(/^\uFEFF/u, ''),
+      meta: { type: 'text', format: ext || mime, engine: 'legacy-text-fallback' },
+    };
+  }
+
+  if (['pdf', 'docx', 'png', 'jpg', 'jpeg', 'webp', 'tiff', 'bmp'].includes(ext)) {
+    const processed = await documentProcessor.process(buf, name, mime, {
+      YANDEXGPT_API_KEY: ENV.YANDEXGPT_API_KEY,
+      YC_FOLDER_ID: ENV.YC_FOLDER_ID,
+      VISION_OCR_URL: ENV.VISION_OCR_URL,
+    });
+    return {
+      text: processed.text,
+      meta: { ...processed.data, type: processed.kind, engine: 'legacy-fallback' },
+    };
+  }
+
+  return { text: '', meta: { type: 'binary', mime, engine: 'none' } };
+}
+/* ---- documents (evidence pipeline, analysis-first) ---- */
+app.post('/ai/documents/upload', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const body = parseOr400(DocumentUploadSchema, req.body ?? {});
+    const buf = Buffer.from(body.dataBase64, 'base64');
+    if (!buf.length || buf.length > ENV.MAX_UPLOAD_BYTES) throw httpError(413, 'Файл пуст или превышает лимит 15 МБ', 'FILE_TOO_LARGE');
+    const docId = uuid();
+    const safeName = String(body.name).replace(/[\\/:*?"<>|\\u0000-\\u001f]/gu, '_').slice(0, 200);
+    const key = `documents/${req.user.organizationId}/${docId}/${safeName}`;
+    const mime = body.mimeType || 'application/octet-stream';
+    const extracted = await extractDocument(buf, safeName, mime);
+    if (!extracted.text.trim() && ['xlsx','xlsm','xls','csv','txt','md','json','pdf','docx'].includes(String(safeName).split('.').pop()?.toLowerCase() || '')) {
+      throw httpError(422, 'Файл принят, но из него не удалось извлечь содержимое', 'DOCUMENT_EXTRACTION_EMPTY');
+    }
+    await storagePut(key, buf, mime);
+    await queryWithRetry(
+      `INSERT INTO ai_documents (id, organization_id, user_id, name, mime_type, size_bytes, storage_key, status, extracted_text, extraction_json)
+       VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6,$7,'ready',$8,$9::jsonb)`,
+      [docId, req.user.organizationId, req.user.id, safeName, mime, buf.length, key, extracted.text.slice(0, 100000), JSON.stringify(extracted.meta)],
+      { orgId: req.user.organizationId }
+    );
+    await audit(req.user, 'document.upload.processed', 'ai_documents', docId, { name: safeName, bytes: buf.length, chars: extracted.text.length });
+    ok(res, { id: docId, name: safeName, size: buf.length, status: 'ready', chars: extracted.text.length, extraction: extracted.meta }, 201);
+  } catch (e) { next(e); }
+});
+app.get('/ai/documents', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const rows = await safeQuery(
+      `SELECT id, name, mime_type, size_bytes, status, created_at, length(extracted_text) AS chars, extraction_json FROM ai_documents WHERE organization_id = $1::uuid ORDER BY created_at DESC LIMIT 200`,
+      [req.user.organizationId], null
+    );
+    if (!rows) return res.status(503).json({ error: { message: 'Хранилище документов временно недоступно', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
+    ok(res, { documents: rows.map(r => ({ id:r.id, name:r.name, mimeType:r.mime_type, size:Number(r.size_bytes||0), status:r.status, createdAt:r.created_at, chars:Number(r.chars||0), extraction:r.extraction_json })) });
+  } catch (e) { next(e); }
+});
+
+/* Предпросмотр извлечённого содержимого: чтение-only, без записи в P&L. */
+app.get('/ai/documents/:id/preview', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный id документа', 'BAD_ID');
+    const rows = await safeQuery(
+      `SELECT id, name, mime_type, size_bytes, status, extracted_text, extraction_json, created_at
+       FROM ai_documents
+       WHERE id = $1::uuid AND organization_id = $2::uuid LIMIT 1`,
+      [req.params.id, req.user.organizationId], null
+    );
+    if (!rows) return res.status(503).json({ error: { message: 'Хранилище документов временно недоступно', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
+    const d = rows[0];
+    if (!d) throw httpError(404, 'Документ не найден', 'NOT_FOUND');
+    const text = String(d.extracted_text || '');
+    ok(res, {
+      id: d.id,
+      name: d.name,
+      mimeType: d.mime_type,
+      size: Number(d.size_bytes || 0),
+      status: d.status,
+      createdAt: d.created_at,
+      preview: text.slice(0, 12000),
+      truncated: text.length > 12000,
+      chars: text.length,
+      extraction: d.extraction_json,
+      readOnly: true,
+    });
+  } catch (e) { next(e); }
+});
+
+/* Удаление документа из контура STEN: meta из БД + тело из Object Storage.
+   Финансовые данные не затрагиваются (документы никогда не пишут в P&L сами). */
+app.delete('/ai/documents/:id', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный id документа', 'BAD_ID');
+    const found = await safeQuery(
+      `SELECT id, storage_key FROM ai_documents WHERE id = $1::uuid AND organization_id = $2::uuid LIMIT 1`,
+      [req.params.id, req.user.organizationId], null
+    );
+    if (!found || !found[0]) throw httpError(404, 'Документ не найден', 'NOT_FOUND');
+    const del = await queryWithRetry(
+      `DELETE FROM ai_documents WHERE id = $1::uuid AND organization_id = $2::uuid RETURNING id`,
+      [req.params.id, req.user.organizationId], { orgId: req.user.organizationId }
+    );
+    if (!del?.rows?.length) throw httpError(404, 'Документ не найден', 'NOT_FOUND');
+    // Readback: убеждаемся, что записи больше нет.
+    const gone = await safeQuery(`SELECT 1 FROM ai_documents WHERE id = $1::uuid LIMIT 1`, [req.params.id], []);
+    // Тело файла из Object Storage удаляем best-effort (ошибка хранилища не отменяет удаление meta).
+    const c = s3();
+    if (c && found[0].storage_key) {
+      try { const { DeleteObjectCommand } = require('@aws-sdk/client-s3'); await c.send(new DeleteObjectCommand({ Bucket: ENV.STORAGE_BUCKET, Key: found[0].storage_key })); }
+      catch (e) { log('document body delete failed:', e.message); }
+    }
+    await audit(req.user, 'document.deleted', 'ai_documents', req.params.id, { verified: !gone || gone.length === 0 });
+    ok(res, { deleted: true, confirmed: true, id: req.params.id });
+  } catch (e) { next(e); }
+});
+
+/* ---- STEN /ask — YandexGPT только со стороны backend, без fake fallback ---- */
+const SYSTEM_PROMPT = [
+  'Ты — СТЕН, операционный ассистент ресторанных бизнесов.',
+  'Отвечай по-русски. Опирайся ТОЛЬКО на предоставленный контекст и данные.',
+  'Если данных нет — честно скажи «данных нет», не придумывай числа и события.',
+  'Финансовые расчёты выполняет детерминированный калькулятор backend; не пересчитывай цифры сам.',
+  'Контекст ресторана является жёсткой границей: анализируй только выбранный restaurant_id и его дочерний department/branch/project scope. Не смешивай данные разных ресторанов. Если ресторан не определён — не делай точечных выводов о конкретной точке.',
+  'Если вопрос не относится к бизнесу, финансам или операционке ресторана — отвечай прямо и кратко, без шаблонов про P&L, план/факт и отклонения.',
+  'Если пользователь спрашивает «что не так», «что важно», «покажи проблемы», «разбери период» — сначала вызови find_deviations, чтобы получить детерминированный список отклонений. Не полагайся на то, что ты сам найдёшь отклонения в P&L.',
+  'Если ты обнаружил устойчивый факт, причину или решение, которое стоит запомнить, добавь в конец ответа блок: ПРЕДЛОЖЕНИЕ ПАМЯТИ: [{"kind": "...", "title": "...", "content": "...", "evidence": {...}}]. Не выдумывай. Только то, что действительно подтверждено данными.',
+  'Никогда не дублируй текст ответа. Ответ выдаётся один раз, целиком.',
+  'ПРАВИЛА ЗНАКОВ: Для расходных статей (COGS, ФОТ, OPEX, себестоимость, зарплата) снижение факта относительно плана — БЛАГОПРИЯТНО (экономия). Рост — НЕБЛАГОПРИЯТНО (перерасход). Для доходных статей (Выручка, EBITDA) рост факта относительно плана — благоприятно, снижение — неблагоприятно. Никогда не называй экономию по расходам «минусом» в негативном смысле. Если ФОТ факт 1,5 млн ниже плана 1,7 млн — это экономия 200 тыс., это плюс для бизнеса.',
+].join('\n');
+
+app.post('/ask', requireAuth, async (req, res, next) => {
+  try {
+    const body = parseOr400(AskSchema, req.body ?? {});
+    const question = String(body.question || body.prompt || '').trim();
+    if (!question && !Array.isArray(body.messages)) throw httpError(400, 'Пустой вопрос', 'EMPTY_QUESTION');
+
+    const ctx = intelligenceContext();
+    const selectedContext = body.scope ? await resolveWorkspaceContext(req.user, body.scope, false) : null;
+    const memCtx = await loadMemoryContext(req.user, selectedContext, 15, ctx);
+
+    const messages = [];
+    messages.push({ role: 'system', text: (body.system ? String(body.system) + '\n\n' : '') + SYSTEM_PROMPT });
+    messages.push({
+      role: 'system',
+      text: 'Структурированная память STEN (confirmed и unconfirmed):\nconfirmed — проверено пользователем, unconfirmed — гипотеза\n' +
+        JSON.stringify(memCtx).slice(0, 8000),
+    });
+    if (Array.isArray(body.messages) && body.messages.length) {
+      for (const m of body.messages.slice(-20)) {
+        if (m.role === 'system') continue;
+        messages.push({ role: m.role === 'assistant' ? 'assistant' : 'user', text: String(m.content || '').slice(0, 8000) });
+      }
+    }
+    const _last = messages[messages.length - 1];
+    if (!_last || _last.role !== 'user' || _last.text !== question) {
+      messages.push({ role: 'user', text: question });
+    }
+
+    if (req.user.organizationId) {
+      const rawScope = body.scope || {};
+      const selected = selectedContext || await resolveWorkspaceContext(req.user, rawScope, false);
+      if (selected.restaurant_id) await assertRestaurantAccess(req.user, selected.restaurant_id);
+      const selectedWithPeriod = {
+        ...selected,
+        period: YM_RE.test(String(rawScope.period || '')) ? String(rawScope.period) : new Date().toISOString().slice(0, 7),
+      };
+      const ym = selectedWithPeriod.period;
+      const rows = await safeQuery(`SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2
+        AND ($3::text = '' OR project_id = $3)
+        AND ($4::text = '' OR branch_id = $4)
+        AND ($5::text = '' OR restaurant_id = $5)
+        AND ($6::text = '' OR department_id = $6)
+        LIMIT 200`, [req.user.organizationId, ym, selectedWithPeriod.project_id || '', selectedWithPeriod.branch_id || '', selectedWithPeriod.restaurant_id || '', selectedWithPeriod.department_id || ''], []);
+      const all = [];
+      for (const r of rows) { try { const p = JSON.parse(r.rows); if (Array.isArray(p)) all.push(...p); } catch {} }
+      if (all.length) {
+        const agg = aggregateRows(all);
+        const calc = calculatePnl(rollupAgg(agg));
+        messages.splice(2, 0, { role: 'system', text: 'Контекст P&L выбранной области (реальные данные БД, план/факт в ₽):\n' + JSON.stringify({ agg, calc }).slice(0, 12000) });
+      } else {
+        messages.splice(2, 0, { role: 'system', text: `Данных P&L за ${ym} в базе нет. Сообщите об этом пользователю прямо.` });
+      }
+    }
+    if (body.context) messages.splice(2, 0, { role: 'system', text: String(body.context).slice(0, 12000) });
+
+    const skillRows = await safeQuery('SELECT config_json FROM ai_skill_settings WHERE organization_id=$1::uuid LIMIT 1',[req.user.organizationId],[]);
+    const skillConfig = skillRows[0]?.config_json && typeof skillRows[0].config_json === 'object' ? skillRows[0].config_json : {};
+    messages.splice(2, 0, { role: 'system', text: buildSkillPrompt(question, skillConfig) });
+    if (skillConfig.history === false) {
+      const lastUser = [...messages].reverse().find(m => m.role === 'user');
+      messages.splice(2, messages.length - 1, ...(lastUser ? [lastUser] : []));
+    }
+    if (skillConfig.documents !== false) {
+      const docs = await safeQuery(
+        'SELECT name, extracted_text, extraction_json FROM ai_documents WHERE organization_id=$1::uuid AND status=\'ready\' ORDER BY created_at DESC LIMIT 20',
+        [req.user.organizationId], []
+      );
+      const docContext = docs.filter(d => d.extracted_text).map(d => `Документ: ${d.name}\\n${String(d.extracted_text).slice(0, 12000)}`).join('\\n\\n').slice(0, 36000);
+      if (docContext) messages.splice(2, 0, { role: 'system', text: 'КОНТЕКСТ ДОКУМЕНТОВ:\\n' + docContext });
+    }
+
+    const toolsUsed = [];
+    let completion = null;
+    const forceDeviationTool = question === '__find_deviations__';
+    if (forceDeviationTool) {
+      const rawScope = body.scope || {};
+      const toolArgs = {
+        period: String(rawScope.period || ''),
+        project_id: String(rawScope.project_id || ''),
+        branch_id: String(rawScope.branch_id || ''),
+        restaurant_id: String(rawScope.restaurant_id || ''),
+        department_id: String(rawScope.department_id || ''),
+      };
+      const started = Date.now();
+      const result = await executeTool(req.user, 'find_deviations', toolArgs, ctx);
+      toolsUsed.push({ name: 'find_deviations', args: toolArgs, ok: true, ms: Date.now() - started, result });
+      completion = { text: '', toolCalls: [] };
+    } else {
+      completion = await callYandexGPTWithTools(messages);
+    }
+    if (completion.toolCalls.length) {
+      const assistantToolCalls = completion.toolCalls.map(call => {
+        const fc = call?.functionCall || call?.function_call;
+        return { functionCall: { name: String(fc?.name || ''), arguments: fc?.arguments ?? {} } };
+      });
+      messages.push({ role: 'assistant', toolCallList: { toolCalls: assistantToolCalls } });
+      const toolResults = [];
+      for (const call of completion.toolCalls) {
+        const fc = call?.functionCall || call?.function_call;
+        const name = String(fc?.name || '');
+        let args = fc?.arguments ?? {};
+        if (typeof args === 'string') {
+          try { args = JSON.parse(args); } catch { throw httpError(400, `Некорректные arguments для tool ${name}`, 'TOOL_ARGUMENTS_INVALID'); }
+        }
+        const started = Date.now();
+        const result = await executeTool(req.user, name, args, ctx);
+        const ms = Date.now() - started;
+        toolsUsed.push({ name, args, ok: true, ms, result });
+        toolResults.push({ functionResult: { name, content: JSON.stringify(result) } });
+      }
+      messages.push({ role: 'tool', toolResultList: { toolResults } });
+      completion = await callYandexGPTWithTools(messages);
+      if (completion.toolCalls.length) {
+        throw httpError(409, 'STEN достиг лимита одного шага tools. Повторный вызов инструмента запрещён.', 'TOOL_ITERATION_LIMIT');
+      }
+    }
+
+    const parsedAnswer = parseProposedMemory(completion.text);
+    await audit(req.user, 'sten.ask', 'ask', null, {
+      length: parsedAnswer.answer.length,
+      tools_used: toolsUsed.map(tool => tool.name),
+      proposed_memory: Boolean(parsedAnswer.proposed_memory),
+    });
+    ok(res, {
+      answer: parsedAnswer.answer,
+      model: ENV.YANDEXGPT_MODEL,
+      sources: body.sources ?? [],
+      tools_used: toolsUsed,
+      proposed_memory: parsedAnswer.proposed_memory,
+      ...(body.include_tool_results ? {
+        tool_results: toolsUsed.map(tool => ({ name: tool.name, args: tool.args, result: tool.result })),
+      } : {}),
+    });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/ingest/message',(req,res)=>{
+ const token=process.env.WHATSAPP_VERIFY_TOKEN;
+ if(token&&String(req.query['hub.verify_token']||'')===token)return res.status(200).send(String(req.query['hub.challenge']||''));
+ return res.status(403).json({error:{message:'Webhook verification failed',code:'WEBHOOK_VERIFY_FAILED'}});
+});
+app.post('/api/ingest/message',async(req,res,next)=>{try{
+ const body=req.body||{};
+ const telegramText=body?.message?.text||body?.edited_message?.text;
+ const telegramChat=body?.message?.chat?.id||body?.edited_message?.chat?.id;
+ const waMessage=body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+ const whatsappText=waMessage?.text?.body;
+ const whatsappFrom=waMessage?.from;
+ const b=parseOr400(IngestMessageSchema,{...body,text:body.text||telegramText||whatsappText,source:body.source||(telegramText?'telegram':whatsappText?'whatsapp':'manual')});
+ if(!b.text)throw httpError(400,'Текст сообщения не найден','EMPTY_MESSAGE');
+ const subjectId=telegramChat||whatsappFrom||null;
+ const binding=await resolveInboundBinding(req.user,b.source,subjectId);
+ const context=binding?{restaurant_id:binding.unit_id,restaurant_name:binding.unit_name}:null;
+ const parsed=await parseSalesReportWithFunctionCalling(b.text);
+ if(context && !parsed.restaurant) parsed.restaurant=context.restaurant_name;
+ await audit(null,'ingest.message.parsed','message',null,{source:b.source,fields:Object.keys(parsed),recipient:subjectId,unit_id:binding?.unit_id||null});
+ ok(res,{parsed,context,requiresConfirmation:true,requiresBinding:!binding,writeToPnl:false,recipient:subjectId});
+}catch(e){next(e)}});
+ 
+app.post('/api/ingest/message/confirm',requireAuth,requireOrg,async(req,res,next)=>{try{
+ const b=parseOr400(IngestConfirmSchema,req.body??{});
+ const explicit=b.scope||{};
+ const s={period:b.date.slice(0,7),project_id:explicit.project_id||'',branch_id:explicit.branch_id||'',restaurant_id:explicit.restaurant_id||'',department_id:explicit.department_id||''};
+ if(!s.restaurant_id) throw httpError(422,'Для подтверждения отчёта необходимо выбрать ресторан.','RESTAURANT_CONTEXT_REQUIRED');
+ await assertRestaurantAccess(req.user,s.restaurant_id);
+ const existing=await safeQuery('SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1',[req.user.organizationId,s.period,s.project_id||'',s.branch_id||'',s.restaurant_id||'',s.department_id||''],[]);
+ let rows=[];try{rows=existing[0]?.rows?JSON.parse(existing[0].rows):[]}catch{rows=[]}
+ const idx=rows.findIndex(r=>canonicalArticleKey(r.article)==='revenue');
+ if(idx>=0)rows[idx]={...rows[idx],article:'Выручка',fact:b.parsed.revenue,source:'message-confirmed'};
+ else rows.push({id:null,article:'Выручка',plan:null,fact:b.parsed.revenue,source:'message-confirmed'});
+ await queryWithRetry('INSERT INTO pnl_entries(organization_id,period,project_id,branch_id,restaurant_id,department_id,rows,updated_at,updated_by) VALUES($1::uuid,$2,$3,$4,$5,$6,$7::jsonb,now(),$8) ON CONFLICT(organization_id,period,project_id,branch_id,restaurant_id,department_id) DO UPDATE SET rows=excluded.rows,updated_at=now(),updated_by=excluded.updated_by',[req.user.organizationId,s.period,s.project_id||'',s.branch_id||'',s.restaurant_id||'',s.department_id||'',JSON.stringify(rows),req.user.id],{orgId:req.user.organizationId});
+ const reportValues={};for(const k of ['revenue','cash','card','discounts','checks']){if(b.parsed[k]!==null)reportValues[k]=b.parsed[k]}
+ await queryWithRetry('INSERT INTO daily_reports(id,organization_id,report_date,values_json,note) VALUES($1::uuid,$2,$3::date,$4::jsonb,$5) ON CONFLICT(organization_id,report_date) DO UPDATE SET values_json=excluded.values_json,note=excluded.note,updated_at=now()',[uuid(),req.user.organizationId,b.date,JSON.stringify(reportValues),'message-confirmed'],{orgId:req.user.organizationId});
+ await audit(req.user,'ingest.message.confirmed','pnl_entries',b.date,{source:'message',scope:s});
+ ok(res,{confirmed:true,writtenToPnl:true,date:b.date});
+}catch(e){next(e)}});
+ 
+/* ---- payroll helpers (детерминированные, без GPT-выводов) ---- */
+app.post('/calculate-salary', requireAuth, async (req, res, next) => {
+  try {
+    const rows = parseOr400(z.array(PayrollRowSchema).min(1).max(5000), req.body?.rows ?? req.body);
+    const totalHours = rows.reduce((a, r) => a + r.hours, 0);
+    const totalPay = rows.reduce((a, r) => a + r.pay, 0);
+    const byDept = {};
+    for (const r of rows) {
+      const d = r.department ? String(r.department).normalize('NFC') : '—';
+      byDept[d] = byDept[d] || { hours: 0, pay: 0 };
+      byDept[d].hours += r.hours; byDept[d].pay += r.pay;
+    }
+    ok(res, { totalHours, totalPay, avgRate: totalHours ? totalPay / totalHours : null, byDepartment: byDept, formulaVersion: 'salary-v1' });
+  } catch (e) { next(e); }
+});
+app.get('/my-earnings', requireAuth, async (req, res, next) => {
+  try {
+    if (!ENV.DB_HOST) return res.status(503).json({ error: { message: 'Данные о начислениях недоступны (БД не настроена)', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
+    const rows = await safeQuery(`SELECT period, SUM(hours) AS hours, SUM(amount) AS amount FROM payroll_records WHERE user_id=$1::uuid GROUP BY period ORDER BY period DESC LIMIT 24`, [req.user.id], null);
+    if (!rows) return res.status(503).json({ error: { message: 'Данные о начислениях временно недоступны', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
+    ok(res, { earnings: rows });
+  } catch (e) { next(e); }
+});
+app.get('/fot-analytics', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const s = scopeFromQuery(req.query);
+    await assertScopeAccess(req.user, s);
+
+    const hasScope = Boolean(
+      s.project_id || s.branch_id || s.restaurant_id || s.department_id
+    );
+
+    // Scope-фильтрация ФОТ будет добавлена, когда:
+    // 1. появится payroll-источник (табель, 1С, API)
+    // 2. в payroll_records появятся колонки restaurant_id / branch_id / project_id / department_id
+    // 3. либо будет установлена связь через staff.user_id → staff.restaurant_id
+    // Пока scope непустой — возвращаем 501, чтобы не допустить утечки.
+    if (hasScope) {
+      return res.status(501).json({
+        error: {
+          message: 'Фильтрация ФОТ по scope (project/branch/restaurant/department) будет реализована после подключения payroll-источника. Сейчас ФОТ доступен только на уровне всей организации.',
+          code: 'FOT_SCOPE_NOT_IMPLEMENTED',
+          requestId: req.requestId,
+        },
+      });
+    }
+
+    const rows = await safeQuery(`SELECT period, department, hours, amount FROM payroll_records WHERE organization_id=$1::uuid ORDER BY period DESC LIMIT 5000`, [req.user.organizationId], null);
+    if (!rows) return res.status(503).json({ error: { message: 'Данные ФОТ временно недоступны', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
+    ok(res, { records: rows });
+  } catch (e) { next(e); }
+});
+
+/* ---- STEN AI structured memory ---- */
+const AiMemoryCreateSchema = z.object({
+  scope: z.object({
+    project_id: z.string().uuid().nullable().optional(),
+    branch_id: z.string().uuid().nullable().optional(),
+    restaurant_id: z.string().uuid().nullable().optional(),
+    department_id: z.string().uuid().nullable().optional(),
+  }).strict().default({}),
+  kind: z.enum(['fact','decision','cause','action','manager_note','pattern']),
+  title: z.string().trim().min(1).max(300),
+  content: z.string().trim().min(1).max(50000),
+  evidence: z.record(z.unknown()).optional(),
+}).strict();
+
+const AiMemoryConfidenceSchema = z.object({
+  confidence: z.enum(['confirmed','rejected']),
+}).strict();
+
+app.get('/api/ai/memory', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const result = await listMemory(req.user, {
+      kind: req.query.kind ? String(req.query.kind) : undefined,
+      restaurant_id: req.query.restaurant_id ? String(req.query.restaurant_id) : undefined,
+      since: req.query.since ? String(req.query.since) : undefined,
+      limit: req.query.limit ? String(req.query.limit) : undefined,
+      confidence: req.query.confidence ? String(req.query.confidence) : 'confirmed',
+    }, intelligenceContext());
+    await audit(req.user, 'ai_memory.listed', 'ai_memory', null, { count: result.memories.length });
+    ok(res, result);
+  } catch (e) { next(e); }
+});
+
+app.post('/api/ai/memory', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const body = parseOr400(AiMemoryCreateSchema, req.body ?? {});
+    const memory = await createMemory(req.user, body, intelligenceContext());
+    ok(res, { memory, confirmed: true }, 201);
+  } catch (e) { next(e); }
+});
+
+app.patch('/api/ai/memory/:id', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(String(req.params.id))) throw httpError(400, 'Некорректный id памяти', 'BAD_ID');
+    const body = parseOr400(AiMemoryConfidenceSchema, req.body ?? {});
+    const memory = await updateMemoryConfidence(req.user, req.params.id, body.confidence, intelligenceContext());
+    ok(res, { memory, confirmed: true });
+  } catch (e) { next(e); }
+});
+
+app.delete('/api/ai/memory/:id', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(String(req.params.id))) throw httpError(400, 'Некорректный id памяти', 'BAD_ID');
+    await deleteMemory(req.user, req.params.id, intelligenceContext());
+    ok(res, { deleted: true, confirmed: true });
+  } catch (e) { next(e); }
+});
+
+/* ---- 404 и обработчик ошибок (graceful degradation) ---- */
+app.use((req, res) => {
+  res.status(404).json({ error: { message: `Маршрут не найден: ${req.method} ${req.path}`, code: 'NOT_FOUND', requestId: req.requestId } });
+});
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, _next) => {
+  const status = err.status || 500;
+  if (status >= 500) console.error('[sten] error:', err.message, '| path:', req.method, req.path, '| requestId:', req.requestId);
+  const publicMessage = status >= 500 && !err.code
+    ? 'Внутренняя ошибка сервера. Повторите запрос позже.'
+    : (err.message || 'Ошибка запроса');
+  res.status(status).json({ error: { message: publicMessage, code: err.code || `HTTP_${status}`, requestId: req.requestId } });
+});
+
+/* ----------------------------- handler -------------------------------------- */
+async function suspendExpiredOrganizations() {
+  await ensureSchemaNow();
+  const q = await queryWithRetry(
+    `UPDATE organizations
+        SET status = 'suspended', updated_at = now()
+      WHERE subscription_until < CURRENT_DATE
+        AND status = 'active'
+      RETURNING id`,
+    [],
+    {}
+  );
+  const organizations = q.rows || [];
+  for (const organization of organizations) {
+    await audit(null, 'subscription.expired', 'organizations', organization.id, {
+      reason: 'subscription_until_before_today',
+    });
+  }
+  log('subscription expiry sweep:', organizations.length);
+  return organizations.length;
+}
+
+function isTimerEvent(event) {
+  return Array.isArray(event?.messages)
+    && event.messages.some(message =>
+      message?.event_metadata?.event_type === 'yandex.cloud.events.serverless.triggers.TimerMessage'
+    );
+}
+
+const handlerAsync = serverless(app, { binary: false });
+
+module.exports.handler = async (event, context) => {
+  // Cold-start оптимизация: не ждём опустошения event loop (пул pg переиспользуется контейнером).
+  if (context) context.callbackWaitsForEmptyEventLoop = false;
+  if (isTimerEvent(event)) {
+    try {
+      const suspended = await suspendExpiredOrganizations();
+      return { ok: true, suspended };
+    } catch (e) {
+      console.error('[sten] subscription expiry failed:', e && e.stack ? e.stack : e);
+      throw e;
+    }
+  }
+  kickSchema(); // фоновая идемпотентная миграция схемы, не блокирует ответ
+  try {
+    return await handlerAsync(event, context);
+  } catch (e) {
+    console.error('[sten] fatal handler error:', e && e.stack ? e.stack : e);
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({ error: { message: 'Внутренняя ошибка сервера.', code: 'HANDLER_CRASH' } }),
+    };
+  }
+};
+```
