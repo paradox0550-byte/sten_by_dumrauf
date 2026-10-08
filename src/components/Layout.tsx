@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import WorkspaceSelector from './WorkspaceSelector';
 import { useScope } from '../lib/useScope';
+import LegalFooter from './LegalFooter';
 
 type Theme = 'light' | 'dark' | 'system';
 type Scale = 'RUB' | 'THOUSAND' | 'MILLION';
@@ -201,7 +202,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <div className="content">{children}</div>
+        <div className="content">{children}<LegalFooter /></div>
       </main>
 
       <nav className="mobile-bottom-nav" aria-label="Основная навигация">
