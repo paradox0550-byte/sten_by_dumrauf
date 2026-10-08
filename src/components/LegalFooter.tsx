@@ -1,0 +1,2 @@
+import {Link} from 'react-router-dom';
+export default function LegalFooter(){return <footer className="legal-footer"><span className="legal-footer__copyright">© 2026 {'{{OPERATOR_NAME}}'}</span><nav className="legal-footer__links" aria-label="Юридические документы"><Link to="/legal/privacy">Политика конфиденциальности</Link><Link to="/legal/consent">Согласие на обработку ПДн</Link><Link to="/legal/cookies">Cookie</Link><Link to="/legal/contacts">Реквизиты</Link><a href="mailto:{'{{PRIVACY_EMAIL}}'}">Обращение по ПДн</a></nav></footer>}
