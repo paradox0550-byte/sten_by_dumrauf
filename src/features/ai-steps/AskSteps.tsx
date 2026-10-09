@@ -36,6 +36,10 @@ export function pluralizeRu(n: number, one: string, few: string, many: string): 
   return many;
 }
 
+export function getStepsBodyClassName(count: number): string {
+  return `ai-steps__body${count > 6 ? ' ai-steps__body--scroll' : ''}`;
+}
+
 export function AskSteps({ steps, totalMs, className }: AskStepsProps) {
   const [open, setOpen] = useState(false);
   const bodyId = useId();
@@ -62,7 +66,7 @@ export function AskSteps({ steps, totalMs, className }: AskStepsProps) {
         <span>{durationLabel} · {steps.length} {pluralizeRu(steps.length, 'шаг', 'шага', 'шагов')}</span>
       </button>
       {open && (
-        <div id={bodyId} className={`ai-steps__body${steps.length > 6 ? " ai-steps__body--scroll" : ""}`} role="region" aria-label="Ход обработки">
+        <div id={bodyId} className={getStepsBodyClassName(steps.length)} role="region" aria-label="Ход обработки">
           {steps.map((step, index) => (
             <StepRow key={`${step.kind}-${step.name ?? step.label}-${index}`} step={step} />
           ))}
