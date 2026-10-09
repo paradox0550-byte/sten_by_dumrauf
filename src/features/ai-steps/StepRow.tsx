@@ -22,7 +22,7 @@ export function StepRow({ step }: StepRowProps) {
     <div className={`step-row step-row--${step.kind}`}>
       <div className="step-row__icon-wrap">
         {hasStatus && (
-          <span className={`step-row__dot ${statusClass}`} aria-label={statusLabel} title={statusLabel} />
+          <span className={`step-row__dot ${statusClass}`} role="img" aria-label={statusLabel} title={statusLabel} />
         )}
         <Icon className="step-row__icon" size={14} aria-hidden="true" data-testid={`step-icon-${step.kind}`} />
       </div>
