@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { StepRow } from './StepRow';
 import './steps.css';
@@ -38,6 +38,7 @@ export function pluralizeRu(n: number, one: string, few: string, many: string): 
 
 export function AskSteps({ steps, totalMs, className }: AskStepsProps) {
   const [open, setOpen] = useState(false);
+  const bodyId = useId();
   if (!steps?.length) return null;
 
   const rootClass = ['ai-steps', className].filter(Boolean).join(' ');
@@ -49,7 +50,7 @@ export function AskSteps({ steps, totalMs, className }: AskStepsProps) {
         type="button"
         className="ai-steps__header"
         aria-expanded={open}
-        aria-controls="ai-steps-body"
+        aria-controls={bodyId}
         onClick={() => setOpen((value) => !value)}
       >
         <ChevronRight
@@ -61,7 +62,7 @@ export function AskSteps({ steps, totalMs, className }: AskStepsProps) {
         <span>{durationLabel} · {steps.length} {pluralizeRu(steps.length, 'шаг', 'шага', 'шагов')}</span>
       </button>
       {open && (
-        <div id="ai-steps-body" className="ai-steps__body" role="region" aria-label="Ход обработки">
+        <div id={bodyId} className={`ai-steps__body${steps.length > 6 ? " ai-steps__body--scroll" : ""}`} role="region" aria-label="Ход обработки">
           {steps.map((step, index) => (
             <StepRow key={`${step.kind}-${step.name ?? step.label}-${index}`} step={step} />
           ))}
