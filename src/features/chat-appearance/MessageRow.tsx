@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useAppearanceContext } from './AppearanceContext';
 import { MessageActions } from './MessageActions';
 import { StenAvatar } from './StenAvatar';
@@ -12,6 +12,7 @@ export type MessageRowProps = {
   onCopy: () => void;
   onToSecretary: () => void;
   onDetails: () => void;
+  children?: ReactNode;
 };
 
 function formatTime(value: string): string {
@@ -41,7 +42,7 @@ function useReducedMotion(): boolean {
   return reduced;
 }
 
-export function MessageRow({ message, previousMessage, user, onCopy, onToSecretary, onDetails }: MessageRowProps) {
+export function MessageRow({ message, previousMessage, user, onCopy, onToSecretary, onDetails, children }: MessageRowProps) {
   const { settings }=useAppearanceContext();
   const [detailsOpen,setDetailsOpen]=useState(false);
   const reducedMotion=useReducedMotion();
@@ -66,6 +67,7 @@ export function MessageRow({ message, previousMessage, user, onCopy, onToSecreta
       </div>
       <div className="message-content">
         {settings.showTime && message.createdAt && <time className="message-time" dateTime={message.createdAt}>{formatTime(message.createdAt)}</time>}
+        {children}
         <div className="message-bubble">{message.content}</div>
         {settings.showSources && sourceItems.length>0 && (
           <div className="message-sources" aria-label="Источники">
