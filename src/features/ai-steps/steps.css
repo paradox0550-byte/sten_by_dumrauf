@@ -1,0 +1,147 @@
+.sten-ai-page .ai-steps {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ui-radius-md);
+  background: var(--bg-surface);
+  padding: 10px 12px;
+  margin: 0 0 12px 0;
+  box-shadow: none;
+  opacity: 0;
+  animation: ai-steps-fade 120ms ease-out forwards;
+}
+
+.sten-ai-page .ai-steps__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--text-tertiary);
+  font-family: Inter, sans-serif;
+  font-size: 12px;
+  width: 100%;
+  text-align: left;
+}
+
+.sten-ai-page .ai-steps__header:hover {
+  color: var(--text-primary);
+}
+
+.sten-ai-page .ai-steps__header:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+.sten-ai-page .chevron {
+  flex: 0 0 auto;
+  transition: transform 120ms ease;
+}
+
+.sten-ai-page .chevron--open {
+  transform: rotate(90deg);
+}
+
+.sten-ai-page .ai-steps__body {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sten-ai-page .ai-steps__body--scroll {
+  max-height: 220px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.sten-ai-page .step-row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  padding: 4px 0;
+  font-family: Inter, sans-serif;
+}
+
+.sten-ai-page .step-row__icon-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.sten-ai-page .step-row__icon {
+  color: var(--text-tertiary);
+  flex: 0 0 auto;
+}
+
+.sten-ai-page .step-row__body {
+  min-width: 0;
+}
+
+.sten-ai-page .step-row__label {
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.sten-ai-page .step-row__tech {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-left: 6px;
+  overflow-wrap: anywhere;
+}
+
+.sten-ai-page .step-row__detail {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.sten-ai-page .step-row__ms {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.sten-ai-page .step-row__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  flex: 0 0 6px;
+  margin-top: 4px;
+}
+
+.sten-ai-page .step-row__dot--ok {
+  background: #5BFA9A;
+}
+
+.sten-ai-page .step-row__dot--warn {
+  background: #FA9A5B;
+}
+
+@keyframes ai-steps-fade {
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sten-ai-page .ai-steps {
+    animation: none;
+    opacity: 1;
+  }
+
+  .sten-ai-page .chevron {
+    transition: none;
+  }
+}
