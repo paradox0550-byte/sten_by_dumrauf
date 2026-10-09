@@ -1,1 +1,1 @@
-import './steps.test';
+import './steps.test-cases';
