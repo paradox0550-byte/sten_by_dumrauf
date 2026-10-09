@@ -93,6 +93,15 @@ const PAYROLL_KEYWORDS = ['payroll', 'табел', 'часы', 'смены', 'ф
 const ruLower = (s) => String(s ?? '').normalize('NFC').toLocaleLowerCase('ru-RU');
 const normKey = (s) => ruLower(s).replace(/[^a-zа-яё0-9]+/gu, '');
 
+function pluralizeRu(n, forms) {
+  const value = Math.abs(Math.trunc(Number(n) || 0));
+  const n10 = value % 10;
+  const n100 = value % 100;
+  if (n10 === 1 && n100 !== 11) return forms[0];
+  if (n10 >= 2 && n10 <= 4 && (n100 < 10 || n100 >= 20)) return forms[1];
+  return forms[2];
+}
+
 function httpError(status, message, code) {
   const e = new Error(message);
   e.status = status;
@@ -2229,8 +2238,8 @@ app.post('/ask', requireAuth, async (req, res, next) => {
     if (memoryCount > 0) {
       steps.push({
         kind: 'memory',
-        label: `Подтянуто ${memoryCount} записей из памяти`,
-        detail: `${confirmedCount} подтверждённых, ${unconfirmedCount} гипотез`.slice(0, 120),
+        label: `Подтянуто ${memoryCount} ${pluralizeRu(memoryCount, ['запись', 'записи', 'записей'])} из памяти`,
+        detail: `${confirmedCount} ${pluralizeRu(confirmedCount, ['подтверждённая запись', 'подтверждённые записи', 'подтверждённых записей'])}, ${unconfirmedCount} ${pluralizeRu(unconfirmedCount, ['гипотеза', 'гипотезы', 'гипотез'])}`.slice(0, 120),
         ms: memoryMs,
       });
     }
@@ -2303,7 +2312,7 @@ app.post('/ask', requireAuth, async (req, res, next) => {
         messages.splice(2, 0, { role: 'system', text: 'КОНТЕКСТ ДОКУМЕНТОВ:\\n' + docContext });
         steps.push({
           kind: 'docs',
-          label: `Загружено ${docsCount} документов в контекст`,
+          label: `Загружено ${docsCount} ${pluralizeRu(docsCount, ['документ', 'документа', 'документов'])} в контекст`,
           detail: `${docContext.length.toLocaleString('ru-RU')} символов текста`.slice(0, 120),
           ms: docsMs,
         });
