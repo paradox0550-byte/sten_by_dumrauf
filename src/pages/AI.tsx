@@ -10,13 +10,14 @@ import { AppearanceDrawer } from '../features/chat-appearance/AppearanceDrawer';
 import { AppearanceProvider, useAppearanceContext } from '../features/chat-appearance/AppearanceContext';
 import { ChatBackground } from '../features/chat-appearance/ChatBackground';
 import { MessageRow } from '../features/chat-appearance/MessageRow';
+import { AskSteps, type AskStep } from '../features/ai-steps/AskSteps';
 import ProposedMemoryChips from '../components/ProposedMemoryChips';
 import type { ProposedMemory } from '../lib/contracts/memory';
 import type { ChatMessage } from '../features/chat-appearance/types';
 import '../features/chat-appearance/themes.css';
 import '../features/chat-appearance/avatars.css';
 
-type Msg={id:string;role:'user'|'assistant';text:string;sources?:AskSource[];createdAt?:string;proposedMemory?:ProposedMemory[]};
+type Msg={id:string;role:'user'|'assistant';text:string;sources?:AskSource[];createdAt?:string;proposedMemory?:ProposedMemory[];steps?:AskStep[];totalMs?:number};
 type Doc={id:string;name:string;size:number;status:string;chars?:number};
 type DocPreview={id:string;name:string;preview:string;chars:number;truncated:boolean;readOnly:true};
 const starters=['Проанализируй текущий P&L и найди главные причины падения прибыли','Что сильнее всего отклонилось от плана?','Собери план действий для управляющего на сегодня','Проверь ФОТ: часы, производительность и стоимость отклонения'];
@@ -110,9 +111,9 @@ function AIContent({user}:{user:User|null}){
          department_id: scope.departmentId ?? null,
        },
      };
-     const r = await api.post<AskResponse>('/ask', AskRequestSchema.parse(body));
+     const r = await api.post<AskResponse & { steps?: AskStep[]; total_ms?: number }>('/ask', AskRequestSchema.parse(body));
      const p = r;
-     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:String(p.answer??p.message??'Ответ не получен.'),sources:Array.isArray(p.sources)?p.sources:[],proposedMemory:Array.isArray(p.proposed_memory)?p.proposed_memory:undefined,createdAt:new Date().toISOString()}]);
+     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:String(p.answer??p.message??'Ответ не получен.'),sources:Array.isArray(p.sources)?p.sources:[],steps:Array.isArray(p.steps)?p.steps:undefined,totalMs:typeof p.total_ms==='number'?p.total_ms:undefined,proposedMemory:Array.isArray(p.proposed_memory)?p.proposed_memory:undefined,createdAt:new Date().toISOString()}]);
    }catch(e){
      setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось получить ответ.',createdAt:new Date().toISOString()}]);
    }finally{setBusy(false)}
@@ -271,7 +272,11 @@ function AIContent({user}:{user:User|null}){
                onCopy={()=>void copyMessage(m.text)}
                onToSecretary={secretaryToast}
                onDetails={()=>undefined}
-             />
+             >
+               {m.role === 'assistant' && m.steps && (
+                 <AskSteps steps={m.steps} totalMs={m.totalMs} />
+               )}
+             </MessageRow>
              {m.role === 'assistant' && m.proposedMemory && m.proposedMemory.length > 0 && (
                <ProposedMemoryChips
                  items={m.proposedMemory}
