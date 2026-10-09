@@ -2212,13 +2212,28 @@ const SYSTEM_PROMPT = [
 
 app.post('/ask', requireAuth, async (req, res, next) => {
   try {
+    const startTs = Date.now();
+    const steps = [];
     const body = parseOr400(AskSchema, req.body ?? {});
     const question = String(body.question || body.prompt || '').trim();
     if (!question && !Array.isArray(body.messages)) throw httpError(400, 'Пустой вопрос', 'EMPTY_QUESTION');
 
     const ctx = intelligenceContext();
     const selectedContext = body.scope ? await resolveWorkspaceContext(req.user, body.scope, false) : null;
+    const memoryStarted = Date.now();
     const memCtx = await loadMemoryContext(req.user, selectedContext, 15, ctx);
+    const memoryMs = Math.round(Date.now() - memoryStarted);
+    const confirmedCount = Array.isArray(memCtx?.confirmed) ? memCtx.confirmed.length : 0;
+    const unconfirmedCount = Array.isArray(memCtx?.unconfirmed) ? memCtx.unconfirmed.length : 0;
+    const memoryCount = confirmedCount + unconfirmedCount;
+    if (memoryCount > 0) {
+      steps.push({
+        kind: 'memory',
+        label: `Подтянуто ${memoryCount} записей из памяти`,
+        detail: `${confirmedCount} подтверждённых, ${unconfirmedCount} гипотез`.slice(0, 120),
+        ms: memoryMs,
+      });
+    }
 
     const messages = [];
     messages.push({ role: 'system', text: SYSTEM_PROMPT });
@@ -2276,12 +2291,23 @@ app.post('/ask', requireAuth, async (req, res, next) => {
       messages.splice(2, messages.length - 1, ...(lastUser ? [lastUser] : []));
     }
     if (skillConfig.documents !== false) {
+      const docsStarted = Date.now();
       const docs = await safeQuery(
         'SELECT name, extracted_text, extraction_json FROM ai_documents WHERE organization_id=$1::uuid AND status=\'ready\' ORDER BY created_at DESC LIMIT 20',
         [req.user.organizationId], []
       );
       const docContext = docs.filter(d => d.extracted_text).map(d => `Документ: ${d.name}\\n${String(d.extracted_text).slice(0, 12000)}`).join('\\n\\n').slice(0, 36000);
-      if (docContext) messages.splice(2, 0, { role: 'system', text: 'КОНТЕКСТ ДОКУМЕНТОВ:\\n' + docContext });
+      const docsMs = Math.round(Date.now() - docsStarted);
+      const docsCount = docs.filter(d => d.extracted_text).length;
+      if (docContext) {
+        messages.splice(2, 0, { role: 'system', text: 'КОНТЕКСТ ДОКУМЕНТОВ:\\n' + docContext });
+        steps.push({
+          kind: 'docs',
+          label: `Загружено ${docsCount} документов в контекст`,
+          detail: `${docContext.length.toLocaleString('ru-RU')} символов текста`.slice(0, 120),
+          ms: docsMs,
+        });
+      }
     }
 
     const toolsUsed = [];
@@ -2298,10 +2324,30 @@ app.post('/ask', requireAuth, async (req, res, next) => {
       };
       const started = Date.now();
       const result = await executeTool(req.user, 'find_deviations', toolArgs, ctx);
+      const ms = Math.round(Date.now() - started);
       toolsUsed.push({ name: 'find_deviations', args: toolArgs, ok: true, ms: Date.now() - started, result });
+      steps.push({
+        kind: 'tool',
+        name: 'find_deviations',
+        ok: !(result && typeof result === 'object' && (result.ok === false || result.error || result.code)),
+        label: 'find_deviations',
+        detail: (result && typeof result === 'object' && (result.code || result.error)
+          ? String(result.code || result.error)
+          : 'Отклонения рассчитаны').slice(0, 120),
+        ms,
+      });
       completion = { text: '', toolCalls: [] };
     } else {
+      const llmStarted = Date.now();
       completion = await callYandexGPTWithTools(messages);
+      if (!completion.toolCalls.length) {
+        steps.push({
+          kind: 'llm',
+          label: 'Ответ сгенерирован',
+          detail: String(ENV.YANDEXGPT_MODEL || 'yandexgpt').slice(0, 120),
+          ms: Math.round(Date.now() - llmStarted),
+        });
+      }
     }
     if (completion.toolCalls.length) {
       const assistantToolCalls = completion.toolCalls.map(call => {
@@ -2319,12 +2365,31 @@ app.post('/ask', requireAuth, async (req, res, next) => {
         }
         const started = Date.now();
         const result = await executeTool(req.user, name, args, ctx);
-        const ms = Date.now() - started;
-        toolsUsed.push({ name, args, ok: true, ms, result });
+        const ms = Math.round(Date.now() - started);
+        toolsUsed.push({ name, args, ok: true, ms: Date.now() - started, result });
+        const toolOk = !(result && typeof result === 'object' && (result.ok === false || result.error || result.code));
+        const safeArgs = args && typeof args === 'object'
+          ? Object.entries(args).filter(([key, value]) => /^(period|project_id|branch_id|restaurant_id|department_id|limit|date|from|to)$/i.test(key) && value != null && String(value).length <= 80).map(([key, value]) => `${key}=${String(value)}`).join(', ')
+          : '';
+        steps.push({
+          kind: 'tool',
+          name,
+          ok: toolOk,
+          label: name.slice(0, 48),
+          detail: (toolOk ? (safeArgs || 'Данные получены') : String(result.code || result.error || 'Инструмент вернул ошибку')).slice(0, 120),
+          ms,
+        });
         toolResults.push({ functionResult: { name, content: JSON.stringify(result) } });
       }
       messages.push({ role: 'tool', toolResultList: { toolResults } });
+      const finalLlmStarted = Date.now();
       completion = await callYandexGPTWithTools(messages);
+      steps.push({
+        kind: 'llm',
+        label: 'Ответ сгенерирован',
+        detail: String(ENV.YANDEXGPT_MODEL || 'yandexgpt').slice(0, 120),
+        ms: Math.round(Date.now() - finalLlmStarted),
+      });
       if (completion.toolCalls.length) {
         throw httpError(409, 'STEN достиг лимита одного шага tools. Повторный вызов инструмента запрещён.', 'TOOL_ITERATION_LIMIT');
       }
@@ -2342,6 +2407,8 @@ app.post('/ask', requireAuth, async (req, res, next) => {
       sources: body.sources ?? [],
       tools_used: toolsUsed,
       proposed_memory: parsedAnswer.proposed_memory,
+      steps,
+      total_ms: Math.round(Date.now() - startTs),
       ...(body.include_tool_results ? {
         tool_results: toolsUsed.map(tool => ({ name: tool.name, args: tool.args, result: tool.result })),
       } : {}),
