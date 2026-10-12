@@ -45,7 +45,7 @@ jobs:
 
       - name: Frontend build
         env:
-          VITE_API_URL: https://functions.yandexcloud.net/d4epijnhj7h9sd5ppa66
+          VITE_API_URL: https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net
         run: |
           set -euo pipefail
           npm run build
