@@ -2,7 +2,7 @@ import type { Memory, MemoryCreatePayload, MemoryFilters, MemoryListResponse, Me
 export const AUTH_EXPIRED_EVENT='sten-auth-expired';
 const SERVICE_UNAVAILABLE_EVENT='sten-service-unavailable';
 const SERVICE_RESTORED_EVENT='sten-service-restored';
-function emitStatusEvent(name:string){try{if(typeof window!=='undefined')window.dispatchEvent(new Event(name))}catch{}}
+function emitStatusEvent(name:string){try{if(typeof window!=='undefined'){if(name===SERVICE_UNAVAILABLE_EVENT&&typeof navigator!=='undefined'&&!navigator.onLine)return;window.dispatchEvent(new Event(name))}}catch{}}
 export class ApiError extends Error{constructor(message:string,public status:number,public code='UNKNOWN_ERROR',public requestId?:string){super(message);this.name='ApiError'}}
 function baseUrl(){return String(import.meta.env.VITE_API_URL||'').trim().replace(/\/$/,'')}
 function token(){try{return localStorage.getItem('sten_token')}catch{return null}}
