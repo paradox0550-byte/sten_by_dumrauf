@@ -107,7 +107,7 @@ export default function Flash() {
   ];
 
   return (
-    <div className="page">
+    <div className="page flash-page">
       <div className="page-head">
         <div>
           <span className="eyebrow"><Activity size={12} /> ОПЕРАТИВНАЯ СВОДКА</span>
