@@ -84,6 +84,17 @@ jobs:
           set -e
           aws --endpoint-url=https://storage.yandexcloud.net s3 sync dist/brand "s3://$BUCKET/brand" --content-type "image/svg+xml"
 
+      - name: Upload navigation icons
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.YC_S3_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_S3_SECRET }}
+          AWS_DEFAULT_REGION: ru-central1
+          BUCKET: smenavkarmane-business
+        run: |
+          set -e
+          test -d dist/icons
+          aws --endpoint-url=https://storage.yandexcloud.net s3 sync dist/icons "s3://$BUCKET/icons" --content-type "image/svg+xml"
+
       - name: Upload root files
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.YC_S3_KEY_ID }}
@@ -98,17 +109,6 @@ jobs:
           aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/favicon.svg "s3://$BUCKET/favicon.svg" --content-type "image/svg+xml"
           aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/icon-192.svg "s3://$BUCKET/icon-192.svg" --content-type "image/svg+xml"
           aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/icon-512.svg "s3://$BUCKET/icon-512.svg" --content-type "image/svg+xml"
-
-      - name: Upload navigation icons
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.YC_S3_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_S3_SECRET }}
-          AWS_DEFAULT_REGION: ru-central1
-          BUCKET: smenavkarmane-business
-        run: |
-          set -e
-          test -d dist/icons
-          aws --endpoint-url=https://storage.yandexcloud.net s3 sync dist/icons "s3://$BUCKET/icons" --content-type "image/svg+xml"
 
       - name: Smoke test
         run: |
