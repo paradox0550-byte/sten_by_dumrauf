@@ -304,3 +304,44 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 @media (prefers-reduced-motion: reduce) {
   .skeleton, [class*='skeleton'] { animation: none; }
 }
+
+
+/* Contextual actions and critical variance are semantic, not decorative. */
+.pnl-row-ai-action {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 26px;
+  margin-top: 5px;
+  padding: 0 8px;
+  border: 1px solid rgba(0,240,255,.25);
+  border-radius: 6px;
+  background: rgba(0,240,255,.06);
+  color: #8ff7ff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .14s ease, background-color .14s ease, border-color .14s ease;
+}
+.pnl-edit-row:hover .pnl-row-ai-action,
+.pnl-edit-row:focus-within .pnl-row-ai-action { opacity: 1; }
+.pnl-row-ai-action:hover { background: rgba(0,240,255,.12); border-color: rgba(0,240,255,.55); }
+.sten-critical-deviation {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px 7px;
+  border: 1px solid rgba(255,77,109,.42);
+  border-radius: 6px;
+  background: rgba(255,77,109,.13);
+  color: #ff8097 !important;
+  font-weight: 600;
+}
+.flash-prime.critical { border-color: rgba(255,77,109,.42) !important; background: linear-gradient(120deg, rgba(255,77,109,.09), transparent 70%), var(--bg-surface) !important; }
+.flash-prime.attention { border-color: rgba(251,191,36,.35) !important; background: linear-gradient(120deg, rgba(251,191,36,.07), transparent 70%), var(--bg-surface) !important; }
+.flash-prime.normal { border-color: rgba(0,229,153,.28) !important; }
+@media (max-width: 767px) {
+  .pnl-row-ai-action { opacity: 1; }
+}
