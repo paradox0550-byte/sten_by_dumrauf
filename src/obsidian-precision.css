@@ -1,0 +1,140 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+/* STEN — Obsidian Precision. Loaded after legacy and executive layers. */
+:root,
+html[data-theme='dark'],
+html[data-theme='light'] {
+  color-scheme: dark;
+  --bg-base: #080c14;
+  --bg-app: #080c14;
+  --bg-surface: #0f1422;
+  --bg-surface-subtle: #12192a;
+  --bg-elevated: #161d2e;
+  --bg-inset: #0b1020;
+  --border-subtle: rgba(255,255,255,.08);
+  --border-strong: rgba(255,255,255,.15);
+  --text-primary: #e6ecff;
+  --text-secondary: #a5b2d1;
+  --text-muted: #8291b5;
+  --text-tertiary: #8291b5;
+  --color-brand: #5b7cfa;
+  --color-brand-hover: #7892ff;
+  --color-brand-strong: #9aafff;
+  --color-accent: #00f0ff;
+  --color-success: #00e599;
+  --color-warning: #fbbf24;
+  --color-danger: #ff4d6d;
+  --color-success-bg: rgba(0,229,153,.11);
+  --color-warning-bg: rgba(251,191,36,.11);
+  --color-danger-bg: rgba(255,77,109,.12);
+  --success-bg: rgba(0,229,153,.11);
+  --warning-bg: rgba(251,191,36,.11);
+  --danger-bg: rgba(255,77,109,.12);
+  --info-bg: rgba(0,240,255,.09);
+  --neutral-bg: rgba(139,155,191,.1);
+  --ui-radius-sm: 6px;
+  --ui-radius-md: 10px;
+  --ui-radius-lg: 14px;
+  --ui-control-h: 40px;
+  --ui-section-gap: 16px;
+  --ui-page-gap: 14px;
+  --ui-shadow: 0 12px 30px rgba(0,0,0,.18);
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --focus: 0 0 0 2px rgba(0,240,255,.88);
+}
+
+html, body, #root { min-height: 100%; background: var(--bg-base); color: var(--text-primary); }
+body { font-family: 'Inter Variable', Inter, sans-serif; font-size: 14px; line-height: 1.4; }
+::selection { background: rgba(0,240,255,.2); color: var(--text-primary); }
+a { text-underline-offset: 3px; }
+:where(button, a, input, select, textarea, [tabindex]):focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; box-shadow: none; }
+:where(button, input, select, textarea) { transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+html[data-reduce-motion='true'] *, html[data-reduce-motion='true'] *::before, html[data-reduce-motion='true'] *::after { animation: none !important; transition: none !important; }
+
+/* Shell: dark surfaces, restrained borders, no decorative glow. */
+.sidebar, .topbar, .mobile-bottom-nav { background: var(--bg-surface) !important; border-color: var(--border-subtle) !important; }
+.main, .content, .page { background: transparent; color: var(--text-primary); }
+.content { max-width: 1600px; padding: 24px 28px 48px; }
+.page { max-width: 1500px; }
+.page h1, .page h2, .page h3, .panel-title { color: var(--text-primary); letter-spacing: -.025em; }
+.page h1 { font-size: clamp(24px, 2vw, 32px); line-height: 1.2; font-weight: 600; }
+.panel, .executive-shell .metric-card, .pnl-kpi, .budget-kpi, .chat, .docs-panel, .modal-card, .unlock-card, .analytics-gap-section {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: var(--ui-radius-lg) !important;
+  box-shadow: none !important;
+}
+.panel { padding: 18px 20px; }
+.panel-title { border-color: var(--border-subtle); }
+.primary-button, .secondary-button, .danger-button, .icon-button, .workspace-btn, .period-chip, .global-scale, input, select, textarea {
+  border-radius: var(--ui-radius-md);
+}
+.primary-button { background: var(--color-brand); border-color: var(--color-brand); color: #fff; }
+.primary-button:hover:not(:disabled) { background: var(--color-brand-hover); border-color: var(--color-brand-hover); }
+.secondary-button, .icon-button { background: var(--bg-elevated); border-color: var(--border-subtle); color: var(--text-primary); }
+.secondary-button:hover:not(:disabled), .icon-button:hover:not(:disabled) { background: #202a40; border-color: rgba(0,240,255,.38); }
+button:disabled, input:disabled, select:disabled, textarea:disabled { opacity: .5; cursor: not-allowed; }
+input, select, textarea, .executive-shell input, .executive-shell select, .executive-shell textarea { background: var(--bg-inset); color: var(--text-primary); border-color: var(--border-subtle); }
+::placeholder { color: var(--text-muted); opacity: 1; }
+.workspace-btn, .period-chip, .global-scale, .security-status { background: var(--bg-elevated); border-color: var(--border-subtle); color: var(--text-secondary); }
+.workspace-popover, .memory-card__menu-popover { background: var(--bg-elevated); border-color: var(--border-strong); box-shadow: 0 16px 44px rgba(0,0,0,.4); }
+
+/* Financial typography: values align across cards and table columns. */
+.numeric, .metric-card strong, .pnl-row strong, .budget-grid .num, .prime-card strong, .flash-prime strong,
+.pnl-edit-row > strong, .pnl-edit-row > span, .flash-income-preview__value, .pnl-kpi strong, .budget-kpi strong {
+  font-family: var(--font-mono) !important;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -.035em;
+}
+.metric-card strong, .prime-card strong, .flash-prime strong { color: var(--text-primary); }
+.pnl-edit-row, .pnl-edit-row > *, .pnl-table td, .pnl-table th { border-color: var(--border-subtle); }
+.pnl-edit-row:hover, .pnl-row:hover, .pnl-table tbody tr:hover { background: rgba(91,124,250,.07); }
+.pnl-edit-row:hover .pnl-row-actions, .pnl-row:hover .pnl-row-actions { opacity: 1; }
+.positive, .is-positive, .status-success { color: var(--color-success) !important; }
+.negative, .is-negative, .status-danger { color: var(--color-danger) !important; }
+.status-warning { color: var(--color-warning) !important; }
+.badge, .status-badge, .pnl-badge { border-radius: 999px; }
+.empty-state, .empty, .memory-empty { background: var(--bg-surface); border-color: var(--border-strong); color: var(--text-secondary); }
+.skeleton, [class*='skeleton'] { background: linear-gradient(90deg, #161d2e 20%, #202a40 38%, #161d2e 60%); background-size: 240% 100%; animation: sten-shimmer 1.35s ease infinite; }
+@keyframes sten-shimmer { to { background-position-x: -240%; } }
+
+/* Status treatments always combine color with wording/iconography. */
+.sten-critical, .critical-deviation, [data-severity='critical'] {
+  border: 1px solid rgba(255,77,109,.42);
+  background: var(--color-danger-bg);
+  color: #ff8097;
+}
+.sten-attention, [data-severity='attention'] { border: 1px solid rgba(251,191,36,.35); background: var(--color-warning-bg); color: #ffd56a; }
+.sten-normal, [data-severity='normal'] { border: 1px solid rgba(0,229,153,.28); background: var(--color-success-bg); color: #54f5be; }
+.sten-status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: 0 0 6px; }
+
+/* Chat: conversation is the focus; source/evidence controls stay secondary. */
+.chat, .ai-chat, .chat-panel { background: var(--bg-surface); }
+.chat textarea, .chat-input, .ai-composer textarea { background: var(--bg-inset); border-color: var(--border-subtle); }
+[class*='source-chip'], [class*='evidence-chip'], [class*='memory-chip'] { border-color: var(--border-subtle); background: var(--bg-elevated); }
+
+/* Secretary bento surfaces and Flash report indicators. */
+.secretary-grid, .secretary-bento, .flash-grid, .team-grid { gap: 14px; }
+.secretary-grid > *, .secretary-bento > *, .flash-grid > *, .team-grid > * { min-width: 0; }
+.flash-prime, .prime-card { border-color: var(--border-subtle); }
+.progress-bar, .progress-track { height: 4px; border-radius: 999px; overflow: hidden; background: #252e42; }
+.progress-bar > span, .progress-track > span { height: 100%; border-radius: inherit; transition: width .18s ease; }
+
+/* Tablet: preserve financial hierarchy and keep tables deliberately scrollable. */
+@media (min-width: 768px) and (max-width: 1100px) {
+  .sidebar { width: 64px !important; }
+  .main { margin-left: 64px !important; width: calc(100% - 64px) !important; }
+  .content { padding: 20px 18px 36px; }
+  .page { gap: 12px; }
+  .panel { padding: 15px; }
+  .pnl-edit-table, .pnl-table-wrap, .table-scroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .pnl-edit-row { min-width: 760px; }
+}
+@media (max-width: 767px) {
+  .content { padding: 16px 12px 28px; }
+  .panel { padding: 14px; }
+  .page h1 { font-size: 25px; }
+}
