@@ -48,21 +48,6 @@ jobs:
           unzip -q /tmp/awscliv2.zip -d /tmp
           sudo /tmp/aws/install --update
 
-      - name: Upload root files
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.YC_S3_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_S3_SECRET }}
-          AWS_DEFAULT_REGION: ru-central1
-          BUCKET: smenavkarmane-business
-        run: |
-          set -e
-          aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/index.html "s3://$BUCKET/index.html" --content-type "text/html; charset=utf-8"
-          aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/manifest.json "s3://$BUCKET/manifest.json" --content-type "application/manifest+json"
-          aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/sw.js "s3://$BUCKET/sw.js" --content-type "application/javascript; charset=utf-8"
-          aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/favicon.svg "s3://$BUCKET/favicon.svg" --content-type "image/svg+xml"
-          aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/icon-192.svg "s3://$BUCKET/icon-192.svg" --content-type "image/svg+xml"
-          aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/icon-512.svg "s3://$BUCKET/icon-512.svg" --content-type "image/svg+xml"
-
       - name: Upload assets (JS)
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.YC_S3_KEY_ID }}
@@ -99,7 +84,7 @@ jobs:
           set -e
           aws --endpoint-url=https://storage.yandexcloud.net s3 sync dist/brand "s3://$BUCKET/brand" --content-type "image/svg+xml"
 
-      - name: Cleanup stale JS bundles
+      - name: Upload root files
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.YC_S3_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_S3_SECRET }}
@@ -107,25 +92,23 @@ jobs:
           BUCKET: smenavkarmane-business
         run: |
           set -e
-          LOCAL_JS=$(ls dist/assets/*.js 2>/dev/null | xargs -n1 basename || true)
-          LOCAL_CSS=$(ls dist/assets/*.css 2>/dev/null | xargs -n1 basename || true)
+          aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/index.html "s3://$BUCKET/index.html" --content-type "text/html; charset=utf-8"
+          aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/manifest.json "s3://$BUCKET/manifest.json" --content-type "application/manifest+json"
+          aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/sw.js "s3://$BUCKET/sw.js" --content-type "application/javascript; charset=utf-8"
+          aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/favicon.svg "s3://$BUCKET/favicon.svg" --content-type "image/svg+xml"
+          aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/icon-192.svg "s3://$BUCKET/icon-192.svg" --content-type "image/svg+xml"
+          aws --endpoint-url=https://storage.yandexcloud.net s3 cp dist/icon-512.svg "s3://$BUCKET/icon-512.svg" --content-type "image/svg+xml"
 
-          REMOTE_JS=$(aws --endpoint-url=https://storage.yandexcloud.net s3 ls "s3://$BUCKET/assets/" | awk '{print $4}' | grep '\.js$' || true)
-          REMOTE_CSS=$(aws --endpoint-url=https://storage.yandexcloud.net s3 ls "s3://$BUCKET/assets/" | awk '{print $4}' | grep '\.css$' || true)
-
-          for name in $REMOTE_JS; do
-            if ! echo "$LOCAL_JS" | grep -qx "$name"; then
-              echo "rm assets/$name"
-              aws --endpoint-url=https://storage.yandexcloud.net s3 rm "s3://$BUCKET/assets/$name"
-            fi
-          done
-
-          for name in $REMOTE_CSS; do
-            if ! echo "$LOCAL_CSS" | grep -qx "$name"; then
-              echo "rm assets/$name"
-              aws --endpoint-url=https://storage.yandexcloud.net s3 rm "s3://$BUCKET/assets/$name"
-            fi
-          done
+      - name: Upload navigation icons
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.YC_S3_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_S3_SECRET }}
+          AWS_DEFAULT_REGION: ru-central1
+          BUCKET: smenavkarmane-business
+        run: |
+          set -e
+          test -d dist/icons
+          aws --endpoint-url=https://storage.yandexcloud.net s3 sync dist/icons "s3://$BUCKET/icons" --content-type "image/svg+xml"
 
       - name: Smoke test
         run: |
@@ -138,7 +121,7 @@ jobs:
             echo "❌ Smoke test failed: $code"
             exit 1
           fi
-          for asset in favicon.svg icon-192.svg icon-512.svg brand/sten-mark.svg brand/sten-lockup.svg; do
+          for asset in favicon.svg icon-192.svg icon-512.svg icons/favicon.svg icons/ic_overview.svg icons/ic_pnl.svg icons/ic_report.svg icons/ic_settings.svg icons/ic_staff.svg icons/ic_terms.svg brand/sten-mark.svg brand/sten-lockup.svg; do
             asset_code=$(curl -s -o /dev/null -w "%{http_code}" "$URL$asset")
             echo "$asset: $asset_code"
             if [ "$asset_code" != "200" ]; then
