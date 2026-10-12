@@ -1,7 +1,7 @@
-import '@fontsource-variable/inter';import React from 'react';import ReactDOM from 'react-dom/client';import App from './App';import './app.css';import './executive.css';
+import '@fontsource-variable/inter';import React from 'react';import ReactDOM from 'react-dom/client';import App from './App';import './app.css';import './executive.css';import './obsidian-precision.css';
 const THEME_KEY='sten_theme_v5';
 const storedTheme=localStorage.getItem(THEME_KEY);
-const initialTheme=storedTheme==='light'||storedTheme==='dark'?storedTheme:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+const initialTheme=storedTheme==='light'||storedTheme==='dark'?storedTheme:'dark';
 const FONT_SIZE_KEY='sten_font_size_v1';
 const MOTION_KEY='sten_reduce_motion_v1';
 const storedFontSize=localStorage.getItem(FONT_SIZE_KEY);
