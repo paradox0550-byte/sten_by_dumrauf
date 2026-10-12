@@ -1,0 +1,84 @@
+.sten-system-status {
+  position: fixed;
+  z-index: 100;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  width: min(560px, calc(100vw - 24px));
+  padding: 12px 12px 12px 14px;
+  border: 1px solid var(--border-subtle, rgba(128, 138, 158, .28));
+  border-radius: 10px;
+  background: var(--bg-elevated, #1A2030);
+  color: var(--text-primary, #F5F7FC);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .18);
+  transform: translateX(-50%);
+  animation: sten-status-enter .18s ease-out;
+}
+.sten-system-status__icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+}
+.sten-system-status--offline .sten-system-status__icon,
+.sten-system-status--service .sten-system-status__icon {
+  background: color-mix(in srgb, #E6A23C 14%, transparent);
+  color: #E6A23C;
+}
+.sten-system-status--restored .sten-system-status__icon {
+  background: color-mix(in srgb, #36B37E 14%, transparent);
+  color: #36B37E;
+}
+.sten-system-status__copy {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 3px;
+  padding-top: 1px;
+}
+.sten-system-status__copy strong {
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 650;
+}
+.sten-system-status__copy span {
+  color: var(--text-secondary, #A9B1C2);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.sten-system-status__close {
+  display: grid;
+  place-items: center;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  margin: -2px -2px 0 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary, #A9B1C2);
+  cursor: pointer;
+}
+.sten-system-status__close:hover {
+  border-color: var(--border-subtle, rgba(128, 138, 158, .28));
+  color: var(--text-primary, #F5F7FC);
+}
+.sten-system-status__close:focus-visible {
+  outline: 2px solid var(--color-brand, #5B7CFA);
+  outline-offset: 2px;
+}
+@keyframes sten-status-enter {
+  from { opacity: 0; transform: translate(-50%, -6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (max-width: 640px) {
+  .sten-system-status { top: max(8px, env(safe-area-inset-top)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sten-system-status { animation: none; }
+}
+html[data-reduce-motion='true'] .sten-system-status { animation: none; }
