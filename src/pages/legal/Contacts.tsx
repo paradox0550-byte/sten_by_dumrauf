@@ -1,3 +1,12 @@
 import LegalLayout from './LegalLayout';
-const sections=['Оператор Сервиса STEN','Контакты','Реквизиты для оплаты','Ответственный за обработку персональных данных'];
-export default function Contacts(){return <LegalLayout title="Реквизиты и контакты" sections={sections} date="2026-10-12"><section id="legal-section-1"><h2>Оператор Сервиса STEN</h2><p>Наименование: Думрауф Александр Сергеевич<br/>ИНН: 701741117861<br/>ОГРН(ИП): {'{{OGRN}}'}<br/>Адрес: {'{{OPERATOR_ADDRESS}}'}<br/>Регистрация в Роскомнадзоре: {'{{RKN_REGISTRY_NUMBER}}'}</p></section><section id="legal-section-2"><h2>Контакты</h2><p>Email общий: pocketshift.support@gmail.com<br/>Email юридических обращений: pocketshift.support@gmail.com<br/>Email по персональным данным: pocketshift.support@gmail.com<br/>Телефон: не указан</p></section><section id="legal-section-3"><h2>Реквизиты для оплаты</h2><p>{'{{BANK_DETAILS}}'}</p></section><section id="legal-section-4"><h2>Ответственный за обработку персональных данных</h2><p>{'{{DPO_NAME}}'}, {'{{DPO_POSITION}}'}<br/>Email: pocketshift.support@gmail.com</p></section><p>Черновик v2. Подлежит проверке юристом.</p></LegalLayout>}
+
+const sections=['Оператор сервиса','Контакты','Порядок оплаты','Обращения по персональным данным'];
+
+export default function Contacts(){
+ return <LegalLayout title="Реквизиты и контакты" sections={sections} date="2026-10-12">
+  <section id="legal-section-1"><h2>1. Оператор сервиса</h2><p>Думрауф Александр Сергеевич</p><p>ИНН: 701741117861</p><p>Статус: плательщик налога на профессиональный доход (НПД), согласно предоставленным оператором сведениям.</p></section>
+  <section id="legal-section-2"><h2>2. Контакты</h2><p>Электронная почта: <a href="mailto:pocketshift.support@gmail.com">pocketshift.support@gmail.com</a></p><p>Обращения по персональным данным принимаются по этому же адресу. В теме письма укажите «Персональные данные».</p></section>
+  <section id="legal-section-3"><h2>3. Порядок оплаты</h2><p>Оплата платных услуг производится банковским переводом на расчётный счёт Исполнителя по реквизитам, указанным в выставленном счёте. Платёжные агрегаторы, включая Robokassa, в качестве способа оплаты не заявляются.</p></section>
+  <section id="legal-section-4"><h2>4. Обращения по персональным данным</h2><p>Для запроса сведений об обработке персональных данных, их уточнения, блокирования или удаления, а также для отзыва согласия направьте обращение на <a href="mailto:pocketshift.support@gmail.com">pocketshift.support@gmail.com</a>.</p></section>
+ </LegalLayout>;
+}
