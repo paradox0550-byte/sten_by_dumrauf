@@ -89,10 +89,12 @@ export default function Settings() {
   });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
+  const [profileMessageKind, setProfileMessageKind] = useState<'ok' | 'error'>('ok');
 
   const [sendTime, setSendTime] = useState('21:00');
   const [metrics, setMetrics] = useState<Metrics>(metricDefaults);
   const [messengerMessage, setMessengerMessage] = useState('');
+  const [messengerMessageKind, setMessengerMessageKind] = useState<'ok' | 'error'>('ok');
   const [messengerSaving, setMessengerSaving] = useState(false);
 
   const {
@@ -191,8 +193,10 @@ export default function Settings() {
         });
       }
       await refresh();
+      setProfileMessageKind('ok');
       setProfileMessage('Профиль сохранён.');
     } catch (error) {
+      setProfileMessageKind('error');
       setProfileMessage(error instanceof Error ? error.message : 'Не удалось сохранить профиль.');
     } finally {
       setProfileSaving(false);
@@ -217,8 +221,10 @@ export default function Settings() {
         telegram_chat_id: profile.telegramChatId || null,
         whatsapp_phone: null,
       });
+      setMessengerMessageKind('ok');
       setMessengerMessage('Отчёты сохранены.');
     } catch (error) {
+      setMessengerMessageKind('error');
       setMessengerMessage(error instanceof Error ? error.message : 'Не удалось сохранить отчёты.');
     } finally {
       setMessengerSaving(false);
@@ -256,19 +262,19 @@ export default function Settings() {
         <section className="panel">
           <h2>Мои данные</h2>
           <p className="muted">Эти данные используются в профиле STEN и для отправки отчётов в Telegram.</p>
-          <div className="settings-field">
+          <label className="settings-field">
             <span>Имя</span>
             <input value={profile.firstName} onChange={(event) => setProfile((value) => ({ ...value, firstName: event.target.value }))} placeholder="Александр" />
-          </div>
-          <div className="settings-field">
+          </label>
+          <label className="settings-field">
             <span>Фамилия</span>
             <input value={profile.lastName} onChange={(event) => setProfile((value) => ({ ...value, lastName: event.target.value }))} placeholder="Фамилия" />
-          </div>
-          <div className="settings-field">
+          </label>
+          <label className="settings-field">
             <span>Должность</span>
             <input value={profile.position} onChange={(event) => setProfile((value) => ({ ...value, position: event.target.value }))} placeholder="Операционный директор" />
-          </div>
-          <div className="settings-field">
+          </label>
+          <label className="settings-field">
             <span>Telegram ID</span>
             <input
               inputMode="numeric"
@@ -277,12 +283,12 @@ export default function Settings() {
               placeholder="Например, 123456789"
             />
             <small className="muted">Нужен, чтобы STEN мог отправлять Вам отчёты в Telegram.</small>
-          </div>
+          </label>
           <button className="primary-button" disabled={profileSaving} onClick={() => void saveProfile()}>
             <Save size={16} />
             {profileSaving ? 'Сохраняем…' : 'Сохранить данные'}
           </button>
-          {profileMessage && <div className="pnl-message ok">{profileMessage}</div>}
+          {profileMessage && <div className={`pnl-message ${profileMessageKind}`} role={profileMessageKind === 'error' ? 'alert' : 'status'} aria-live={profileMessageKind === 'error' ? 'assertive' : 'polite'}>{profileMessage}</div>}
         </section>
 
         <section className="panel">
@@ -364,7 +370,7 @@ export default function Settings() {
             <Save size={16} />
             {messengerSaving ? 'Сохраняем…' : 'Сохранить отчёты'}
           </button>
-          {messengerMessage && <div className="pnl-message ok">{messengerMessage}</div>}
+          {messengerMessage && <div className={`pnl-message ${messengerMessageKind}`} role={messengerMessageKind === 'error' ? 'alert' : 'status'} aria-live={messengerMessageKind === 'error' ? 'assertive' : 'polite'}>{messengerMessage}</div>}
         </section>
 
         <section className="panel analytics-settings">
