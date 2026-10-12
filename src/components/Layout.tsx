@@ -86,7 +86,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     .replace(/^./, char => char.toUpperCase());
 
   const mobileItems = [
-    ['/dashboard', 'Сводка', LayoutDashboard],
+    ['/dashboard', 'Сводка', 'overview'],
     ['/pnl', 'P&L', FileSpreadsheet],
     ['/sten', 'STEN AI', Bot],
     ['/documents', 'Документы', FileText],
