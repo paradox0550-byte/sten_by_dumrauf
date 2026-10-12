@@ -58,6 +58,13 @@ jobs:
           test -f dist/icon-512.svg
           test -f dist/brand/sten-mark.svg
           test -f dist/brand/sten-lockup.svg
+          test -f dist/icons/favicon.svg
+          test -f dist/icons/ic_overview.svg
+          test -f dist/icons/ic_pnl.svg
+          test -f dist/icons/ic_report.svg
+          test -f dist/icons/ic_settings.svg
+          test -f dist/icons/ic_staff.svg
+          test -f dist/icons/ic_terms.svg
 
       - name: Backend validation
         working-directory: backend

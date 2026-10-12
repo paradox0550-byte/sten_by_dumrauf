@@ -459,6 +459,22 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 
 /* Authentication entry — Obsidian Precision */
 .unlock {
+  /* Keep the authentication surface readable even when a saved app theme is light. */
+  --bg-base: #080c14;
+  --bg-surface: #0f1422;
+  --bg-elevated: #161d2e;
+  --bg-inset: #0b1020;
+  --border-subtle: rgba(255,255,255,.08);
+  --border-strong: rgba(255,255,255,.15);
+  --text-primary: #e6ecff;
+  --text-secondary: #8b9bbf;
+  --text-muted: #8291b5;
+  --color-brand: #5b7cfa;
+  --color-brand-hover: #7892ff;
+  --color-accent: #00f0ff;
+  --color-success: #00e599;
+  --color-danger: #ff4d6d;
+  --color-danger-bg: rgba(255,77,109,.12);
   position: relative;
   isolation: isolate;
   min-height: 100svh;
