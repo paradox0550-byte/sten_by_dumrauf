@@ -28,7 +28,7 @@ const viewNavigate=(nav:ReturnType<typeof useNavigate>,to:string)=>{if(typeof do
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     const value = localStorage.getItem(THEME_KEY);
-    return value === 'light' || value === 'dark' || value === 'system' ? value : 'light';
+    return value === 'light' || value === 'dark' || value === 'system' ? value : 'dark';
   });
   const [scale, setScale] = useState<Scale>(() => {
     const value = localStorage.getItem(SCALE_KEY);

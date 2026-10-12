@@ -1,9 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 /* STEN — Obsidian Precision. Loaded after legacy and executive layers. */
-:root,
-html[data-theme='dark'],
-html[data-theme='light'] {
+html[data-theme='dark'] {
   color-scheme: dark;
   --bg-base: #080c14;
   --bg-app: #080c14;
