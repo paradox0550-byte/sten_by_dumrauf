@@ -433,3 +433,25 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
   .admin-organizations-page .settings-grid { grid-template-columns: minmax(0,1fr); }
   .admin-organizations-page .page-actions { width: 100%; }
 }
+
+/* STEN custom navigation glyphs: use SVG masks so icons inherit the active theme color. */
+.nav-glyph {
+  display: inline-block;
+  flex: 0 0 17px;
+  width: 17px;
+  height: 17px;
+  background-color: currentColor;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+.nav-glyph-overview { -webkit-mask-image: url('/icons/ic_overview.svg'); mask-image: url('/icons/ic_overview.svg'); }
+.nav-glyph-pnl { -webkit-mask-image: url('/icons/ic_pnl.svg'); mask-image: url('/icons/ic_pnl.svg'); }
+.nav-glyph-report { -webkit-mask-image: url('/icons/ic_report.svg'); mask-image: url('/icons/ic_report.svg'); }
+.nav-glyph-settings { -webkit-mask-image: url('/icons/ic_settings.svg'); mask-image: url('/icons/ic_settings.svg'); }
+.nav-glyph-staff { -webkit-mask-image: url('/icons/ic_staff.svg'); mask-image: url('/icons/ic_staff.svg'); }
+.nav-glyph-terms { -webkit-mask-image: url('/icons/ic_terms.svg'); mask-image: url('/icons/ic_terms.svg'); }
+

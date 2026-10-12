@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Activity, BarChart3, Bot, Brain, CalendarDays, FileSpreadsheet, FileText,
-  LayoutDashboard, Menu, Moon, PanelLeft, PanelLeftClose, Settings2,
-  Sun, Users, WalletCards, X, } from 'lucide-react';
+  BarChart3, Bot, Brain, CalendarDays, Menu, Moon, PanelLeft, PanelLeftClose,
+  Sun, WalletCards, X,
+} from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import WorkspaceSelector from './WorkspaceSelector';
 import { useScope } from '../lib/useScope';
@@ -11,6 +11,15 @@ import LegalFooter from './LegalFooter';
 
 type Theme = 'light' | 'dark' | 'system';
 type Scale = 'RUB' | 'THOUSAND' | 'MILLION';
+type NavIconName = 'overview' | 'pnl' | 'report' | 'settings' | 'staff' | 'terms';
+
+function NavIcon({ icon, size = 17 }: { icon: React.ElementType | NavIconName; size?: number }) {
+  if (typeof icon === 'string') {
+    return <span className={`nav-glyph nav-glyph-${icon}`} aria-hidden="true" />;
+  }
+  const Icon = icon;
+  return <Icon size={size} aria-hidden="true" />;
+}
 
 const THEME_KEY = 'sten_theme_v5';
 const SCALE_KEY = 'sten_scale_v5';
@@ -60,14 +69,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const items = useMemo(() => [
     ['/sten', 'STEN AI', Bot],
-    ['/dashboard', 'Мой день', LayoutDashboard],
+    ['/dashboard', 'Мой день', 'overview'],
     ['/secretary', 'Секретарь', CalendarDays],
-    ['/flash', 'Flash', Activity],
-    ['/pnl', 'P&L', FileSpreadsheet],
+    ['/flash', 'Flash', 'report'],
+    ['/pnl', 'P&L', 'pnl'],
     ['/budget', 'Бюджет', BarChart3],
     ['/analytics', 'Аналитика', BarChart3],
-    ['/team', 'Команда и ФОТ', Users],
-    ['/documents', 'Документы', FileText],
+    ['/team', 'Команда и ФОТ', 'staff'],
+    ['/documents', 'Документы', 'terms'],
     ['/finances', 'Финансы', WalletCards],
   ] as const, []);
 
@@ -86,10 +95,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     .replace(/^./, char => char.toUpperCase());
 
   const mobileItems = [
-    ['/dashboard', 'Сводка', LayoutDashboard],
-    ['/pnl', 'P&L', FileSpreadsheet],
+    ['/dashboard', 'Сводка', 'overview'],
+    ['/pnl', 'P&L', 'pnl'],
     ['/sten', 'STEN AI', Bot],
-    ['/documents', 'Документы', FileText],
+    ['/documents', 'Документы', 'terms'],
   ] as const;
 
   return (
@@ -114,7 +123,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 end={to === '/sten'}
                 onClick={() => setMobileMenu(false)}
               >
-                <Icon size={17} />
+                <NavIcon icon={Icon} size={17} />
                 <span>{label}</span>
               </NavLink>
             ))}
@@ -155,11 +164,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
           <nav className="top-nav" aria-label="Основная навигация">
             {([
-              ['/pnl', 'P&L', FileSpreadsheet],
-              ['/dashboard', 'Мой день', LayoutDashboard],
+              ['/pnl', 'P&L', 'pnl'],
+              ['/dashboard', 'Мой день', 'overview'],
               ['/sten', 'STEN AI', Bot],
-              ['/team', 'Команда', Users],
-              ['/settings', 'Настройки', Settings2],
+              ['/team', 'Команда', 'staff'],
+              ['/settings', 'Настройки', 'settings'],
             ] as const).map(([to, label, Icon]) => (
               <NavLink
                 key={to}
@@ -168,7 +177,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 end={to === '/sten'}
                 onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); viewNavigate(navigate, to); }}
               >
-                <Icon size={15} />
+                <NavIcon icon={Icon} size={15} />
                 <span>{label}</span>
               </NavLink>
             ))}
@@ -208,11 +217,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <nav className="mobile-bottom-nav" aria-label="Основная навигация">
         {mobileItems.map(([to, label, Icon]) => (
           <NavLink key={to} to={to} end={to === '/sten'} onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); viewNavigate(navigate, to); }}>
-            <Icon size={18} />
+            <NavIcon icon={Icon} size={18} />
             <span>{label}</span>
           </NavLink>
         ))}
-        <button className={location.pathname === '/memory' ? 'active' : ''} onClick={() => viewNavigate(navigate,'/settings')} aria-label="Настройки" aria-current={location.pathname === '/memory' ? 'page' : undefined}><Settings2 size={18} /><span>Настройки</span></button>
+        <button className={location.pathname === '/memory' ? 'active' : ''} onClick={() => viewNavigate(navigate,'/settings')} aria-label="Настройки" aria-current={location.pathname === '/memory' ? 'page' : undefined}><NavIcon icon="settings" size={18} /><span>Настройки</span></button>
       </nav>
     </div>
   );
