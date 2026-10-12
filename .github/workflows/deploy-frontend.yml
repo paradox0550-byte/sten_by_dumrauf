@@ -18,7 +18,7 @@ concurrency:
 jobs:
   deploy:
     name: Build and upload frontend
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main') || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node 20
         uses: actions/setup-node@v4
@@ -35,7 +35,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Build
         run: npm run build
@@ -115,12 +115,28 @@ jobs:
           set -e
           URL="https://smenavkarmane-business.website.yandexcloud.net/"
           echo "Checking $URL"
-          code=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+          code=$(curl -sS -o /dev/null -w "%{http_code}" "$URL")
           echo "Status: $code"
           if [ "$code" != "200" ]; then
             echo "❌ Smoke test failed: $code"
             exit 1
           fi
+          index_file=$(mktemp)
+          trap 'rm -f "$index_file"' EXIT
+          curl -fsS "$URL" -o "$index_file"
+          assets=$(grep -oE '(src|href)="\./assets/[^"]+\.(js|css)(\?[^"]*)?"' "$index_file" | cut -d '"' -f 2 | sort -u)
+          if [ -z "$assets" ]; then
+            echo "❌ No versioned JS/CSS assets found in production HTML"
+            exit 1
+          fi
+          while IFS= read -r asset; do
+            asset_code=$(curl -sS -o /dev/null -w "%{http_code}" "$URL${asset#./}")
+            echo "$asset: $asset_code"
+            if [ "$asset_code" != "200" ]; then
+              echo "❌ Referenced build asset failed: $asset"
+              exit 1
+            fi
+          done <<< "$assets"
           for asset in favicon.svg icon-192.svg icon-512.svg icons/favicon.svg icons/ic_overview.svg icons/ic_pnl.svg icons/ic_report.svg icons/ic_settings.svg icons/ic_staff.svg icons/ic_terms.svg brand/sten-mark.svg brand/sten-lockup.svg; do
             asset_code=$(curl -s -o /dev/null -w "%{http_code}" "$URL$asset")
             echo "$asset: $asset_code"
