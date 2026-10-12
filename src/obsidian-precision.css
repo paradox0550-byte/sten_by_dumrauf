@@ -649,3 +649,18 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 @media (prefers-reduced-motion: reduce) {
   .auth-submit:active:not(:disabled) { transform: none; }
 }
+
+
+/* Override legacy unlock label rules with the login form's explicit layout. */
+.unlock-card label.auth-field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin: 0;
+}
+.unlock-card label.auth-consent-note__checkbox {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  margin: 0;
+}
