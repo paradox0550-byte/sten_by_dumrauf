@@ -15,13 +15,8 @@ export default function SystemStatusBanner() {
   useEffect(() => {
     const onOffline = () => { setStatus('offline'); setDismissed(false); };
     const onOnline = () => {
-      setStatus(current => {
-        if (current === 'offline') {
-          setDismissed(false);
-          return 'restored';
-        }
-        return current;
-      });
+      setStatus(current => current === 'offline' ? 'restored' : current);
+      setDismissed(false);
     };
     const onServiceUnavailable = () => { setStatus('service'); setDismissed(false); };
     const onServiceRestored = () => {
