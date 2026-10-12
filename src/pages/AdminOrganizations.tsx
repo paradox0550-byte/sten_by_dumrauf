@@ -107,11 +107,11 @@ export default function AdminOrganizations() {
   };
 
   if (user?.role !== 'super_admin') {
-    return <div className="page"><section className="panel"><h2>Доступ закрыт</h2><p className="muted">Этот контур доступен только системному администратору STEN.</p></section></div>;
+    return <div className="page admin-organizations-page"><section className="panel"><h2>Доступ закрыт</h2><p className="muted">Этот контур доступен только системному администратору STEN.</p></section></div>;
   }
 
   return (
-    <div className="page">
+    <div className="page admin-organizations-page">
       <div className="page-head">
         <div>
           <span className="eyebrow">SYSTEM ADMINISTRATION</span>
