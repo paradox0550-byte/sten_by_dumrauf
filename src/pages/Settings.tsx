@@ -60,7 +60,7 @@ export default function Settings() {
   const [scope, setScope] = useScope();
   const [theme, setTheme] = useState<Theme>(() => {
     const value = localStorage.getItem(THEME_KEY);
-    return value === 'light' || value === 'dark' || value === 'system' ? value : 'system';
+    return value === 'light' || value === 'dark' || value === 'system' ? value : 'dark';
   });
   const [fontSize, setFontSize] = useState<FontSize>(() => {
     const value = localStorage.getItem(FONT_SIZE_KEY);
@@ -140,6 +140,19 @@ export default function Settings() {
       }
     })();
   }, [user?.telegramChatId]);
+
+  useEffect(() => {
+    if (theme !== 'system') return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const applySystemTheme = () => {
+      const resolved = media.matches ? 'dark' : 'light';
+      document.documentElement.dataset.theme = resolved;
+      document.documentElement.style.colorScheme = resolved;
+    };
+    applySystemTheme();
+    media.addEventListener('change', applySystemTheme);
+    return () => media.removeEventListener('change', applySystemTheme);
+  }, [theme]);
 
   const setThemeValue = (value: Theme) => {
     setTheme(value);
