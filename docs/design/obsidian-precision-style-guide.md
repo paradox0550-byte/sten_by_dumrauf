@@ -18,8 +18,8 @@
 | --bg-inset | #0b1020 |
 | --border-subtle | rgba(255,255,255,.08) |
 | --text-primary | #e6ecff |
-| --text-secondary | #a5b2d1 |
-| --text-muted | #8291b5 |
+| --text-secondary | #8b9bbf |
+| --text-muted | #8291b5 (contrast-safe override vs. low-contrast reference #4a5878) |
 | --color-brand | #5b7cfa |
 | --color-accent | #00f0ff |
 | --color-success | #00e599 |
