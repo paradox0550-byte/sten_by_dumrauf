@@ -44,7 +44,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     return value === 'RUB' || value === 'THOUSAND' || value === 'MILLION' ? value : 'THOUSAND';
   });
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === '1');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const stored = localStorage.getItem(SIDEBAR_KEY);
+    if (stored === '1') return true;
+    if (stored === '0') return false;
+    return window.matchMedia('(min-width: 768px) and (max-width: 1279px)').matches;
+  });
   const { user } = useAuth();
   const [scope, setScope] = useScope();
   const location = useLocation();
