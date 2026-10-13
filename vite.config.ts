@@ -31,7 +31,8 @@ export default defineConfig({
       },
     },
   },
-  server: { port: 3000, host: true },
+  // Keep the development server local by default; opt in to LAN access explicitly.
+  server: { port: 3000, host: '127.0.0.1' },
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts', 'src/**/*.test.ts'],
