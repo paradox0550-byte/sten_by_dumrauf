@@ -98,7 +98,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     ['/dashboard', 'Сводка', 'overview'],
     ['/pnl', 'P&L', 'pnl'],
     ['/documents', 'Документы', 'terms'],
-    ['/settings', 'Настройки', 'settings'],
   ] as const;
 
   return (
