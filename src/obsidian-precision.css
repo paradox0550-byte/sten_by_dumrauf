@@ -11,10 +11,10 @@ html[data-theme='dark'] {
   --bg-inset: #0b1020;
   --border-subtle: rgba(255,255,255,.08);
   --border-strong: rgba(255,255,255,.15);
-  --text-primary: #e6ecff;
-  --text-secondary: #8b9bbf;
-  --text-muted: #8291b5;
-  --text-tertiary: #8291b5;
+  --text-primary: #ffffff;
+  --text-secondary: #b8c4dc;
+  --text-muted: #6b7899;
+  --text-tertiary: #b8c4dc;
   --color-brand: #5b7cfa;
   --color-brand-hover: #7892ff;
   --color-brand-strong: #9aafff;
@@ -52,10 +52,12 @@ a { text-underline-offset: 3px; }
 }
 html[data-reduce-motion='true'] *, html[data-reduce-motion='true'] *::before, html[data-reduce-motion='true'] *::after { animation: none !important; transition: none !important; }
 
+/* Compact Obsidian Precision: brighter text and tighter vertical rhythm. */
+:root { --space-section:16px; --space-block:12px; --space-inline:6px; }
 /* Shell: dark surfaces, restrained borders, no decorative glow. */
 .sidebar, .topbar, .mobile-bottom-nav { background: var(--bg-surface) !important; border-color: var(--border-subtle) !important; }
 .main, .content, .page { background: transparent; color: var(--text-primary); }
-.content { max-width: 1600px; padding: 24px 28px 48px; }
+.content { max-width: 1600px; padding: 18px 20px 32px; }
 .page { max-width: 1500px; }
 .page h1, .page h2, .page h3, .panel-title { color: var(--text-primary); letter-spacing: -.025em; }
 .page h1 { font-size: clamp(24px, 2vw, 32px); line-height: 1.2; font-weight: 600; }
@@ -65,7 +67,7 @@ html[data-reduce-motion='true'] *, html[data-reduce-motion='true'] *::before, ht
   border-radius: var(--ui-radius-lg) !important;
   box-shadow: none !important;
 }
-.panel { padding: 18px 20px; }
+.panel { padding: 14px 16px; }
 .panel-title { border-color: var(--border-subtle); }
 .primary-button, .secondary-button, .danger-button, .icon-button, .workspace-btn, .period-chip, .global-scale, input, select, textarea {
   border-radius: var(--ui-radius-md);
@@ -679,4 +681,20 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
   flex-direction: row;
   align-items: flex-start;
   margin: 0;
+}
+
+
+/* Compact layout overrides requested for the mobile-first executive workspace. */
+.topbar.executive-topbar { min-height:56px; }
+.nav-section-label { margin-bottom:6px; }
+.legal-footer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding-top:12px; margin-top:16px; border-top:1px solid var(--border-subtle); color:var(--text-muted); font-size:12px; }
+.legal-footer__identity { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.legal-footer__brand { color:var(--text-primary); font-weight:700; letter-spacing:.04em; }
+.legal-footer__links a { color:var(--text-secondary); }
+.legal-footer__links a:hover { color:var(--color-accent); }
+@media (max-width:640px) {
+  .content { padding:14px 12px calc(100px + env(safe-area-inset-bottom)); }
+  .panel { padding:14px; }
+  .page h1,.page h2 { font-size:clamp(20px,5vw,28px); }
+  .legal-footer { align-items:flex-start; flex-direction:column; }
 }
