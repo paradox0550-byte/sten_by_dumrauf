@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3, Bot, Brain, CalendarDays, Menu, Moon, PanelLeft, PanelLeftClose,
-  Scale, Sun, WalletCards, X,
+  Scale, Sun, WalletCards, X, Monitor,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import WorkspaceSelector from './WorkspaceSelector';
@@ -50,7 +50,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  useEffect(() => { applyTheme(theme); }, [theme]);
+  useEffect(() => {
+    applyTheme(theme);
+    document.documentElement.dataset.themeMode = theme;
+    if (theme !== 'system') return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => applyTheme('system');
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, [theme]);
   useEffect(() => {
     document.body.classList.toggle('sidebar-collapsed', sidebarCollapsed);
     localStorage.setItem(SIDEBAR_KEY, sidebarCollapsed ? '1' : '0');
@@ -201,8 +209,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>}
 
           <div className="top-actions">
-            <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}>
-              {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+            <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark')} aria-label={theme === 'dark' ? 'Тема: тёмная. Переключить на светлую' : theme === 'light' ? 'Тема: светлая. Переключить на системную' : 'Тема: системная. Переключить на тёмную'} title={`Тема: ${theme === 'system' ? 'системная' : theme === 'dark' ? 'тёмная' : 'светлая'} (нажмите для смены)`}>
+              {theme === 'dark' ? <Sun size={17} /> : theme === 'light' ? <Moon size={17} /> : <Monitor size={17} />}
             </button>
           </div>
           <div className="top-profile" title={user?.email || ''}>
