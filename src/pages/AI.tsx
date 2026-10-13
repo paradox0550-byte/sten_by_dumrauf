@@ -35,7 +35,7 @@ export default function AI(){
 
 function AIContent({user}:{user:User|null}){
  const[scope]=useScope();
- const[searchParams]=useSearchParams();
+ const[searchParams,setSearchParams]=useSearchParams();
  const initialQuery=searchParams.get('q')?.trim()||'';
  const{settings}=useAppearanceContext();
  const key=chatKey(user);
@@ -54,6 +54,8 @@ function AIContent({user}:{user:User|null}){
  const[appearanceOpen,setAppearanceOpen]=useState(false);
  const[composerFocused,setComposerFocused]=useState(false);
  useEffect(()=>{if(initialQuery)setPrompt(initialQuery)},[initialQuery]);
+ useEffect(()=>{if(searchParams.get('new')!=='1')return;setMessages([]);setPrompt('');setSearchParams(params=>{const next=new URLSearchParams(params);next.delete('new');return next},{replace:true})},[searchParams,setSearchParams]);
+ useEffect(()=>{window.dispatchEvent(new CustomEvent('sten:ai-status',{detail:busy?'working':'ready'}))},[busy]);
  const[chatToast,setChatToast]=useState<string|null>(null);
  const[dragOver,setDragOver]=useState(false);
  const file=useRef<HTMLInputElement>(null);
