@@ -121,7 +121,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="brand-mark" aria-hidden="true"><img src="/brand/sten-mark.svg?v=5.0.2" alt="" /></div>
             <div className="brand-copy">
               <b>STEN</b>
-              <small>Рабочий кабинет</small>
+              <small>Executive workspace</small>
             </div>
             <button className="mobile-close" onClick={() => setMobileMenu(false)} aria-label="Закрыть меню"><X size={18} /></button>
           </div>
@@ -132,6 +132,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <NavLink
                 key={to}
                 to={to}
+                title={label}
                 end={to === '/sten'}
                 onClick={() => setMobileMenu(false)}
               >
@@ -237,7 +238,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span>{label}</span>
           </NavLink>
         ))}
-        <button className={location.pathname === '/memory' ? 'active' : ''} onClick={() => viewNavigate(navigate,'/settings')} aria-label="Настройки" aria-current={location.pathname === '/memory' ? 'page' : undefined}><NavIcon icon="settings" size={18} /><span>Настройки</span></button>
+        <button className={location.pathname === '/settings' ? 'active' : ''} onClick={() => viewNavigate(navigate,'/settings')} aria-label="Настройки" aria-current={location.pathname === '/settings' ? 'page' : undefined}><NavIcon icon="settings" size={18} /><span>Настройки</span></button>
       </nav>
     </div>
   );
