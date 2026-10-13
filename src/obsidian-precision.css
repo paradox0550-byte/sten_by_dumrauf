@@ -125,8 +125,8 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 
 /* Tablet: preserve financial hierarchy and keep tables deliberately scrollable. */
 @media (min-width: 768px) and (max-width: 1100px) {
-  .sidebar { width: 64px !important; }
-  .main { margin-left: 64px !important; width: calc(100% - 64px) !important; }
+  body.sidebar-collapsed .sidebar { width: 72px; min-width: 72px; }
+  body.sidebar-collapsed .main { margin-left: 72px; width: calc(100% - 72px); }
   .content { padding: 20px 18px 36px; }
   .page { gap: 12px; }
   .panel { padding: 15px; }
