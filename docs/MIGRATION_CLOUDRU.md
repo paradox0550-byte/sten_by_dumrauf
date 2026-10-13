@@ -1,3 +1,13 @@
+## ⚠️ СТАТУС: возврат на Yandex API Gateway
+
+Решение о миграции на Cloud.ru приостановлено. Приоритет — восстановление работы через API Gateway Yandex Cloud.
+
+Причина: конфигурацию Cloud.ru API Gateway и сетевую совместимость с Managed PostgreSQL в Yandex Cloud необходимо отдельно проверить; доступность PostgreSQL из Cloud.ru без подходящего сетевого соединения не предполагается.
+
+Текущее состояние и ручные шаги: см. [docs/GATEWAY_RESTORE.md](GATEWAY_RESTORE.md).
+
+---
+
 # Миграция STEN на Cloud.ru
 
 > Подготовительные файлы добавлены. Ресурсы Cloud.ru не создавались, данные не переносились, frontend не переключался. Yandex Cloud остаётся резервом.
