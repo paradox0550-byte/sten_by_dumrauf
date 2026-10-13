@@ -54,7 +54,7 @@ function AIContent({user}:{user:User|null}){
  const[appearanceOpen,setAppearanceOpen]=useState(false);
  const[composerFocused,setComposerFocused]=useState(false);
  useEffect(()=>{if(initialQuery)setPrompt(initialQuery)},[initialQuery]);
- useEffect(()=>{if(searchParams.get('new')!=='1')return;setMessages([]);setPrompt('');setSearchParams(params=>{const next=new URLSearchParams(params);next.delete('new');return next},{replace:true})},[searchParams,setSearchParams]);
+
  useEffect(()=>{window.dispatchEvent(new CustomEvent('sten:ai-status',{detail:busy?'working':'ready'}))},[busy]);
  const[chatToast,setChatToast]=useState<string|null>(null);
  const[dragOver,setDragOver]=useState(false);
@@ -67,6 +67,7 @@ function AIContent({user}:{user:User|null}){
    hydrateRef.current=key;
    setMessages(loaded);
  },[key]);
+ useEffect(()=>{if(searchParams.get('new')!=='1')return;setMessages([]);setPrompt('');setSearchParams(params=>{const next=new URLSearchParams(params);next.delete('new');return next},{replace:true})},[searchParams,setSearchParams]);
  useEffect(()=>{
    if(!key||hydrateRef.current!==key)return;
    try{const persisted=messages.slice(-80).map(({proposedMemory,...message})=>message);localStorage.setItem(key,JSON.stringify(persisted));localStorage.removeItem(LEGACY_KEY)}catch{}
