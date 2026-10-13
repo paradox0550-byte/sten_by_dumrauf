@@ -5,6 +5,27 @@
 <meta name="theme-color" content="#0B0D10"><meta name="description" content="STEN — Smart Tracking &amp; Economic Navigator. Исполнительный контур управления ресторанным бизнесом.">
 <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg?v=5.0.2"><link rel="apple-touch-icon" href="./icon-192.svg?v=5.0.2"><link rel="manifest" href="./manifest.json?v=5.0.2">
 <title>STEN — Smart Tracking &amp; Economic Navigator</title>
+<script>
+(function () {
+  var mode = 'dark';
+  try {
+    var saved = localStorage.getItem('sten_theme_v5');
+    if (saved === 'light' || saved === 'dark' || saved === 'system') mode = saved;
+  } catch (_) {}
+  var resolved = mode === 'system'
+    ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : mode;
+  document.documentElement.dataset.theme = resolved;
+  document.documentElement.dataset.themeMode = mode;
+  document.documentElement.style.colorScheme = resolved;
+})();
+</script>
+<style>
+html[data-theme='dark'] { color-scheme: dark; background: #080c14; color: #fff; }
+html[data-theme='light'] { color-scheme: light; background: #f5f7fb; color: #0b1220; }
+html, body { min-height: 100%; }
+</style>
+
 <style>
 .topbar  { view-transition-name: sten-topbar; }
 .sidebar { view-transition-name: sten-sidebar; }
