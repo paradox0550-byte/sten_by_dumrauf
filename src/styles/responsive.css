@@ -1,0 +1,55 @@
+/* Obsidian Precision 2.0 — shared responsive layout rules.
+   These rules enhance the existing shell; page data and routing remain shared. */
+@media (min-width: 1280px) {
+  .executive-shell .sidebar { width: 240px; }
+  .executive-shell .content { width: 100%; max-width: 1640px; margin-inline: auto; }
+}
+@media (min-width: 768px) and (max-width: 1279px) {
+  .executive-shell .sidebar { width: 240px; }
+  body.sidebar-collapsed .executive-shell .sidebar {
+    width: 72px;
+    min-width: 72px;
+    padding-inline: 8px;
+    opacity: 1;
+    overflow: visible;
+    pointer-events: auto;
+    border-right: 1px solid var(--border-subtle);
+  }
+  body.sidebar-collapsed .executive-shell .sidebar .brand-copy,
+  body.sidebar-collapsed .executive-shell .sidebar .nav-section-label,
+  body.sidebar-collapsed .executive-shell .sidebar nav a > span,
+  body.sidebar-collapsed .executive-shell .sidebar .sidebar-profile > div:not(.avatar) {
+    display: none;
+  }
+  body.sidebar-collapsed .executive-shell .sidebar .brand { justify-content: center; padding-inline: 0; }
+  body.sidebar-collapsed .executive-shell .sidebar nav a { justify-content: center; padding-inline: 8px; }
+  body.sidebar-collapsed .executive-shell .main { margin-left: 72px; width: calc(100% - 72px); }
+  .executive-shell .sidebar-toggle { display: inline-flex; }
+  .executive-shell .mobile-menu, .executive-shell .mobile-close, .executive-shell .backdrop { display: none; }
+  .executive-shell .content { padding-inline: 16px; }
+}
+@media (max-width: 767px) {
+  .executive-shell .sidebar {
+    width: min(280px, calc(100vw - 48px));
+    max-width: calc(100vw - 48px);
+  }
+  .executive-shell .main { min-width: 0; width: 100%; margin-left: 0; }
+  .executive-shell .mobile-bottom-nav {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    min-height: calc(64px + env(safe-area-inset-bottom));
+  }
+  .executive-shell .mobile-bottom-nav a,
+  .executive-shell .mobile-bottom-nav button { min-width: 44px; min-height: 44px; }
+  .executive-shell .topbar { padding-left: 10px; padding-right: 10px; }
+  .executive-shell .top-context { min-width: 0; }
+  .executive-shell .period-chip { display: none; }
+  .sten-floating-ai { bottom: calc(80px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 380px) {
+  .executive-shell .mobile-bottom-nav { gap: 0; }
+  .executive-shell .mobile-bottom-nav a,
+  .executive-shell .mobile-bottom-nav button { padding-inline: 4px; font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .executive-shell .sidebar, .executive-shell .main { transition: none; }
+}
