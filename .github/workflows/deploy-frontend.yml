@@ -40,7 +40,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_API_URL: https://<NEW_GATEWAY_DOMAIN> # TODO: replace after creating and testing the new API Gateway
+          VITE_API_URL: https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net
 
       - name: Install AWS CLI
         run: |
