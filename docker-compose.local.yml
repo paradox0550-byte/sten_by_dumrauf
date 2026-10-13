@@ -1,0 +1,12 @@
+services:
+  backend:
+    build: ./backend
+    ports: ["8080:8080"]
+    env_file: ./backend/.env.local
+    depends_on: [markitdown]
+  markitdown:
+    build: ./services/markitdown
+    ports: ["8081:8080"]
+    environment:
+      MARKITDOWN_TOKEN: "${MARKITDOWN_TOKEN:-dev-token-change-me}"
+      MARKITDOWN_ENABLED: "true"

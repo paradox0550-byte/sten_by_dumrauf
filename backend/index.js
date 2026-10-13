@@ -2657,3 +2657,7 @@ module.exports.handler = async (event, context) => {
     };
   }
 };
+
+
+// Express app export for Cloud.ru Container Apps; Yandex Cloud keeps using handler.
+module.exports.app = app;

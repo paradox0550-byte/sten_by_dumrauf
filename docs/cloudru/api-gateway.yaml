@@ -1,0 +1,100 @@
+openapi: 3.0.3
+info:
+  title: STEN Cloud.ru Gateway
+  version: 1.0.0
+  description: Starter template. Replace TODO hostnames and configure prefix matching in the console.
+x-cloud-cors:
+  allow_origins: [https://smenavkarmane-business.website.yandexcloud.net]
+  allow_methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+  allow_headers: [Authorization, Content-Type, X-Request-ID]
+  expose_headers: [Content-Type, X-Request-ID]
+  max_age: 86400
+  allow_credential: false
+paths:
+  /healthz:
+    get:
+      operationId: healthz
+      responses:
+        '200': { description: Service health }
+      x-cloud-backend: { $ref: '#/components/x-cloud-backends/StenBackend' }
+  /ask:
+    post:
+      operationId: ask
+      responses:
+        '200': { description: STEN AI response }
+      x-cloud-backend: { $ref: '#/components/x-cloud-backends/StenBackend' }
+  /auth/{path}:
+    parameters:
+      - { name: path, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: authPost
+      responses:
+        '200': { description: Auth response }
+      x-cloud-backend: { $ref: '#/components/x-cloud-backends/StenBackend' }
+  /api/{path}:
+    parameters:
+      - { name: path, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: apiGet
+      responses:
+        '200': { description: API response }
+      x-cloud-backend: { $ref: '#/components/x-cloud-backends/StenBackend' }
+    post:
+      operationId: apiPost
+      responses:
+        '200': { description: API response }
+      x-cloud-backend: { $ref: '#/components/x-cloud-backends/StenBackend' }
+    patch:
+      operationId: apiPatch
+      responses:
+        '200': { description: API response }
+      x-cloud-backend: { $ref: '#/components/x-cloud-backends/StenBackend' }
+    delete:
+      operationId: apiDelete
+      responses:
+        '200': { description: API response }
+      x-cloud-backend: { $ref: '#/components/x-cloud-backends/StenBackend' }
+  /reports/{path}:
+    parameters:
+      - { name: path, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: reportsGet
+      responses:
+        '200': { description: Reports response }
+      x-cloud-backend: { $ref: '#/components/x-cloud-backends/StenBackend' }
+  /ai/documents/{path}:
+    parameters:
+      - { name: path, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: documentsPost
+      responses:
+        '200': { description: Document response }
+      x-cloud-backend: { $ref: '#/components/x-cloud-backends/StenBackend' }
+  /markitdown/{path}:
+    parameters:
+      - { name: path, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: markitdownPost
+      responses:
+        '200': { description: Conversion response }
+      x-cloud-backend: { $ref: '#/components/x-cloud-backends/MarkItDownBackend' }
+components:
+  x-cloud-backends:
+    StenBackend:
+      name: Sten_Backend
+      description: Replace host with backend hostname from Cloud.ru console.
+      type: url
+      scheme: https
+      nodes:
+        - host: TODO_STEN_BACKEND_HOST_FROM_CLOUDRU_CONSOLE
+          weight: 1
+      timeout: { connect: 3, send: 60, read: 60 }
+    MarkItDownBackend:
+      name: MarkItDown_Backend
+      description: Replace host with MarkItDown hostname from Cloud.ru console.
+      type: url
+      scheme: https
+      nodes:
+        - host: TODO_STEN_MARKITDOWN_HOST_FROM_CLOUDRU_CONSOLE
+          weight: 1
+      timeout: { connect: 3, send: 60, read: 60 }
