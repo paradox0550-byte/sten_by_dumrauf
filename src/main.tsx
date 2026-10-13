@@ -1,4 +1,4 @@
-import '@fontsource-variable/inter';import React from 'react';import ReactDOM from 'react-dom/client';import App from './App';import './styles/tokens.css';import './app.css';import './executive.css';import './obsidian-precision.css';import './open-workspace.css';
+import '@fontsource-variable/inter';import React from 'react';import ReactDOM from 'react-dom/client';import App from './App';import './styles/tokens.css';import './app.css';import './executive.css';import './obsidian-precision.css';import './open-workspace.css';import './styles/responsive.css';
 const THEME_KEY='sten_theme_v5';
 const storedTheme=localStorage.getItem(THEME_KEY);
 const initialTheme=storedTheme==='light'||storedTheme==='dark'?storedTheme:storedTheme==='system'?(typeof window.matchMedia==='function'&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):'dark';
