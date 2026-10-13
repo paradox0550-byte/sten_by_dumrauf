@@ -1,0 +1,26 @@
+openapi: 3.0.0
+info:
+  title: STEN API Gateway
+  version: 1.0.0
+  description: >
+    STEN gateway recovery. Confirm service-account permissions before deployment.
+servers:
+  - url: /
+paths:
+  /healthz:
+    get:
+      operationId: healthz
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: $latest
+  /{proxy+}:
+    x-yc-apigateway-integration:
+      type: cloud_functions
+      function_id: d4epijnhj7h9sd5ppa66
+      tag: $latest
+  /markitdown/{proxy+}:
+    x-yc-apigateway-integration:
+      type: cloud_functions
+      function_id: d4e4ai8895c3kq3b0ds5
+      tag: $latest
