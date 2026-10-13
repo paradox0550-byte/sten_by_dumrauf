@@ -219,7 +219,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <nav className="mobile-bottom-nav" aria-label="Основная навигация">
         {mobileItems.map(([to, label, Icon]) => (
-          <NavLink key={to} to={to} end={to === '/sten'} onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); viewNavigate(navigate, to); }}>
+          <NavLink key={to} to={to} end={to === '/dashboard'} onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); viewNavigate(navigate, to); }}>
             <NavIcon icon={Icon} size={18} />
             <span>{label}</span>
           </NavLink>
