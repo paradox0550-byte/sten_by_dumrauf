@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3, Bot, Brain, CalendarDays, Menu, Moon, PanelLeft, PanelLeftClose,
-  Sun, WalletCards, X,
+  Scale, Sun, WalletCards, X,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import WorkspaceSelector from './WorkspaceSelector';
@@ -97,8 +97,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const mobileItems = [
     ['/dashboard', 'Сводка', 'overview'],
     ['/pnl', 'P&L', 'pnl'],
-    ['/sten', 'STEN AI', Bot],
     ['/documents', 'Документы', 'terms'],
+    ['/settings', 'Настройки', 'settings'],
   ] as const;
 
   return (
@@ -131,6 +131,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <NavLink to="/memory" onClick={() => setMobileMenu(false)}>
               <Brain size={17} />
               <span>Память</span>
+            </NavLink>
+            <NavLink to="/legal" onClick={() => setMobileMenu(false)}>
+              <Scale size={17} />
+              <span>Правовая информация</span>
             </NavLink>
             {user?.role === 'super_admin' && <NavLink to="/admin/organizations" onClick={() => setMobileMenu(false)}>
               <span>Организации</span>
