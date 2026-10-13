@@ -15,14 +15,23 @@ export default function FloatingAIAssistant() {
   const hidden = ['/sten', '/ai', '/auth', '/login'].includes(location.pathname);
 
   useEffect(() => {
+    let errorTimer: number | undefined;
     const onStatus = (event: Event) => {
       const next = (event as CustomEvent<AIStatus>).detail;
-      if (next === 'ready' || next === 'working' || next === 'error') setStatus(next);
+      if (next === 'error') {
+        setStatus('error');
+        if (errorTimer !== undefined) window.clearTimeout(errorTimer);
+        errorTimer = window.setTimeout(() => { setStatus('ready'); errorTimer = undefined; }, 3500);
+      } else if (next === 'working') {
+        if (errorTimer !== undefined) { window.clearTimeout(errorTimer); errorTimer = undefined; }
+        setStatus('working');
+      } else if (next === 'ready' && errorTimer === undefined) setStatus('ready');
     };
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setMenuOpen(false); };
     window.addEventListener('sten:ai-status', onStatus);
     window.addEventListener('keydown', onKey);
     return () => {
+      if (errorTimer !== undefined) window.clearTimeout(errorTimer);
       window.removeEventListener('sten:ai-status', onStatus);
       window.removeEventListener('keydown', onKey);
     };
