@@ -118,6 +118,7 @@ function AIContent({user}:{user:User|null}){
      const p = r;
      setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:String(p.answer??p.message??'Ответ не получен.'),sources:Array.isArray(p.sources)?p.sources:[],steps:Array.isArray(p.steps)?p.steps:undefined,totalMs:typeof p.total_ms==='number'?p.total_ms:undefined,proposedMemory:Array.isArray(p.proposed_memory)?p.proposed_memory:undefined,createdAt:new Date().toISOString()}]);
    }catch(e){
+     window.dispatchEvent(new CustomEvent('sten:ai-status',{detail:'error'}));
      setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось получить ответ.',createdAt:new Date().toISOString()}]);
    }finally{setBusy(false)}
  }
