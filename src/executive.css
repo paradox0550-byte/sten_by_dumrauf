@@ -131,6 +131,80 @@
   --focus: 0 0 0 2px var(--color-brand-glow);
 }
 
+/* Theme focus tokens are declared outside the palette blocks so the original
+   dark palette above remains untouched. */
+[data-theme='dark'] {
+  --color-brand-glow: rgba(91, 124, 250, 0.35);
+  --focus: 0 0 0 3px var(--color-brand-glow);
+}
+
+/* Explicit light palette. Keep all light-only overrides in this selector. */
+:root[data-theme='light'],
+[data-theme='light'] {
+  --bg-base: #f6f8fc;
+  --bg-app: #f6f8fc;
+  --bg-surface: #ffffff;
+  --bg-surface-subtle: #edf1f8;
+  --bg-elevated: #edf1f8;
+  --bg-inset: #ffffff;
+  --bg-subtle: #e8ecf5;
+
+  --border-subtle: rgba(15, 23, 42, 0.08);
+  --border-default: rgba(15, 23, 42, 0.12);
+  --border-strong: rgba(15, 23, 42, 0.20);
+
+  --text-primary: #0b1220;
+  --text-secondary: #33415c;
+  --text-muted: #64748b;
+  --text-tertiary: #64748b;
+  --text-disabled: #94a3b8;
+  --text-on-accent: #ffffff;
+
+  --color-brand: #3b5bdb;
+  --color-brand-hover: #304ec2;
+  --color-brand-strong: #304ec2;
+  --color-accent: #0e7490;
+  --color-success: #047857;
+  --color-warning: #b45309;
+  --color-danger: #b91c1c;
+
+  --color-success-bg: rgba(4, 120, 87, 0.10);
+  --color-warning-bg: rgba(180, 83, 9, 0.10);
+  --color-danger-bg: rgba(185, 28, 28, 0.10);
+  --success-bg: rgba(4, 120, 87, 0.10);
+  --warning-bg: rgba(180, 83, 9, 0.10);
+  --danger-bg: rgba(185, 28, 28, 0.10);
+  --info-bg: rgba(59, 91, 219, 0.10);
+  --neutral-bg: rgba(100, 116, 139, 0.10);
+
+  --color-brand-glow: rgba(59, 91, 219, 0.35);
+  --focus: 0 0 0 3px var(--color-brand-glow);
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
+  --ui-shadow: var(--shadow-sm);
+
+  --skeleton-base: #e2e8f0;
+  --skeleton-shine: #f1f5f9;
+
+  /* Legacy aliases consumed by older components. */
+  --bg: var(--bg-app);
+  --surface: var(--bg-surface);
+  --surface2: var(--bg-surface-subtle);
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
+  --line: var(--border-subtle);
+  --accent: var(--color-brand);
+  --accent2: var(--color-brand-hover);
+  --good: var(--color-success);
+  --danger: var(--color-danger);
+  --warning: var(--color-warning);
+  --hair: 1px solid var(--border-subtle);
+
+  color-scheme: light;
+}
+
 /* ─── Tier 3: Component tokens ───────────────────────────── */
 .executive-shell {
   /* Control surfaces (chips, scale toggles, selects) */
