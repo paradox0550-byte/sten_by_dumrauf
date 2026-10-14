@@ -7,6 +7,8 @@ html[data-theme='dark'] {
   --bg-app: #080c14;
   --bg-surface: #0f1422;
   --bg-surface-subtle: #12192a;
+  --bg-subtle: #1a2236;
+  --skeleton-gradient: linear-gradient(90deg, #161d2e 0%, #202a40 100%);
   --bg-elevated: #161d2e;
   --bg-inset: #0b1020;
   --border-subtle: rgba(255,255,255,.08);
@@ -709,6 +711,8 @@ html[data-theme='light'] {
   --bg-app: #f6f8fc;
   --bg-surface: #ffffff;
   --bg-surface-subtle: #edf1f8;
+  --bg-subtle: #e8ecf5;
+  --skeleton-gradient: linear-gradient(90deg, #e2e8f0 0%, #f1f5f9 100%);
   --bg-elevated: #edf1f8;
   --bg-inset: #ffffff;
   --border-subtle: rgba(15, 23, 42, 0.08);
