@@ -9,6 +9,7 @@ html[data-theme='dark'] {
   --bg-surface-subtle: #12192a;
   --bg-subtle: #1a2236;
   --skeleton-gradient: linear-gradient(90deg, #161d2e 0%, #202a40 100%);
+  --shadow-md: 0 24px 72px rgba(0,0,0,.24);
   --bg-elevated: #161d2e;
   --bg-inset: #0b1020;
   --border-subtle: rgba(255,255,255,.08);
@@ -508,10 +509,10 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
   display: flex;
   flex-direction: column;
   gap: 0;
-  background: rgba(15,20,34,.96) !important;
-  border: 1px solid var(--border-strong) !important;
+  background: var(--bg-surface) !important;
+  border-color: var(--border-subtle) !important;
   border-radius: 16px !important;
-  box-shadow: 0 24px 72px rgba(0,0,0,.24) !important;
+  box-shadow: var(--shadow-md) !important;
 }
 .auth-brand {
   display: flex;
