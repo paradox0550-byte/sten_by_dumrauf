@@ -101,7 +101,7 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 .status-warning { color: var(--color-warning) !important; }
 .badge, .status-badge, .pnl-badge { border-radius: 999px; }
 .empty-state, .empty, .memory-empty { background: var(--bg-surface); border-color: var(--border-strong); color: var(--text-secondary); }
-.skeleton, [class*='skeleton'] { background: linear-gradient(90deg, #161d2e 20%, #202a40 38%, #161d2e 60%); background-size: 240% 100%; animation: sten-shimmer 1.35s ease infinite; }
+.skeleton, [class*='skeleton'] { background: var(--skeleton-gradient); background-size: 240% 100%; animation: sten-shimmer 1.35s ease infinite; }
 @keyframes sten-shimmer { to { background-position-x: -240%; } }
 
 /* Status treatments always combine color with wording/iconography. */
@@ -123,7 +123,7 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 .secretary-grid, .secretary-bento, .flash-grid, .team-grid { gap: 14px; }
 .secretary-grid > *, .secretary-bento > *, .flash-grid > *, .team-grid > * { min-width: 0; }
 .flash-prime, .prime-card { border-color: var(--border-subtle); }
-.progress-bar, .progress-track { height: 4px; border-radius: 999px; overflow: hidden; background: #252e42; }
+.progress-bar, .progress-track { height: 4px; border-radius: 999px; overflow: hidden; background: var(--bg-elevated); }
 .progress-bar > span, .progress-track > span { height: 100%; border-radius: inherit; transition: width .18s ease; }
 
 /* Tablet: preserve financial hierarchy and keep tables deliberately scrollable. */
