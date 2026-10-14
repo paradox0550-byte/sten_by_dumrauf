@@ -2,6 +2,25 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<script>
+  (function () {
+    try {
+      var mode = localStorage.getItem('sten_theme_v5') || 'dark';
+      var resolved = mode === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : (mode === 'light' || mode === 'dark' ? mode : 'dark');
+      document.documentElement.setAttribute('data-theme', resolved);
+      document.documentElement.style.colorScheme = resolved;
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.documentElement.style.colorScheme = 'dark';
+    }
+  })();
+</script>
+<style>
+  html { background: var(--bg-base, #080c14); }
+  html[data-theme="light"] { background: #f6f8fc; }
+</style>
 <meta name="theme-color" content="#0B0D10"><meta name="description" content="STEN — Smart Tracking &amp; Economic Navigator. Исполнительный контур управления ресторанным бизнесом.">
 <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg?v=5.0.2"><link rel="apple-touch-icon" href="./icon-192.svg?v=5.0.2"><link rel="manifest" href="./manifest.json?v=5.0.2">
 <title>STEN — Smart Tracking &amp; Economic Navigator</title>
