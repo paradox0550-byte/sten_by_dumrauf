@@ -698,3 +698,94 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
   .page h1,.page h2 { font-size:clamp(20px,5vw,28px); }
   .legal-footer { align-items:flex-start; flex-direction:column; }
 }
+
+
+/* Light-theme surface and state corrections. These overrides are deliberately
+   scoped to light mode; the existing dark palette and dark component styles stay intact. */
+:root[data-theme='light'],
+html[data-theme='light'] {
+  color-scheme: light;
+  --bg-base: #f6f8fc;
+  --bg-app: #f6f8fc;
+  --bg-surface: #ffffff;
+  --bg-surface-subtle: #edf1f8;
+  --bg-elevated: #edf1f8;
+  --bg-inset: #ffffff;
+  --border-subtle: rgba(15, 23, 42, 0.08);
+  --border-strong: rgba(15, 23, 42, 0.20);
+  --text-primary: #0b1220;
+  --text-secondary: #33415c;
+  --text-muted: #64748b;
+  --text-tertiary: #64748b;
+  --color-brand: #3b5bdb;
+  --color-brand-hover: #304ec2;
+  --color-brand-strong: #304ec2;
+  --color-accent: #0e7490;
+  --color-success: #047857;
+  --color-warning: #b45309;
+  --color-danger: #b91c1c;
+  --color-success-bg: rgba(4, 120, 87, 0.10);
+  --color-warning-bg: rgba(180, 83, 9, 0.10);
+  --color-danger-bg: rgba(185, 28, 28, 0.10);
+  --success-bg: rgba(4, 120, 87, 0.10);
+  --warning-bg: rgba(180, 83, 9, 0.10);
+  --danger-bg: rgba(185, 28, 28, 0.10);
+  --info-bg: rgba(59, 91, 219, 0.10);
+  --neutral-bg: rgba(100, 116, 139, 0.10);
+  --color-brand-glow: rgba(59, 91, 219, 0.35);
+  --focus: 0 0 0 3px var(--color-brand-glow);
+  --skeleton-base: #e2e8f0;
+  --skeleton-shine: #f1f5f9;
+  --ui-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+/* Replace dark-only-looking hardcoded surfaces/status text in light mode. */
+html[data-theme='light'] .secondary-button,
+html[data-theme='light'] .icon-button {
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+}
+html[data-theme='light'] .secondary-button:hover:not(:disabled),
+html[data-theme='light'] .icon-button:hover:not(:disabled) {
+  background: var(--bg-elevated);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+html[data-theme='light'] .skeleton,
+html[data-theme='light'] [class*='skeleton'] {
+  background: linear-gradient(90deg, var(--skeleton-base) 20%, var(--skeleton-shine) 38%, var(--skeleton-base) 60%);
+  background-size: 240% 100%;
+}
+html[data-theme='light'] .progress-bar,
+html[data-theme='light'] .progress-track {
+  background: var(--bg-elevated);
+}
+html[data-theme='light'] .sten-attention,
+html[data-theme='light'] [data-severity='attention'] {
+  border-color: rgba(180, 83, 9, 0.35);
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+html[data-theme='light'] .sten-normal,
+html[data-theme='light'] [data-severity='normal'] {
+  border-color: rgba(4, 120, 87, 0.28);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+html[data-theme='light'] .status-danger,
+html[data-theme='light'] .flash-prime.critical,
+html[data-theme='light'] .flash-prime.critical strong {
+  color: var(--color-danger);
+}
+html[data-theme='light'] .pnl-scale-toggle button.active {
+  background: rgba(59, 91, 219, 0.10);
+  color: var(--color-brand);
+}
+html[data-theme='light'] :where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  box-shadow: var(--focus);
+}
+html[data-theme='dark'] :where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  box-shadow: var(--focus);
+}
