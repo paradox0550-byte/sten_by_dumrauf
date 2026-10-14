@@ -106,12 +106,12 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 
 /* Status treatments always combine color with wording/iconography. */
 .sten-critical, .critical-deviation, [data-severity='critical'] {
-  border: 1px solid rgba(255,77,109,.42);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 42%, transparent);
   background: var(--color-danger-bg);
-  color: #ff8097;
+  color: var(--color-danger);
 }
-.sten-attention, [data-severity='attention'] { border: 1px solid rgba(251,191,36,.35); background: var(--color-warning-bg); color: #ffd56a; }
-.sten-normal, [data-severity='normal'] { border: 1px solid rgba(0,229,153,.28); background: var(--color-success-bg); color: #54f5be; }
+.sten-attention, [data-severity='attention'] { border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent); background: var(--color-warning-bg); color: var(--color-warning); }
+.sten-normal, [data-severity='normal'] { border: 1px solid color-mix(in srgb, var(--color-success) 28%, transparent); background: var(--color-success-bg); color: var(--color-success); }
 .sten-status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: 0 0 6px; }
 
 /* Chat: conversation is the focus; source/evidence controls stay secondary. */
@@ -339,7 +339,7 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
   border: 1px solid rgba(255,77,109,.42);
   border-radius: 6px;
   background: rgba(255,77,109,.13);
-  color: #ff8097 !important;
+  color: var(--color-danger) !important;
   font-weight: 600;
 }
 .flash-prime.critical { border-color: rgba(255,77,109,.42) !important; background: linear-gradient(120deg, rgba(255,77,109,.09), transparent 70%), var(--bg-surface) !important; }
