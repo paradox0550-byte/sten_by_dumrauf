@@ -673,3 +673,348 @@ The most likely light-theme leaks are the dark-only skeleton gradient, progress 
 - Exact CSS references are counted only in the four audited stylesheets; a complete JSX/TSX search was unavailable in this execution context.
 - No CSS changes, dependency changes, import-order changes, or PR creation.
 
+
+
+---
+
+## Three-theme token and color change plan (2026-10-14)
+
+**Scope: plan only.** No CSS/TSX/JS, imports, dependencies, or runtime files were changed. This document is the only intended write. Dark appearance should be preserved wherever possible.
+
+### 1. Theme map and actual system behavior
+
+- Canonical dark palette: obsidian-precision.css:4–42, selector html[data-theme='dark'].
+- Canonical light palette: obsidian-precision.css:704–740, selector :root[data-theme='light'], html[data-theme='light'].
+- executive.css has an early semantic palette inside @layer components: light :root at lines 52–86, dark [data-theme='dark'] at 88–129, light override at 141–205. A second palette exists outside @layer at lines 2875–2922.
+- No @media (prefers-color-scheme: ...) block was found in the audited CSS files.
+- main.tsx reads sten_theme_v5; if saved value is system, it evaluates matchMedia('(prefers-color-scheme: dark)').matches once and writes resolved dark or light to document.documentElement.dataset.theme. The inspected code does not keep data-theme="system" on the document and does not show a matchMedia change listener. Thus system mode resolves at startup, but live OS changes while the app remains open are not proven to update automatically. If live-follow is a requirement, it is a separate JS/runtime task; do not create a third CSS palette.
+
+| Token | dark | light | Status / comment |
+|---|---|---|---|
+| `--bg-base` | #080c14 | #f6f8fc | Complete; also has competing unlayered fallback values in executive.css. |
+| `--bg-app` | #080c14 | #f6f8fc | Complete. |
+| `--bg-surface` | #0f1422 | #ffffff | Complete. |
+| `--bg-surface-subtle` | #12192a | #edf1f8 | Complete. |
+| `--bg-elevated` | #161d2e | #edf1f8 | Complete. |
+| `--bg-inset` | #0b1020 | #ffffff | Complete. |
+| `--border-subtle` | rgba(255,255,255,.08) | rgba(15,23,42,.08) | Complete. |
+| `--border-strong` | rgba(255,255,255,.15) | rgba(15,23,42,.20) | Complete. |
+| `--text-primary` | #ffffff | #0b1220 | Complete globally; .unlock has local fixed values. |
+| `--text-secondary` | #b8c4dc | #33415c | Complete globally; .unlock has local fixed values. |
+| `--text-muted` | #6b7899 | #64748b | Complete globally; .unlock has local fixed values. |
+| `--text-tertiary` | #b8c4dc | #64748b | Complete. |
+| `--color-brand` | #5b7cfa | #3b5bdb | Complete. |
+| `--color-brand-hover` | #7892ff | #304ec2 | Complete. |
+| `--color-brand-strong` | #9aafff | #304ec2 | Complete. |
+| `--color-accent` | #00f0ff | #0e7490 | Complete. |
+| `--color-success` | #00e599 | #047857 | Complete. |
+| `--color-warning` | #fbbf24 | #b45309 | Complete. |
+| `--color-danger` | #ff4d6d | #b91c1c | Complete. |
+| `--color-success-bg` | rgba(0,229,153,.11) | rgba(4,120,87,.10) | Complete. |
+| `--color-warning-bg` | rgba(251,191,36,.11) | rgba(180,83,9,.10) | Complete. |
+| `--color-danger-bg` | rgba(255,77,109,.12) | rgba(185,28,28,.10) | Complete. |
+| `--color-brand-glow` | rgba(91,124,250,.35) | rgba(59,91,219,.35) | Both values exist, but definitions are duplicated across files/layers. |
+| `--focus` | 2px cyan ring (base dark) | 3px brand glow | Both exist; multiple definitions and selectors compete. |
+| `--skeleton-base` | not defined in canonical dark block | #e2e8f0 | Light-only; define dark counterpart or replace with --skeleton-gradient. |
+| `--skeleton-shine` | not defined in canonical dark block | #f1f5f9 | Light-only; define dark counterpart or replace with --skeleton-gradient. |
+| `--bg-subtle` | not defined | #e8ecf5 | Light-only. |
+| `--text-disabled` | not defined | #94a3b8 | Light-only. |
+| `--border-default` | not defined | rgba(15,23,42,.12) | Light-only. |
+| `--text-on-accent` | not defined | #ffffff | Light-only; define dark too if used by shared controls. |
+| `--skeleton-gradient` | not defined | not defined | New token proposed below. |
+| `--bg-hover` | not defined canonically | not defined canonically | New token proposed below. |
+
+**One-theme-only gaps:** --skeleton-base, --skeleton-shine, --bg-subtle, --text-disabled, --border-default and --text-on-accent are only defined in the light token block/scope. Add dark counterparts if shared components consume them. Prefer a complete --skeleton-gradient in both themes. --color-brand-glow and --focus have both dark/light values but duplicate definitions. Static definitions do not prove computed winners.
+
+### 2. Color-bearing !important declarations
+
+Only color-related properties (background, color, border/border-color, box-shadow, fill, stroke) are included; layout/position/grid/size !important declarations are excluded.
+
+| File:line | Current declaration | Plan |
+|---|---|---|
+| `src/obsidian-precision.css:58` | `.sidebar, .topbar, .mobile-bottom-nav { background: var(--bg-surface) !important; border-color: var(--border-subtle) !important; }` | Already tokenized; retain for now |
+| `src/obsidian-precision.css:65` | `background: var(--bg-surface) !important;` | Already tokenized; retain for now |
+| `src/obsidian-precision.css:66` | `border: 1px solid var(--border-subtle) !important;` | Already tokenized; retain for now |
+| `src/obsidian-precision.css:68` | `box-shadow: none !important;` | Already tokenized; retain for now |
+| `src/obsidian-precision.css:96` | `.positive, .is-positive, .status-success { color: var(--color-success) !important; }` | Already tokenized; retain for now |
+| `src/obsidian-precision.css:97` | `.negative, .is-negative, .status-danger { color: var(--color-danger) !important; }` | Already tokenized; retain for now |
+| `src/obsidian-precision.css:98` | `.status-warning { color: var(--color-warning) !important; }` | Already tokenized; retain for now |
+| `src/obsidian-precision.css:161` | `background: linear-gradient(145deg, rgba(91,124,250,.08), transparent 70%), var(--bg-surface) !important;` | Already tokenized; retain for now |
+| `src/obsidian-precision.css:268` | `border: 1px solid rgba(0,240,255,.2) !important;` | Replace embedded rgba with var(--color-accent-border); retain important until cascade test |
+| `src/obsidian-precision.css:269` | `background: linear-gradient(120deg, rgba(0,240,255,.055), transparent 70%), var(--bg-surface) !important;` | Replace gradient wash with var(--color-accent-wash-subtle); retain important |
+| `src/obsidian-precision.css:339` | `color: #ff8097 !important;` | Replace hardcoded color with var(--color-danger-text) !important; define token in both themes |
+| `src/obsidian-precision.css:342` | `.flash-prime.critical { border-color: rgba(255,77,109,.42) !important; background: linear-gradient(120deg, rgba(255,77,109,.09), transparent 70%), var(--bg-surface) !important; }` | Use --color-danger-border and --color-danger-wash; retain important pending cascade test |
+| `src/obsidian-precision.css:343` | `.flash-prime.attention { border-color: rgba(251,191,36,.35) !important; background: linear-gradient(120deg, rgba(251,191,36,.07), transparent 70%), var(--bg-surface) !important; }` | Use --color-warning-border and --color-warning-wash; retain important pending cascade test |
+| `src/obsidian-precision.css:344` | `.flash-prime.normal { border-color: rgba(0,229,153,.28) !important; }` | Use --color-success-border; retain important pending cascade test |
+| `src/obsidian-precision.css:352` | `.sten-ai-page .chat { border-color: var(--border-subtle) !important; overflow: hidden; }` | Already tokenized; retain for now |
+| `src/obsidian-precision.css:363` | `.sten-ai-page .docs-panel { background: var(--bg-surface) !important; }` | Already tokenized; retain for now |
+| `src/obsidian-precision.css:509` | `background: rgba(15,20,34,.96) !important;` | Replace with var(--auth-card-bg) !important; remove .unlock local dark overrides |
+| `src/obsidian-precision.css:510` | `border: 1px solid var(--border-strong) !important;` | Already tokenized; retain for now |
+| `src/obsidian-precision.css:512` | `box-shadow: 0 24px 72px rgba(0,0,0,.24) !important;` | Replace with var(--shadow-auth-card) !important; define both theme values |
+| `src/executive.css:427` | `color: var(--color-success) !important;` | Already tokenized; retain for now |
+| `src/executive.css:432` | `color: var(--color-danger) !important;` | Already tokenized; retain for now |
+| `src/executive.css:898` | `color: var(--color-success) !important;` | Already tokenized; retain for now |
+| `src/executive.css:903` | `color: var(--color-danger) !important;` | Already tokenized; retain for now |
+| `src/executive.css:908` | `color: var(--color-warning) !important;` | Already tokenized; retain for now |
+
+**Cascade note:** light-only rules at obsidian-precision.css:744–789 already override several base declarations in light mode: skeleton, progress track, secondary/icon hover, attention/normal severity and active scale toggle. Replace base hardcodes with theme tokens, then remove redundant light overrides only after browser/cascade checks. High-risk exceptions: .unlock's local fixed dark palette (465–478), .unlock-card forced dark background, and .sten-critical-deviation hardcoded !important foreground.
+
+### 3. Hardcoded colors in executive.css and obsidian-precision.css
+
+The inventory excludes custom-property token definitions, SVG data URLs and color-scheme media blocks. Multiple values on a declaration line are all listed. Proposed token targets are not applied; decorative effects marked for browser review must not be changed blindly.
+
+| File:line | Current selector/declaration | Literal(s) | Proposed token / disposition |
+|---|---|---|---|
+| `src/obsidian-precision.css:46` | `::selection { background: rgba(0,240,255,.2); color: var(--text-primary); }` | rgba(0,240,255,.2) | --selection-bg; keep foreground tokenized |
+| `src/obsidian-precision.css:75` | `.primary-button { background: var(--color-brand); border-color: var(--color-brand); color: #fff; }` | #fff | --text-on-accent (define in both themes; preserve white in dark) |
+| `src/obsidian-precision.css:78` | `.secondary-button:hover:not(:disabled), .icon-button:hover:not(:disabled) { background: #202a40; border-color: rgba(0,240,255,.38); }` | #202a40; rgba(0,240,255,.38) | --bg-hover + --border-hover |
+| `src/obsidian-precision.css:83` | `.workspace-popover, .memory-card__menu-popover { background: var(--bg-elevated); border-color: var(--border-strong); box-shadow: 0 16px 44px rgba(0,0,0,.4); }` | rgba(0,0,0,.4) | --shadow-popover |
+| `src/obsidian-precision.css:94` | `.pnl-edit-row:hover, .pnl-row:hover, .pnl-table tbody tr:hover { background: rgba(91,124,250,.07); }` | rgba(91,124,250,.07) | --color-brand-wash |
+| `src/obsidian-precision.css:101` | `.skeleton, [class*='skeleton'] { background: linear-gradient(90deg, #161d2e 20%, #202a40 38%, #161d2e 60%); background-size: 240% 100%; animation: sten-shimmer 1.35s ease infinite; }` | #161d2e; #202a40 | --skeleton-gradient (dark preserves existing; light matches current override) |
+| `src/obsidian-precision.css:106` | `border: 1px solid rgba(255,77,109,.42);` | rgba(255,77,109,.42) | --color-danger-border |
+| `src/obsidian-precision.css:108` | `color: #ff8097;` | #ff8097 | --color-danger-text; preserve #ff8097 in dark |
+| `src/obsidian-precision.css:110` | `.sten-attention, [data-severity='attention'] { border: 1px solid rgba(251,191,36,.35); background: var(--color-warning-bg); color: #ffd56a; }` | rgba(251,191,36,.35); #ffd56a | --color-warning-border + --color-warning-text |
+| `src/obsidian-precision.css:111` | `.sten-normal, [data-severity='normal'] { border: 1px solid rgba(0,229,153,.28); background: var(--color-success-bg); color: #54f5be; }` | rgba(0,229,153,.28); #54f5be | --color-success-border + --color-success-text |
+| `src/obsidian-precision.css:123` | `.progress-bar, .progress-track { height: 4px; border-radius: 999px; overflow: hidden; background: #252e42; }` | #252e42 | --progress-track |
+| `src/obsidian-precision.css:161` | `background: linear-gradient(145deg, rgba(91,124,250,.08), transparent 70%), var(--bg-surface) !important;` | rgba(91,124,250,.08) | --color-brand-wash |
+| `src/obsidian-precision.css:179` | `.pnl-scale-toggle button.active { background: rgba(91,124,250,.2); color: #b6c4ff; }` | rgba(91,124,250,.2); #b6c4ff | --color-brand-wash-strong + --color-brand-text |
+| `src/obsidian-precision.css:205` | `.pnl-edit-row:not(.pnl-edit-head):hover { background: rgba(91,124,250,.075); }` | rgba(91,124,250,.075) | --color-brand-wash |
+| `src/obsidian-precision.css:217` | `.chat-body { background: radial-gradient(ellipse at 50% 0%, rgba(91,124,250,.045), transparent 58%), var(--bg-base); }` | rgba(91,124,250,.045) | --color-brand-wash-subtle |
+| `src/obsidian-precision.css:219` | `.welcome-mark { border: 1px solid rgba(0,240,255,.22); background: rgba(0,240,255,.06); color: var(--color-accent); }` | rgba(0,240,255,.22); rgba(0,240,255,.06) | --color-accent-border + --color-accent-wash |
+| `src/obsidian-precision.css:222` | `.starter-grid button:hover { border-color: rgba(0,240,255,.4); background: var(--bg-elevated); }` | rgba(0,240,255,.4) | --color-accent-border-hover |
+| `src/obsidian-precision.css:223` | `.composer-box { border: 1px solid var(--border-strong); border-radius: var(--ui-radius-lg); background: var(--bg-surface); box-shadow: 0 8px 28px rgba(0,0,0,.2); }` | rgba(0,0,0,.2) | --shadow-composer |
+| `src/obsidian-precision.css:224` | `.composer-box:focus-within { border-color: rgba(0,240,255,.55); }` | rgba(0,240,255,.55) | --border-focus |
+| `src/obsidian-precision.css:228` | `.upload-box:hover { border-color: var(--color-accent); background: rgba(0,240,255,.035); }` | rgba(0,240,255,.035) | --color-accent-wash-subtle |
+| `src/obsidian-precision.css:247` | `.secretary-event:hover { border-color: rgba(91,124,250,.4); }` | rgba(91,124,250,.4) | --color-brand-border-hover |
+| `src/obsidian-precision.css:268` | `border: 1px solid rgba(0,240,255,.2) !important;` | rgba(0,240,255,.2) | --color-accent-border |
+| `src/obsidian-precision.css:269` | `background: linear-gradient(120deg, rgba(0,240,255,.055), transparent 70%), var(--bg-surface) !important;` | rgba(0,240,255,.055) | --color-accent-wash-subtle |
+| `src/obsidian-precision.css:279` | `.analytics-report-table tbody tr:hover { background: rgba(91,124,250,.06); }` | rgba(91,124,250,.06) | --color-brand-wash |
+| `src/obsidian-precision.css:280` | `.analytics-report-total { background: rgba(91,124,250,.07); color: var(--text-primary); font-weight: 600; }` | rgba(91,124,250,.07) | --color-brand-wash |
+| `src/obsidian-precision.css:317` | `border: 1px solid rgba(0,240,255,.25);` | rgba(0,240,255,.25) | --color-accent-border |
+| `src/obsidian-precision.css:319` | `background: rgba(0,240,255,.06);` | rgba(0,240,255,.06) | --color-accent-wash |
+| `src/obsidian-precision.css:320` | `color: #8ff7ff;` | #8ff7ff | --color-accent-text |
+| `src/obsidian-precision.css:329` | `.pnl-row-ai-action:hover { background: rgba(0,240,255,.12); border-color: rgba(0,240,255,.55); }` | rgba(0,240,255,.12); rgba(0,240,255,.55) | --color-accent-wash-hover + --color-accent-border-hover |
+| `src/obsidian-precision.css:336` | `border: 1px solid rgba(255,77,109,.42);` | rgba(255,77,109,.42) | --color-danger-border |
+| `src/obsidian-precision.css:338` | `background: rgba(255,77,109,.13);` | rgba(255,77,109,.13) | --color-danger-wash-strong |
+| `src/obsidian-precision.css:339` | `color: #ff8097 !important;` | #ff8097 | --color-danger-text (important; define both themes) |
+| `src/obsidian-precision.css:342` | `.flash-prime.critical { border-color: rgba(255,77,109,.42) !important; background: linear-gradient(120deg, rgba(255,77,109,.09), transparent 70%), var(--bg-surface) !important; }` | rgba(255,77,109,.42); rgba(255,77,109,.09) | --color-danger-border + --color-danger-wash |
+| `src/obsidian-precision.css:343` | `.flash-prime.attention { border-color: rgba(251,191,36,.35) !important; background: linear-gradient(120deg, rgba(251,191,36,.07), transparent 70%), var(--bg-surface) !important; }` | rgba(251,191,36,.35); rgba(251,191,36,.07) | --color-warning-border + --color-warning-wash |
+| `src/obsidian-precision.css:344` | `.flash-prime.normal { border-color: rgba(0,229,153,.28) !important; }` | rgba(0,229,153,.28) | --color-success-border |
+| `src/obsidian-precision.css:359` | `.sten-ai-page .starter-grid button:hover { border-color: rgba(91,124,250,.55); background: var(--bg-elevated); color: var(--text-primary); }` | rgba(91,124,250,.55) | --color-brand-border-hover |
+| `src/obsidian-precision.css:360` | `.sten-ai-page .composer-box { border: 1px solid var(--border-strong); border-radius: 14px; background: var(--bg-surface); box-shadow: 0 8px 26px rgba(0,0,0,.18); }` | rgba(0,0,0,.18) | --shadow-composer |
+| `src/obsidian-precision.css:361` | `.sten-ai-page .composer-box:focus-within { border-color: rgba(91,124,250,.7); box-shadow: 0 0 0 2px rgba(91,124,250,.12); }` | rgba(91,124,250,.7); rgba(91,124,250,.12) | --border-focus + --focus |
+| `src/obsidian-precision.css:404` | `.team-page .analytics-report-table > div:not(.analytics-report-head):hover { background: rgba(91,124,250,.06); }` | rgba(91,124,250,.06) | --color-brand-wash |
+| `src/obsidian-precision.css:415` | `.admin-organizations-page .data-table tbody tr:hover { background: rgba(91,124,250,.06); }` | rgba(91,124,250,.06) | --color-brand-wash |
+| `src/obsidian-precision.css:488` | `radial-gradient(ellipse at 50% 0%, rgba(91,124,250,.075), transparent 42%),` | rgba(91,124,250,.075) | --auth-brand-wash |
+| `src/obsidian-precision.css:499` | `background-image: linear-gradient(rgba(139,155,191,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(139,155,191,.055) 1px, transparent 1px);` | rgba(139,155,191,.055) | --auth-grid-line |
+| `src/obsidian-precision.css:509` | `background: rgba(15,20,34,.96) !important;` | rgba(15,20,34,.96) | --auth-card-bg; dark preserves rgba(15,20,34,.96), light uses white surface |
+| `src/obsidian-precision.css:512` | `box-shadow: 0 24px 72px rgba(0,0,0,.24) !important;` | rgba(0,0,0,.24) | --shadow-auth-card; dark preserve current, light softer neutral shadow |
+| `src/obsidian-precision.css:533` | `color: #9aafff;` | #9aafff | --color-brand-strong |
+| `src/obsidian-precision.css:545` | `box-shadow: 0 0 0 3px rgba(0,229,153,.1);` | rgba(0,229,153,.1) | --color-success-wash |
+| `src/obsidian-precision.css:582` | `.auth-field input:hover:not(:disabled) { border-color: rgba(139,155,191,.5); }` | rgba(139,155,191,.5) | --border-hover |
+| `src/obsidian-precision.css:585` | `outline: 2px solid rgba(0,240,255,.8);` | rgba(0,240,255,.8) | --focus-outline |
+| `src/obsidian-precision.css:602` | `color: #fff;` | #fff | --text-on-accent |
+| `src/obsidian-precision.css:614` | `border: 1px solid rgba(255,77,109,.34);` | rgba(255,77,109,.34) | --color-danger-border |
+| `src/obsidian-precision.css:617` | `color: #ff9aab;` | #ff9aab | --color-danger-text |
+| `src/obsidian-precision.css:643` | `text-decoration-color: rgba(139,155,191,.5);` | rgba(139,155,191,.5) | --text-decoration-muted |
+| `src/obsidian-precision.css:765` | `border-color: rgba(180, 83, 9, 0.35);` | rgba(180, 83, 9, 0.35) | --color-warning-border (preserve current light value) |
+| `src/obsidian-precision.css:771` | `border-color: rgba(4, 120, 87, 0.28);` | rgba(4, 120, 87, 0.28) | --color-success-border (preserve current light value) |
+| `src/obsidian-precision.css:781` | `background: rgba(59, 91, 219, 0.10);` | rgba(59, 91, 219, 0.10) | --color-brand-wash |
+| `src/executive.css:240` | `rgba(91,124,250,0.06) 0%,` | rgba(91,124,250,0.06) | --auth-brand-wash or --color-brand-wash |
+| `src/executive.css:241` | `rgba(58,87,214,0.04) 100%` | rgba(58,87,214,0.04) | same --auth-brand-wash |
+| `src/executive.css:409` | `box-shadow: 0 12px 32px rgba(15, 23, 42, .12);` | rgba(15, 23, 42, .12) | --shadow-popover |
+| `src/executive.css:458` | `box-shadow: 12px 0 32px rgba(15, 23, 42, .16);` | rgba(15, 23, 42, .16) | --shadow-sidebar |
+| `src/executive.css:767` | `color: #fff;` | #fff | --text-on-accent |
+| `src/executive.css:865` | `box-shadow: 0 16px 40px rgba(0, 0, 0, .18);` | rgba(0, 0, 0, .18) | --shadow-modal |
+| `src/executive.css:932` | `background: rgba(2, 6, 23, .48);` | rgba(2, 6, 23, .48) | --overlay-backdrop |
+| `src/executive.css:1337` | `box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);` | rgba(0, 0, 0, 0.04) | --shadow-card |
+| `src/executive.css:1539` | `color: #fff;` | #fff | --text-on-accent |
+| `src/executive.css:2508` | `.loading .sten-neon-spinner{display:block;width:48px;height:48px;filter:drop-shadow(0 0 8px rgba(91,124,250,.42))}` | rgba(91,124,250,.42) | --shadow-spinner-brand |
+| `src/executive.css:2510` | `.login-spinner{display:block;flex:0 0 auto;filter:drop-shadow(0 0 5px rgba(255,255,255,.35))}` | rgba(255,255,255,.35) | --shadow-spinner-neutral |
+| `src/executive.css:2727` | `color: #0B0D10;` | #0B0D10 | --text-on-accent (current #0B0D10; don't change without contrast check) |
+| `src/executive.css:2738` | `background: color-mix(in oklch, var(--color-brand) 88%, #000);` | #000 | --color-brand-pressed or retain color-mix pending visual check |
+| `src/executive.css:2739` | `border-color: color-mix(in oklch, var(--color-brand) 88%, #000);` | #000 | same --color-brand-pressed |
+| `src/executive.css:2968` | `background: linear-gradient(90deg, color-mix(in srgb, #fff 18%, var(--color-brand)) 0 12%, var(--color-brand) 42%);` | #fff | --color-brand-sweep-highlight; browser review |
+| `src/executive.css:2996` | `background: linear-gradient(90deg, rgba(255,255,255,.03) 0%, rgba(255,255,255,.07) 50%, rgba(255,255,255,.03) 100%);` | rgba(255,255,255,.03); rgba(255,255,255,.07) | --skeleton-gradient dark |
+| `src/executive.css:3004` | `background: linear-gradient(90deg, rgba(11,13,16,.03) 0%, rgba(11,13,16,.07) 50%, rgba(11,13,16,.03) 100%);` | rgba(11,13,16,.03); rgba(11,13,16,.07) | --skeleton-gradient light |
+| `src/executive.css:3210` | `.badge--danger  { background: rgba(248,113,113,0.15); color: #F87171; }` | rgba(248,113,113,0.15); #F87171 | --color-danger + --color-danger-bg |
+| `src/executive.css:3211` | `.badge--warning { background: rgba(251,191,36,0.15);  color: #FBBF24; }` | rgba(251,191,36,0.15); #FBBF24 | --color-warning + --color-warning-bg |
+| `src/executive.css:3212` | `.badge--success { background: rgba(52,211,153,0.15);  color: #34D399; }` | rgba(52,211,153,0.15); #34D399 | --color-success + --color-success-bg |
+| `src/executive.css:3213` | `.badge--brand   { background: rgba(91,124,250,0.15);  color: #7A94FB; }` | rgba(91,124,250,0.15); #7A94FB | --color-brand + --color-brand-wash |
+| `src/executive.css:3214` | `.badge--neutral { background: rgba(156,163,181,0.12); color: #9CA3B5; }` | rgba(156,163,181,0.12); #9CA3B5 | --text-muted + --neutral-bg |
+
+**Authentication palette note:** .unlock currently defines its own fixed dark palette at obsidian-precision.css:465–478, and .auth-brand .sten-logo has fixed logo custom properties around lines 522–525. Tokenizing only .unlock-card background will not make authentication follow theme while these local overrides remain. Future implementation must remove/replace the local fixed palette with inherited semantic tokens and define theme-aware logo ink/muted values.
+
+### 4. Legacy aliases
+
+| Alias | app.css :root | app.css dark | executive light | executive dark / late block | CSS uses |
+|---|---|---|---|---|---|
+| --bg | #FAFAF8 | #0B0A08 | var(--bg-app) | var(--bg-base) | yes, many app.css references |
+| --surface | #FFFFFF | #11100E | var(--bg-surface) | var(--bg-surface) | yes, many app.css references |
+| --surface2 | #F3F2EE | #181714 | var(--bg-surface-subtle) | var(--bg-elevated) | yes, including autofill |
+| --text | #0B0A08 | #FAFAF8 | var(--text-primary) | var(--text-primary) | yes, including autofill |
+| --accent | #F59E0B | #F59E0B | var(--color-brand) | var(--color-brand) | yes, including focus styles |
+
+**Conclusion:** aliases are explicitly re-mapped in the executive.css light selector. app.css is inside @layer legacy; executive.css uses the later @layer components, so its light alias mapping should beat the legacy values. The late unlayered executive block redefines aliases only under [data-theme='dark'], not in its :root fallback. This is not proof of a light-mode failure, though the duplicated alias architecture should be consolidated only after a full TSX/TS scan.
+
+CSS references (not a TSX scan): var(--bg) at app.css lines 79, 172, 194, 261, 311, 1317, 2081, 2269; var(--surface) at 435, 465, 527, 550, 555, 560, 591, 665, 838, 1078, 1366, 2162, 2210, 2277, 2426, 2906, 2954, 3246, 3637, 3924, 4166, 4170; var(--text) is widespread including autofill at 4207 and 4211; var(--accent) is widespread including focus styles at 702, 797, 1162, 1375, 3177, 3283; var(--surface2) is widespread including autofill at 4208–4209. These are CSS references, not proof of runtime failure.
+
+### 5. Exact late token block in executive.css:2875–2922
+
+The block is outside @layer components. It has a root fallback palette (light-looking) and a separate dark override, but no paired explicit light selector. As unlayered declarations it outranks normal declarations in named layers; later unlayered Obsidian selectors can still win by source order/specificity. Import order alone does not decide every token.
+
+```css
+:root { /* executive.css:2875–2899, outside @layer */
+  --bg-base: #f7f8fb;
+  --bg-surface: #ffffff;
+  --bg-elevated: #f1f3f7;
+  --border-subtle: #d4dae3;
+  --text-primary: #0b0d10;
+  --text-secondary: #2f3844;
+  --text-tertiary: #6b7280;
+  --color-brand: #5b7cfa;
+  --color-brand-hover: #6e8dff;
+  --bg-inset: #0a0d16;
+  --color-brand-glow: rgba(91,124,250,0.35);
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+               "JetBrains Mono", Consolas, monospace;
+  --border-width: 1px;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --ui-radius-sm: 6px;
+  --ui-radius-md: 10px;
+  --ui-radius-lg: 14px;
+  --bg-app: var(--bg-base);
+  --bg-surface-subtle: var(--bg-elevated);
+  --text-muted: var(--text-tertiary);
+}
+[data-theme='dark'] { /* executive.css:2900+ */
+  --bg-base: #0b0f1a;
+  --bg-surface: #131826;
+  --bg-elevated: #1a2030;
+  --border-subtle: #232938;
+  --text-primary: #e8ecf5;
+  --text-secondary: #9ca3b5;
+  --text-tertiary: #6b7280;
+  --color-brand: #5b7cfa;
+  --color-brand-hover: #6e8dff;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --bg-app: var(--bg-base);
+  --bg-surface-subtle: var(--bg-elevated);
+  --text-muted: var(--text-tertiary);
+  --bg: var(--bg-base);
+  --surface: var(--bg-surface);
+  --surface2: var(--bg-elevated);
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
+  --line: var(--border-subtle);
+  --accent: var(--color-brand);
+  --accent2: var(--color-brand);
+  --good: var(--color-success);
+  --danger: var(--color-danger);
+  --warning: var(--color-warning);
+}
+```
+
+Duplicate/conflicting examples (source declarations, not computed-style claims):
+
+| Token | Earlier executive.css inside @layer components | Late unlayered fallback / dark | Later Obsidian theme value | Risk |
+|---|---|---|---|---|
+| --bg-base | light var(--c-gray-100), dark var(--c-gray-950), light override #f6f8fc | root #f7f8fb; dark #0b0f1a | dark #080c14; light #f6f8fc | duplicate palette |
+| --bg-surface | var(--c-gray-50) / var(--c-gray-925), light #fff | root #fff; dark #131826 | dark #0f1422; light #fff | dark values differ |
+| --bg-elevated | semantic palette + light #edf1f8 | root #f1f3f7; dark #1a2030 | dark #161d2e; light #edf1f8 | duplicate semantics |
+| --text-primary | var(--c-gray-950) / var(--c-gray-150), light #0b1220 | root #0b0d10; dark #e8ecf5 | dark #fff; light #0b1220 | dark values differ |
+| --color-success | var(--c-green-600) / var(--c-green-500) | root #16a34a; dark #34d399 | dark #00e599; light #047857 | status hue/value differs |
+| --color-warning | var(--c-amber-500) / var(--c-amber-400) | root #d97706; dark #fbbf24 | dark #fbbf24; light #b45309 | duplicate |
+| --color-danger | var(--c-red-500) / var(--c-red-400) | root #dc2626; dark #f87171 | dark #ff4d6d; light #b91c1c | dark values differ |
+| --color-brand-glow | dark rgba(91,124,250,.35), light rgba(59,91,219,.35) | root rgba(91,124,250,.35) | light same as executive light; dark not re-declared in Obsidian dark block | duplicated |
+| --focus | root/dark 2px var(--color-brand-glow), dark/light 3px overrides | not declared in late unlayered block | dark 2px cyan; light 3px brand glow | competing focus styles |
+
+**Interpretation:** the late block defines a fallback and dark overrides, not an explicit light selector. This is a cascade risk, not proof that the light palette fails at runtime. Computed styles were not captured.
+
+### 6. Plan lists
+
+#### List A — critical theme fixes
+
+| # | File:line | What changes | Before | Proposed after | Dark check | Light check |
+|---:|---|---|---|---|---|---|
+| 1 | obsidian-precision.css:465–478 | Remove fixed local palette from .unlock / make auth surfaces inherit theme | fixed dark local vars | inherited semantic tokens | preserve current auth appearance as closely as possible | auth background/surfaces/text become light |
+| 2 | obsidian-precision.css:509 | .unlock-card background | rgba(15,20,34,.96) !important | var(--auth-card-bg) !important | dark token exact rgba(15,20,34,.96) | white/light auth-card surface |
+| 3 | obsidian-precision.css:512 | auth card shadow | 0 24px 72px rgba(0,0,0,.24) !important | var(--shadow-auth-card) !important | same existing value | softer neutral shadow, e.g. rgba(15,23,42,.14) |
+| 4 | obsidian-precision.css:101; executive.css:2996,3004 | skeleton | hardcoded dark/light gradients | var(--skeleton-gradient) | preserve dark shimmer | preserve current light shimmer |
+| 5 | obsidian-precision.css:123 | progress track | #252e42 | var(--progress-track) | #252e42 | #edf1f8 |
+| 6 | obsidian-precision.css:78 | secondary/icon hover | #202a40 and cyan rgba | var(--bg-hover), var(--border-hover) | preserve dark hover | neutral light hover and border |
+| 7 | obsidian-precision.css:108,110–111,339 | severity foregrounds | #ff8097, #ffd56a, #54f5be; one !important | --color-danger-text / --color-warning-text / --color-success-text | preserve dark foregrounds | readable semantic colors on pale backgrounds |
+| 8 | executive.css:3210–3214 | badge foregrounds/backgrounds | fixed dark-palette hex/rgba | semantic status/brand tokens with paired backgrounds | preserve current dark values | readable light foreground/background pairs |
+| 9 | obsidian-precision.css:179 | active P&L scale toggle | rgba(91,124,250,.2) + #b6c4ff | --color-brand-wash-strong + --color-brand-text | preserve #b6c4ff | brand text suitable for light |
+| 10 | obsidian-precision.css:317–329 | P&L AI action | cyan literals | --color-accent-border/wash/text family | preserve current dark cyan | accessible light accent instead of neon cyan |
+| 11 | obsidian-precision.css:342–344 | Flash severity borders/gradients | fixed status rgba inside !important | status border/wash tokens | preserve dark alpha values | light status tokens |
+| 12 | executive.css:2875–2922 | late duplicate token block | root fallback + separate dark override | consolidate into canonical theme source | compare computed styles before/after | compare computed styles before/after |
+| 13 | obsidian-precision.css:735–736; executive.css:85,131,137–138,180–181,2886 | --color-brand-glow and --focus | duplicate layers/scopes and 2px/3px rings | one canonical definition per theme | retain visible dark ring | retain visible light ring |
+| 14 | main.tsx (separate JS task, not this CSS write) | live system-follow behavior | system resolves once at startup | if live OS changes are required, add a guarded matchMedia change listener separately | follow dark OS | follow light OS |
+
+**Three-mode proof status:** the token approach makes system use whichever theme JS resolves. Exact dark appearance is predictable only if token values match current dark literals; it is not proven by computed styles. Rows 1–3 and 7–13 require browser verification because local auth scope, !important, specificity, layers and overlapping rules affect the result. If a change cannot preserve dark output, move it to “browser review required.”
+
+#### List B — new or missing tokens
+
+| Token | Where | Dark | Light | Use |
+|---|---|---|---|---|
+| --auth-card-bg | canonical dark/light blocks | rgba(15,20,34,.96) | #fff or agreed light auth surface | .unlock-card |
+| --shadow-auth-card | canonical dark/light blocks | 0 24px 72px rgba(0,0,0,.24) | 0 24px 72px rgba(15,23,42,.14) | .unlock-card |
+| --skeleton-gradient | canonical dark/light blocks | linear-gradient(90deg,#161d2e 20%,#202a40 38%,#161d2e 60%) | linear-gradient(90deg,#e2e8f0 20%,#f1f5f9 38%,#e2e8f0 60%) | skeleton components |
+| --progress-track | canonical dark/light blocks | #252e42 | #edf1f8 | progress track |
+| --bg-hover | canonical dark/light blocks | #202a40 | #edf1f8 | secondary/icon hover |
+| --border-hover | canonical dark/light blocks | rgba(0,240,255,.38) if cyan intentional | var(--border-strong) | hover border |
+| --text-on-accent | canonical dark/light blocks | #fff for filled brand controls; .auth-submit is an exception | #fff | primary controls/avatar |
+| --color-brand-wash | canonical dark/light blocks | rgba(91,124,250,.07) | rgba(59,91,219,.07) | row hover/active surfaces |
+| --color-brand-wash-strong | canonical dark/light blocks | rgba(91,124,250,.20) | rgba(59,91,219,.10) | active scale toggle |
+| --color-brand-text | canonical dark/light blocks | #b6c4ff | #3b5bdb | active scale toggle |
+| --color-brand-border-hover | canonical dark/light blocks | rgba(91,124,250,.55) | rgba(59,91,219,.45) | brand hover borders |
+| --color-accent-border | canonical dark/light blocks | rgba(0,240,255,.22) | rgba(14,116,144,.25) | accent chips/AI action |
+| --color-accent-wash | canonical dark/light blocks | rgba(0,240,255,.06) | rgba(14,116,144,.06) | welcome mark/action |
+| --color-accent-text | canonical dark/light blocks | #8ff7ff | #0e7490 | P&L AI action |
+| --color-danger-text | canonical dark/light blocks | #ff8097 | #b91c1c | critical severity/auth errors |
+| --color-warning-text | canonical dark/light blocks | #ffd56a | #b45309 | attention severity |
+| --color-success-text | canonical dark/light blocks | #54f5be | #047857 | normal severity |
+| --color-danger-border | canonical dark/light blocks | rgba(255,77,109,.42) | rgba(185,28,28,.28) | critical states |
+| --color-warning-border | canonical dark/light blocks | rgba(251,191,36,.35) | rgba(180,83,9,.35) | attention states |
+| --color-success-border | canonical dark/light blocks | rgba(0,229,153,.28) | rgba(4,120,87,.28) | normal states |
+| --color-danger-wash | canonical dark/light blocks | rgba(255,77,109,.13) | rgba(185,28,28,.10) | critical cards/actions |
+| --color-warning-wash | canonical dark/light blocks | rgba(251,191,36,.07) | rgba(180,83,9,.10) | attention cards |
+| --color-success-wash | canonical dark/light blocks | rgba(0,229,153,.11) | rgba(4,120,87,.10) | success states |
+| --shadow-popover / --shadow-modal / --shadow-sidebar / --shadow-card / --shadow-composer | canonical dark/light blocks | preserve current values | softer neutral variants | elevation |
+| --overlay-backdrop | canonical dark/light blocks | rgba(2,6,23,.48) | rgba(15,23,42,.28) | modal backdrop |
+| --color-brand-pressed | canonical dark/light blocks | preserve current darkened brand | darkened light brand | pressed primary button |
+| --color-brand-glow / --focus | one canonical definition per theme | approved current dark values | approved current light values | keyboard focus |
+
+These are proposals, not implemented values. Check existing token use before adding a duplicate token and validate contrast.
+
+#### List C — do not touch in this pass
+
+| Item | Why |
+|---|---|
+| Responsive !important for grid/display/position/width/padding/mobile navigation | Outside color scope; layout risk |
+| prefers-reduced-motion and data-reduce-motion | Explicitly out of scope; preserve accessibility |
+| prefers-color-scheme media blocks | None found in audited CSS; system is currently resolved in JS |
+| Semantic !important using var(--color-success/danger/warning) | Already tokenized; retain until cascade proves otherwise |
+| White text on filled brand controls | Likely intentional; tokenize while preserving dark and checking contrast |
+| Auth palette before .unlock local overrides are handled as one unit | A single background change leaves inconsistent auth controls |
+| Late token consolidation, focus-ring simplification, or removing any !important | Requires computed styles/browser validation |
+| Legacy aliases --bg/--surface/--text/--accent/--surface2 | Light remapping exists; no removal before TSX/TS scan |
+| API/backend, auth flow, JS listener, imports, dependencies, deployment | Outside this CSS-only plan |
+
+### 7. Three-mode validation matrix
+
+| Proposed change | dark | light | system | Evidence/caveat |
+|---|---|---|---|---|
+| Skeleton/progress/hover tokens | use current dark literals | use current light override values | whichever palette JS resolves | existing light overrides already exist for several; computed styles unavailable |
+| Severity and badges | preserve dark semantic values | readable foreground/background pairs | resolved theme | contrast and cascade require check |
+| Auth surfaces/card/shadow | dedicated dark values preserve current auth look | light values and remove .unlock local dark palette | resolved theme | highest risk |
+| Brand/accent wash and hover | retain existing values where possible | use light-specific wash/border/text | resolved theme | contrast/browser review |
+| Focus/glow consolidation | preserve visible dark ring | preserve visible light ring | resolved theme | competing rules; do not consolidate blindly |
+| Live system preference | OS dark selects dark | OS light selects light | currently resolved once at startup; live updates unverified | separate JS listener needed if live changes required |
+
+**Acceptance before CSS changes:** (1) no unintended dark computed-style change; (2) every shared semantic token has dark and light values; (3) light surfaces/statuses/badges/skeletons/progress/auth are light where intended; (4) keyboard focus remains visible in both themes; (5) system mode follows OS and, if required, reacts to OS changes without reload. No browser screenshot/computed-style proof is available in this static pass.
