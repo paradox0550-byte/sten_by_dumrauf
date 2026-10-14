@@ -3207,9 +3207,9 @@ html[data-reduce-motion='true'] .executive-shell .analytics-report-table {
   line-height: 1.4;
   white-space: nowrap;
 }
-.badge--danger  { background: rgba(248,113,113,0.15); color: #F87171; }
-.badge--warning { background: rgba(251,191,36,0.15);  color: #FBBF24; }
-.badge--success { background: rgba(52,211,153,0.15);  color: #34D399; }
+.badge--danger  { background: rgba(248,113,113,0.15); color: var(--color-danger); }
+.badge--warning { background: rgba(251,191,36,0.15);  color: var(--color-warning); }
+.badge--success { background: rgba(52,211,153,0.15);  color: var(--color-success); }
 .badge--brand   { background: rgba(91,124,250,0.15);  color: #7A94FB; }
 .badge--neutral { background: rgba(156,163,181,0.12); color: #9CA3B5; }
 
