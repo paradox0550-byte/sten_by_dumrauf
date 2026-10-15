@@ -3,7 +3,7 @@ import {api,clearSession,AUTH_EXPIRED_EVENT} from '../lib/api';
 
 export type User={id:string;email?:string;firstName?:string;lastName?:string;position?:string;telegramChatId?:string;role?:string;organizationId?:string|null;permissions?:Record<string,string>};
 type Ctx={user:User|null;loading:boolean;signOut:()=>void;login:(email:string,password:string)=>Promise<void>;refresh:()=>Promise<void>};
-const C=createContext<Ctx|null>(null), USER='sten_user',TOKEN='sten_token';
+const C=createContext<Ctx|null>(null), USER='sten_user',TOKEN='token';
 
 export function AuthProvider({children}:{children:React.ReactNode}){
   const[user,setUser]=useState<User|null>(null),[loading,setLoading]=useState(true);
