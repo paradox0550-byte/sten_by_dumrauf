@@ -4356,3 +4356,25 @@ html {
 }
 @media (min-width:768px) { .sten-floating-ai { right:24px; bottom:24px; } .sten-floating-ai__button { width:56px; height:56px; } }
 @media (prefers-reduced-motion:reduce) { .sidebar { transition:none; } }
+
+
+/* Navigation labels are controls, not editable text. Keep data and responses selectable. */
+.sidebar, .sidebar nav, .mobile-nav, .bottom-nav, .topbar, .nav-section-label {
+  -webkit-user-select: none;
+  user-select: none;
+}
+.sidebar nav a, .mobile-nav a, .bottom-nav a, .topbar button, .sidebar button {
+  cursor: pointer;
+}
+.nav-section-label, .sidebar h1, .sidebar h2 {
+  cursor: default;
+}
+.sidebar nav a, .mobile-nav a, .bottom-nav a, .nav-section-label {
+  -webkit-user-select: none;
+  user-select: none;
+}
+input[type="text"], input[type="email"], input[type="password"], input[type="search"],
+input[type="number"], input[type="month"], textarea, [contenteditable="true"] {
+  cursor: text;
+}
+:disabled, [aria-disabled="true"] { cursor: not-allowed; }
