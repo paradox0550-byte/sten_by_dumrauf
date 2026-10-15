@@ -2741,17 +2741,7 @@ body { min-width: 0; overflow-x: hidden; }
   animation: sten-sidebar-active 200ms ease-out forwards;
 }
 
-.sten-skeleton, .skeleton, .skeleton-card, .skeleton-row {
-  background: linear-gradient(90deg, rgba(255,255,255,.03) 0%, rgba(255,255,255,.07) 50%, rgba(255,255,255,.03) 100%);
-  background-size: 200% 100%;
-  animation: sten-shimmer 1.6s infinite linear;
-}
-[data-theme='light'] .sten-skeleton,
-[data-theme='light'] .skeleton,
-[data-theme='light'] .skeleton-card,
-[data-theme='light'] .skeleton-row {
-  background: linear-gradient(90deg, rgba(11,13,16,.03) 0%, rgba(11,13,16,.07) 50%, rgba(11,13,16,.03) 100%);
-  background-size: 200% 100%;
+.sten-skeleton, .skeleton, .skeleton-card, .skeleton-row {\n  background: var(--skeleton-gradient);\n  background-size: 200% 100%;\n  animation: sten-shimmer 1.6s infinite linear;
 }
 
 .executive-shell .content > * { animation: sten-page-enter 180ms ease-out both; }
