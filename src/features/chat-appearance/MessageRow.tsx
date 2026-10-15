@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useAppearanceContext } from './AppearanceContext';
+import MarkdownMessage from './MarkdownMessage';
 import { MessageActions } from './MessageActions';
 import { StenAvatar } from './StenAvatar';
 import { UserAvatar } from './UserAvatar';
@@ -11,7 +12,10 @@ export type MessageRowProps = {
   user: UserAvatarProps['user'];
   onCopy: () => void;
   onToSecretary: () => void;
-  onDetails: () => void;
+  onAnalyzePnl?: () => void;
+  onSaveMemory?: () => void;
+  showSaveMemory?: boolean;
+  onDetails?: () => void;
   children?: ReactNode;
 };
 
@@ -22,11 +26,6 @@ function formatTime(value: string): string {
   const today=now.getFullYear()===date.getFullYear() && now.getMonth()===date.getMonth() && now.getDate()===date.getDate();
   if (today) return date.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
   return date.toLocaleDateString('ru-RU',{day:'2-digit',month:'short'}).replace(/\./g,'')+' '+date.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
-}
-
-function formatFull(value: string): string {
-  const date=new Date(value);
-  return Number.isNaN(date.getTime())?'':date.toLocaleString('ru-RU',{dateStyle:'medium',timeStyle:'short'});
 }
 
 function useReducedMotion(): boolean {
@@ -42,20 +41,13 @@ function useReducedMotion(): boolean {
   return reduced;
 }
 
-export function MessageRow({ message, previousMessage, user, onCopy, onToSecretary, onDetails, children }: MessageRowProps) {
+export function MessageRow({ message, previousMessage, user, onCopy, onToSecretary, onAnalyzePnl, onSaveMemory, showSaveMemory, children }: MessageRowProps) {
   const { settings }=useAppearanceContext();
-  const [detailsOpen,setDetailsOpen]=useState(false);
   const reducedMotion=useReducedMotion();
   const grouped=previousMessage?.role===message.role;
   const isAssistant=message.role==='assistant';
   const accessibleLabel=isAssistant?'Сообщение STEN':'Ваше сообщение';
-  const fullDate=useMemo(()=>formatFull(message.createdAt),[message.createdAt]);
   const sourceItems=message.sources??[];
-
-  const toggleDetails=()=>{
-    setDetailsOpen(value=>!value);
-    onDetails();
-  };
 
   return (
     <article
@@ -68,35 +60,16 @@ export function MessageRow({ message, previousMessage, user, onCopy, onToSecreta
       <div className="message-content">
         {settings.showTime && message.createdAt && <time className="message-time" dateTime={message.createdAt}>{formatTime(message.createdAt)}</time>}
         {children}
-        <div className="message-bubble">{message.content}</div>
+        <div className="message-bubble">{message.role === 'assistant' ? <MarkdownMessage content={message.content} /> : message.content}</div>
         {settings.showSources && sourceItems.length>0 && (
           <div className="message-sources" aria-label="Источники">
             {sourceItems.map((source,index)=><span className="message-source-chip" key={source.id??source.uri??`source-${index}`}>{source.title??source.kind??source.uri??'Источник'}</span>)}
           </div>
         )}
         {isAssistant && settings.showActions && (
-          <MessageActions message={message} onCopy={onCopy} onToSecretary={onToSecretary} onDetails={toggleDetails}/>
+          <MessageActions onCopy={onCopy} onToSecretary={onToSecretary} onAnalyzePnl={onAnalyzePnl} onSaveMemory={onSaveMemory} showSaveMemory={showSaveMemory}/>
         )}
-        {detailsOpen && (
-          <section className="message-details" aria-label="Подробности сообщения">
-            {sourceItems.length>0 && <div className="message-details-section">
-              <strong>Источники</strong>
-              <div className="message-details-sources">
-                {sourceItems.map((source,index)=>(
-                  <div className="message-details-source" key={source.id??source.uri??`detail-source-${index}`}>
-                    {source.title&&<b>{source.title}</b>}
-                    {source.kind&&<small>{source.kind}</small>}
-                    {source.uri&&<code>{source.uri}</code>}
-                    {source.excerpt&&<p>{source.excerpt}</p>}
-                  </div>
-                ))}
-              </div>
-            </div>}
-            {fullDate&&<div className="message-details-meta"><span>Время</span><time dateTime={message.createdAt}>{fullDate}</time></div>}
-            {message.model&&<div className="message-details-meta"><span>Модель</span><span>{message.model}</span></div>}
-            {message.formulaVersion&&<div className="message-details-meta"><span>Версия формул</span><span>{message.formulaVersion}</span></div>}
-          </section>
-        )}
+
       </div>
     </article>
   );

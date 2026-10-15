@@ -55,8 +55,11 @@ export interface UserAvatarProps {
 }
 
 export interface MessageActionsProps {
-  message: ChatMessage;
+  message?: ChatMessage;
   onCopy: () => void;
   onToSecretary: () => void;
-  onDetails: () => void;
+  onAnalyzePnl?: () => void;
+  onSaveMemory?: () => void;
+  showSaveMemory?: boolean;
+  onDetails?: () => void;
 }

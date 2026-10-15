@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bot, FileText, Mic, MicOff, MoreHorizontal, Paperclip, Send, Sparkles, Trash2, UploadCloud, Eye, X, Database, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { api } from '../lib/api';
+import { api, ApiError, createMemory } from '../lib/api';
 import { useScope } from '../lib/useScope';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth, type User } from '../contexts/AuthContext';
@@ -18,7 +19,7 @@ import '../features/chat-appearance/themes.css';
 import '../features/chat-appearance/avatars.css';
 import '../styles/chat.css';
 
-type Msg={id:string;role:'user'|'assistant';text:string;sources?:AskSource[];createdAt?:string;proposedMemory?:ProposedMemory[];steps?:AskStep[];totalMs?:number};
+type Msg={id:string;role:'user'|'assistant';text:string;sources?:AskSource[];createdAt?:string;proposedMemory?:ProposedMemory[]|null;steps?:AskStep[];totalMs?:number;model?:string;toolsUsed?:Array<{name:string;ok?:boolean;ms?:number}>|null};
 type Doc={id:string;name:string;size:number;status:string;chars?:number};
 type DocPreview={id:string;name:string;preview:string;chars:number;truncated:boolean;readOnly:true};
 const starters=['Проанализируй текущий P&L и найди главные причины падения прибыли','Что сильнее всего отклонилось от плана?','Собери план действий для управляющего на сегодня','Проверь ФОТ: часы, производительность и стоимость отклонения'];
@@ -36,6 +37,7 @@ export default function AI(){
 
 function AIContent({user}:{user:User|null}){
  const[scope]=useScope();
+ const navigate=useNavigate();
  const[searchParams,setSearchParams]=useSearchParams();
  const initialQuery=searchParams.get('q')?.trim()||'';
  const{settings}=useAppearanceContext();
@@ -117,10 +119,15 @@ function AIContent({user}:{user:User|null}){
      };
      const r = await api.post<AskResponse & { steps?: AskStep[]; total_ms?: number }>('/ask', AskRequestSchema.parse(body));
      const p = r;
-     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:String(p.answer??p.message??'Ответ не получен.'),sources:Array.isArray(p.sources)?p.sources:[],steps:Array.isArray(p.steps)?p.steps:undefined,totalMs:typeof p.total_ms==='number'?p.total_ms:undefined,proposedMemory:Array.isArray(p.proposed_memory)?p.proposed_memory:undefined,createdAt:new Date().toISOString()}]);
+     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:String(p.answer??p.message??'Ответ не получен.'),sources:Array.isArray(p.sources)?p.sources:[],steps:Array.isArray(p.steps)?p.steps:undefined,totalMs:typeof p.total_ms==='number'?p.total_ms:undefined,proposedMemory:Array.isArray(p.proposed_memory)?p.proposed_memory:p.proposed_memory===null?null:undefined,model:typeof p.model==='string'?p.model:undefined,toolsUsed:Array.isArray(p.tools_used)?p.tools_used.map(t=>({name:t.name,ok:t.ok,ms:t.ms})):p.tools_used===null?null:undefined,createdAt:new Date().toISOString()}]);
    }catch(e){
      window.dispatchEvent(new CustomEvent('sten:ai-status',{detail:'error'}));
-     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось получить ответ.',createdAt:new Date().toISOString()}]);
+     const message = e instanceof ApiError && e.status === 503
+       ? 'AI временно недоступен.'
+       : e instanceof ApiError && e.status === 502
+         ? 'AI вернул ошибку. Повторите.'
+         : e instanceof Error ? e.message : 'Не удалось получить ответ.';
+     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:message,createdAt:new Date().toISOString()}]);
    }finally{setBusy(false)}
  }
 
@@ -182,7 +189,22 @@ function AIContent({user}:{user:User|null}){
      showChatToast('Не удалось скопировать');
    }
  };
- const secretaryToast=()=>showChatToast('Скоро: сохранение в Секретаря');
+ const createSecretaryEvent=async(answer:string)=>{
+   try{
+     const start=new Date(Date.now()+60*60*1000);
+     await api.post('/api/secretary/events',{title:'Разобрать ответ STEN AI',description:answer,start_at:start.toISOString(),event_type:'task',status:'planned',reminder_minutes:30});
+     showChatToast('Задача добавлена в Секретарь');
+   }catch(e){showChatToast(e instanceof Error?e.message:'Не удалось создать задачу в Секретаре');}
+ };
+ const saveProposedMemory=async(messageId:string,items:ProposedMemory[])=>{
+   if(!items.length)return;
+   try{
+     for(const item of items)await createMemory({scope:{project_id:scope.projectId??null,branch_id:scope.branchId??null,restaurant_id:scope.restaurantId??null,department_id:scope.departmentId??null},kind:item.kind,title:item.title,content:item.content,evidence:item.evidence??{}});
+     setMessages(current=>current.map(item=>item.id===messageId?{...item,proposedMemory:undefined}:item));
+     showChatToast('Предложения сохранены в память');
+   }catch(e){showChatToast(e instanceof Error?e.message:'Не удалось сохранить память');}
+ };
+ const analyzePnl=()=>navigate('/pnl?'+scopeQuery(scope));
 
  const clearChat=()=>{
    setMessages([]);
@@ -194,14 +216,13 @@ function AIContent({user}:{user:User|null}){
  const formatTime=(value?:string)=>value?new Date(value).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'';
 
  return <div className={pageClass}>
-   <div className="page-head">
-     <div>
-       <span className="eyebrow"><span className="status-dot"/> AI · ДАННЫЕ → ДЕЙСТВИЯ</span>
-       <h1>STEN</h1>
-       <p>AI видит выбранный рабочий контур, текущий P&L и ФОТ. Ответ отделён от факта, а действие можно передать в Секретарь.</p>
+   <header className="sten-ai-topbar">
+     <div className="sten-ai-topbar__title"><h1>STEN AI</h1><span className="sten-ai-topbar__status" aria-label={busy?'STEN AI обрабатывает запрос':'Статус STEN AI не проверен'} title={busy?'Обработка запроса':'Статус не проверен'}/></div>
+     <div className="sten-ai-topbar__actions">
+       <button className="chat-appearance-trigger" onClick={()=>setAppearanceOpen(v=>!v)} aria-label="Оформление чата" aria-expanded={appearanceOpen} title="Оформление чата"><MoreHorizontal size={18}/></button>
+       <button className="secondary-button" onClick={clearChat}>Новый диалог</button>
      </div>
-     <button className="secondary-button" onClick={clearChat}>Новый диалог</button>
-   </div>
+   </header>
 
    {!hasScopeId(scope)&&<div className="import-result warn">Для точного AI-контекста выберите рабочий контур в Настройках.</div>}
 
@@ -234,15 +255,8 @@ function AIContent({user}:{user:User|null}){
      </aside>
 
      <section className="chat">
-       <div className="chat-head">
-         <div>
-           <b><span className="avatar small"><Sparkles size={13}/></span> STEN</b>
-           <small>{readyCount} документов готовы</small>
-         </div>
-         <div className="chat-head-actions">
-           <span>факты · расчёты · действия</span>
-           <button className="chat-appearance-trigger" onClick={()=>setAppearanceOpen(v=>!v)} aria-label="Оформление чата" aria-expanded={appearanceOpen} title="Оформление чата"><MoreHorizontal size={18}/></button>
-         </div>
+       <div className="chat-head" aria-label="Статус чата">
+         <span>{readyCount} документов готовы</span>
        </div>
        {appearanceOpen&&<AppearanceDrawer onClose={()=>setAppearanceOpen(false)}/>}
 
@@ -250,8 +264,8 @@ function AIContent({user}:{user:User|null}){
          <ChatBackground kind={settings.background}/>
          {!messages.length?<div className="welcome">
            <div className="welcome-mark"><Bot size={28}/></div>
-           <h2>Что разбираем?</h2>
-           <p>STEN получает текущие цифры выбранного контура и отвечает только в пределах подтверждённых данных.</p>
+           <h2>Чем помочь?</h2>
+           <p>Спросите про P&amp;L, ФОТ или ситуацию в смене.</p>
            <div className="starter-grid">{starters.map(s=><button key={s} onClick={()=>void ask(s)}>{s}</button>)}</div>
          </div>:messages.map((m,i)=>{
            const message:ChatMessage={
@@ -260,6 +274,7 @@ function AIContent({user}:{user:User|null}){
              content:m.text,
              createdAt:m.createdAt??'',
              sources:m.sources,
+             model:m.model,
            };
            const previousMessage=i>0?{
              id:messages[i-1].id,
@@ -275,13 +290,24 @@ function AIContent({user}:{user:User|null}){
                previousMessage={previousMessage}
                user={user}
                onCopy={()=>void copyMessage(m.text)}
-               onToSecretary={secretaryToast}
-               onDetails={()=>undefined}
+               onToSecretary={()=>void createSecretaryEvent(m.text)}
+               onAnalyzePnl={analyzePnl}
+               showSaveMemory={m.role==='assistant' && Array.isArray(m.proposedMemory) && m.proposedMemory.length>0}
+               onSaveMemory={()=>void saveProposedMemory(m.id,m.proposedMemory??[])}
              >
                {m.role === 'assistant' && m.steps && (
                  <AskSteps steps={m.steps} totalMs={m.totalMs} />
                )}
              </MessageRow>
+             {m.role === 'assistant' && m.toolsUsed && m.toolsUsed.length > 0 && (
+               <div className="sten-ai-tools" aria-label="Использованные инструменты">
+                 {m.model && <span>Модель · {m.model}</span>}
+                 <span>Инструменты</span>
+                 {m.toolsUsed.map((tool,index)=><span className="sten-ai-tools__item" key={tool.name+'-'+index}>
+                   <b>{tool.name}</b>{tool.ok===false?' · ошибка':''}{typeof tool.ms==='number'?' · '+(tool.ms<1000?Math.round(tool.ms)+' ms':(tool.ms/1000).toLocaleString('ru-RU',{minimumFractionDigits:1,maximumFractionDigits:1})+' с'):''}
+                 </span>)}
+               </div>
+             )}
              {m.role === 'assistant' && m.proposedMemory && m.proposedMemory.length > 0 && (
                <ProposedMemoryChips
                  items={m.proposedMemory}
@@ -305,7 +331,7 @@ function AIContent({user}:{user:User|null}){
          {dragOver&&<div className="composer-drop-hint"><UploadCloud size={16}/> Отпустите файл — STEN добавит его в документы</div>}
          <div className="composer-box">
            <button className="icon-button composer-attach" onClick={()=>file.current?.click()} aria-label="Прикрепить документ" title="Добавить документ"><Paperclip size={18}/></button>
-           <textarea value={prompt} onFocus={(e)=>{setComposerFocused(true);requestAnimationFrame(()=>e.currentTarget.scrollIntoView({behavior:'smooth',block:'center'}))}} onBlur={()=>setComposerFocused(false)} onChange={e=>setPrompt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void ask()}}} placeholder={listening?'Говорите…':'Напишите запрос к текущим данным…'} rows={1} aria-label="Запрос к STEN AI"/>
+           <textarea value={prompt} onFocus={(e)=>{setComposerFocused(true);requestAnimationFrame(()=>e.currentTarget.scrollIntoView({behavior:'smooth',block:'center'}))}} onBlur={()=>setComposerFocused(false)} onChange={e=>setPrompt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void ask()}}} placeholder={listening?'Говорите…':'Спросите про P&L, ФОТ или ситуацию в смене…'} rows={1} aria-label="Запрос к STEN AI"/>
            <button className={'icon-button'+(listening?' mic-active':'')} onClick={toggleVoice} aria-label={listening?'Остановить запись':'Голосовой ввод'} title={SR?'Голосовой ввод (Chrome / Edge)':'Голосовой ввод не поддерживается этим браузером'}>
              {listening?<MicOff size={18}/>:<Mic size={18}/>}
            </button>
