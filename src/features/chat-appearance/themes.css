@@ -1338,3 +1338,197 @@
     transition: none;
   }
 }
+
+/* STEN AI workspace layout: internal history scroll and a persistent composer. */
+.sten-ai-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 138px);
+  min-height: 0;
+  max-width: none;
+  overflow: hidden;
+}
+
+.sten-ai-page > .page-head {
+  flex: 0 0 auto;
+  min-width: 0;
+  margin-bottom: 14px;
+}
+
+.sten-ai-page .ai-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  align-items: stretch;
+  gap: 14px;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 1px;
+}
+
+.sten-ai-page .chat {
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.sten-ai-page .docs-panel {
+  grid-column: 2;
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.sten-ai-page .chat-head {
+  flex: 0 0 auto;
+}
+
+.sten-ai-page .chat-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sten-ai-page .chat-body > .welcome {
+  width: min(100%, 900px);
+}
+
+.sten-ai-page .chat-body article.message,
+.sten-ai-page .chat-body .message-content,
+.sten-ai-page .chat-body .message-bubble,
+.sten-ai-page .chat-body pre,
+.sten-ai-page .chat-body table {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.sten-ai-page .composer {
+  position: relative;
+  z-index: 3;
+  flex: 0 0 auto;
+  min-width: 0;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+.sten-ai-page .composer-box {
+  width: 100%;
+  min-width: 0;
+}
+
+.sten-ai-page .composer-box textarea {
+  min-width: 0;
+  max-height: 120px;
+  overflow-y: auto;
+  resize: none;
+}
+
+.sten-ai-page .composer-footer {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+@media (min-width: 768px) and (max-width: 1279px) {
+  .sten-ai-page {
+    height: calc(100dvh - 138px);
+  }
+
+  .sten-ai-page .ai-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sten-ai-page .docs-panel {
+    display: none;
+  }
+
+  .sten-ai-page .chat-body {
+    padding-inline: clamp(16px, 3vw, 32px);
+  }
+}
+
+@media (max-width: 767px) {
+  .sten-ai-page {
+    height: calc(100dvh - 154px);
+  }
+
+  .sten-ai-page > .page-head {
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .sten-ai-page > .page-head p {
+    display: none;
+  }
+
+  .sten-ai-page > .page-head h1 {
+    font-size: 26px;
+  }
+
+  .sten-ai-page > .page-head .secondary-button {
+    min-height: 36px;
+    padding: 7px 10px;
+    white-space: nowrap;
+  }
+
+  .sten-ai-page .ai-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .sten-ai-page .docs-panel {
+    display: none;
+  }
+
+  .sten-ai-page .chat {
+    grid-column: 1;
+    border-radius: var(--ui-radius-md);
+  }
+
+  .sten-ai-page .chat-head {
+    min-height: 48px;
+    padding: 9px 12px;
+  }
+
+  .sten-ai-page .chat-body {
+    padding: 12px;
+  }
+
+  .sten-ai-page .composer {
+    padding: 10px 10px max(10px, env(safe-area-inset-bottom));
+  }
+
+  .sten-ai-page .composer-footer {
+    font-size: 10px;
+  }
+}
+
+@media (max-height: 620px) {
+  .sten-ai-page {
+    height: calc(100dvh - 118px);
+  }
+
+  .sten-ai-page > .page-head {
+    margin-bottom: 8px;
+  }
+
+  .sten-ai-page > .page-head p {
+    display: none;
+  }
+}
