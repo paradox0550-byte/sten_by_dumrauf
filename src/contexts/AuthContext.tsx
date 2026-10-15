@@ -4,22 +4,20 @@ import {api,clearSession,AUTH_EXPIRED_EVENT} from '../lib/api';
 export type User={id:string;email?:string;firstName?:string;lastName?:string;position?:string;telegramChatId?:string;role?:string;organizationId?:string|null;permissions?:Record<string,string>};
 type Ctx={user:User|null;loading:boolean;signOut:()=>void;login:(email:string,password:string)=>Promise<void>;refresh:()=>Promise<void>};
 const C=createContext<Ctx|null>(null), USER='sten_user',TOKEN='sten_token';
-// Frontend-only open workspace: this guest identity unlocks the UI without credentials.
-// It does NOT grant backend permissions or manufacture restaurant/financial data.
-const GUEST_USER:User={id:'frontend-guest',firstName:'Александр',position:'Владелец'};
 
 export function AuthProvider({children}:{children:React.ReactNode}){
   const[user,setUser]=useState<User|null>(null),[loading,setLoading]=useState(true);
   const restore=useCallback(async()=>{
     const t=localStorage.getItem(TOKEN);
-    if(!t){setUser(GUEST_USER);setLoading(false);return}
+    if(!t){setUser(null);setLoading(false);return}
     try{
       const r=await api.get<{user:User}>('/auth/me');
       setUser(r.user);
       localStorage.setItem(USER,JSON.stringify(r.user));
     }catch{
       clearSession();
-      setUser(GUEST_USER);
+      try{localStorage.removeItem(USER)}catch{}
+      setUser(null);
     }finally{setLoading(false)}
   },[]);
   const refresh=useCallback(async()=>{try{const r=await api.get<{user:User}>('/auth/me');setUser(r.user);localStorage.setItem(USER,JSON.stringify(r.user))}catch{}},[]);
@@ -27,13 +25,12 @@ export function AuthProvider({children}:{children:React.ReactNode}){
   useEffect(()=>{
     const handler=()=>{
       try{clearSession();localStorage.removeItem(USER)}catch{}
-      // An expired API session must not send the user back to a login screen.
-      setUser(GUEST_USER);
+      setUser(null);
     };
     window.addEventListener(AUTH_EXPIRED_EVENT,handler);
     return ()=>window.removeEventListener(AUTH_EXPIRED_EVENT,handler);
   },[]);
-  const signOut=useCallback(()=>{clearSession();localStorage.removeItem(USER);setUser(GUEST_USER)},[]);
+  const signOut=useCallback(()=>{clearSession();localStorage.removeItem(USER);setUser(null)},[]);
   const login=useCallback(async(email:string,password:string)=>{
     const r=await api.post<{token:string;user:User}>('/auth/login',{email,password});
     localStorage.setItem(TOKEN,r.token);
