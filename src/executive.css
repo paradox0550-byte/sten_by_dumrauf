@@ -10,40 +10,6 @@
    ═══════════════════════════════════════════════════════════════ */
 
 
-:root {
-  /* LIGHT THEME (Executive Light) */
-  --bg-app: var(--c-gray-100);
-  --bg-surface: var(--c-gray-50);
-  --bg-surface-subtle: var(--c-gray-200);
-  --border-subtle: var(--c-gray-300);
-  --border-strong: var(--c-gray-400);
-  --text-primary: var(--c-gray-950);
-  --text-secondary: var(--c-gray-850); /* Apple-label-secondary */
-  --text-muted: var(--c-gray-600); /* Apple-label-tertiary */
-  --color-brand: var(--c-blue-500);
-  --color-brand-strong: color-mix(in oklch, var(--color-brand) 70%, #000);
-  --color-danger: var(--c-red-500);
-  --color-danger-bg: var(--c-red-50);
-  --color-warning: var(--c-amber-500);
-  --color-warning-bg: var(--c-amber-50);
-  --color-success: var(--c-green-600);
-  --color-success-bg: var(--c-green-50);
-
-  /* Backward-compatible aliases used by the existing component CSS. */
-  --bg: var(--bg-app);
-  --surface: var(--bg-surface);
-  --surface2: var(--bg-surface-subtle);
-  --text: var(--text-primary);
-  --muted: var(--text-secondary);
-  --line: var(--border-subtle);
-  --accent: var(--color-brand);
-  --accent2: var(--color-brand);
-  --good: var(--color-success);
-  --danger: var(--color-danger);
-  --warning: var(--color-warning);
-  --hair: 1px solid var(--border-subtle);
-  --focus: 0 0 0 2px var(--color-brand-glow);
-}
 
 
 /* Theme focus tokens are declared outside the palette blocks so the original
@@ -516,16 +482,6 @@ textarea {
    tables, forms and dialogs. This layer intentionally normalizes legacy styles.
    ========================================================================== */
 
-:root {
-  --ui-radius-xs: 6px;
-  --ui-radius-sm: 8px;
-  --ui-radius-md: 10px;
-  --ui-radius-lg: 12px;
-  --ui-control-h: 38px;
-  --ui-section-gap: 16px;
-  --ui-page-gap: 12px;
-  --ui-shadow: none;
-}
 
 *,
 *::before,
@@ -2718,59 +2674,6 @@ html[data-reduce-motion='true'] *::after {
    Frontend-only: palette, responsive shell, motion and shared surfaces.
    ========================================================================== */
 
-:root {
-  --bg-base: #f7f8fb;
-  --bg-surface: #ffffff;
-  --bg-elevated: #f1f3f7;
-  --border-subtle: #d4dae3;
-  --text-primary: #0b0d10;
-  --text-secondary: #2f3844;
-  --text-tertiary: #6b7280;
-  --color-brand: #5b7cfa;
-  --color-brand-hover: #6e8dff;
-  --bg-inset: #0a0d16;
-  --color-brand-glow: rgba(91,124,250,0.35);
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo,
-               "JetBrains Mono", Consolas, monospace;
-  --border-width: 1px;
-  --color-success: #16a34a;
-  --color-warning: #d97706;
-  --color-danger: #dc2626;
-  --ui-radius-sm: 6px;
-  --ui-radius-md: 10px;
-  --ui-radius-lg: 14px;
-  --bg-app: var(--bg-base);
-  --bg-surface-subtle: var(--bg-elevated);
-  --text-muted: var(--text-tertiary);
-}
-[data-theme='dark'] {
-  --bg-base: #0b0f1a;
-  --bg-surface: #131826;
-  --bg-elevated: #1a2030;
-  --border-subtle: #232938;
-  --text-primary: #e8ecf5;
-  --text-secondary: #9ca3b5;
-  --text-tertiary: #6b7280;
-  --color-brand: #5b7cfa;
-  --color-brand-hover: #6e8dff;
-  --color-success: #34d399;
-  --color-warning: #fbbf24;
-  --color-danger: #f87171;
-  --bg-app: var(--bg-base);
-  --bg-surface-subtle: var(--bg-elevated);
-  --text-muted: var(--text-tertiary);
-  --bg: var(--bg-base);
-  --surface: var(--bg-surface);
-  --surface2: var(--bg-elevated);
-  --text: var(--text-primary);
-  --muted: var(--text-secondary);
-  --line: var(--border-subtle);
-  --accent: var(--color-brand);
-  --accent2: var(--color-brand);
-  --good: var(--color-success);
-  --danger: var(--color-danger);
-  --warning: var(--color-warning);
-}
 html, body, #root { background: var(--bg-base); color: var(--text-primary); }
 body { min-width: 0; overflow-x: hidden; }
 .executive-shell, .executive-shell .main, .executive-shell .content, .executive-shell .page { min-width: 0; }
