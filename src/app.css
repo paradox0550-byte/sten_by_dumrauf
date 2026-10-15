@@ -3673,22 +3673,6 @@ body { font-size: 14px; }
 }
 
 /* === Расширенная палитра: смысловые цвета, не только gold === */
-:root {
-  --success: var(--color-success);
-  --success-bg: rgba(22,163,74,0.10);
-  --warning: var(--color-warning);
-  --warning-bg: rgba(217,119,6,0.10);
-  --danger: var(--color-danger);
-  --danger-bg: rgba(220,38,38,0.10);
-  --info: #2563eb;
-  --info-bg: rgba(37,99,235,0.10);
-  --violet: #7c3aed;
-  --violet-bg: rgba(124,58,237,0.10);
-  --cyan: #0891b2;
-  --cyan-bg: rgba(8,145,178,0.10);
-  --neutral: #6b7280;
-  --neutral-bg: rgba(107,114,128,0.10);
-}
 
 /* === Смысловое применение === */
 .pnl-message.ok    { color: var(--success); background: var(--success-bg); border-color: var(--success); }
