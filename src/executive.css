@@ -2741,7 +2741,10 @@ body { min-width: 0; overflow-x: hidden; }
   animation: sten-sidebar-active 200ms ease-out forwards;
 }
 
-.sten-skeleton, .skeleton, .skeleton-card, .skeleton-row {\n  background: var(--skeleton-gradient);\n  background-size: 200% 100%;\n  animation: sten-shimmer 1.6s infinite linear;
+.sten-skeleton, .skeleton, .skeleton-card, .skeleton-row {
+  background: var(--skeleton-gradient);
+  background-size: 200% 100%;
+  animation: sten-shimmer 1.6s infinite linear;
 }
 
 .executive-shell .content > * { animation: sten-page-enter 180ms ease-out both; }
