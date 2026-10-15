@@ -3106,12 +3106,6 @@ h3, .h3 {
 }
 
 /* === Impeccable: Motion Tokens === */
-:root {
-  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
-  --duration-fast: 200ms;
-  --duration-normal: 300ms;
-}
 
 /* === Pegboard: Improved Focus States === */
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
@@ -3694,15 +3688,6 @@ body { font-size: 14px; }
   --cyan-bg: rgba(8,145,178,0.10);
   --neutral: #6b7280;
   --neutral-bg: rgba(107,114,128,0.10);
-}
-[data-theme='dark'] {
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --info: #3b82f6;
-  --violet: #a78bfa;
-  --cyan: #22d3ee;
-  --neutral: #9ca3af;
 }
 
 /* === Смысловое применение === */
