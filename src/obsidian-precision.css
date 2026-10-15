@@ -476,7 +476,7 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
   align-items: center;
   gap: 8px;
   margin-bottom: 10px;
-  color: #9aafff;
+  color: var(--color-brand-strong);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: .12em;
@@ -648,50 +648,6 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 
 /* Light-theme surface and state corrections. These overrides are deliberately
    scoped to light mode; the existing dark palette and dark component styles stay intact. */
-:root[data-theme='light'],
-html[data-theme='light'] {
-  color-scheme: light;
-  --bg-base: #f6f8fc;
-  --bg-app: #f6f8fc;
-  --bg-surface: #ffffff;
-  --bg-surface-subtle: #edf1f8;
-  --bg-subtle: #e8ecf5;
-  --skeleton-gradient: linear-gradient(90deg, #e2e8f0 0%, #f1f5f9 100%);
-  --bg-elevated: #edf1f8;
-  --bg-inset: #ffffff;
-  --border-subtle: rgba(15, 23, 42, 0.08);
-  --border-strong: rgba(15, 23, 42, 0.20);
-  --text-primary: #0b1220;
-  --text-secondary: #33415c;
-  --text-muted: #64748b;
-  --text-tertiary: #64748b;
-  --color-brand: #3b5bdb;
-  --color-brand-hover: #304ec2;
-  --color-brand-strong: #304ec2;
-  --color-accent: #0e7490;
-  --color-success: #047857;
-  --color-warning: #b45309;
-  --color-danger: #b91c1c;
-  --color-success-bg: rgba(4, 120, 87, 0.10);
-  --color-warning-bg: rgba(180, 83, 9, 0.10);
-  --color-danger-bg: rgba(185, 28, 28, 0.10);
-  --success-bg: rgba(4, 120, 87, 0.10);
-  --warning-bg: rgba(180, 83, 9, 0.10);
-  --danger-bg: rgba(185, 28, 28, 0.10);
-  --info-bg: rgba(59, 91, 219, 0.10);
-  --neutral-bg: rgba(100, 116, 139, 0.10);
-  --color-brand-glow: rgba(59, 91, 219, 0.35);
-  --focus: 0 0 0 3px var(--color-brand-glow);
-  --skeleton-base: #e2e8f0;
-  --skeleton-shine: #f1f5f9;
-  --ui-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-
-  /* Explicit light-mode values for legacy components; keep old definitions intact. */
-  --bg: var(--bg-app);
-  --surface: var(--bg-surface);
-  --text: var(--text-primary);
-  --accent: var(--color-brand);
-}
 
 /* Replace dark-only-looking hardcoded surfaces/status text in light mode. */
 html[data-theme='light'] .secondary-button,
