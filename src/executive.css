@@ -1,3 +1,4 @@
+
 /* ==========================================================================
    STEN v5.0.2 — Executive Cockpit semantic theme layer
    Loaded after app.css so legacy component styles inherit the canonical tokens.
@@ -1981,7 +1982,7 @@ textarea:focus-visible {
   font-weight: 700;
   letter-spacing: -0.025em;
 }
-}
+
 
 /* ═══════════════════════════════════════════════════════════
    Topbar layout fix v2 — всё в одну строку без переносов
@@ -3485,4 +3486,4 @@ html[data-reduce-motion='true'] .cookie-banner { transition: none; }
  .legal-footer__links a { font-size: 12px; overflow-wrap: anywhere; }
  .legal-page__footer { align-items: flex-start; }
  .cookie-banner__actions { justify-content: flex-start; }
-
+}
