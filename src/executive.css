@@ -1,4 +1,3 @@
-@layer components {
 /* ==========================================================================
    STEN v5.0.2 — Executive Cockpit semantic theme layer
    Loaded after app.css so legacy component styles inherit the canonical tokens.
@@ -10,45 +9,6 @@
    НЕ использовать в компонентах. Только semantic-слой ниже.
    ═══════════════════════════════════════════════════════════════ */
 
-:root {
-  /* Gray ramp: light → dark */
-  --c-gray-50:   #ffffff;
-  --c-gray-100:  #f7f8fb;
-  --c-gray-150:  #f5f7fa;
-  --c-gray-200:  #f1f3f7;
-  --c-gray-250:  #e5e7eb;
-  --c-gray-300:  #d4dae3;
-  --c-gray-400:  #c7ced9;
-  --c-gray-500:  #b5bdc9;
-  --c-gray-600:  #4b5563;
-  --c-gray-700:  #4a5665;
-  --c-gray-800:  #2f3844;
-  --c-gray-850:  #1f2937;
-  --c-gray-900:  #171c22;
-  --c-gray-925:  #131820;
-  --c-gray-950:  #0b0d10;
-
-  /* Brand */
-  --c-blue-500:  #5b7cfa;
-
-  /* Status: light backgrounds */
-  --c-red-50:    #fef2f2;
-  --c-amber-50:  #fffbeb;
-  --c-green-50:  #f0fdf4;
-
-  /* Status: dark backgrounds */
-  --c-red-950:   #2d1519;
-  --c-amber-950: #2c2111;
-  --c-green-950: #0f291e;
-
-  /* Status: foreground */
-  --c-red-500:   #dc2626;
-  --c-red-400:   #ef4444;
-  --c-amber-500: #d97706;
-  --c-amber-400: #f59e0b;
-  --c-green-600: #16a34a;
-  --c-green-500: #10b981;
-}
 
 :root {
   /* LIGHT THEME (Executive Light) */
@@ -85,125 +45,11 @@
   --focus: 0 0 0 2px var(--color-brand-glow);
 }
 
-[data-theme='dark'] {
-  /* DARK THEME (Executive Dark) */
-  --bg-app: var(--c-gray-950);
-  --bg-surface: var(--c-gray-925);
-  --bg-surface-subtle: var(--c-gray-900);
-  --border-subtle: var(--c-gray-800);
-  --border-strong: var(--c-gray-700);
-  --text-primary: var(--c-gray-150);
-  --text-secondary: var(--c-gray-250); /* Apple-dark-secondary */
-  --text-muted: var(--c-gray-500); /* Apple-dark-tertiary */
-  --color-brand: var(--c-blue-500);
-  --color-brand-strong: color-mix(in oklch, var(--color-brand) 70%, #fff);
-  --color-danger: var(--c-red-400);
-  --color-danger-bg: var(--c-red-950);
-  --color-warning: var(--c-amber-400);
-  --color-warning-bg: var(--c-amber-950);
-  --color-success: var(--c-green-500);
-  --color-success-bg: var(--c-green-950);
-
-  /* Semantic backgrounds — dark variants.
-     Эти токены используются в app.css (legacy слой) через имена без
-     префикса --color-, поэтому их нужно определить и здесь, чтобы
-     статусные сообщения не оставались на светлом фоне в тёмной теме. */
-  --success-bg: rgba(34, 197, 94, 0.14);
-  --warning-bg: rgba(245, 158, 11, 0.14);
-  --danger-bg:  rgba(239, 68, 68, 0.14);
-  --info-bg:    rgba(59, 130, 246, 0.14);
-  --violet-bg:  rgba(167, 139, 250, 0.14);
-  --cyan-bg:    rgba(34, 211, 238, 0.14);
-  --neutral-bg: rgba(156, 163, 175, 0.14);
-
-  --bg: var(--bg-app);
-  --surface: var(--bg-surface);
-  --surface2: var(--bg-surface-subtle);
-  --text: var(--text-primary);
-  --muted: var(--text-secondary);
-  --line: var(--border-subtle);
-  --accent: var(--color-brand);
-  --accent2: var(--color-brand);
-  --good: var(--color-success);
-  --danger: var(--color-danger);
-  --warning: var(--color-warning);
-  --hair: 1px solid var(--border-subtle);
-  --focus: 0 0 0 2px var(--color-brand-glow);
-}
 
 /* Theme focus tokens are declared outside the palette blocks so the original
    dark palette above remains untouched. */
-[data-theme='dark'] {
-  --color-brand-glow: rgba(91, 124, 250, 0.35);
-  --focus: 0 0 0 3px var(--color-brand-glow);
-}
 
 /* Explicit light palette. Keep all light-only overrides in this selector. */
-:root[data-theme='light'],
-[data-theme='light'] {
-  --bg-base: #f6f8fc;
-  --bg-app: #f6f8fc;
-  --bg-surface: #ffffff;
-  --bg-surface-subtle: #edf1f8;
-  --bg-elevated: #edf1f8;
-  --bg-inset: #ffffff;
-  --bg-subtle: #e8ecf5;
-
-  --border-subtle: rgba(15, 23, 42, 0.08);
-  --border-default: rgba(15, 23, 42, 0.12);
-  --border-strong: rgba(15, 23, 42, 0.20);
-
-  --text-primary: #0b1220;
-  --text-secondary: #33415c;
-  --text-muted: #64748b;
-  --text-tertiary: #64748b;
-  --text-disabled: #94a3b8;
-  --text-on-accent: #ffffff;
-
-  --color-brand: #3b5bdb;
-  --color-brand-hover: #304ec2;
-  --color-brand-strong: #304ec2;
-  --color-accent: #0e7490;
-  --color-success: #047857;
-  --color-warning: #b45309;
-  --color-danger: #b91c1c;
-
-  --color-success-bg: rgba(4, 120, 87, 0.10);
-  --color-warning-bg: rgba(180, 83, 9, 0.10);
-  --color-danger-bg: rgba(185, 28, 28, 0.10);
-  --success-bg: rgba(4, 120, 87, 0.10);
-  --warning-bg: rgba(180, 83, 9, 0.10);
-  --danger-bg: rgba(185, 28, 28, 0.10);
-  --info-bg: rgba(59, 91, 219, 0.10);
-  --neutral-bg: rgba(100, 116, 139, 0.10);
-
-  --color-brand-glow: rgba(59, 91, 219, 0.35);
-  --focus: 0 0 0 3px var(--color-brand-glow);
-
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
-  --ui-shadow: var(--shadow-sm);
-
-  --skeleton-base: #e2e8f0;
-  --skeleton-shine: #f1f5f9;
-
-  /* Legacy aliases consumed by older components. */
-  --bg: var(--bg-app);
-  --surface: var(--bg-surface);
-  --surface2: var(--bg-surface-subtle);
-  --text: var(--text-primary);
-  --muted: var(--text-secondary);
-  --line: var(--border-subtle);
-  --accent: var(--color-brand);
-  --accent2: var(--color-brand-hover);
-  --good: var(--color-success);
-  --danger: var(--color-danger);
-  --warning: var(--color-warning);
-  --hair: 1px solid var(--border-subtle);
-
-  color-scheme: light;
-}
 
 /* ─── Tier 3: Component tokens ───────────────────────────── */
 .executive-shell {
@@ -3697,4 +3543,4 @@ html[data-reduce-motion='true'] .cookie-banner { transition: none; }
  .legal-footer__links a { font-size: 12px; overflow-wrap: anywhere; }
  .legal-page__footer { align-items: flex-start; }
  .cookie-banner__actions { justify-content: flex-start; }
-}
+
