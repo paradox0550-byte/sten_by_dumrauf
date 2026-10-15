@@ -3400,7 +3400,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   font-size: 10px;
 }
 .analytics-report-table .is-warn {
-  color: var(--warn, #d97706);
+  color: var(--warn, var(--color-warning));
 }
 .analytics-report-total {
   border-top: 1px solid var(--line);
@@ -3680,11 +3680,11 @@ body { font-size: 14px; }
 
 /* === Расширенная палитра: смысловые цвета, не только gold === */
 :root {
-  --success: #16a34a;
+  --success: var(--color-success);
   --success-bg: rgba(22,163,74,0.10);
-  --warning: #d97706;
+  --warning: var(--color-warning);
   --warning-bg: rgba(217,119,6,0.10);
-  --danger: #dc2626;
+  --danger: var(--color-danger);
   --danger-bg: rgba(220,38,38,0.10);
   --info: #2563eb;
   --info-bg: rgba(37,99,235,0.10);
@@ -4154,12 +4154,12 @@ select:-webkit-autofill {
 
 /* 3. Fallback для color-mix() в Safari < 16.2 и Firefox < 113 */
 @supports not (color: color-mix(in srgb, red, blue)) {
-  .pnl-message.ok { background: #f0fdf4; border-color: #16a34a; color: #14532d; }
-  .pnl-message.warn { background: #fef2f2; border-color: #dc2626; color: #7f1d1d; }
-  .pnl-message.error { background: #fef2f2; border-color: #dc2626; }
+  .pnl-message.ok { background: #f0fdf4; border-color: var(--color-success); color: #14532d; }
+  .pnl-message.warn { background: #fef2f2; border-color: var(--color-danger); color: #7f1d1d; }
+  .pnl-message.error { background: #fef2f2; border-color: var(--color-danger); }
   .prime-card { background: #fef9f3; }
   .flash-prime { background: #fef9f3; }
-  .import-result.warn { background: #fffbeb; border-color: #d97706; }
+  .import-result.warn { background: #fffbeb; border-color: var(--color-warning); }
   .metric-card:hover, .budget-kpi:hover { border-color: var(--accent); }
   .toggle-row input:not(:checked) + i { background: rgba(107,114,128,0.1); }
   .badge-info, .status-chip {
