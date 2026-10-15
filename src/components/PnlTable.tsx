@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { PnlDraftRow } from '../lib/pnl';
+import { pnlDeltaTone } from '../lib/pnlPresentation';
 import PnlRow from './PnlRow';
 import PnlCardMobile from './PnlCardMobile';
 
@@ -60,8 +61,7 @@ export default function PnlTable(p: Props) {
         const closed = Boolean(collapsed[g.id]);
         const plan = sumComplete(g.rows, 'plan'), fact = sumComplete(g.rows, 'fact');
         const delta = plan !== undefined && fact !== undefined ? fact - plan : undefined;
-        const expense = /себестоимость|opex|неконтролируем/i.test(g.title);
-        const tone = delta === undefined || delta === 0 ? '' : ((expense ? delta < 0 : delta > 0) ? 'is-positive' : 'is-negative');
+        const tone = pnlDeltaTone(g.title, delta);
         const deltaPct = plan !== undefined && fact !== undefined && plan !== 0 ? delta! / Math.abs(plan) * 100 : undefined;
         return <section className="pnl-v4-section" key={g.id}>
           <button type="button" className="pnl-v4-section-head pnl-v4-grid" aria-expanded={!closed} onClick={() => setCollapsed((old) => ({ ...old, [g.id]: !old[g.id] }))}>

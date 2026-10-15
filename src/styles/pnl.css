@@ -17,7 +17,7 @@
   .pnl-v4-row:hover { background:var(--bg-surface-subtle); }
   .pnl-v4-article { min-width:0; display:flex; flex-direction:column; gap:3px; }
   .pnl-v4-article input, .pnl-v4-mobile-title { min-width:0; width:100%; border:0; outline:0; background:transparent; color:var(--text-primary); font:600 13px/1.4 var(--font-ui); text-overflow:ellipsis; white-space:nowrap; overflow:hidden; user-select:text; }
-  .pnl-v4-article small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-muted); font-size:10px; }
+  .pnl-v4-article small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-secondary); font-size:10px; }
   .pnl-v4-edit-number { min-width:0; }
   .pnl-v4-edit-number > span { display:none; }
   .pnl-v4-edit-number input { width:100%; min-width:0; padding:7px 5px; border:1px solid transparent; border-radius:5px; background:transparent; color:var(--text-primary); }
@@ -26,7 +26,7 @@
   .pnl-v4-delta small { color:inherit; font:inherit; font-size:11px; }
   .pnl-v4-delta.is-positive, .pnl-v4-mobile-delta.is-positive { color:var(--color-success); }
   .pnl-v4-delta.is-negative, .pnl-v4-mobile-delta.is-negative { color:var(--color-danger); }
-  .pnl-v4-share { color:var(--text-muted); }
+  .pnl-v4-share { color:var(--text-secondary); }
   .pnl-v4-row-actions { display:flex; justify-content:flex-end; gap:3px; opacity:0; transition:opacity .12s ease; }
   .pnl-v4-row:hover .pnl-v4-row-actions, .pnl-v4-row-actions:focus-within { opacity:1; }
   .pnl-v4-row-actions button { display:grid; place-items:center; width:28px; height:28px; padding:0; border:1px solid var(--border-default); border-radius:5px; background:var(--bg-surface); color:var(--text-secondary); cursor:pointer; user-select:none; }
@@ -54,7 +54,7 @@
   .pnl-v4-mobile-planfact label { display:grid; gap:4px; color:var(--text-secondary); font-size:11px; }
   .pnl-v4-mobile-planfact input { width:100%; min-width:0; padding:8px 6px; border:1px solid var(--border-subtle); border-radius:5px; background:var(--bg-inset); color:var(--text-primary); text-align:right; font:500 13px var(--font-mono); font-variant-numeric:tabular-nums; }
   .pnl-v4-mobile-delta { display:flex; gap:10px; align-items:center; margin-top:9px; font:500 13px var(--font-mono); white-space:nowrap; }
-  .pnl-v4-mobile-share { display:block; margin-top:5px; color:var(--text-muted); font-size:12px; }
+  .pnl-v4-mobile-share { display:block; margin-top:5px; color:var(--text-secondary); font-size:12px; }
   .pnl-v4-mobile-card { min-width:0; padding:13px; margin:8px 0; border:1px solid var(--border-subtle); border-radius:9px; background:var(--bg-surface); }
   .pnl-v4-mobile-title { font-size:14px; }
   @media (min-width:1024px) and (max-width:1199px) {
