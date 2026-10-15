@@ -43,6 +43,23 @@
 .sten-ai-page .step-row__dot { width: 7px; height: 7px; flex: 0 0 7px; margin-top: 4px; border-radius: 50%; display: inline-block; }
 .sten-ai-page .step-row__dot--ok { background: #5bfa9a; }
 .sten-ai-page .step-row__dot--warn { background: #fa9a5b; }
+.sten-ai-page .step-row__dot--danger { background: #ff4d6d; }
+.sten-ai-page .step-row__badge {
+  display: inline-block;
+  margin-left: 7px;
+  padding: 2px 6px;
+  color: #fbbf24;
+  background: rgb(245 158 11 / 14%);
+  border: 1px solid rgb(245 158 11 / 30%);
+  border-radius: var(--ui-radius-sm);
+  font-size: 10px;
+  line-height: 1.3;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+@media (max-width: 520px) {
+  .sten-ai-page .step-row__badge { margin: 4px 0 0; }
+}
 @keyframes ai-steps-fade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 520px) {
   .sten-ai-page .ai-steps { padding: 10px; }
