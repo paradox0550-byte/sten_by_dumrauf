@@ -26,7 +26,8 @@ describe('AskSteps processing timeline', () => {
 
   it('shows formatted total duration in the header', () => {
     const html = markup(createElement(AskSteps, { steps, totalMs: 12180 }));
-    expect(html).toContain('Обработка заняла 12 s');
+    expect(html).toContain('Обработка · 12,2 с');
+    expect(html).toContain('Шаги обработки');
   });
 
   it('uses correct Russian step-count forms', () => {
@@ -38,7 +39,7 @@ describe('AskSteps processing timeline', () => {
   it('is collapsed by default and keeps the region out of the markup', () => {
     const html = markup(createElement(AskSteps, { steps }));
     expect(html).toContain('aria-expanded="false"');
-    expect(html).not.toContain('aria-label="Ход обработки"');
+    expect(html).not.toContain('aria-label="Детали обработки"');
   });
 
   it('renders a native button header with an accessible control relationship', () => {
@@ -49,15 +50,16 @@ describe('AskSteps processing timeline', () => {
   });
 
   it('uses the completed fallback when totalMs is undefined', () => {
-    expect(markup(createElement(AskSteps, { steps }))).toContain('Обработка завершена · 4 шага');
+    expect(markup(createElement(AskSteps, { steps }))).toContain('Обработка · —');
+    expect(markup(createElement(AskSteps, { steps }))).toContain('4 шага');
   });
 
   it('formats duration boundaries as specified', () => {
-    expect(formatDuration(0)).toBe('0 ms');
-    expect(formatDuration(340)).toBe('340 ms');
-    expect(formatDuration(1200)).toBe('1 s');
-    expect(formatDuration(12180)).toBe('12 s');
-    expect(formatDuration(65400)).toBe('1m 5s');
+    expect(formatDuration(0)).toBe('0 мс');
+    expect(formatDuration(340)).toBe('340 мс');
+    expect(formatDuration(1200)).toBe('1,2 с');
+    expect(formatDuration(12180)).toBe('12,2 с');
+    expect(formatDuration(65400)).toBe('1 мин 5 с');
     expect(formatDuration(undefined)).toBe('—');
   });
 
@@ -85,10 +87,10 @@ describe('AskSteps processing timeline', () => {
 
   it('formats step duration and shows tool technical details', () => {
     const html = markup(createElement(StepRow, { step: { kind: 'tool', label: 'Получен P&L', name: 'get_pnl', detail: 'period=2026-10', ms: 340 } }));
-    expect(html).toContain('340 ms');
+    expect(html).toContain('340 мс');
     expect(html).toContain('get_pnl');
     expect(html).toContain('period=2026-10');
-    expect(markup(createElement(StepRow, { step: { kind: 'tool', label: 'Запрос', ms: 12180 } }))).toContain('12 s');
+    expect(markup(createElement(StepRow, { step: { kind: 'tool', label: 'Запрос', ms: 12180 } }))).toContain('12,2 с');
   });
 
   it('enables the scroll class only when there are more than six steps', () => {

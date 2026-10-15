@@ -16,6 +16,7 @@ import type { ProposedMemory } from '../lib/contracts/memory';
 import type { ChatMessage } from '../features/chat-appearance/types';
 import '../features/chat-appearance/themes.css';
 import '../features/chat-appearance/avatars.css';
+import '../styles/chat.css';
 
 type Msg={id:string;role:'user'|'assistant';text:string;sources?:AskSource[];createdAt?:string;proposedMemory?:ProposedMemory[];steps?:AskStep[];totalMs?:number};
 type Doc={id:string;name:string;size:number;status:string;chars?:number};
