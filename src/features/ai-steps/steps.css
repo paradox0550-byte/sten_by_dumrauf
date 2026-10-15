@@ -1,43 +1,95 @@
 .sten-ai-page .ai-steps {
-  border: 1px solid var(--border-subtle);
+  position: relative;
+  border: 1px solid color-mix(in srgb, var(--color-brand) 32%, var(--border-strong));
+  border-left: 3px solid var(--color-brand);
   border-radius: var(--ui-radius-md);
-  background: var(--bg-surface);
-  padding: 10px 12px;
-  margin: 0 0 12px 0;
-  box-shadow: none;
+  background: color-mix(in srgb, var(--color-brand) 5%, var(--bg-surface));
+  padding: 0;
+  margin: 12px 0 14px;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--bg-app) 18%, transparent);
+  overflow: hidden;
   opacity: 0;
-  animation: ai-steps-fade 120ms ease-out forwards;
+  animation: ai-steps-fade 140ms ease-out forwards;
 }
 
 .sten-ai-page .ai-steps__header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 11px;
   cursor: pointer;
-  background: transparent;
-  border: none;
-  padding: 0;
-  font: inherit;
-  color: var(--text-tertiary);
-  font-family: Inter, sans-serif;
-  font-size: 12px;
   width: 100%;
+  min-height: 58px;
+  padding: 10px 13px;
   text-align: left;
+  background: transparent;
+  border: 0;
+  color: var(--text-primary);
+  font: inherit;
 }
 
 .sten-ai-page .ai-steps__header:hover {
-  color: var(--text-primary);
+  background: color-mix(in srgb, var(--color-brand) 6%, transparent);
 }
 
 .sten-ai-page .ai-steps__header:focus-visible {
   outline: 2px solid var(--color-brand);
-  outline-offset: 3px;
-  border-radius: 3px;
+  outline-offset: -3px;
+  border-radius: 5px;
+}
+
+.sten-ai-page .ai-steps__mark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border: 1px solid color-mix(in srgb, var(--color-brand) 30%, var(--border-subtle));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-brand) 12%, var(--bg-surface));
+  color: var(--color-brand);
+}
+
+.sten-ai-page .ai-steps__heading {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.sten-ai-page .ai-steps__heading > strong {
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: .01em;
+}
+
+.sten-ai-page .ai-steps__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 12px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.sten-ai-page .ai-steps__summary > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.sten-ai-page .ai-steps__summary svg {
+  color: var(--color-brand);
+  flex: 0 0 auto;
 }
 
 .sten-ai-page .chevron {
   flex: 0 0 auto;
-  transition: transform 120ms ease;
+  color: var(--text-secondary);
+  transition: transform 140ms ease;
 }
 
 .sten-ai-page .chevron--open {
@@ -45,24 +97,54 @@
 }
 
 .sten-ai-page .ai-steps__body {
-  margin-top: 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 7px;
+  margin: 0 12px 12px;
+  padding: 11px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-inset);
 }
 
 .sten-ai-page .ai-steps__body--scroll {
-  max-height: 220px;
+  max-height: 240px;
   overflow-y: auto;
   scrollbar-width: thin;
 }
 
+.sten-ai-page .ai-steps__item {
+  display: grid;
+  grid-template-columns: 25px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 0;
+}
+
+.sten-ai-page .ai-steps__item + .ai-steps__item {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sten-ai-page .ai-steps__index {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font: 600 10px/1 'JetBrains Mono', monospace;
+}
+
 .sten-ai-page .step-row {
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr) auto;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
   gap: 8px;
   align-items: start;
-  padding: 4px 0;
+  min-width: 0;
+  padding: 2px 0;
   font-family: Inter, sans-serif;
 }
 
@@ -75,42 +157,40 @@
 }
 
 .sten-ai-page .step-row__icon {
-  color: var(--text-tertiary);
+  color: var(--color-brand);
   flex: 0 0 auto;
 }
 
-.sten-ai-page .step-row__body {
-  min-width: 0;
-}
+.sten-ai-page .step-row__body { min-width: 0; }
 
 .sten-ai-page .step-row__label {
   color: var(--text-primary);
   font-size: 12px;
-  line-height: 1.35;
+  line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
 .sten-ai-page .step-row__tech {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  color: var(--text-tertiary);
-  margin-left: 6px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-left: 5px;
   overflow-wrap: anywhere;
 }
 
 .sten-ai-page .step-row__detail {
   font-size: 11px;
-  color: var(--text-tertiary);
-  margin-top: 2px;
-  line-height: 1.35;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
 .sten-ai-page .step-row__ms {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 11.5px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
@@ -123,25 +203,130 @@
   margin-top: 4px;
 }
 
-.sten-ai-page .step-row__dot--ok {
-  background: #5BFA9A;
+.sten-ai-page .step-row__dot--ok { background: var(--color-success); }
+.sten-ai-page .step-row__dot--warn { background: var(--color-warning); }
+
+@keyframes ai-steps-fade { to { opacity: 1; } }
+
+/* The conversation is a bounded workspace; history scrolls, composer stays visible. */
+.sten-ai-page .ai-grid {
+  align-items: stretch;
+  min-width: 0;
 }
 
-.sten-ai-page .step-row__dot--warn {
-  background: #FA9A5B;
+.sten-ai-page .chat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: min(72dvh, 760px);
+  max-height: calc(100dvh - 150px);
+  overflow: hidden;
 }
 
-@keyframes ai-steps-fade {
-  to { opacity: 1; }
+.sten-ai-page .chat-body {
+  flex: 1 1 auto;
+  min-height: 220px;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+  padding: clamp(12px, 2vw, 24px);
+  scroll-padding-bottom: 20px;
+}
+
+.sten-ai-page .composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  flex: 0 0 auto;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sten-ai-page .composer-box {
+  width: 100%;
+  min-width: 0;
+}
+
+.sten-ai-page .composer-box textarea {
+  min-width: 0;
+  max-height: min(120px, 22dvh);
+  overflow-y: auto;
+}
+
+@media (min-width: 1280px) {
+  .sten-ai-page .ai-grid:not(.docs-collapsed) {
+    grid-template-columns: minmax(240px, 290px) minmax(0, 1fr);
+  }
+  .sten-ai-page .chat {
+    max-height: calc(100dvh - 174px);
+  }
+}
+
+@media (max-width: 767px) {
+  .sten-ai-page .ai-grid,
+  .sten-ai-page .ai-grid.docs-collapsed {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .sten-ai-page .docs-panel {
+    max-height: none;
+  }
+
+  .sten-ai-page .chat {
+    width: 100%;
+    min-height: 0;
+    height: calc(100dvh - 150px - env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 132px - env(safe-area-inset-bottom));
+    border-radius: 12px;
+  }
+
+  .sten-ai-page .chat-head {
+    flex: 0 0 auto;
+  }
+
+  .sten-ai-page .chat-body {
+    min-height: 0;
+    padding: 12px 10px;
+  }
+
+  .sten-ai-page .composer {
+    padding: 9px 9px max(9px, env(safe-area-inset-bottom));
+  }
+
+  .sten-ai-page .ai-steps {
+    margin: 10px 0 12px;
+    border-radius: 10px;
+  }
+
+  .sten-ai-page .ai-steps__header {
+    min-height: 54px;
+    padding: 9px 10px;
+    gap: 9px;
+  }
+
+  .sten-ai-page .ai-steps__heading > strong { font-size: 12px; }
+  .sten-ai-page .ai-steps__summary { gap: 4px 9px; font-size: 10px; }
+  .sten-ai-page .ai-steps__body { margin: 0 8px 8px; padding: 8px; }
+  .sten-ai-page .step-row { grid-template-columns: 16px minmax(0, 1fr) auto; gap: 6px; }
+}
+
+@media (max-width: 380px) {
+  .sten-ai-page .chat {
+    height: calc(100dvh - 138px - env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 120px - env(safe-area-inset-bottom));
+  }
+  .sten-ai-page .ai-steps__summary { gap: 4px 7px; }
+  .sten-ai-page .ai-steps__body { padding: 7px; }
+  .sten-ai-page .ai-steps__item { grid-template-columns: 22px minmax(0, 1fr); gap: 6px; }
+  .sten-ai-page .ai-steps__index { width: 22px; height: 22px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sten-ai-page .ai-steps {
-    animation: none;
-    opacity: 1;
-  }
-
-  .sten-ai-page .chevron {
-    transition: none;
-  }
+  .sten-ai-page .ai-steps { animation: none; opacity: 1; }
+  .sten-ai-page .chevron { transition: none; }
 }
