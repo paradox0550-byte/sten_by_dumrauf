@@ -74,15 +74,15 @@ describe('AskSteps processing timeline', () => {
   it('renders the tool icon and warning status dot', () => {
     const html = markup(createElement(StepRow, { step: { kind: 'tool', label: 'Ошибка инструмента', name: 'get_pnl', ok: false } }));
     expect(html).toContain('data-testid="step-icon-tool"');
-    expect(html).toContain('step-row__dot--warn');
-    expect(html).toContain('aria-label="предупреждение"');
+    expect(html).toContain('step-row__dot--danger');
+    expect(html).toContain('aria-label="ошибка"');
   });
 
   it('renders the llm icon and success status dot for a successful tool', () => {
     expect(markup(createElement(StepRow, { step: { kind: 'llm', label: 'Ответ' } }))).toContain('data-testid="step-icon-llm"');
     const html = markup(createElement(StepRow, { step: { kind: 'tool', label: 'Получено', ok: true } }));
     expect(html).toContain('step-row__dot--ok');
-    expect(html).toContain('aria-label="успех"');
+    expect(html).toContain('aria-label="успешно"');
   });
 
   it('formats step duration and shows tool technical details', () => {
@@ -101,5 +101,19 @@ describe('AskSteps processing timeline', () => {
   it('pluralizes 1, 2, 4, 5, 11, 21, 22 and 25 correctly', () => {
     const form = (n: number) => pluralizeRu(n, 'шаг', 'шага', 'шагов');
     expect([1, 2, 4, 5, 11, 21, 22, 25].map(form)).toEqual(['шаг', 'шага', 'шага', 'шагов', 'шагов', 'шаг', 'шага', 'шагов']);
+  });
+});
+
+
+describe('AskSteps API payload labels', () => {
+  it('renders labels from kind and name without requiring a label field', () => {
+    const html = markup(createElement(StepRow, { step: { kind: 'llm', name: 'plan', ok: true, ms: 1200 } }));
+    expect(html).toContain('LLM: план');
+    expect(html).toContain('step-row__dot--ok');
+  });
+
+  it('shows the unsupported FOT scope badge', () => {
+    const html = markup(createElement(StepRow, { step: { kind: 'tool', name: 'find_deviations', detail: 'FOT_SCOPE_NOT_IMPLEMENTED' } }));
+    expect(html).toContain('не реализовано');
   });
 });

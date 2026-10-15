@@ -12,11 +12,21 @@ export interface StepRowProps {
   step: AskStep;
 }
 
+function stepLabel(step: AskStep): string {
+  switch (step.kind) {
+    case 'memory': return 'Память';
+    case 'docs': return 'Документы';
+    case 'tool': return step.name || step.label || 'Инструмент';
+    case 'llm': return `LLM: ${step.name === 'plan' ? 'план' : 'ответ'}`;
+  }
+}
+
 export function StepRow({ step }: StepRowProps) {
   const Icon = icons[step.kind];
-  const hasStatus = step.kind === 'tool' && step.ok !== undefined;
-  const statusClass = step.ok ? 'step-row__dot--ok' : 'step-row__dot--warn';
-  const statusLabel = step.ok ? 'успех' : 'предупреждение';
+  const hasStatus = step.ok !== undefined;
+  const statusClass = step.ok ? 'step-row__dot--ok' : 'step-row__dot--danger';
+  const statusLabel = step.ok ? 'успешно' : 'ошибка';
+  const unsupportedScope = step.detail?.includes('FOT_SCOPE_NOT_IMPLEMENTED') ?? false;
 
   return (
     <div className={`step-row step-row--${step.kind}`}>
@@ -28,8 +38,8 @@ export function StepRow({ step }: StepRowProps) {
       </div>
       <div className="step-row__body">
         <div className="step-row__label">
-          {step.label}
-          {step.kind === 'tool' && step.name && <span className="step-row__tech">{step.name}</span>}
+          {stepLabel(step)}
+          {unsupportedScope && <span className="step-row__badge">не реализовано</span>}
         </div>
         {step.detail && <div className="step-row__detail">{step.detail}</div>}
       </div>

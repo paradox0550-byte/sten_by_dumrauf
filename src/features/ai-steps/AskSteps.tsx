@@ -4,7 +4,7 @@ import { StepRow } from './StepRow';
 import './steps.css';
 
 export type AskStepKind = 'docs' | 'memory' | 'tool' | 'llm';
-export interface AskStep { kind: AskStepKind; label: string; detail?: string; ms?: number; name?: string; ok?: boolean; }
+export interface AskStep { kind: AskStepKind; label?: string; detail?: string; ms?: number; name?: string; ok?: boolean; }
 export interface AskStepsProps { steps?: AskStep[]; totalMs?: number; className?: string; }
 
 export function formatDuration(ms?: number): string {
@@ -22,7 +22,7 @@ export function pluralizeRu(n: number, one: string, few: string, many: string): 
 export function getStepsBodyClassName(count: number): string { return `ai-steps__body${count > 6 ? ' ai-steps__body--scroll' : ''}`; }
 
 export function AskSteps({ steps, totalMs, className }: AskStepsProps) {
-  const [open, setOpen] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches);
+  const [open, setOpen] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1280px)').matches);
   const bodyId = useId();
   if (!steps?.length) return null;
   const rootClass = ['ai-steps', className].filter(Boolean).join(' ');
@@ -41,7 +41,7 @@ export function AskSteps({ steps, totalMs, className }: AskStepsProps) {
         <ChevronRight size={17} aria-hidden="true" className={`chevron${open ? ' chevron--open' : ''}`} data-testid="ai-steps-chevron" />
       </button>
       {open && <div id={bodyId} className={getStepsBodyClassName(steps.length)} role="region" aria-label="Детали обработки">
-        {steps.map((step, index) => <div className="ai-steps__item" key={`${step.kind}-${step.name ?? step.label}-${index}`}>
+        {steps.map((step, index) => <div className="ai-steps__item" key={`${step.kind}-${step.name ?? step.label ?? index}-${index}`}>
           <span className="ai-steps__index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
           <StepRow step={step} />
         </div>)}
