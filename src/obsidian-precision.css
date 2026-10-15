@@ -1,48 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 /* STEN — Obsidian Precision. Loaded after legacy and executive layers. */
-html[data-theme='dark'] {
-  color-scheme: dark;
-  --bg-base: #080c14;
-  --bg-app: #080c14;
-  --bg-surface: #0f1422;
-  --bg-surface-subtle: #12192a;
-  --bg-subtle: #1a2236;
-  --skeleton-gradient: linear-gradient(90deg, #161d2e 0%, #202a40 100%);
-  --shadow-md: 0 24px 72px rgba(0,0,0,.24);
-  --bg-elevated: #161d2e;
-  --bg-inset: #0b1020;
-  --border-subtle: rgba(255,255,255,.08);
-  --border-strong: rgba(255,255,255,.15);
-  --text-primary: #ffffff;
-  --text-secondary: #b8c4dc;
-  --text-muted: #6b7899;
-  --text-tertiary: #b8c4dc;
-  --color-brand: #5b7cfa;
-  --color-brand-hover: #7892ff;
-  --color-brand-strong: #9aafff;
-  --color-accent: #00f0ff;
-  --color-success: #00e599;
-  --color-warning: #fbbf24;
-  --color-danger: #ff4d6d;
-  --color-success-bg: rgba(0,229,153,.11);
-  --color-warning-bg: rgba(251,191,36,.11);
-  --color-danger-bg: rgba(255,77,109,.12);
-  --success-bg: rgba(0,229,153,.11);
-  --warning-bg: rgba(251,191,36,.11);
-  --danger-bg: rgba(255,77,109,.12);
-  --info-bg: rgba(0,240,255,.09);
-  --neutral-bg: rgba(139,155,191,.1);
-  --ui-radius-sm: 6px;
-  --ui-radius-md: 10px;
-  --ui-radius-lg: 14px;
-  --ui-control-h: 40px;
-  --ui-section-gap: 16px;
-  --ui-page-gap: 14px;
-  --ui-shadow: 0 12px 30px rgba(0,0,0,.18);
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --focus: 0 0 0 2px rgba(0,240,255,.88);
-}
 
 html, body, #root { min-height: 100%; background: var(--bg-base); color: var(--text-primary); }
 body { font-family: 'Inter Variable', Inter, sans-serif; font-size: 14px; line-height: 1.4; }
@@ -465,21 +423,6 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 /* Authentication entry — Obsidian Precision */
 .unlock {
   /* Keep the authentication surface readable even when a saved app theme is light. */
-  --bg-base: #080c14;
-  --bg-surface: #0f1422;
-  --bg-elevated: #161d2e;
-  --bg-inset: #0b1020;
-  --border-subtle: rgba(255,255,255,.08);
-  --border-strong: rgba(255,255,255,.15);
-  --text-primary: #e6ecff;
-  --text-secondary: #8b9bbf;
-  --text-muted: #8291b5;
-  --color-brand: #5b7cfa;
-  --color-brand-hover: #7892ff;
-  --color-accent: #00f0ff;
-  --color-success: #00e599;
-  --color-danger: #ff4d6d;
-  --color-danger-bg: rgba(255,77,109,.12);
   position: relative;
   isolation: isolate;
   min-height: 100svh;
@@ -524,8 +467,8 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
   display: block;
   width: min(220px, 100%);
   height: auto;
-  --sten-ink: #e6ecff !important;
-  --sten-muted: #8b9bbf !important;
+  --sten-ink: var(--text-primary) !important;
+  --sten-muted: var(--text-muted) !important;
 }
 .auth-heading { margin-bottom: 26px; }
 .auth-eyebrow {
