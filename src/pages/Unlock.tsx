@@ -15,11 +15,7 @@ function LoginSpinner() {
 
 function messageFor(error: unknown, mode: Mode): string {
   if (error instanceof ApiError) {
-    if (error.status === 401) return mode === 'code' ? 'Неверный код' : 'Неверный email или пароль';
-    if (error.status === 409) return 'Пароль не установлен. Обратитесь к администратору';
-    if (error.status === 429) return 'Слишком много попыток. Повторите через 15 минут';
-    if (error.status === 503 || error.status >= 500) return 'Сервис временно недоступен. Повторите позже';
-    return error.message;
+    return error.message || (error.status === 401 ? (mode === 'code' ? 'Неверный код' : 'Неверный email или пароль') : 'Не удалось выполнить вход. Повторите попытку');
   }
   return 'Не удалось выполнить вход. Повторите попытку';
 }
@@ -53,7 +49,7 @@ export default function AuthSetup() {
     try {
       const result = await api.post<AuthResult>('/auth/unlock', { code });
       if (!result?.token) throw new Error('Сервер не вернул токен сессии');
-      localStorage.setItem('sten_token', result.token);
+      localStorage.setItem('token', result.token);
       if (result.user) localStorage.setItem('sten_user', JSON.stringify(result.user));
       setSuccess(true);
       await refresh();
