@@ -41,13 +41,13 @@
     --color-danger-bg: rgba(255, 77, 109, .12);
 
     /* Status backgrounds retained for legacy component selectors */
-    --success-bg: var(--bg-success);
+    --success: var(--color-success);\n    --warning: var(--color-warning);\n    --danger: var(--color-danger);\n    --info: #00f0ff;\n    --violet: #a78bfa;\n    --cyan: var(--color-accent);\n    --neutral: #9ca3af;\n    --success: var(--color-success);\n    --warning: var(--color-warning);\n    --danger: var(--color-danger);\n    --info: #3b82f6;\n    --violet: #a78bfa;\n    --cyan: #22d3ee;\n    --neutral: #9ca3af;\n    --success: var(--color-success);\n    --warning: var(--color-warning);\n    --danger: var(--color-danger);\n    --info: #2563eb;\n    --violet: #7c3aed;\n    --cyan: #0891b2;\n    --neutral: #6b7280;\n    --success-bg: var(--bg-success);
     --warning-bg: var(--bg-warning);
     --danger-bg: var(--bg-danger);
     --info-bg: rgba(0, 240, 255, .09);
     --violet-bg: rgba(167, 139, 250, .10);
     --cyan-bg: rgba(0, 240, 255, .09);
-    --neutral-bg: rgba(139, 155, 191, .10);
+    --neutral-bg: rgba(139, 155, 191, .10);\n    --info-bg: rgba(0, 240, 255, .09);\n    --violet-bg: rgba(167, 139, 250, .10);\n    --cyan-bg: rgba(0, 240, 255, .09);
 
     /* Borders and shadows */
     --border-subtle: rgba(255, 255, 255, .08);
