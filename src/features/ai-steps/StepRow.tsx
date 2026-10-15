@@ -40,6 +40,6 @@ export function StepRow({ step }: StepRowProps) {
 
 function formatStepDuration(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)} мс`;
-  if (ms < 60000) return `${new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(ms / 1000)} с`;
-  return `${Math.floor(ms / 60000)} мин `${Math.round((ms % 60000) / 1000)} с`;
+  if (ms < 60000) return `${new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(ms / 1000)} с`;
+  return `${Math.floor(ms / 60000)} мин ${Math.round((ms % 60000) / 1000)} с`;
 }
