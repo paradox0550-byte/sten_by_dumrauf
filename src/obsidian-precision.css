@@ -294,15 +294,15 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
   width: fit-content;
   max-width: 100%;
   padding: 4px 7px;
-  border: 1px solid rgba(255,77,109,.42);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 42%, transparent);
   border-radius: 6px;
-  background: rgba(255,77,109,.13);
+  background: var(--color-danger-bg);
   color: var(--color-danger) !important;
   font-weight: 600;
 }
-.flash-prime.critical { border-color: rgba(255,77,109,.42) !important; background: linear-gradient(120deg, rgba(255,77,109,.09), transparent 70%), var(--bg-surface) !important; }
-.flash-prime.attention { border-color: rgba(251,191,36,.35) !important; background: linear-gradient(120deg, rgba(251,191,36,.07), transparent 70%), var(--bg-surface) !important; }
-.flash-prime.normal { border-color: rgba(0,229,153,.28) !important; }
+.flash-prime.critical { border-color: color-mix(in srgb, var(--color-danger) 42%, transparent) !important; background: linear-gradient(120deg, color-mix(in srgb, var(--color-danger) 9%, transparent), transparent 70%), var(--bg-surface) !important; }
+.flash-prime.attention { border-color: color-mix(in srgb, var(--color-warning) 35%, transparent) !important; background: linear-gradient(120deg, color-mix(in srgb, var(--color-warning) 7%, transparent), transparent 70%), var(--bg-surface) !important; }
+.flash-prime.normal { border-color: color-mix(in srgb, var(--color-success) 28%, transparent) !important; }
 @media (max-width: 767px) {
   .pnl-row-ai-action { opacity: 1; }
 }
