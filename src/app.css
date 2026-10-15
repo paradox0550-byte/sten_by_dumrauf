@@ -6,67 +6,8 @@
    ============================================================================ */
 
 /* === Design Tokens === */
-:root {
-  font-family: 'Inter Variable', Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  
-  /* Warm neutral palette (no pure black, no cold blue) */
-  --bg: #FAFAF8;
-  --surface: #FFFFFF;
-  --surface2: #F3F2EE;
-  --text: #0B0A08;
-  --muted: #6F6B64;
-  --line: rgba(11, 10, 8, 0.11);
-  
-  /* Single accent: warm amber (hospitality warmth) */
-  --accent: #F59E0B;
-  --accent2: #D97706;
-  
-  /* Semantic colors */
-  --good: #10B981;
-  --danger: #EF4444;
-  --warning: #F59E0B;
-  
-  /* Shadows: minimal, no glow */
-  --shadow: 0 1px 0 rgba(11, 10, 8, 0.03);
-  --shadow-soft: 0 4px 12px rgba(11, 10, 8, 0.04);
-  
-  /* Borders: hairline only */
-  --hair: 1px solid var(--line);
-  
-  /* Radius: small, sharp (Linear/Vercel style) */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 10px;
-  --radius-xl: 14px;
-  
-  /* Focus ring */
-  --focus: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
-  
-  /* Spacing tokens (8pt grid) */
-  --s1: 8px;
-  --s2: 16px;
-  --s3: 24px;
-  --s4: 32px;
-  --s5: 40px;
-  --s6: 48px;
-}
 
 /* === Dark Theme === */
-:root[data-theme="dark"] {
-  --bg: #0B0A08;
-  --surface: #11100E;
-  --surface2: #181714;
-  --text: #FAFAF8;
-  --muted: #A8A39A;
-  --line: rgba(250, 250, 248, 0.12);
-  --accent: #F59E0B;
-  --accent2: #FBBF24;
-  --good: #34D399;
-  --danger: #F87171;
-  --warning: #FBBF24;
-  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03);
-  --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
 
 /* === Base Reset === */
 *, *::before, *::after {
@@ -3165,12 +3106,6 @@ h3, .h3 {
 }
 
 /* === Impeccable: Motion Tokens === */
-:root {
-  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
-  --duration-fast: 200ms;
-  --duration-normal: 300ms;
-}
 
 /* === Pegboard: Improved Focus States === */
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
@@ -3459,7 +3394,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   font-size: 10px;
 }
 .analytics-report-table .is-warn {
-  color: var(--warn, #d97706);
+  color: var(--warn, var(--color-warning));
 }
 .analytics-report-total {
   border-top: 1px solid var(--line);
@@ -3738,31 +3673,6 @@ body { font-size: 14px; }
 }
 
 /* === Расширенная палитра: смысловые цвета, не только gold === */
-:root {
-  --success: #16a34a;
-  --success-bg: rgba(22,163,74,0.10);
-  --warning: #d97706;
-  --warning-bg: rgba(217,119,6,0.10);
-  --danger: #dc2626;
-  --danger-bg: rgba(220,38,38,0.10);
-  --info: #2563eb;
-  --info-bg: rgba(37,99,235,0.10);
-  --violet: #7c3aed;
-  --violet-bg: rgba(124,58,237,0.10);
-  --cyan: #0891b2;
-  --cyan-bg: rgba(8,145,178,0.10);
-  --neutral: #6b7280;
-  --neutral-bg: rgba(107,114,128,0.10);
-}
-[data-theme='dark'] {
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --info: #3b82f6;
-  --violet: #a78bfa;
-  --cyan: #22d3ee;
-  --neutral: #9ca3af;
-}
 
 /* === Смысловое применение === */
 .pnl-message.ok    { color: var(--success); background: var(--success-bg); border-color: var(--success); }
@@ -4213,12 +4123,12 @@ select:-webkit-autofill {
 
 /* 3. Fallback для color-mix() в Safari < 16.2 и Firefox < 113 */
 @supports not (color: color-mix(in srgb, red, blue)) {
-  .pnl-message.ok { background: #f0fdf4; border-color: #16a34a; color: #14532d; }
-  .pnl-message.warn { background: #fef2f2; border-color: #dc2626; color: #7f1d1d; }
-  .pnl-message.error { background: #fef2f2; border-color: #dc2626; }
+  .pnl-message.ok { background: #f0fdf4; border-color: var(--color-success); color: #14532d; }
+  .pnl-message.warn { background: #fef2f2; border-color: var(--color-danger); color: #7f1d1d; }
+  .pnl-message.error { background: #fef2f2; border-color: var(--color-danger); }
   .prime-card { background: #fef9f3; }
   .flash-prime { background: #fef9f3; }
-  .import-result.warn { background: #fffbeb; border-color: #d97706; }
+  .import-result.warn { background: #fffbeb; border-color: var(--color-warning); }
   .metric-card:hover, .budget-kpi:hover { border-color: var(--accent); }
   .toggle-row input:not(:checked) + i { background: rgba(107,114,128,0.1); }
   .badge-info, .status-chip {

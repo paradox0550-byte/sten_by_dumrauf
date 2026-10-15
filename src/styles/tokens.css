@@ -1,0 +1,227 @@
+@layer tokens, legacy, components, overrides;
+
+/* STEN Obsidian Precision — the single source of theme and semantic tokens. */
+@layer tokens {
+  :root {
+    color-scheme: dark;
+
+    /* Surfaces */
+    --bg-base: #080c14;
+    --bg-app: #080c14;
+    --bg-surface: #0f1422;
+    --bg-surface-subtle: #12192a;
+    --bg-elevated: #161d2e;
+    --bg-inset: #0b1020;
+    --bg-subtle: #1a2236;
+    --bg-success: rgba(0, 229, 153, .11);
+    --bg-warning: rgba(251, 191, 36, .11);
+    --bg-danger: rgba(255, 77, 109, .12);
+
+    /* Text */
+    --text-primary: #ffffff;
+    --text-secondary: #b8c4dc;
+    --text-muted: #6b7899;
+    --text-tertiary: #b8c4dc;
+    --text-disabled: #8291b5;
+    --text-on-accent: #ffffff;
+
+    /* Brand and status colors */
+    --color-brand: #5b7cfa;
+    --color-brand-hover: #7892ff;
+    --color-brand-strong: #9aafff;
+    --color-brand-glow: rgba(91, 124, 250, .35);
+    --color-accent: #00f0ff;
+    --color-success: #00e599;
+    --color-warning: #fbbf24;
+    --color-danger: #ff4d6d;
+    --color-success-bg: rgba(0, 229, 153, .11);
+    --color-warning-bg: rgba(251, 191, 36, .11);
+    --color-danger-bg: rgba(255, 77, 109, .12);
+
+    /* Compatibility aliases used by legacy components */
+    --bg: var(--bg-app);
+    --surface: var(--bg-surface);
+    --surface2: var(--bg-surface-subtle);
+    --text: var(--text-primary);
+    --muted: var(--text-secondary);
+    --line: var(--border-subtle);
+    --accent: var(--color-brand);
+    --accent2: var(--color-brand-hover);
+    --good: var(--color-success);
+    --danger: var(--color-danger);
+    --warning: var(--color-warning);
+    --hair: 1px solid var(--border-subtle);
+    --success: var(--color-success);
+    --success-bg: var(--bg-success);
+    --warning-bg: var(--bg-warning);
+    --danger-bg: var(--bg-danger);
+    --info: #22d3ee;
+    --info-bg: rgba(0, 240, 255, .09);
+    --violet: #a78bfa;
+    --violet-bg: rgba(167, 139, 250, .10);
+    --cyan: var(--color-accent);
+    --cyan-bg: rgba(0, 240, 255, .09);
+    --neutral: #9ca3af;
+    --neutral-bg: rgba(139, 155, 191, .10);
+
+    /* Borders and shadows */
+    --border-subtle: rgba(255, 255, 255, .08);
+    --border-default: rgba(255, 255, 255, .11);
+    --border-strong: rgba(255, 255, 255, .15);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .18);
+    --shadow-md: 0 24px 72px rgba(0, 0, 0, .24);
+    --shadow-lg: 0 16px 44px rgba(0, 0, 0, .40);
+    --ui-shadow: 0 12px 30px rgba(0, 0, 0, .18);
+    --focus: 0 0 0 2px rgba(0, 240, 255, .88);
+
+    /* Loading, geometry and sizing */
+    --skeleton-gradient: linear-gradient(90deg, #161d2e 0%, #202a40 100%);
+    --skeleton-base: #161d2e;
+    --skeleton-shine: #202a40;
+    --ui-radius-sm: 6px;
+    --ui-radius-md: 10px;
+    --ui-radius-lg: 14px;
+    --ui-control-h: 40px;
+    --ui-section-gap: 16px;
+    --ui-page-gap: 14px;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .18);
+    --shadow-soft: 0 4px 12px rgba(0, 0, 0, .20);
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 16px;
+  }
+
+  html[data-theme='dark'],
+  [data-theme='dark'] {
+    color-scheme: dark;
+    --bg-base: #080c14;
+    --bg-app: #080c14;
+    --bg-surface: #0f1422;
+    --bg-surface-subtle: #12192a;
+    --bg-elevated: #161d2e;
+    --bg-inset: #0b1020;
+    --bg-subtle: #1a2236;
+    --bg-success: rgba(0, 229, 153, .11);
+    --bg-warning: rgba(251, 191, 36, .11);
+    --bg-danger: rgba(255, 77, 109, .12);
+    --text-primary: #ffffff;
+    --text-secondary: #b8c4dc;
+    --text-muted: #6b7899;
+    --text-tertiary: #b8c4dc;
+    --text-disabled: #8291b5;
+    --text-on-accent: #ffffff;
+    --color-brand: #5b7cfa;
+    --color-brand-hover: #7892ff;
+    --color-brand-strong: #9aafff;
+    --color-brand-glow: rgba(91, 124, 250, .35);
+    --color-accent: #00f0ff;
+    --color-success: #00e599;
+    --color-warning: #fbbf24;
+    --color-danger: #ff4d6d;
+    --color-success-bg: rgba(0, 229, 153, .11);
+    --color-warning-bg: rgba(251, 191, 36, .11);
+    --color-danger-bg: rgba(255, 77, 109, .12);
+    --border-subtle: rgba(255, 255, 255, .08);
+    --border-default: rgba(255, 255, 255, .11);
+    --border-strong: rgba(255, 255, 255, .15);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .18);
+    --shadow-md: 0 24px 72px rgba(0, 0, 0, .24);
+    --shadow-lg: 0 16px 44px rgba(0, 0, 0, .40);
+    --ui-shadow: 0 12px 30px rgba(0, 0, 0, .18);
+    --focus: 0 0 0 3px var(--color-brand-glow);
+    --skeleton-gradient: linear-gradient(90deg, #161d2e 0%, #202a40 100%);
+    --skeleton-base: #161d2e;
+    --skeleton-shine: #202a40;
+    --bg: var(--bg-app);
+    --surface: var(--bg-surface);
+    --surface2: var(--bg-surface-subtle);
+    --text: var(--text-primary);
+    --muted: var(--text-secondary);
+    --line: var(--border-subtle);
+    --accent: var(--color-brand);
+    --accent2: var(--color-brand-hover);
+    --good: var(--color-success);
+    --danger: var(--color-danger);
+    --warning: var(--color-warning);
+    --success: var(--color-success);
+    --success-bg: var(--bg-success);
+    --warning-bg: var(--bg-warning);
+    --danger-bg: var(--bg-danger);
+    --info: #22d3ee;
+    --info-bg: rgba(0, 240, 255, .09);
+    --violet: #a78bfa;
+    --violet-bg: rgba(167, 139, 250, .10);
+    --cyan: var(--color-accent);
+    --cyan-bg: rgba(0, 240, 255, .09);
+    --neutral: #9ca3af;
+    --neutral-bg: rgba(139, 155, 191, .10);
+  }
+
+  html[data-theme='light'],
+  [data-theme='light'] {
+    color-scheme: light;
+    --bg-base: #f6f8fc;
+    --bg-app: #f6f8fc;
+    --bg-surface: #ffffff;
+    --bg-surface-subtle: #edf1f8;
+    --bg-elevated: #edf1f8;
+    --bg-inset: #ffffff;
+    --bg-subtle: #e8ecf5;
+    --bg-success: rgba(4, 120, 87, .10);
+    --bg-warning: rgba(180, 83, 9, .10);
+    --bg-danger: rgba(185, 28, 28, .10);
+    --text-primary: #0b1220;
+    --text-secondary: #33415c;
+    --text-muted: #64748b;
+    --text-tertiary: #64748b;
+    --text-disabled: #94a3b8;
+    --text-on-accent: #ffffff;
+    --color-brand: #3b5bdb;
+    --color-brand-hover: #304ec2;
+    --color-brand-strong: #304ec2;
+    --color-brand-glow: rgba(59, 91, 219, .35);
+    --color-accent: #0e7490;
+    --color-success: #047857;
+    --color-warning: #b45309;
+    --color-danger: #b91c1c;
+    --color-success-bg: rgba(4, 120, 87, .10);
+    --color-warning-bg: rgba(180, 83, 9, .10);
+    --color-danger-bg: rgba(185, 28, 28, .10);
+    --border-subtle: rgba(15, 23, 42, .08);
+    --border-default: rgba(15, 23, 42, .12);
+    --border-strong: rgba(15, 23, 42, .20);
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, .06);
+    --shadow-md: 0 4px 12px rgba(15, 23, 42, .08);
+    --shadow-lg: 0 12px 32px rgba(15, 23, 42, .12);
+    --ui-shadow: var(--shadow-sm);
+    --focus: 0 0 0 3px var(--color-brand-glow);
+    --skeleton-gradient: linear-gradient(90deg, #e2e8f0 0%, #f1f5f9 100%);
+    --skeleton-base: #e2e8f0;
+    --skeleton-shine: #f1f5f9;
+    --bg: var(--bg-app);
+    --surface: var(--bg-surface);
+    --surface2: var(--bg-surface-subtle);
+    --text: var(--text-primary);
+    --muted: var(--text-secondary);
+    --line: var(--border-subtle);
+    --accent: var(--color-brand);
+    --accent2: var(--color-brand-hover);
+    --good: var(--color-success);
+    --danger: var(--color-danger);
+    --warning: var(--color-warning);
+    --success: var(--color-success);
+    --success-bg: var(--bg-success);
+    --warning-bg: var(--bg-warning);
+    --danger-bg: var(--bg-danger);
+    --info: #2563eb;
+    --info-bg: rgba(59, 91, 219, .10);
+    --violet: #7c3aed;
+    --violet-bg: rgba(124, 58, 237, .10);
+    --cyan: #0891b2;
+    --cyan-bg: rgba(8, 145, 178, .10);
+    --neutral: #6b7280;
+    --neutral-bg: rgba(100, 116, 139, .10);
+  }
+}

@@ -1,48 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 /* STEN — Obsidian Precision. Loaded after legacy and executive layers. */
-html[data-theme='dark'] {
-  color-scheme: dark;
-  --bg-base: #080c14;
-  --bg-app: #080c14;
-  --bg-surface: #0f1422;
-  --bg-surface-subtle: #12192a;
-  --bg-subtle: #1a2236;
-  --skeleton-gradient: linear-gradient(90deg, #161d2e 0%, #202a40 100%);
-  --shadow-md: 0 24px 72px rgba(0,0,0,.24);
-  --bg-elevated: #161d2e;
-  --bg-inset: #0b1020;
-  --border-subtle: rgba(255,255,255,.08);
-  --border-strong: rgba(255,255,255,.15);
-  --text-primary: #ffffff;
-  --text-secondary: #b8c4dc;
-  --text-muted: #6b7899;
-  --text-tertiary: #b8c4dc;
-  --color-brand: #5b7cfa;
-  --color-brand-hover: #7892ff;
-  --color-brand-strong: #9aafff;
-  --color-accent: #00f0ff;
-  --color-success: #00e599;
-  --color-warning: #fbbf24;
-  --color-danger: #ff4d6d;
-  --color-success-bg: rgba(0,229,153,.11);
-  --color-warning-bg: rgba(251,191,36,.11);
-  --color-danger-bg: rgba(255,77,109,.12);
-  --success-bg: rgba(0,229,153,.11);
-  --warning-bg: rgba(251,191,36,.11);
-  --danger-bg: rgba(255,77,109,.12);
-  --info-bg: rgba(0,240,255,.09);
-  --neutral-bg: rgba(139,155,191,.1);
-  --ui-radius-sm: 6px;
-  --ui-radius-md: 10px;
-  --ui-radius-lg: 14px;
-  --ui-control-h: 40px;
-  --ui-section-gap: 16px;
-  --ui-page-gap: 14px;
-  --ui-shadow: 0 12px 30px rgba(0,0,0,.18);
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --focus: 0 0 0 2px rgba(0,240,255,.88);
-}
 
 html, body, #root { min-height: 100%; background: var(--bg-base); color: var(--text-primary); }
 body { font-family: 'Inter Variable', Inter, sans-serif; font-size: 14px; line-height: 1.4; }
@@ -336,15 +294,15 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
   width: fit-content;
   max-width: 100%;
   padding: 4px 7px;
-  border: 1px solid rgba(255,77,109,.42);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 42%, transparent);
   border-radius: 6px;
-  background: rgba(255,77,109,.13);
+  background: var(--color-danger-bg);
   color: var(--color-danger) !important;
   font-weight: 600;
 }
-.flash-prime.critical { border-color: rgba(255,77,109,.42) !important; background: linear-gradient(120deg, rgba(255,77,109,.09), transparent 70%), var(--bg-surface) !important; }
-.flash-prime.attention { border-color: rgba(251,191,36,.35) !important; background: linear-gradient(120deg, rgba(251,191,36,.07), transparent 70%), var(--bg-surface) !important; }
-.flash-prime.normal { border-color: rgba(0,229,153,.28) !important; }
+.flash-prime.critical { border-color: color-mix(in srgb, var(--color-danger) 42%, transparent) !important; background: linear-gradient(120deg, color-mix(in srgb, var(--color-danger) 9%, transparent), transparent 70%), var(--bg-surface) !important; }
+.flash-prime.attention { border-color: color-mix(in srgb, var(--color-warning) 35%, transparent) !important; background: linear-gradient(120deg, color-mix(in srgb, var(--color-warning) 7%, transparent), transparent 70%), var(--bg-surface) !important; }
+.flash-prime.normal { border-color: color-mix(in srgb, var(--color-success) 28%, transparent) !important; }
 @media (max-width: 767px) {
   .pnl-row-ai-action { opacity: 1; }
 }
@@ -465,21 +423,6 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 /* Authentication entry — Obsidian Precision */
 .unlock {
   /* Keep the authentication surface readable even when a saved app theme is light. */
-  --bg-base: #080c14;
-  --bg-surface: #0f1422;
-  --bg-elevated: #161d2e;
-  --bg-inset: #0b1020;
-  --border-subtle: rgba(255,255,255,.08);
-  --border-strong: rgba(255,255,255,.15);
-  --text-primary: #e6ecff;
-  --text-secondary: #8b9bbf;
-  --text-muted: #8291b5;
-  --color-brand: #5b7cfa;
-  --color-brand-hover: #7892ff;
-  --color-accent: #00f0ff;
-  --color-success: #00e599;
-  --color-danger: #ff4d6d;
-  --color-danger-bg: rgba(255,77,109,.12);
   position: relative;
   isolation: isolate;
   min-height: 100svh;
@@ -524,8 +467,8 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
   display: block;
   width: min(220px, 100%);
   height: auto;
-  --sten-ink: #e6ecff !important;
-  --sten-muted: #8b9bbf !important;
+  --sten-ink: var(--text-primary) !important;
+  --sten-muted: var(--text-muted) !important;
 }
 .auth-heading { margin-bottom: 26px; }
 .auth-eyebrow {
@@ -533,7 +476,7 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
   align-items: center;
   gap: 8px;
   margin-bottom: 10px;
-  color: #9aafff;
+  color: var(--color-brand-strong);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: .12em;
@@ -705,50 +648,6 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 
 /* Light-theme surface and state corrections. These overrides are deliberately
    scoped to light mode; the existing dark palette and dark component styles stay intact. */
-:root[data-theme='light'],
-html[data-theme='light'] {
-  color-scheme: light;
-  --bg-base: #f6f8fc;
-  --bg-app: #f6f8fc;
-  --bg-surface: #ffffff;
-  --bg-surface-subtle: #edf1f8;
-  --bg-subtle: #e8ecf5;
-  --skeleton-gradient: linear-gradient(90deg, #e2e8f0 0%, #f1f5f9 100%);
-  --bg-elevated: #edf1f8;
-  --bg-inset: #ffffff;
-  --border-subtle: rgba(15, 23, 42, 0.08);
-  --border-strong: rgba(15, 23, 42, 0.20);
-  --text-primary: #0b1220;
-  --text-secondary: #33415c;
-  --text-muted: #64748b;
-  --text-tertiary: #64748b;
-  --color-brand: #3b5bdb;
-  --color-brand-hover: #304ec2;
-  --color-brand-strong: #304ec2;
-  --color-accent: #0e7490;
-  --color-success: #047857;
-  --color-warning: #b45309;
-  --color-danger: #b91c1c;
-  --color-success-bg: rgba(4, 120, 87, 0.10);
-  --color-warning-bg: rgba(180, 83, 9, 0.10);
-  --color-danger-bg: rgba(185, 28, 28, 0.10);
-  --success-bg: rgba(4, 120, 87, 0.10);
-  --warning-bg: rgba(180, 83, 9, 0.10);
-  --danger-bg: rgba(185, 28, 28, 0.10);
-  --info-bg: rgba(59, 91, 219, 0.10);
-  --neutral-bg: rgba(100, 116, 139, 0.10);
-  --color-brand-glow: rgba(59, 91, 219, 0.35);
-  --focus: 0 0 0 3px var(--color-brand-glow);
-  --skeleton-base: #e2e8f0;
-  --skeleton-shine: #f1f5f9;
-  --ui-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-
-  /* Explicit light-mode values for legacy components; keep old definitions intact. */
-  --bg: var(--bg-app);
-  --surface: var(--bg-surface);
-  --text: var(--text-primary);
-  --accent: var(--color-brand);
-}
 
 /* Replace dark-only-looking hardcoded surfaces/status text in light mode. */
 html[data-theme='light'] .secondary-button,
