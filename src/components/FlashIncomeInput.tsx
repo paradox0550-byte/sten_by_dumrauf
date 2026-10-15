@@ -57,6 +57,7 @@ export default function FlashIncomeInput({ period, scope, onSaved }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const effectiveDate = parsed?.date ?? selectedDate;
@@ -70,6 +71,7 @@ export default function FlashIncomeInput({ period, scope, onSaved }: Props) {
     setSelectedRestaurant(scope.restaurantId ?? '');
     setRestaurants([]);
     setError(null);
+    setParseError(null);
     setToast(null);
   };
 
@@ -78,21 +80,33 @@ export default function FlashIncomeInput({ period, scope, onSaved }: Props) {
     if (!value) return;
     setIsLoading(true);
     setError(null);
+    setParseError(null);
+    setParsed(null);
     setToast(null);
     try {
-      const response = await api.post<IngestMessageResponse>('/api/ingest/message', { text: value, source: 'manual' });
-      setParsed(response.parsed);
-      setSelectedDate(response.parsed.date ?? '');
+      const response = await api.post<Omit<IngestMessageResponse, 'parsed'> & { parsed: ParsedMessage | null; parseError?: string | null }>('/api/ingest/message', { text: value, source: 'manual' });
+      if (!response.parsed) {
+        setParsed(null);
+        setSelectedDate('');
+        setParseError(response.parseError
+          ? `Не удалось распознать: ${response.parseError}`
+          : 'Не удалось распознать отчёт. Проверьте текст и попробуйте снова.');
+        return;
+      }
+      const parsedResponse = response.parsed;
+      setParseError(null);
+      setParsed(parsedResponse);
+      setSelectedDate(parsedResponse.date ?? '');
       if (response.context?.restaurant_id) {
         setSelectedRestaurant(response.context.restaurant_id);
       }
-      if (!response.parsed.date) setSelectedDate('');
+      if (!parsedResponse.date) setSelectedDate('');
       if (!scope.restaurantId) {
         const context = await api.get<unknown>('/api/b2b/context');
         const available = extractRestaurants(context);
         setRestaurants(available);
-        if (!response.context?.restaurant_id && response.parsed.restaurant) {
-          const match = available.find(item => item.name.toLowerCase() === response.parsed.restaurant?.toLowerCase());
+        if (!response.context?.restaurant_id && parsedResponse.restaurant) {
+          const match = available.find(item => item.name.toLowerCase() === parsedResponse.restaurant?.toLowerCase());
           if (match) setSelectedRestaurant(match.id);
         }
       }
@@ -154,6 +168,7 @@ export default function FlashIncomeInput({ period, scope, onSaved }: Props) {
         onChange={event => {
           setText(event.target.value);
           setError(null);
+          setParseError(null);
           setToast(null);
         }}
       />
@@ -166,6 +181,7 @@ export default function FlashIncomeInput({ period, scope, onSaved }: Props) {
         </button>
       </div>
 
+      {parseError && <div className="flash-income-input__error" role="alert">{parseError}</div>}
       {error && <div className="flash-income-input__error" role="alert">{error}</div>}
       {parsed && (
         <div className="flash-income-preview" aria-live="polite">
