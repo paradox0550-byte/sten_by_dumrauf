@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Clock3, Workflow } from 'lucide-react';
 import { StepRow } from './StepRow';
 import './steps.css';
 
@@ -22,9 +22,9 @@ export interface AskStepsProps {
 
 export function formatDuration(ms?: number): string {
   if (ms === undefined) return '—';
-  if (ms < 1000) return `${ms} ms`;
-  if (ms < 60000) return `${Math.round(ms / 1000)} s`;
-  return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`;
+  if (ms < 1000) return `${ms} мс`;
+  if (ms < 60000) return `${Math.round(ms / 1000 * 10) / 10} с`;
+  return `${Math.floor(ms / 60000)} мин ${Math.round((ms % 60000) / 1000)} с`;
 }
 
 export function pluralizeRu(n: number, one: string, few: string, many: string): string {
@@ -46,10 +46,10 @@ export function AskSteps({ steps, totalMs, className }: AskStepsProps) {
   if (!steps?.length) return null;
 
   const rootClass = ['ai-steps', className].filter(Boolean).join(' ');
-  const durationLabel = totalMs === undefined ? 'Обработка завершена' : `Обработка заняла ${formatDuration(totalMs)}`;
+  const durationLabel = totalMs === undefined ? 'Обработка завершена' : formatDuration(totalMs);
 
   return (
-    <section className={rootClass}>
+    <section className={rootClass} aria-label="Ход обработки запроса">
       <button
         type="button"
         className="ai-steps__header"
@@ -57,18 +57,28 @@ export function AskSteps({ steps, totalMs, className }: AskStepsProps) {
         aria-controls={bodyId}
         onClick={() => setOpen((value) => !value)}
       >
+        <span className="ai-steps__mark" aria-hidden="true"><Workflow size={17} /></span>
+        <span className="ai-steps__heading">
+          <strong>Как обработан запрос</strong>
+          <span className="ai-steps__summary">
+            <span><CheckCircle2 size={13} aria-hidden="true" /> {steps.length} {pluralizeRu(steps.length, 'шаг', 'шага', 'шагов')}</span>
+            <span><Clock3 size={13} aria-hidden="true" /> {durationLabel}</span>
+          </span>
+        </span>
         <ChevronRight
-          size={14}
+          size={17}
           aria-hidden="true"
           className={`chevron${open ? ' chevron--open' : ''}`}
           data-testid="ai-steps-chevron"
         />
-        <span>{durationLabel} · {steps.length} {pluralizeRu(steps.length, 'шаг', 'шага', 'шагов')}</span>
       </button>
       {open && (
-        <div id={bodyId} className={getStepsBodyClassName(steps.length)} role="region" aria-label="Ход обработки">
+        <div id={bodyId} className={getStepsBodyClassName(steps.length)} role="region" aria-label="Детали обработки">
           {steps.map((step, index) => (
-            <StepRow key={`${step.kind}-${step.name ?? step.label}-${index}`} step={step} />
+            <div className="ai-steps__item" key={`${step.kind}-${step.name ?? step.label}-${index}`}>
+              <span className="ai-steps__index">{String(index + 1).padStart(2, '0')}</span>
+              <StepRow step={step} />
+            </div>
           ))}
         </div>
       )}
