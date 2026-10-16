@@ -276,11 +276,22 @@ function AIContent({user}:{user:User|null}){
 
        <div className="chat-body" role="log" aria-live="polite" aria-label="История чата со STEN">
          <ChatBackground kind={settings.background}/>
-         {!messages.length?<div className="welcome">
-           <div className="welcome-mark"><Bot size={28}/></div>
-           <h2>Чем помочь?</h2>
-           <p>Спросите про P&amp;L, ФОТ или ситуацию в смене.</p>
-           <div className="starter-grid">{starters.map(s=><button key={s} onClick={()=>void ask(s)}>{s}</button>)}</div>
+         {!messages.length?<div className="welcome sten-ai-welcome">
+           <div className="sten-ai-welcome__eyebrow"><span className="sten-ai-welcome__pulse"/><Sparkles size={13}/> ИНТЕЛЛЕКТУАЛЬНЫЙ РАБОЧИЙ КОНТУР</div>
+           <div className="sten-ai-welcome__hero">
+             <div className="welcome-mark"><Bot size={27}/></div>
+             <h2>Давайте разберёмся,<br/><span>что происходит в бизнесе.</span></h2>
+             <p>STEN AI помогает увидеть причины отклонений, расставить приоритеты и превратить данные в конкретные действия. Без выдуманных цифр — только доступный контекст и проверяемые выводы.</p>
+           </div>
+           <div className="sten-ai-welcome__context">
+             <div className="sten-ai-welcome__context-item"><span className="sten-ai-welcome__context-icon"><Database size={16}/></span><span><b>Рабочий контур</b><small>{hasScopeId(scope)?'Выбранная область данных':'Не выбран — точность анализа ограничена'}</small></span></div>
+             <div className="sten-ai-welcome__context-item"><span className="sten-ai-welcome__context-icon"><FileText size={16}/></span><span><b>Документы</b><small>{docs.length?`${readyCount} из ${docs.length} готовы к работе`:'Нет загруженных документов'}</small></span></div>
+           </div>
+           <div className="sten-ai-welcome__section-head"><div><span>БЫСТРЫЙ СТАРТ</span><h3>С чего начнём?</h3></div><p>Выберите задачу или напишите свой вопрос ниже.</p></div>
+           <div className="starter-grid">{starters.map((item,index)=><button className="sten-ai-starter" key={item.title} onClick={()=>void ask(item.prompt)}>
+             <span className="sten-ai-starter__top"><span>{item.eyebrow}</span><span className="sten-ai-starter__number">0{index+1}</span></span>
+             <b>{item.title}</b><small>{item.description}</small><span className="sten-ai-starter__arrow" aria-hidden="true">↗</span>
+           </button>)}</div>
          </div>:messages.map((m,i)=>{
            const message:ChatMessage={
              id:m.id,
