@@ -2397,7 +2397,9 @@ app.post('/ask', requireAuth, async (req, res, next) => {
         });
       }
     }
-    if (completion.toolCalls.length) {
+    let toolIterations = 0;
+    const maxToolIterations = 10;
+    while (completion.toolCalls.length && toolIterations < maxToolIterations) {
       const assistantToolCalls = completion.toolCalls.map(call => {
         const fc = call?.functionCall || call?.function_call;
         return { functionCall: { name: String(fc?.name || ''), arguments: fc?.arguments ?? {} } };
@@ -2441,9 +2443,10 @@ app.post('/ask', requireAuth, async (req, res, next) => {
         detail: String(ENV.YANDEXGPT_MODEL || 'yandexgpt').slice(0, 120),
         ms: Math.round(Date.now() - finalLlmStarted),
       });
-      if (completion.toolCalls.length) {
-        throw httpError(409, 'STEN достиг лимита одного шага tools. Повторный вызов инструмента запрещён.', 'TOOL_ITERATION_LIMIT');
-      }
+      toolIterations += 1;
+    }
+    if (completion.toolCalls.length) {
+      throw httpError(409, `STEN достиг лимита ${maxToolIterations} последовательных итераций tools. Уточни запрос или сократи объём данных.`, 'TOOL_ITERATION_LIMIT');
     }
 
     const parsedAnswer = parseProposedMemory(completion.text);
