@@ -68,6 +68,8 @@ function AIContent({user}:{user:User|null}){
  const[dragOver,setDragOver]=useState(false);
  const file=useRef<HTMLInputElement>(null);
  const recog=useRef<any>(null);
+ const chatBodyRef=useRef<HTMLDivElement>(null);
+ const shouldAutoScrollRef=useRef(true);
 
  useEffect(()=>{
    if(!key)return;
@@ -89,6 +91,16 @@ function AIContent({user}:{user:User|null}){
    el.style.height=Math.min(el.scrollHeight,120)+'px';
  },[prompt]);
 
+ useEffect(()=>{
+   const element=chatBodyRef.current;
+   if(!element||!shouldAutoScrollRef.current)return;
+   const frame=window.requestAnimationFrame(()=>{
+     const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+     element.scrollTo({top:element.scrollHeight,behavior:reduced?'auto':'smooth'});
+   });
+   return()=>window.cancelAnimationFrame(frame);
+ },[messages,busy]);
+
  const load=async()=>{
    const seq=++loadSeqRef.current;
    try{
@@ -108,6 +120,7 @@ function AIContent({user}:{user:User|null}){
    if(!text||busy)return;
    setPrompt('');
    const nextMsgs=[...messages,{id:crypto.randomUUID(),role:'user' as const,text,createdAt:new Date().toISOString()}];
+   shouldAutoScrollRef.current=true;
    setMessages(nextMsgs);
    setBusy(true);
    try{
@@ -274,7 +287,7 @@ function AIContent({user}:{user:User|null}){
        </div>
        {appearanceOpen&&<AppearanceDrawer onClose={()=>setAppearanceOpen(false)}/>}
 
-       <div className="chat-body" role="log" aria-live="polite" aria-label="История чата со STEN">
+       <div ref={chatBodyRef} className="chat-body" role="log" aria-live="polite" aria-label="История чата со STEN" onScroll={()=>{const element=chatBodyRef.current;if(element)shouldAutoScrollRef.current=element.scrollHeight-element.scrollTop-element.clientHeight<120;}}>
          <ChatBackground kind={settings.background}/>
          {!messages.length?<div className="welcome sten-ai-welcome">
            <div className="sten-ai-welcome__eyebrow"><span className="sten-ai-welcome__pulse"/><Sparkles size={13}/> ИНТЕЛЛЕКТУАЛЬНЫЙ РАБОЧИЙ КОНТУР</div>
