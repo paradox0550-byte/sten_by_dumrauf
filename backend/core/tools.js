@@ -55,7 +55,7 @@ const salesSchema = z.object({
 }).strict();
 
 const documentsSchema = z.object({
-  limit: z.number().int().min(1).max(30).optional().default(10),
+  limit: z.number().int().min(1).max(200).optional().default(30),
   status: z.enum(['ready','all','stored','processing','failed']).optional().default('ready'),
 }).strict();
 
@@ -342,14 +342,22 @@ async function getDocuments(user, rawArgs, ctx) {
     [user.organizationId, args.status, args.limit],
     { orgId: user.organizationId }
   );
+  const documents = (result.rows || []).map(row => ({
+    id: row.id,
+    name: row.name,
+    status: row.status,
+    chars: Number(row.chars || 0),
+    createdAt: row.created_at,
+    preview: row.preview || '',
+  }));
   return {
-    documents: (result.rows || []).map(row => ({
-      id: row.id,
-      name: row.name,
-      chars: Number(row.chars || 0),
-      createdAt: row.created_at,
-      preview: row.preview || '',
-    })),
+    documents,
+    returned: documents.length,
+    limit: args.limit,
+    may_be_truncated: documents.length === args.limit,
+    note: documents.length === args.limit
+      ? 'Достигнут лимит выдачи; если нужен полный инвентарь, повтори запрос с большим limit (до 200).'
+      : undefined,
   };
 }
 
@@ -498,7 +506,7 @@ const TOOLS = [
   {
     name: 'get_documents',
     description: 'Перечислить реальные документы текущей организации. Для полного списка передай status=all; ничего не выдумывает.',
-    parameters: { type:'object', properties:{ limit:{type:'integer',minimum:1,maximum:30,default:10}, status:{type:'string',enum:['ready','all','stored','processing','failed'],default:'ready'} }, required:[] },
+    parameters: { type:'object', properties:{ limit:{type:'integer',minimum:1,maximum:200,default:30}, status:{type:'string',enum:['ready','all','stored','processing','failed'],default:'ready'} }, required:[] },
     policy: ['requireAuth','requireOrg'],
     handler: getDocuments,
   },
