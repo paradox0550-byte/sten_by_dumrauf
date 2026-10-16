@@ -18,7 +18,7 @@ test('all response modes receive execution-first and document-source rules', () 
     assert.match(prompt, /search_documents/u);
     assert.match(prompt, /get_documents со status=all/u);
     assert.match(prompt, /Не выдумывай координаты ячеек/u);
-    assert.match(prompt, /назови их/u);
+    assert.match(prompt, /называй их/u);
   }
 });
 
