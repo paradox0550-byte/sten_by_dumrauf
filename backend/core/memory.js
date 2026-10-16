@@ -25,7 +25,7 @@ const ListSchema = z.object({
   kind: z.enum(MEMORY_KINDS).optional(),
   restaurant_id: z.string().uuid().optional(),
   since: z.string().refine(value => !Number.isNaN(Date.parse(value)), 'since должен быть ISO date').optional(),
-  limit: z.coerce.number().int().min(1).max(50).default(20),
+  limit: z.coerce.number().int().min(1).max(200).default(20),
   confidence: z.enum(MEMORY_CONFIDENCE).default('confirmed'),
 }).strict();
 
