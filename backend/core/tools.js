@@ -56,7 +56,12 @@ const salesSchema = z.object({
 
 const documentsSchema = z.object({
   limit: z.number().int().min(1).max(30).optional().default(10),
-  status: z.string().trim().min(1).max(60).optional().default('ready'),
+  status: z.enum(['ready','all','stored','processing','failed']).optional().default('ready'),
+}).strict();
+
+const documentSearchSchema = z.object({
+  query: z.string().trim().min(2).max(200),
+  limit: z.number().int().min(1).max(10).optional().default(5),
 }).strict();
 
 const memorySchema = z.object({
@@ -332,7 +337,7 @@ async function getDocuments(user, rawArgs, ctx) {
     `SELECT id, name, status, created_at, length(extracted_text) AS chars,
             LEFT(COALESCE(extracted_text,''), 1500) AS preview
        FROM ai_documents
-      WHERE organization_id=$1::uuid AND status=$2
+      WHERE organization_id=$1::uuid AND ($2='all' OR status=$2)
       ORDER BY created_at DESC LIMIT $3`,
     [user.organizationId, args.status, args.limit],
     { orgId: user.organizationId }
@@ -345,6 +350,87 @@ async function getDocuments(user, rawArgs, ctx) {
       createdAt: row.created_at,
       preview: row.preview || '',
     })),
+  };
+}
+
+async function searchDocuments(user, rawArgs, ctx) {
+  const args = parseArgs(documentSearchSchema, rawArgs);
+  if (!UUID_RE.test(String(user.organizationId || ''))) {
+    throw httpError(403, 'Организация не назначена пользователю.', 'NO_ORG_SCOPE');
+  }
+
+  // Search is organization-bound. Split natural-language requests into useful
+  // terms so a question such as "мотивация управляющего" still finds a workbook
+  // whose cells do not contain that exact phrase.
+  const terms = [...new Set(
+    args.query.normalize('NFC').toLocaleLowerCase('ru-RU')
+      .match(/[a-zа-яё0-9]{2,}/giu) || []
+  )].slice(0, 8);
+  if (!terms.length) {
+    throw httpError(400, 'Укажите минимум одно слово для поиска.', 'DOCUMENT_QUERY_EMPTY');
+  }
+
+  const predicates = terms.map((_, index) =>
+    `position(lower(${index + 3}) in lower(COALESCE(extracted_text, ''))) > 0`
+  );
+  const params = [user.organizationId, args.limit, ...terms];
+  const result = await ctx.queryWithRetry(
+    `SELECT id, name, created_at, extracted_text, extraction_json
+       FROM ai_documents
+      WHERE organization_id=$1::uuid
+        AND status='ready'
+        AND COALESCE(extracted_text, '') <> ''
+        AND (${predicates.join(' OR ')})
+      ORDER BY created_at DESC
+      LIMIT $2`,
+    params,
+    { orgId: user.organizationId }
+  );
+
+  const documents = (result.rows || []).map(row => {
+    const text = String(row.extracted_text || '');
+    const lower = text.toLocaleLowerCase('ru-RU');
+    const hits = [];
+    for (const term of terms) {
+      let from = 0;
+      let found = 0;
+      while (found < 3) {
+        const at = lower.indexOf(term, from);
+        if (at < 0) break;
+        hits.push({ term, at });
+        from = at + term.length;
+        found += 1;
+      }
+    }
+    hits.sort((a, b) => a.at - b.at);
+    const excerpts = [];
+    const seen = new Set();
+    for (const hit of hits) {
+      const start = Math.max(0, hit.at - 220);
+      const end = Math.min(text.length, hit.at + hit.term.length + 380);
+      const excerpt = text.slice(start, end).replace(/\s+/gu, ' ').trim();
+      const key = excerpt.slice(0, 80);
+      if (excerpt && !seen.has(key)) {
+        seen.add(key);
+        excerpts.push({ matched_term: hit.term, excerpt, char_offset: hit.at });
+      }
+      if (excerpts.length >= 5) break;
+    }
+    return {
+      id: row.id,
+      name: row.name,
+      created_at: row.created_at,
+      total_chars: text.length,
+      extraction: row.extraction_json || null,
+      excerpts,
+    };
+  });
+  return {
+    query: args.query,
+    terms,
+    documents,
+    found: documents.length,
+    note: documents.length ? undefined : 'Совпадений в извлечённом тексте доступных документов не найдено.',
   };
 }
 
@@ -411,10 +497,17 @@ const TOOLS = [
   },
   {
     name: 'get_documents',
-    description: 'Получить метаданные документов STEN с безопасным превью до 1500 символов.',
-    parameters: { type:'object', properties:{ limit:{type:'integer',minimum:1,maximum:30,default:10}, status:{type:'string',default:'ready'} }, required:[] },
+    description: 'Перечислить реальные документы текущей организации. Для полного списка передай status=all; ничего не выдумывает.',
+    parameters: { type:'object', properties:{ limit:{type:'integer',minimum:1,maximum:30,default:10}, status:{type:'string',enum:['ready','all','stored','processing','failed'],default:'ready'} }, required:[] },
     policy: ['requireAuth','requireOrg'],
     handler: getDocuments,
+  },
+  {
+    name: 'search_documents',
+    description: 'Искать по полному извлечённому тексту доступных документов организации и возвращать точные фрагменты с названием источника. Используй для вопросов о зарплатах, ФИО, должностях, мотивации, формулах и строках таблиц.',
+    parameters: { type:'object', properties:{ query:{type:'string',minLength:2,maxLength:200,description:'Ключевые слова или фраза для поиска в документах'}, limit:{type:'integer',minimum:1,maximum:10,default:5} }, required:['query'] },
+    policy: ['requireAuth','requireOrg'],
+    handler: searchDocuments,
   },
   {
     name: 'get_memory',
