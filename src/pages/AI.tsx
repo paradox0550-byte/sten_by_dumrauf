@@ -22,7 +22,12 @@ import '../styles/chat.css';
 type Msg={id:string;role:'user'|'assistant';text:string;sources?:AskSource[];createdAt?:string;proposedMemory?:ProposedMemory[]|null;steps?:AskStep[];totalMs?:number;model?:string;toolsUsed?:Array<{name:string;ok?:boolean;ms?:number}>|null};
 type Doc={id:string;name:string;size:number;status:string;chars?:number};
 type DocPreview={id:string;name:string;preview:string;chars:number;truncated:boolean;readOnly:true};
-const starters=['Проанализируй текущий P&L и найди главные причины падения прибыли','Что сильнее всего отклонилось от плана?','Собери план действий для управляющего на сегодня','Проверь ФОТ: часы, производительность и стоимость отклонения'];
+const starters=[
+ {eyebrow:'Финансы',title:'Разобрать P&L',description:'Выручка, расходы и причины отклонений',prompt:'Проанализируй текущий P&L и найди главные причины падения прибыли'},
+ {eyebrow:'Контроль',title:'Найти отклонения',description:'Что вышло за план и требует внимания',prompt:'Что сильнее всего отклонилось от плана?'},
+ {eyebrow:'Операции',title:'План на сегодня',description:'Приоритеты и конкретные действия управляющего',prompt:'Собери план действий для управляющего на сегодня'},
+ {eyebrow:'Команда',title:'Проверить ФОТ',description:'Часы, производительность и цена отклонения',prompt:'Проверь ФОТ: часы, производительность и стоимость отклонения'},
+];
 const supported=new Set(['pdf','docx','xlsx','xlsm','xls','csv','txt','md','json','png','jpg','jpeg','webp','tiff','bmp']);const MAX_DOC_BYTES=15*1024*1024;const LEGACY_KEY='sten_chat_v5';
 function chatKey(user:{id?:string;organizationId?:string|null}|null){return user?.id?`sten_chat_v5:${user.organizationId||'no-org'}:${user.id}`:null;}
 function readMessages(key:string|null):Msg[]{if(!key)return[];try{const raw=localStorage.getItem(key);const parsed=raw?JSON.parse(raw):[];return Array.isArray(parsed)?parsed:[]}catch{return[]}}
