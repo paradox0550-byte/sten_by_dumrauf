@@ -1,7 +1,7 @@
-@layer tokens, legacy, components, overrides;
+/* Canonical theme tokens intentionally stay unlayered so they win over legacy layered declarations. */
+@layer legacy, components, overrides;
 
 /* STEN Obsidian Precision — semantic design tokens. */
-@layer tokens {
   :root {
     color-scheme: dark;
     --bg-base: #0a0d14;
@@ -171,8 +171,6 @@
     --skeleton-gradient: linear-gradient(90deg,#e8ecf5 0%,#f1f4f9 100%);
     --skeleton-base: #e8ecf5; --skeleton-shine: #f1f4f9;
   }
-}
-
 @layer legacy {
   :root { font-family: var(--font-ui); }
   .numeric, .metric-card strong, .pnl-row strong, .budget-grid .num, .prime-card strong, .flash-prime strong {
