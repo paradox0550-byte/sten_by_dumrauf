@@ -2416,9 +2416,9 @@ app.post('/ask', requireAuth, async (req, res, next) => {
         const started = Date.now();
         const result = await executeTool(req.user, name, args, ctx);
         const ms = Date.now() - started;
-        toolsUsed.push({ name, args, ok: true, ms, result });
         const isExpectedFOTScopeResponse = result && typeof result === 'object' && result.code === 'FOT_SCOPE_NOT_IMPLEMENTED';
         const toolOk = Boolean(isExpectedFOTScopeResponse) || !(result && typeof result === 'object' && (result.ok === false || result.error || result.code));
+        toolsUsed.push({ name, args, ok: toolOk, ms, result });
         const safeArgs = args && typeof args === 'object'
           ? Object.entries(args).filter(([key, value]) => /^(period|project_id|branch_id|restaurant_id|department_id|limit|date|from|to)$/i.test(key) && value != null && String(value).length <= 80).map(([key, value]) => `${key}=${String(value)}`).join(', ')
           : '';
@@ -2439,7 +2439,7 @@ app.post('/ask', requireAuth, async (req, res, next) => {
       completion = await callYandexGPTWithTools(messages);
       steps.push({
         kind: 'llm',
-        label: 'Ответ сгенерирован',
+        label: completion.toolCalls.length ? 'Продолжаю работу с данными' : 'Ответ сгенерирован',
         detail: String(ENV.YANDEXGPT_MODEL || 'yandexgpt').slice(0, 120),
         ms: Math.round(Date.now() - finalLlmStarted),
       });
