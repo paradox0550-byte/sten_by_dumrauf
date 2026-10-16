@@ -64,6 +64,12 @@ const documentSearchSchema = z.object({
   limit: z.number().int().min(1).max(10).optional().default(5),
 }).strict();
 
+const documentReadSchema = z.object({
+  name: z.string().trim().min(2).max(200),
+  start_char: z.number().int().min(0).max(99000).optional().default(0),
+  max_chars: z.number().int().min(1000).max(12000).optional().default(12000),
+}).strict();
+
 const memorySchema = z.object({
   kind: z.enum(['fact','decision','cause','action','manager_note','pattern']).optional(),
   restaurant_id: z.string().optional(),
@@ -442,6 +448,54 @@ async function searchDocuments(user, rawArgs, ctx) {
   };
 }
 
+async function readDocument(user, rawArgs, ctx) {
+  const args = parseArgs(documentReadSchema, rawArgs);
+  if (!UUID_RE.test(String(user.organizationId || ''))) {
+    throw httpError(403, 'Организация не назначена пользователю.', 'NO_ORG_SCOPE');
+  }
+  const result = await ctx.queryWithRetry(
+    `SELECT id, name, created_at, extracted_text, extraction_json
+       FROM ai_documents
+      WHERE organization_id=$1::uuid
+        AND status='ready'
+        AND position(lower($2) in lower(name)) > 0
+      ORDER BY created_at DESC
+      LIMIT 5`,
+    [user.organizationId, args.name],
+    { orgId: user.organizationId }
+  );
+  const matches = result.rows || [];
+  if (!matches.length) {
+    return { found: false, query: args.name, note: 'Документ с таким названием не найден среди готовых документов этой организации.' };
+  }
+  if (matches.length > 1) {
+    return {
+      found: false,
+      ambiguous: true,
+      query: args.name,
+      matches: matches.map(row => ({ id: row.id, name: row.name, created_at: row.created_at })),
+      note: 'Найдено несколько документов. Уточни название, чтобы не прочитать не тот файл.',
+    };
+  }
+  const row = matches[0];
+  const text = String(row.extracted_text || '');
+  const content = text.slice(args.start_char, args.start_char + args.max_chars);
+  return {
+    found: true,
+    id: row.id,
+    name: row.name,
+    created_at: row.created_at,
+    total_chars: text.length,
+    start_char: args.start_char,
+    returned_chars: content.length,
+    has_more: args.start_char + content.length < text.length,
+    extraction: row.extraction_json && typeof row.extraction_json === 'object'
+      ? { type: row.extraction_json.type || null, sheets: row.extraction_json.sheets || null, engine: row.extraction_json.engine || null }
+      : null,
+    text: content,
+  };
+}
+
 async function getMemory(user, rawArgs, ctx) {
   const result = await ctx.memory.listMemory(user, rawArgs ?? {});
   return { memories: result.memories || [] };
@@ -509,6 +563,13 @@ const TOOLS = [
     parameters: { type:'object', properties:{ limit:{type:'integer',minimum:1,maximum:200,default:30}, status:{type:'string',enum:['ready','all','stored','processing','failed'],default:'ready'} }, required:[] },
     policy: ['requireAuth','requireOrg'],
     handler: getDocuments,
+  },
+  {
+    name: 'read_document',
+    description: 'Прочитать точный фрагмент извлечённого текста конкретного документа по названию. Используй для первых строк/записей, проверки формулы и просмотра полного содержимого по частям; tenant-scoped.',
+    parameters: { type:'object', properties:{ name:{type:'string',minLength:2,maxLength:200,description:'Название документа или уникальная часть названия'}, start_char:{type:'integer',minimum:0,maximum:99000,default:0}, max_chars:{type:'integer',minimum:1000,maximum:12000,default:12000} }, required:['name'] },
+    policy: ['requireAuth','requireOrg'],
+    handler: readDocument,
   },
   {
     name: 'search_documents',
