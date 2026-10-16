@@ -16,6 +16,8 @@ test('all response modes receive execution-first and document-source rules', () 
     const prompt = buildSkillPrompt(question);
     assert.match(prompt, /СНАЧАЛА ВЫПОЛНИ ЗАДАЧУ/u);
     assert.match(prompt, /search_documents/u);
+    assert.match(prompt, /read_document/u);
+    assert.match(prompt, /has_more=false/u);
     assert.match(prompt, /get_documents со status=all/u);
     assert.match(prompt, /Не выдумывай координаты ячеек/u);
     assert.match(prompt, /называй их/u);
