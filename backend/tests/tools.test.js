@@ -108,7 +108,7 @@ test('search_documents searches only ready documents in the authenticated organi
         id: 'doc-1',
         name: 'МОТИВАЦИЯ МЕНЕДЖЕРА.xlsx',
         created_at: '2026-10-16T10:00:00.000Z',
-        extracted_text: 'Лист: Менеджер. Строка 10: Выполнение плана — коэффициент 1.2. Премия = оклад × коэффициент.',
+        extracted_text: 'Лист: Менеджер. Строка 10: Мотивация менеджера — выполнение плана, коэффициент 1.2. Премия = оклад × коэффициент.',
         extraction_json: { sheetNames: ['Менеджер'] },
       }] };
     },
