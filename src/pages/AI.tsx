@@ -22,7 +22,12 @@ import '../styles/chat.css';
 type Msg={id:string;role:'user'|'assistant';text:string;sources?:AskSource[];createdAt?:string;proposedMemory?:ProposedMemory[]|null;steps?:AskStep[];totalMs?:number;model?:string;toolsUsed?:Array<{name:string;ok?:boolean;ms?:number}>|null};
 type Doc={id:string;name:string;size:number;status:string;chars?:number};
 type DocPreview={id:string;name:string;preview:string;chars:number;truncated:boolean;readOnly:true};
-const starters=['Проанализируй текущий P&L и найди главные причины падения прибыли','Что сильнее всего отклонилось от плана?','Собери план действий для управляющего на сегодня','Проверь ФОТ: часы, производительность и стоимость отклонения'];
+const starters=[
+ {eyebrow:'Финансы',title:'Разобрать P&L',description:'Выручка, расходы и причины отклонений',prompt:'Проанализируй текущий P&L и найди главные причины падения прибыли'},
+ {eyebrow:'Контроль',title:'Найти отклонения',description:'Что вышло за план и требует внимания',prompt:'Что сильнее всего отклонилось от плана?'},
+ {eyebrow:'Операции',title:'План на сегодня',description:'Приоритеты и конкретные действия управляющего',prompt:'Собери план действий для управляющего на сегодня'},
+ {eyebrow:'Команда',title:'Проверить ФОТ',description:'Часы, производительность и цена отклонения',prompt:'Проверь ФОТ: часы, производительность и стоимость отклонения'},
+];
 const supported=new Set(['pdf','docx','xlsx','xlsm','xls','csv','txt','md','json','png','jpg','jpeg','webp','tiff','bmp']);const MAX_DOC_BYTES=15*1024*1024;const LEGACY_KEY='sten_chat_v5';
 function chatKey(user:{id?:string;organizationId?:string|null}|null){return user?.id?`sten_chat_v5:${user.organizationId||'no-org'}:${user.id}`:null;}
 function readMessages(key:string|null):Msg[]{if(!key)return[];try{const raw=localStorage.getItem(key);const parsed=raw?JSON.parse(raw):[];return Array.isArray(parsed)?parsed:[]}catch{return[]}}
@@ -53,6 +58,7 @@ function AIContent({user}:{user:User|null}){
  const[previewBusy,setPreviewBusy]=useState(false);
  const[docsCollapsed,setDocsCollapsed]=useState(()=>{try{const v=localStorage.getItem('sten_docs_collapsed');return v===null?true:v==='1'}catch{return true}});
  const[contextAt,setContextAt]=useState('');
+ const[contextStatus,setContextStatus]=useState<'loading'|'both'|'partial'|'unavailable'>('loading');
  const[listening,setListening]=useState(false);
  const[appearanceOpen,setAppearanceOpen]=useState(false);
  const[composerFocused,setComposerFocused]=useState(false);
@@ -63,6 +69,8 @@ function AIContent({user}:{user:User|null}){
  const[dragOver,setDragOver]=useState(false);
  const file=useRef<HTMLInputElement>(null);
  const recog=useRef<any>(null);
+ const chatBodyRef=useRef<HTMLDivElement>(null);
+ const shouldAutoScrollRef=useRef(true);
 
  useEffect(()=>{
    if(!key)return;
@@ -84,17 +92,29 @@ function AIContent({user}:{user:User|null}){
    el.style.height=Math.min(el.scrollHeight,120)+'px';
  },[prompt]);
 
+ useEffect(()=>{
+   const element=chatBodyRef.current;
+   if(!element||!shouldAutoScrollRef.current)return;
+   const frame=window.requestAnimationFrame(()=>{
+     const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+     element.scrollTo({top:element.scrollHeight,behavior:reduced?'auto':'smooth'});
+   });
+   return()=>window.cancelAnimationFrame(frame);
+ },[messages,busy]);
+
  const load=async()=>{
    const seq=++loadSeqRef.current;
-   try{
-     const r=await api.get<{documents:Doc[]}>('/ai/documents');
-     if(seq!==loadSeqRef.current)return;
-     setDocs(r.documents||[]);
-     const q=scopeQuery(scope);
-     await Promise.all([api.get<any>('/api/pnl?'+q).catch(()=>null),api.get<any>('/fot-analytics?'+q).catch(()=>null)]);
-     if(seq!==loadSeqRef.current)return;
-     setContextAt(new Date().toISOString());
-   }catch{}
+   const q=scopeQuery(scope);
+   const [documents,pnlOk,fotOk]=await Promise.all([
+     api.get<{documents:Doc[]}>('/ai/documents').then(r=>Array.isArray(r?.documents)?r.documents:null).catch(()=>null),
+     api.get<any>('/api/pnl?'+q).then(value=>value!==null&&value!==undefined).catch(()=>false),
+     api.get<any>('/fot-analytics?'+q).then(value=>value!==null&&value!==undefined).catch(()=>false),
+   ]);
+   if(seq!==loadSeqRef.current)return;
+   if(documents!==null)setDocs(documents);
+   const status=pnlOk&&fotOk?'both':pnlOk||fotOk?'partial':'unavailable';
+   setContextStatus(status);
+   setContextAt(status==='unavailable'?'':new Date().toISOString());
  };
  useEffect(()=>{void load()},[scope.period,scope.projectId,scope.branchId,scope.restaurantId,scope.departmentId]);
 
@@ -103,6 +123,7 @@ function AIContent({user}:{user:User|null}){
    if(!text||busy)return;
    setPrompt('');
    const nextMsgs=[...messages,{id:crypto.randomUUID(),role:'user' as const,text,createdAt:new Date().toISOString()}];
+   shouldAutoScrollRef.current=true;
    setMessages(nextMsgs);
    setBusy(true);
    try{
@@ -217,10 +238,17 @@ function AIContent({user}:{user:User|null}){
 
  return <div className={pageClass}>
    <header className="sten-ai-topbar">
-     <div className="sten-ai-topbar__title"><h1>STEN AI</h1><span className="sten-ai-topbar__status" aria-label={busy?'STEN AI обрабатывает запрос':'Статус STEN AI не проверен'} title={busy?'Обработка запроса':'Статус не проверен'}/></div>
+     <div className="sten-ai-topbar__brand">
+       <span className="sten-ai-topbar__mark" aria-hidden="true"><Sparkles size={19}/></span>
+       <div className="sten-ai-topbar__title">
+         <div className="sten-ai-topbar__name"><h1>STEN AI</h1><span className="sten-ai-topbar__status" aria-label={busy?'STEN AI формирует ответ':'STEN AI готов к анализу'} title={busy?'Формирует ответ':'Готов к анализу'}/></div>
+         <p>Аналитический партнёр руководителя</p>
+       </div>
+     </div>
      <div className="sten-ai-topbar__actions">
-       <button className="chat-appearance-trigger" onClick={()=>setAppearanceOpen(v=>!v)} aria-label="Оформление чата" aria-expanded={appearanceOpen} title="Оформление чата"><MoreHorizontal size={18}/></button>
-       <button className="secondary-button" onClick={clearChat}>Новый диалог</button>
+       <span className={'sten-ai-context-pill '+(hasScopeId(scope)?'is-selected':'')}><Database size={14}/>{hasScopeId(scope)?'Контур выбран':'Контур не выбран'}</span>
+       <button className="chat-appearance-trigger" onClick={()=>setAppearanceOpen(v=>!v)} aria-label="Настроить оформление STEN AI" aria-expanded={appearanceOpen} title="Настроить оформление"><MoreHorizontal size={18}/></button>
+       <button className="secondary-button" onClick={clearChat}><span>Новый диалог</span></button>
      </div>
    </header>
 
@@ -234,7 +262,7 @@ function AIContent({user}:{user:User|null}){
            {docsCollapsed?<PanelLeftOpen size={15}/>:<PanelLeftClose size={15}/>}
          </button>
        </div>
-       <div className="dashboard-note"><Database size={14}/> {contextAt?'P&L/ФОТ обновлены '+new Date(contextAt).toLocaleTimeString('ru-RU'):'Текущий финансовый контекст не загружен.'}</div>
+       <div className="dashboard-note" role="status" aria-live="polite"><Database size={14}/> {contextStatus==='loading'?'Проверяем доступность финансового контекста…':contextStatus==='both'?'Сервисы P&L и ФОТ ответили':contextStatus==='partial'?'Ответ получен только от части финансовых сервисов':'Финансовые данные не подтверждены — отсутствие данных не равно нулю.'}{contextAt?' · '+new Date(contextAt).toLocaleTimeString('ru-RU'):''}</div>
        <button className="upload-box" onClick={()=>file.current?.click()} disabled={upload}>
          <UploadCloud size={22}/><b>{upload?'Сохраняем…':'Загрузить документ'}</b>
          <small>PDF · Excel · DOCX · CSV · TXT · JSON · изображения · до 15 МБ</small>
@@ -255,18 +283,31 @@ function AIContent({user}:{user:User|null}){
      </aside>
 
      <section className="chat">
-       <div className="chat-head" aria-label="Статус чата">
-         <span>{readyCount} документов готовы</span>
+       <div className="chat-head" aria-label="Состав контекста диалога">
+         <span className="chat-head__label">РАБОЧИЙ ДИАЛОГ</span>
+         <span className="chat-head__context"><span className="chat-head__dot"/>{hasScopeId(scope)?'Используется выбранный контур':'Финансовый контур не выбран'}</span>
+         <span className="chat-head__documents"><FileText size={13}/>{readyCount} {readyCount===1?'документ готов':'документов готовы'}</span>
        </div>
        {appearanceOpen&&<AppearanceDrawer onClose={()=>setAppearanceOpen(false)}/>}
 
-       <div className="chat-body" role="log" aria-live="polite" aria-label="История чата со STEN">
+       <div ref={chatBodyRef} className="chat-body" role="log" aria-live="polite" aria-label="История чата со STEN" onScroll={()=>{const element=chatBodyRef.current;if(element)shouldAutoScrollRef.current=element.scrollHeight-element.scrollTop-element.clientHeight<120;}}>
          <ChatBackground kind={settings.background}/>
-         {!messages.length?<div className="welcome">
-           <div className="welcome-mark"><Bot size={28}/></div>
-           <h2>Чем помочь?</h2>
-           <p>Спросите про P&amp;L, ФОТ или ситуацию в смене.</p>
-           <div className="starter-grid">{starters.map(s=><button key={s} onClick={()=>void ask(s)}>{s}</button>)}</div>
+         {!messages.length?<div className="welcome sten-ai-welcome">
+           <div className="sten-ai-welcome__eyebrow"><span className="sten-ai-welcome__pulse"/><Sparkles size={13}/> ИНТЕЛЛЕКТУАЛЬНЫЙ РАБОЧИЙ КОНТУР</div>
+           <div className="sten-ai-welcome__hero">
+             <div className="welcome-mark"><Bot size={27}/></div>
+             <h2>Давайте разберёмся,<br/><span>что происходит в бизнесе.</span></h2>
+             <p>STEN AI помогает увидеть причины отклонений, расставить приоритеты и превратить данные в конкретные действия. Без выдуманных цифр — только доступный контекст и проверяемые выводы.</p>
+           </div>
+           <div className="sten-ai-welcome__context">
+             <div className="sten-ai-welcome__context-item"><span className="sten-ai-welcome__context-icon"><Database size={16}/></span><span><b>Рабочий контур</b><small>{hasScopeId(scope)?'Выбранная область данных':'Не выбран — точность анализа ограничена'}</small></span></div>
+             <div className="sten-ai-welcome__context-item"><span className="sten-ai-welcome__context-icon"><FileText size={16}/></span><span><b>Документы</b><small>{docs.length?`${readyCount} из ${docs.length} готовы к работе`:'Нет загруженных документов'}</small></span></div>
+           </div>
+           <div className="sten-ai-welcome__section-head"><div><span>БЫСТРЫЙ СТАРТ</span><h3>С чего начнём?</h3></div><p>Выберите задачу или напишите свой вопрос ниже.</p></div>
+           <div className="starter-grid">{starters.map((item,index)=><button className="sten-ai-starter" key={item.title} onClick={()=>void ask(item.prompt)}>
+             <span className="sten-ai-starter__top"><span>{item.eyebrow}</span><span className="sten-ai-starter__number">0{index+1}</span></span>
+             <b>{item.title}</b><small>{item.description}</small><span className="sten-ai-starter__arrow" aria-hidden="true">↗</span>
+           </button>)}</div>
          </div>:messages.map((m,i)=>{
            const message:ChatMessage={
              id:m.id,
