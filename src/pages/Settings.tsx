@@ -247,7 +247,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="page">
+    <div className="page settings-page">
       <div className="page-head">
         <div>
           <span className="eyebrow">МОЙ КАБИНЕТ</span>
