@@ -2228,7 +2228,8 @@ app.post('/ask', requireAuth, async (req, res, next) => {
     if (!question && !Array.isArray(body.messages)) throw httpError(400, 'Пустой вопрос', 'EMPTY_QUESTION');
 
     const ctx = intelligenceContext();
-    const selectedContext = body.scope ? await resolveWorkspaceContext(req.user, body.scope, false) : null;
+    // Always resolve the persisted workspace scope before reading memory; an omitted body.scope must not widen memory to the whole organization.
+    const selectedContext = await resolveWorkspaceContext(req.user, body.scope || {}, false);
     const memoryStarted = Date.now();
     const memCtx = await loadMemoryContext(req.user, selectedContext, 15, ctx);
     const memoryMs = Math.round(Date.now() - memoryStarted);
