@@ -41,7 +41,12 @@ export default function Flash() {
   async function load() {
     setLoading(true); setError(''); setMessage('');
     try {
-      const x = await api.get<ReportsResponse>('/reports?date=' + encodeURIComponent(date));
+      const params = new URLSearchParams({ date });
+      if (scope.projectId) params.set('project_id', scope.projectId);
+      if (scope.branchId) params.set('branch_id', scope.branchId);
+      if (scope.restaurantId) params.set('restaurant_id', scope.restaurantId);
+      if (scope.departmentId) params.set('department_id', scope.departmentId);
+      const x = await api.get<ReportsResponse>('/reports?' + params.toString());
       const found = x.reports?.[0] ?? null;
       setR(found);
       const next: Record<string, string> = {};
@@ -74,7 +79,14 @@ export default function Flash() {
         values[f.key] = num;
       }
       if (!Object.keys(values).length) throw new Error('Заполните хотя бы одно поле.');
-      const body: ReportWrite = { date, values };
+      const body: ReportWrite = {
+        date,
+        values,
+        project_id: scope.projectId ?? null,
+        branch_id: scope.branchId ?? null,
+        restaurant_id: scope.restaurantId ?? null,
+        department_id: scope.departmentId ?? null,
+      };
       const res = await api.post<{ saved?: boolean; date?: string }>('/reports', ReportWriteSchema.parse(body));
       const saved = (res as any)?.saved ?? true;
       if (!saved) throw new Error('Сервер не подтвердил сохранение.');
