@@ -1,78 +1,99 @@
 # STEN — Obsidian Precision Style Guide
 
-Версия: 1.0 · 12 октября 2026 · Frontend only
+Версия: 1.1 · 16 октября 2026 · Frontend only
 
 ## Принципы
-- Executive cockpit: сначала отклонения и решения, затем контекст.
+- Executive Cockpit: сначала отклонения и решения, затем контекст.
+- Data over decoration: поверхность, типографика и реальные показатели важнее декоративных эффектов.
 - Missing ≠ zero: неизвестное значение отображается как «—» или «Нет данных», не как 0.
 - Цвет не единственный сигнал: статус дублируется текстом, направлением отклонения и/или иконкой.
 - Финансовые формулы остаются в существующих детерминированных функциях/API.
 - Не добавлять фиктивные данные, декоративные графики или неподключённые действия.
+- Не использовать неон, декоративные градиенты, glassmorphism или blur-подложки. Использовать цельные поверхности и сдержанный брендовый акцент.
+- Frontend-only: не менять backend, БД, OpenAPI, API Gateway и облачные функции в рамках редизайна.
 
 ## Design tokens
 | Token | Value |
 |---|---|
-| --bg-base / --bg-app | #080c14 |
-| --bg-surface | #0f1422 |
-| --bg-elevated | #161d2e |
-| --bg-inset | #0b1020 |
-| --border-subtle | rgba(255,255,255,.08) |
-| --text-primary | #e6ecff |
-| --text-secondary | #8b9bbf |
-| --text-muted | #8291b5 (contrast-safe override vs. low-contrast reference #4a5878) |
-| --color-brand | #5b7cfa |
-| --color-accent | #00f0ff |
-| --color-success | #00e599 |
-| --color-warning | #fbbf24 |
-| --color-danger | #ff4d6d |
+| --bg-base / --bg-app | #0a0d14 |
+| --bg-surface | #0f1420 |
+| --bg-surface-subtle / --bg-elevated | #161b28 |
+| --bg-inset | #0a0d14 |
+| --border-subtle | rgba(255,255,255,.06) |
+| --border-default | rgba(255,255,255,.10) |
+| --text-primary | #f0f2f7 |
+| --text-secondary | #a8b3c8 |
+| --text-muted | #6a7488 |
+| --color-brand / --color-accent | #5b7cfa |
+| --color-success | #10b981 |
+| --color-warning | #f59e0b |
+| --color-danger | #ef4444 |
 | --ui-radius-sm | 6px |
 | --ui-radius-md | 10px |
 | --ui-radius-lg | 14px |
 
+Светлая тема использует те же семантические токены с отдельными контрастными значениями. Компоненты не должны содержать жёстко заданные цвета для обычного текста, поверхности или границ.
+
 ## Typography
 - UI: Inter Variable, 400 / 500 / 600.
-- Financial values: JetBrains Mono, 400 / 500 / 600; `font-variant-numeric: tabular-nums lining-nums`.
-- Scale: 12, 13, 14, 16, 20, 24, 32 px. Body line-height 1.4; financial values 1.2.
-- Focus: visible 2px electric-cyan outline.
-- Motion: 120–180ms; never exceed 200ms; respect reduced-motion.
+- Финансовые значения: JetBrains Mono, 400 / 500 / 600; `font-variant-numeric: tabular-nums lining-nums`.
+- Базовая шкала: 12, 13, 14, 16, 20, 24, 32 px. Текст интерфейса — line-height 1.4–1.5; финансовые значения — около 1.2.
+- Focus: видимая обводка 2px цветом бренда с отступом 2px.
+- Motion: 120–180ms, не более 200ms; уважать системную настройку reduced motion и настройку пользователя.
 
 ## Component specifications
 | Component | Dimensions / treatment | States |
 |---|---|---|
-| Card | surface, 1px subtle border, 14px radius, 18–20px padding | default, hover, loading, empty, error |
-| Primary button | min-height 40px, 10px radius, 12–16px horizontal padding | hover, focus, pressed, disabled |
-| Secondary button | same dimensions, elevated surface, subtle border | hover, focus, disabled |
+| Card | цельная surface-поверхность, 1px subtle border, 14px radius, 16–20px padding | default, hover при наличии действия, loading, empty, error |
+| Primary button | min-height 40px, 10px radius, 12–16px horizontal padding, brand fill | hover, focus, pressed, disabled |
+| Secondary button | те же размеры, surface/elevated фон, subtle border | hover, focus, disabled |
 | Badge | 12px label, pill, 4×8px padding | normal, attention, critical, neutral |
-| StatusDot | 6px, currentColor | ok/warn/error; pair with text |
-| ProgressBar | 4px height, pill track | ≤60% normal; >60–65% attention; >65% critical |
-| Number cell | right-aligned JetBrains Mono, tabular figures | semantic variance colors; null → em dash |
-| Table row | 40–44px minimum, 12–14px text | hover actions only if real handlers exist |
+| StatusDot | 6px, currentColor | ok/warn/error; обязательно рядом с текстом |
+| ProgressBar | 4–6px height, нейтральный track | смысловые пороги с текстовой подписью |
+| Number cell | выравнивание вправо, JetBrains Mono, tabular figures | семантический цвет отклонения; null → em dash |
+| Table row | минимум 40–44px, 12–14px text | hover actions только при наличии реальных обработчиков |
 | Modal/popover | elevated surface, 1px border, 14px radius | open, focus, dismiss, confirm |
-| Skeleton | elevated shimmer matching final geometry | loading; no animation for reduced motion |
-| Empty state | concise message, no illustration | «Нет данных за октябрь»; supported action only |
+| Loading placeholder | форма соответствует итоговому контенту, без декоративного shimmer | без анимации при reduced motion |
+| Empty state | краткое объяснение, без иллюстрации | «Нет данных за выбранный период»; только поддерживаемое действие |
 
 ## Financial semantics
-- Revenue / EBITDA / profit: fact above plan is favorable; below plan is unfavorable.
-- COGS / payroll / OPEX / rent: fact above plan is unfavorable; below plan is favorable.
-- Delta = fact − plan. Relative delta only when plan > 0.
-- Missing plan/fact stays missing. Never derive zero, percent, arrow, or severity from null.
-- Prime Cost = (COGS + payroll) / revenue × 100 only when all inputs are valid. ≤60% normal, >60% through 65% attention, >65% critical.
+- Выручка / EBITDA / прибыль: факт выше плана — благоприятно; ниже плана — неблагоприятно.
+- Себестоимость / ФОТ / OPEX / аренда: факт выше плана — неблагоприятно; ниже плана — благоприятно.
+- Delta = fact − plan. Относительное отклонение рассчитывается только при валидном положительном плане.
+- Отсутствующие plan/fact остаются отсутствующими. Нельзя выводить ноль, процент, стрелку или уровень риска из null.
+- Prime Cost = (COGS + payroll) / revenue × 100 только при валидных входных значениях. Пороговые значения берутся из существующего контракта и расчёта, не дублируются декоративной логикой в CSS.
 
 ## Screen behavior
+### Главная / Executive Cockpit
+Сначала критические отклонения, затем основные KPI и контекст. Сводка должна уважать выбранный workspace и период. Пустые данные не заменять тестовыми значениями.
+
 ### P&L
-Prioritize critical deviations above the table. Preserve Revenue → COGS → Gross Margin → controllable OPEX → controllable profit → uncontrollable expenses → EBITDA → Net Profit. On hover, show “Разобрать в AI” / “В Секретарь” only where handlers exist. At 1024×768, reduce side padding and scroll the table rather than truncate values.
+Приоритет — критические отклонения, затем таблица. Сохранять финансовую последовательность статей, принятую в существующем контракте. «Разобрать в AI» и «В Секретарь» показывать только там, где обработчики действительно существуют. На 1024px таблица прокручивается, а не обрезает значения.
 
 ### STEN AI
-Keep composer compact. Separate progress steps, sources and proposed memory. Memory requires explicit save/skip; never silently persist.
+Компактный composer. Отдельно отображать шаги выполнения, источники и предлагаемую память. Память требует явного подтверждения сохранения/пропуска; не сохранять молча.
 
-### Secretary
-Bento: “Мой день”, “Входящие”, “7 дней”. Use real events/notes. Empty lists use concise context and supported create action.
+### Секретарь
+Разделы «Мой день», «Входящие», «7 дней» используют только реальные события и заметки. Пустые списки объясняют состояние и показывают только поддерживаемое действие создания.
 
 ### Flash Report
-Emphasize revenue, cash/card reconciliation, average check and Prime Cost. Balance only when cash and card are present. Missing Prime Cost inputs → “Нет данных”, not 0%.
+Акцент на выручке, сверке наличных/карты, среднем чеке и Prime Cost. Баланс показывать только при наличии наличных и карты. Если входных данных Prime Cost недостаточно — «Нет данных», не 0%.
 
-### Team & Payroll
-Sort by payroll descending only when data exists. Productivity requires confirmed revenue and hours. Unsupported API scope is unavailable, not an empty team.
+### Команда и ФОТ
+Сортировать по ФОТ только при наличии данных. Производительность рассчитывать только при подтверждённых выручке и часах. Недоступный API scope не выдавать за пустую команду.
+
+### Настройки
+Секции профиля, темы/доступности, видимости разделов, Telegram-отчётов и аналитики должны иметь ясную иерархию. Не сообщать об успешном сохранении, если API вернул ошибку.
+
+## Responsive behavior
+- Обязательные контрольные ширины: 375, 393, 768, 1024, 1440 px.
+- Mobile: drawer + нижняя навигация для Сводки, STEN AI, P&L и Flash; элементы управления не должны выходить за viewport.
+- Tablet: компактная боковая навигация, таблицы остаются доступными через горизонтальный scroll.
+- Desktop: фиксированная иерархия shell/sidebar/topbar, content ограничен разумной максимальной шириной.
+- Проверять тёмную и светлую темы на каждой контрольной ширине.
 
 ## Accessibility
-Target ≥4.5:1 for normal text. Accent colors are emphasis, not low-contrast body copy. Never rely on color alone. Tablet target 1024×768; mobile shell remains responsive.
+- Контраст обычного текста целится в ≥4.5:1.
+- Цвет — акцент, но не единственный сигнал статуса.
+- У всех интерактивных элементов видимый focus; кликабельные элементы имеют pointer, статические заголовки — default, поля ввода — text.
+- Уважать safe-area на мобильных устройствах и reduced-motion.
