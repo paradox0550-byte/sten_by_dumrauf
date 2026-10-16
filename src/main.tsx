@@ -1,7 +1,10 @@
 import '@fontsource-variable/inter';import React from 'react';import ReactDOM from 'react-dom/client';import App from './App';import './styles/tokens.css';import './app.css';import './executive.css';import './obsidian-precision.css';import './open-workspace.css';import './obsidian-precision-responsive-v2.css';
 const THEME_KEY='sten_theme_v5';
 const storedTheme=localStorage.getItem(THEME_KEY);
-const initialTheme=storedTheme==='light'||storedTheme==='dark'?storedTheme:storedTheme==='system'?(typeof window.matchMedia==='function'&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):'dark';
+const systemThemeQuery=window.matchMedia('(prefers-color-scheme: dark)');
+const resolveTheme=(mode:string|null)=>mode==='light'||mode==='dark'?mode:mode==='system'?(systemThemeQuery.matches?'dark':'light'):'dark';
+const applyTheme=(mode:string|null=localStorage.getItem(THEME_KEY))=>{const resolved=resolveTheme(mode);document.documentElement.dataset.theme=resolved;document.documentElement.style.colorScheme=resolved;};
+const initialTheme=resolveTheme(storedTheme);
 const FONT_SIZE_KEY='sten_font_size_v1';
 const MOTION_KEY='sten_reduce_motion_v1';
 const storedFontSize=localStorage.getItem(FONT_SIZE_KEY);
@@ -10,6 +13,8 @@ const initialReduceMotion=localStorage.getItem(MOTION_KEY)==='true';
 document.documentElement.dataset.fontScale=initialFontSize;
 document.documentElement.dataset.reduceMotion=initialReduceMotion?'true':'false';
 document.documentElement.dataset.theme=initialTheme;document.documentElement.style.colorScheme=initialTheme;
+const syncSystemTheme=()=>{if(localStorage.getItem(THEME_KEY)==='system')applyTheme('system');};
+if(typeof systemThemeQuery.addEventListener==='function')systemThemeQuery.addEventListener('change',syncSystemTheme);else systemThemeQuery.addListener(syncSystemTheme);
 class ErrorBoundary extends React.Component<React.PropsWithChildren,{error:Error|null}>{state={error:null as Error|null};static getDerivedStateFromError(error:Error){return{error}}componentDidCatch(error:Error){console.error('[STEN]',error)}render(){return this.state.error?<main className="fatal"><section><b>СТЕН</b><h1>Рабочий контур не открылся</h1><p>Ошибка интерфейса. Обновите страницу.</p><button onClick={()=>location.reload()}>Обновить</button></section></main>:this.props.children}}
 ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><ErrorBoundary><div className="sten-brand-bg" aria-hidden="true" /><App/></ErrorBoundary></React.StrictMode>);
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
