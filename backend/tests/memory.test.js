@@ -102,3 +102,13 @@ test('loadMemoryContext returns 10 confirmed + 5 unconfirmed', async () => {
   assert.equal(context.confirmed.length,10);
   assert.equal(context.unconfirmed.length,5);
 });
+
+test('listMemory accepts limits above 50 up to 200', async () => {
+  const initial = Array.from({ length: 75 }, (_, i) => ({
+    id: String(i), organization_id: user.organizationId, kind: 'fact', confidence: 'confirmed',
+    title: `memory-${i}`, created_at: new Date(Date.now() - i * 1000).toISOString(),
+  }));
+  const db = fakeDb(initial);
+  const result = await listMemory(user, { confidence: 'confirmed', limit: 100 }, db);
+  assert.equal(result.memories.length, 75);
+});
