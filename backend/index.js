@@ -2567,7 +2567,7 @@ app.post('/api/ai/memory', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const body = parseOr400(AiMemoryCreateSchema, req.body ?? {});
     const memory = await createMemory(req.user, body, intelligenceContext());
-    ok(res, { memory, confirmed: true }, 201);
+    ok(res, { memory, confirmed: memory.confidence === 'confirmed' }, 201);
   } catch (e) { next(e); }
 });
 
