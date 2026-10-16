@@ -430,12 +430,27 @@ async function searchDocuments(user, rawArgs, ctx) {
       }
       if (excerpts.length >= 5) break;
     }
+    const meta = row.extraction_json && typeof row.extraction_json === 'object' ? row.extraction_json : {};
+    const sourceRows = (Array.isArray(meta.rows) ? meta.rows : [])
+      .filter(item => terms.some(term => JSON.stringify([item.label, item.article, item.sheet, item.source]).toLocaleLowerCase('ru-RU').includes(term)))
+      .slice(0, 10)
+      .map(item => ({
+        label: item.label || item.article || null,
+        sheet: item.sheet || null,
+        source_row: item.sourceRow || item.row || null,
+        source: item.source || null,
+        source_cell_plan: item.sourceCellPlan || null,
+        source_cell_fact: item.sourceCellFact || null,
+        plan: item.plan ?? null,
+        fact: item.fact ?? null,
+      }));
     return {
       id: row.id,
       name: row.name,
       created_at: row.created_at,
       total_chars: text.length,
-      extraction: row.extraction_json || null,
+      extraction: { type: meta.type || null, sheets: meta.sheets || null, engine: meta.engine || null },
+      source_rows: sourceRows,
       excerpts,
     };
   });
