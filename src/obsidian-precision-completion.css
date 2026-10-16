@@ -287,3 +287,19 @@ input:focus, select:focus, textarea:focus { border-color: var(--color-brand); ou
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none; transition: none; scroll-behavior: auto; }
 }
+
+
+/* Prevent iOS long-press Copy/Translate callouts from floating over the app UI.
+   Editable controls keep native selection and editing behavior. */
+#root {
+  -webkit-touch-callout: none;
+}
+#root input,
+#root textarea,
+#root select,
+#root [contenteditable="true"],
+#root [role="textbox"] {
+  -webkit-touch-callout: default;
+  -webkit-user-select: text;
+  user-select: text;
+}
