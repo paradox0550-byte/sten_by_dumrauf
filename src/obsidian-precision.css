@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 /* STEN — Obsidian Precision. Loaded after legacy and executive layers. */
+/* Accessibility: these declarations intentionally override component motion for users who request reduced motion. */
+
 
 html, body, #root { min-height: 100%; background: var(--bg-base); color: var(--text-primary); }
 body { font-family: 'Inter Variable', Inter, sans-serif; font-size: 14px; line-height: 1.4; }

@@ -101,9 +101,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const mobileItems = [
     ['/dashboard', 'Сводка', 'overview'],
+    ['/sten', 'STEN AI', Bot],
     ['/pnl', 'P&L', 'pnl'],
-    ['/documents', 'Документы', 'terms'],
-    ['/settings', 'Настройки', 'settings'],
+    ['/flash', 'Flash', 'report'],
   ] as const;
 
   return (
