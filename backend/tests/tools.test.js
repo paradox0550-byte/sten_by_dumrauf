@@ -23,10 +23,10 @@ test('every tool has required contract fields', () => {
   }
 });
 
-test('v1 exposes seven tools including find_deviations', () => {
-  assert.equal(TOOLS.length, 7);
+test('v2 exposes document search alongside existing tools', () => {
+  assert.equal(TOOLS.length, 8);
   assert.deepEqual(TOOLS.map(tool => tool.name), [
-    'get_pnl','find_deviations','get_fot','get_sales','get_documents','get_memory','get_secretary_context',
+    'get_pnl','find_deviations','get_fot','get_sales','get_documents','search_documents','get_memory','get_secretary_context',
   ]);
 });
 
@@ -96,4 +96,58 @@ test('find_deviations sorts larger absolute deviation first', async () => {
   };
   const result = await tool.handler({ organizationId:'00000000-0000-0000-0000-000000000001' }, { period:'2026-10' }, ctx);
   assert.deepEqual(result.critical.map(item => item.article), ['COGS','OPEX']);
+});
+
+test('search_documents searches only ready documents in the authenticated organization and returns source excerpts', async () => {
+  const tool = findTool('search_documents');
+  let captured;
+  const ctx = {
+    queryWithRetry: async (sql, params, options) => {
+      captured = { sql, params, options };
+      return { rows: [{
+        id: 'doc-1',
+        name: 'МОТИВАЦИЯ МЕНЕДЖЕРА.xlsx',
+        created_at: '2026-10-16T10:00:00.000Z',
+        extracted_text: 'Лист: Менеджер. Строка 10: Выполнение плана — коэффициент 1.2. Премия = оклад × коэффициент.',
+        extraction_json: { sheetNames: ['Менеджер'] },
+      }] };
+    },
+  };
+  const result = await tool.handler(
+    { organizationId: '00000000-0000-0000-0000-000000000001' },
+    { query: 'мотивация менеджера', limit: 5 },
+    ctx,
+  );
+  assert.match(captured.sql, /organization_id=\$1::uuid/u);
+  assert.match(captured.sql, /status='ready'/u);
+  assert.match(captured.sql, /position\(lower\(\$3\)/u);
+  assert.equal(captured.params[0], '00000000-0000-0000-0000-000000000001');
+  assert.deepEqual(captured.options, { orgId: '00000000-0000-0000-0000-000000000001' });
+  assert.equal(result.found, 1);
+  assert.equal(result.documents[0].name, 'МОТИВАЦИЯ МЕНЕДЖЕРА.xlsx');
+  assert.match(result.documents[0].excerpts[0].excerpt, /коэффициент 1\.2/u);
+});
+
+test('search_documents refuses to query without a trusted organization id', async () => {
+  const tool = findTool('search_documents');
+  await assert.rejects(
+    () => tool.handler({}, { query: 'зарплата' }, { queryWithRetry: async () => { throw new Error('must not run'); } }),
+    error => error.code === 'NO_ORG_SCOPE',
+  );
+});
+
+test('get_documents supports status=all for a complete inventory', async () => {
+  const tool = findTool('get_documents');
+  let captured;
+  const result = await tool.handler(
+    { organizationId: '00000000-0000-0000-0000-000000000001' },
+    { status: 'all', limit: 30 },
+    { queryWithRetry: async (sql, params) => {
+      captured = { sql, params };
+      return { rows: [{ id:'1', name:'file.xlsx', status:'ready', chars:10, preview:'data' }] };
+    } },
+  );
+  assert.match(captured.sql, /\(\$2='all' OR status=\$2\)/u);
+  assert.equal(captured.params[1], 'all');
+  assert.equal(result.documents[0].name, 'file.xlsx');
 });
