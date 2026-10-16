@@ -371,7 +371,7 @@ async function searchDocuments(user, rawArgs, ctx) {
   }
 
   const predicates = terms.map((_, index) =>
-    `position(lower(${index + 3}) in lower(COALESCE(extracted_text, ''))) > 0`
+    `position(lower($${index + 3}) in lower(COALESCE(extracted_text, ''))) > 0`
   );
   const params = [user.organizationId, args.limit, ...terms];
   const result = await ctx.queryWithRetry(
