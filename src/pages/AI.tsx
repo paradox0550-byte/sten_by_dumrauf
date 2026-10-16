@@ -58,6 +58,7 @@ function AIContent({user}:{user:User|null}){
  const[previewBusy,setPreviewBusy]=useState(false);
  const[docsCollapsed,setDocsCollapsed]=useState(()=>{try{const v=localStorage.getItem('sten_docs_collapsed');return v===null?true:v==='1'}catch{return true}});
  const[contextAt,setContextAt]=useState('');
+ const[contextStatus,setContextStatus]=useState<'loading'|'both'|'partial'|'unavailable'>('loading');
  const[listening,setListening]=useState(false);
  const[appearanceOpen,setAppearanceOpen]=useState(false);
  const[composerFocused,setComposerFocused]=useState(false);
@@ -103,15 +104,17 @@ function AIContent({user}:{user:User|null}){
 
  const load=async()=>{
    const seq=++loadSeqRef.current;
-   try{
-     const r=await api.get<{documents:Doc[]}>('/ai/documents');
-     if(seq!==loadSeqRef.current)return;
-     setDocs(r.documents||[]);
-     const q=scopeQuery(scope);
-     await Promise.all([api.get<any>('/api/pnl?'+q).catch(()=>null),api.get<any>('/fot-analytics?'+q).catch(()=>null)]);
-     if(seq!==loadSeqRef.current)return;
-     setContextAt(new Date().toISOString());
-   }catch{}
+   const q=scopeQuery(scope);
+   const [documents,pnlOk,fotOk]=await Promise.all([
+     api.get<{documents:Doc[]}>('/ai/documents').then(r=>Array.isArray(r?.documents)?r.documents:null).catch(()=>null),
+     api.get<any>('/api/pnl?'+q).then(value=>value!==null&&value!==undefined).catch(()=>false),
+     api.get<any>('/fot-analytics?'+q).then(value=>value!==null&&value!==undefined).catch(()=>false),
+   ]);
+   if(seq!==loadSeqRef.current)return;
+   if(documents!==null)setDocs(documents);
+   const status=pnlOk&&fotOk?'both':pnlOk||fotOk?'partial':'unavailable';
+   setContextStatus(status);
+   setContextAt(status==='unavailable'?'':new Date().toISOString());
  };
  useEffect(()=>{void load()},[scope.period,scope.projectId,scope.branchId,scope.restaurantId,scope.departmentId]);
 
@@ -259,7 +262,7 @@ function AIContent({user}:{user:User|null}){
            {docsCollapsed?<PanelLeftOpen size={15}/>:<PanelLeftClose size={15}/>}
          </button>
        </div>
-       <div className="dashboard-note"><Database size={14}/> {contextAt?'P&L/ФОТ обновлены '+new Date(contextAt).toLocaleTimeString('ru-RU'):'Текущий финансовый контекст не загружен.'}</div>
+       <div className="dashboard-note" role="status" aria-live="polite"><Database size={14}/> {contextStatus==='loading'?'Проверяем доступность финансового контекста…':contextStatus==='both'?'Сервисы P&L и ФОТ ответили':contextStatus==='partial'?'Ответ получен только от части финансовых сервисов':'Финансовые данные не подтверждены — отсутствие данных не равно нулю.'}{contextAt?' · '+new Date(contextAt).toLocaleTimeString('ru-RU'):''}</div>
        <button className="upload-box" onClick={()=>file.current?.click()} disabled={upload}>
          <UploadCloud size={22}/><b>{upload?'Сохраняем…':'Загрузить документ'}</b>
          <small>PDF · Excel · DOCX · CSV · TXT · JSON · изображения · до 15 МБ</small>
