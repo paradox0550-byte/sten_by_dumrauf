@@ -209,6 +209,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--color-brand); ou
 .flash-page .flash-date .settings-field { display: grid; grid-template-columns: auto minmax(160px,220px); align-items: center; gap: 12px; margin: 0; }
 
 /* Login follows the same restrained surface language; no grid/gradient background. */
+.skeleton, [class*='skeleton'] { background: var(--skeleton-base); animation: none; }
 .login-screen, .unlock { background: var(--bg-base); }
 .unlock::before { display: none; }
 .login-brand-panel { background: var(--bg-surface); }

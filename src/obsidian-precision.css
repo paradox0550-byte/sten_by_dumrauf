@@ -11,24 +11,26 @@ a { text-underline-offset: 3px; }
 :where(button, a, input, select, textarea, [tabindex]):focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; box-shadow: none; }
 :where(button, input, select, textarea) { transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease; }
 @media (prefers-reduced-motion: reduce) {
+  /* This !important is intentional: reduced-motion preference must override component animations. */
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+/* This !important is intentional: the user's explicit reduced-motion setting overrides component animations. */
 html[data-reduce-motion='true'] *, html[data-reduce-motion='true'] *::before, html[data-reduce-motion='true'] *::after { animation: none !important; transition: none !important; }
 
 /* Compact Obsidian Precision: brighter text and tighter vertical rhythm. */
 :root { --space-section:16px; --space-block:12px; --space-inline:6px; }
 /* Shell: dark surfaces, restrained borders, no decorative glow. */
-.sidebar, .topbar, .mobile-bottom-nav { background: var(--bg-surface) !important; border-color: var(--border-subtle) !important; }
+.sidebar, .topbar, .mobile-bottom-nav { background: var(--bg-surface); border-color: var(--border-subtle); }
 .main, .content, .page { background: transparent; color: var(--text-primary); }
 .content { max-width: 1600px; padding: 18px 20px 32px; }
 .page { max-width: 1500px; }
 .page h1, .page h2, .page h3, .panel-title { color: var(--text-primary); letter-spacing: -.025em; }
 .page h1 { font-size: clamp(24px, 2vw, 32px); line-height: 1.2; font-weight: 600; }
 .panel, .executive-shell .metric-card, .pnl-kpi, .budget-kpi, .chat, .docs-panel, .modal-card, .unlock-card, .analytics-gap-section {
-  background: var(--bg-surface) !important;
-  border: 1px solid var(--border-subtle) !important;
-  border-radius: var(--ui-radius-lg) !important;
-  box-shadow: none !important;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: none;
 }
 .panel { padding: 14px 16px; }
 .panel-title { border-color: var(--border-subtle); }
@@ -48,7 +50,7 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 /* Financial typography: values align across cards and table columns. */
 .numeric, .metric-card strong, .pnl-row strong, .budget-grid .num, .prime-card strong, .flash-prime strong,
 .pnl-edit-row > strong, .pnl-edit-row > span, .flash-income-preview__value, .pnl-kpi strong, .budget-kpi strong {
-  font-family: var(--font-mono) !important;
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums lining-nums;
   letter-spacing: -.035em;
 }
@@ -56,9 +58,9 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 .pnl-edit-row, .pnl-edit-row > *, .pnl-table td, .pnl-table th { border-color: var(--border-subtle); }
 .pnl-edit-row:hover, .pnl-row:hover, .pnl-table tbody tr:hover { background: rgba(91,124,250,.07); }
 .pnl-edit-row:hover .pnl-row-actions, .pnl-row:hover .pnl-row-actions { opacity: 1; }
-.positive, .is-positive, .status-success { color: var(--color-success) !important; }
-.negative, .is-negative, .status-danger { color: var(--color-danger) !important; }
-.status-warning { color: var(--color-warning) !important; }
+.positive, .is-positive, .status-success { color: var(--color-success); }
+.negative, .is-negative, .status-danger { color: var(--color-danger); }
+.status-warning { color: var(--color-warning); }
 .badge, .status-badge, .pnl-badge { border-radius: 999px; }
 .empty-state, .empty, .memory-empty { background: var(--bg-surface); border-color: var(--border-strong); color: var(--text-secondary); }
 .skeleton, [class*='skeleton'] { background: var(--skeleton-gradient); background-size: 240% 100%; animation: sten-shimmer 1.35s ease infinite; }
@@ -88,8 +90,8 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 
 /* Tablet: preserve financial hierarchy and keep tables deliberately scrollable. */
 @media (min-width: 768px) and (max-width: 1100px) {
-  .sidebar { width: 64px !important; }
-  .main { margin-left: 64px !important; width: calc(100% - 64px) !important; }
+  .sidebar { width: 64px; }
+  .main { margin-left: 64px; width: calc(100% - 64px); }
   .content { padding: 20px 18px 36px; }
   .page { gap: 12px; }
   .panel { padding: 15px; }
@@ -121,8 +123,8 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 .pnl-kpi {
   min-width: 0;
   padding: 16px 18px;
-  background: linear-gradient(145deg, rgba(91,124,250,.08), transparent 70%), var(--bg-surface) !important;
-  border-radius: var(--ui-radius-lg) !important;
+  background: linear-gradient(145deg, rgba(91,124,250,.08), transparent 70%), var(--bg-surface);
+  border-radius: var(--ui-radius-lg);
 }
 .pnl-kpi > span, .metric-card > span, .analytics-kpi-strip > * { color: var(--text-secondary); }
 .pnl-kpi strong { display: block; margin-top: 8px; font-size: clamp(20px, 2vw, 28px); line-height: 1.2; }
@@ -175,7 +177,7 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 .pnl-empty-actions { justify-content: center; gap: 8px; }
 
 .sten-ai-page, .chat { min-height: 0; }
-.chat { overflow: hidden; border-radius: var(--ui-radius-lg) !important; }
+.chat { overflow: hidden; border-radius: var(--ui-radius-lg); }
 .chat-head { min-height: 54px; padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface); }
 .chat-body { background: radial-gradient(ellipse at 50% 0%, rgba(91,124,250,.045), transparent 58%), var(--bg-base); }
 .welcome { max-width: 620px; margin-inline: auto; }
@@ -186,7 +188,7 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 .composer-box { border: 1px solid var(--border-strong); border-radius: var(--ui-radius-lg); background: var(--bg-surface); box-shadow: 0 8px 28px rgba(0,0,0,.2); }
 .composer-box:focus-within { border-color: rgba(0,240,255,.55); }
 .composer-footer, .composer-context { color: var(--text-muted); }
-.docs-panel { border-radius: var(--ui-radius-lg) !important; }
+.docs-panel { border-radius: var(--ui-radius-lg); }
 .upload-box { border: 1px dashed var(--border-strong); border-radius: var(--ui-radius-md); background: var(--bg-inset); }
 .upload-box:hover { border-color: var(--color-accent); background: rgba(0,240,255,.035); }
 .doc-row { border-color: var(--border-subtle); }
@@ -222,14 +224,14 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
   min-height: 126px;
   padding: 16px 18px;
   overflow: hidden;
-  border-radius: var(--ui-radius-lg) !important;
+  border-radius: var(--ui-radius-lg);
 }
 .metric-card > span { display: block; font-size: 12px; }
 .metric-card strong { display: block; margin-top: 12px; font-size: clamp(20px, 2vw, 28px); line-height: 1.2; }
 .metric-card::after { content: none; }
 .flash-prime, .prime-card {
-  border: 1px solid rgba(0,240,255,.2) !important;
-  background: linear-gradient(120deg, rgba(0,240,255,.055), transparent 70%), var(--bg-surface) !important;
+  border: 1px solid rgba(0,240,255,.2);
+  background: linear-gradient(120deg, rgba(0,240,255,.055), transparent 70%), var(--bg-surface);
 }
 .flash-scale { border-radius: var(--ui-radius-md); }
 
@@ -241,7 +243,7 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 .analytics-report-table td, .analytics-report-table th { padding: 12px 14px; border-bottom: 1px solid var(--border-subtle); }
 .analytics-report-table tbody tr:hover { background: rgba(91,124,250,.06); }
 .analytics-report-total { background: rgba(91,124,250,.07); color: var(--text-primary); font-weight: 600; }
-.analytics-gap-section { border-radius: var(--ui-radius-lg) !important; }
+.analytics-gap-section { border-radius: var(--ui-radius-lg); }
 .analytics-gap-head { gap: 12px; }
 
 .dashboard-cockpit .analytics-summary { border-color: var(--border-subtle); background: var(--bg-surface); }
@@ -299,12 +301,12 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
   border: 1px solid color-mix(in srgb, var(--color-danger) 42%, transparent);
   border-radius: 6px;
   background: var(--color-danger-bg);
-  color: var(--color-danger) !important;
+  color: var(--color-danger);
   font-weight: 600;
 }
-.flash-prime.critical { border-color: color-mix(in srgb, var(--color-danger) 42%, transparent) !important; background: linear-gradient(120deg, color-mix(in srgb, var(--color-danger) 9%, transparent), transparent 70%), var(--bg-surface) !important; }
-.flash-prime.attention { border-color: color-mix(in srgb, var(--color-warning) 35%, transparent) !important; background: linear-gradient(120deg, color-mix(in srgb, var(--color-warning) 7%, transparent), transparent 70%), var(--bg-surface) !important; }
-.flash-prime.normal { border-color: color-mix(in srgb, var(--color-success) 28%, transparent) !important; }
+.flash-prime.critical { border-color: color-mix(in srgb, var(--color-danger) 42%, transparent); background: linear-gradient(120deg, color-mix(in srgb, var(--color-danger) 9%, transparent), transparent 70%), var(--bg-surface); }
+.flash-prime.attention { border-color: color-mix(in srgb, var(--color-warning) 35%, transparent); background: linear-gradient(120deg, color-mix(in srgb, var(--color-warning) 7%, transparent), transparent 70%), var(--bg-surface); }
+.flash-prime.normal { border-color: color-mix(in srgb, var(--color-success) 28%, transparent); }
 @media (max-width: 767px) {
   .pnl-row-ai-action { opacity: 1; }
 }
@@ -312,7 +314,7 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 
 /* Page-level finish: align real page structures with Obsidian Precision. */
 .sten-ai-page { min-height: calc(100vh - 100px); }
-.sten-ai-page .chat { border-color: var(--border-subtle) !important; overflow: hidden; }
+.sten-ai-page .chat { border-color: var(--border-subtle); overflow: hidden; }
 .sten-ai-page .chat-head { min-height: 58px; padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface); }
 .sten-ai-page .chat-body { background: var(--bg-base); }
 .sten-ai-page .welcome { max-width: 900px; margin-inline: auto; }
@@ -323,7 +325,7 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 .sten-ai-page .composer-box { border: 1px solid var(--border-strong); border-radius: 14px; background: var(--bg-surface); box-shadow: 0 8px 26px rgba(0,0,0,.18); }
 .sten-ai-page .composer-box:focus-within { border-color: rgba(91,124,250,.7); box-shadow: 0 0 0 2px rgba(91,124,250,.12); }
 .sten-ai-page .composer-footer, .sten-ai-page .composer-context { color: var(--text-muted); }
-.sten-ai-page .docs-panel { background: var(--bg-surface) !important; }
+.sten-ai-page .docs-panel { background: var(--bg-surface); }
 .sten-ai-page .doc-row { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 10px 12px; }
 .sten-ai-page .chat-toast { border: 1px solid var(--border-strong); background: var(--bg-elevated); color: var(--text-primary); }
 
@@ -454,10 +456,10 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
   display: flex;
   flex-direction: column;
   gap: 0;
-  background: var(--bg-surface) !important;
-  border-color: var(--border-subtle) !important;
-  border-radius: 16px !important;
-  box-shadow: var(--shadow-md) !important;
+  background: var(--bg-surface);
+  border-color: var(--border-subtle);
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
 }
 .auth-brand {
   display: flex;
@@ -469,8 +471,8 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
   display: block;
   width: min(220px, 100%);
   height: auto;
-  --sten-ink: var(--text-primary) !important;
-  --sten-muted: var(--text-muted) !important;
+  --sten-ink: var(--text-primary);
+  --sten-muted: var(--text-muted);
 }
 .auth-heading { margin-bottom: 26px; }
 .auth-eyebrow {
@@ -606,7 +608,7 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 .legal-footer__links a:hover { color: var(--text-primary); text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 480px) {
   .unlock { padding-left: 14px; padding-right: 14px; place-items: center; }
-  .unlock-card { padding: 24px 20px; border-radius: 14px !important; }
+  .unlock-card { padding: 24px 20px; border-radius: 14px; }
   .auth-brand { margin-bottom: 24px; }
   .auth-heading { margin-bottom: 22px; }
   .legal-footer__identity { align-items: flex-start; flex-direction: column; }
