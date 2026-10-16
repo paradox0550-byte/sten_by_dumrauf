@@ -4378,3 +4378,112 @@ input[type="number"], input[type="month"], textarea, [contenteditable="true"] {
   cursor: text;
 }
 :disabled, [aria-disabled="true"] { cursor: not-allowed; }
+
+
+/* STEN layer 5 — Obsidian Precision responsive polish for operations workspaces */
+.team-page .analytics-kpi-strip,
+.team-page .analytics-report-section,
+.team-page .analytics-gap-section,
+.secretary-page .panel,
+.flash-page .panel,
+.settings-page .panel {
+  min-width: 0;
+  border-color: var(--border-subtle, var(--line));
+  background: var(--bg-surface, var(--surface));
+  border-radius: 12px;
+}
+.team-page .analytics-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+.team-page .analytics-kpi-strip > div {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border-subtle, var(--line));
+  border-radius: 10px;
+  background: var(--bg-elevated, var(--surface2));
+}
+.team-page .analytics-kpi-strip small,
+.team-page .analytics-kpi-strip span {
+  display: block;
+  color: var(--text-secondary, var(--muted));
+}
+.team-page .analytics-kpi-strip strong {
+  display: block;
+  margin: 8px 0 5px;
+  color: var(--text-primary, var(--text));
+  font-family: var(--font-mono, monospace);
+  font-size: clamp(16px, 1.4vw, 22px);
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.secretary-page .secretary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+}
+.secretary-page .secretary-event,
+.secretary-page .secretary-note,
+.secretary-page .secretary-day {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.secretary-page .secretary-event {
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle, var(--line));
+}
+.secretary-page .secretary-event:last-child { border-bottom: 0; }
+.secretary-page .secretary-date { flex: 0 0 72px; }
+.secretary-page .secretary-main { min-width: 0; }
+.secretary-page .secretary-main strong { overflow-wrap: anywhere; }
+.secretary-page .secretary-timeline { margin-top: 16px; }
+.flash-page .metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.flash-page .metric-card {
+  min-width: 0;
+  border: 1px solid var(--border-subtle, var(--line));
+  border-radius: 10px;
+  background: var(--bg-surface, var(--surface));
+  padding: 16px;
+}
+.flash-page .metric-card span {
+  display: block;
+  color: var(--text-secondary, var(--muted));
+}
+.flash-page .metric-card strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--text-primary, var(--text));
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.flash-page .flash-scale { overflow: hidden; border-radius: 999px; }
+@media (max-width: 1100px) {
+  .team-page .analytics-kpi-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  .secretary-page .secretary-grid { grid-template-columns: minmax(0, 1fr); }
+  .flash-page .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .team-page .analytics-kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .team-page .analytics-kpi-strip > div { padding: 12px; }
+  .secretary-page .page-head { align-items: stretch; gap: 12px; }
+  .secretary-page .head-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .secretary-page .head-actions button { justify-content: center; min-width: 0; }
+  .secretary-page .secretary-event { align-items: flex-start; gap: 8px; }
+  .secretary-page .secretary-date { flex-basis: 62px; }
+  .secretary-page .secretary-event .danger-button,
+  .secretary-page .secretary-event .secondary-button { min-height: 40px; padding-inline: 8px; }
+  .flash-page .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .flash-page .metric-card { padding: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .team-page *, .secretary-page *, .flash-page * { scroll-behavior: auto; transition-duration: 0.01ms !important; }
+}
