@@ -222,10 +222,17 @@ function AIContent({user}:{user:User|null}){
 
  return <div className={pageClass}>
    <header className="sten-ai-topbar">
-     <div className="sten-ai-topbar__title"><h1>STEN AI</h1><span className="sten-ai-topbar__status" aria-label={busy?'STEN AI обрабатывает запрос':'Статус STEN AI не проверен'} title={busy?'Обработка запроса':'Статус не проверен'}/></div>
+     <div className="sten-ai-topbar__brand">
+       <span className="sten-ai-topbar__mark" aria-hidden="true"><Sparkles size={19}/></span>
+       <div className="sten-ai-topbar__title">
+         <div className="sten-ai-topbar__name"><h1>STEN AI</h1><span className="sten-ai-topbar__status" aria-label={busy?'STEN AI формирует ответ':'STEN AI готов к анализу'} title={busy?'Формирует ответ':'Готов к анализу'}/></div>
+         <p>Аналитический партнёр руководителя</p>
+       </div>
+     </div>
      <div className="sten-ai-topbar__actions">
-       <button className="chat-appearance-trigger" onClick={()=>setAppearanceOpen(v=>!v)} aria-label="Оформление чата" aria-expanded={appearanceOpen} title="Оформление чата"><MoreHorizontal size={18}/></button>
-       <button className="secondary-button" onClick={clearChat}>Новый диалог</button>
+       <span className={'sten-ai-context-pill '+(hasScopeId(scope)?'is-selected':'')}><Database size={14}/>{hasScopeId(scope)?'Контур выбран':'Контур не выбран'}</span>
+       <button className="chat-appearance-trigger" onClick={()=>setAppearanceOpen(v=>!v)} aria-label="Настроить оформление STEN AI" aria-expanded={appearanceOpen} title="Настроить оформление"><MoreHorizontal size={18}/></button>
+       <button className="secondary-button" onClick={clearChat}><span>Новый диалог</span></button>
      </div>
    </header>
 
@@ -260,8 +267,10 @@ function AIContent({user}:{user:User|null}){
      </aside>
 
      <section className="chat">
-       <div className="chat-head" aria-label="Статус чата">
-         <span>{readyCount} документов готовы</span>
+       <div className="chat-head" aria-label="Состав контекста диалога">
+         <span className="chat-head__label">РАБОЧИЙ ДИАЛОГ</span>
+         <span className="chat-head__context"><span className="chat-head__dot"/>{hasScopeId(scope)?'Используется выбранный контур':'Финансовый контур не выбран'}</span>
+         <span className="chat-head__documents"><FileText size={13}/>{readyCount} {readyCount===1?'документ готов':'документов готовы'}</span>
        </div>
        {appearanceOpen&&<AppearanceDrawer onClose={()=>setAppearanceOpen(false)}/>}
 
