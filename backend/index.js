@@ -2054,7 +2054,13 @@ async function extractDocument(buf, name, mime) {
   // XLSX parser after conversion so plan/fact/sourceCell precision is preserved.
   let normalized = null;
   if (ENV.MARKITDOWN_ENABLED && ENV.MARKITDOWN_URL) {
-    normalized = await convertWithMarkItDown(buf, name, mime, markitdownEnv);
+    try {
+      normalized = await convertWithMarkItDown(buf, name, mime, markitdownEnv);
+    } catch (error) {
+      // MarkItDown is an optional normalization layer; preserve the existing deterministic/legacy fallback.
+      log('MarkItDown conversion failed; using fallback:', error?.code || 'CONVERSION_FAILED');
+      normalized = null;
+    }
   }
 
   if (['xlsx', 'xlsm', 'xls'].includes(ext)) {
