@@ -20,7 +20,7 @@ test('all response modes receive execution-first and document-source rules', () 
     assert.match(prompt, /has_more=false/u);
     assert.match(prompt, /get_documents со status=all/u);
     assert.match(prompt, /Не выдумывай номер строки или листа/u);
-    assert.match(prompt, /называй их/u);
+    assert.match(prompt, /имя и должность/u);
   }
 });
 
