@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3, Bot, Brain, CalendarDays, Menu, Moon, PanelLeft, PanelLeftClose,
-  Scale, Sun, WalletCards, X,
+  LogOut, Scale, Sun, WalletCards, X,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import WorkspaceSelector from './WorkspaceSelector';
@@ -44,8 +44,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     return value === 'RUB' || value === 'THOUSAND' || value === 'MILLION' ? value : 'THOUSAND';
   });
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === '1');
-  const { user } = useAuth();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem(SIDEBAR_KEY);
+    if (saved !== null) return saved === '1';
+    return window.matchMedia('(min-width: 768px) and (max-width: 1279px)').matches;
+  });
+  const { user, signOut } = useAuth();
   const [scope, setScope] = useScope();
   const location = useLocation();
   const navigate = useNavigate();
@@ -68,8 +72,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }, []);
 
   const items = useMemo(() => [
+    ['/dashboard', 'Сводка', 'overview'],
     ['/sten', 'STEN AI', Bot],
-    ['/dashboard', 'Мой день', 'overview'],
+    ['/quick-entry', 'Мой день', CalendarDays],
     ['/secretary', 'Секретарь', CalendarDays],
     ['/flash', 'Flash', 'report'],
     ['/pnl', 'P&L', 'pnl'],
@@ -98,6 +103,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     ['/dashboard', 'Сводка', 'overview'],
     ['/pnl', 'P&L', 'pnl'],
     ['/documents', 'Документы', 'terms'],
+    ['/settings', 'Настройки', 'settings'],
   ] as const;
 
   return (
@@ -114,7 +120,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav aria-label="Навигация контура">
-            <div className="nav-section-label">ОПЕРАЦИОННЫЙ КОНТУР</div>
+            <div className="nav-section-label">Рабочее пространство</div>
             {items.map(([to, label, Icon]) => (
               <NavLink
                 key={to}
@@ -126,14 +132,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <span>{label}</span>
               </NavLink>
             ))}
-            <div className="nav-section-label" style={{ marginTop: 18 }}>Система</div>
+            <div className="nav-section-label nav-system-label">Система</div>
             <NavLink to="/memory" onClick={() => setMobileMenu(false)}>
               <Brain size={17} />
               <span>Память</span>
             </NavLink>
             <NavLink to="/legal" onClick={() => setMobileMenu(false)}>
-              <Scale size={17} />
+              <Scale size={18} />
               <span>Правовая информация</span>
+            </NavLink>
+            <NavLink to="/settings" onClick={() => setMobileMenu(false)}>
+              <NavIcon icon="settings" size={18} />
+              <span>Настройки</span>
             </NavLink>
             {user?.role === 'super_admin' && <NavLink to="/admin/organizations" onClick={() => setMobileMenu(false)}>
               <span>Организации</span>
@@ -144,7 +154,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="sidebar-bottom">
           <div className="sidebar-profile">
             <div className="avatar">{name.slice(0, 1)}</div>
-            <div><b>{name}</b><small>персональный режим</small></div>
+            <div className="sidebar-profile-copy"><b>{name}</b><small>персональный режим</small></div>
+            <button className="sidebar-logout" type="button" onClick={() => { signOut(); navigate('/unlock', { replace: true }); }} aria-label="Выйти из аккаунта" title="Выйти">
+              <LogOut size={16} />
+            </button>
           </div>
         </div>
       </aside>
@@ -156,7 +169,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <button className="icon-button mobile-menu" onClick={() => setMobileMenu(v => !v)} aria-label="Меню">
             {mobileMenu ? <X size={18} /> : <Menu size={18} />}
           </button>
-          <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(v => !v)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed ? "Развернуть навигацию" : "Свернуть навигацию"} title={sidebarCollapsed ? "Развернуть навигацию" : "Свернуть навигацию"}>
+          <button className="sidebar-toggle" onClick={() => setMobileMenu(v => !v)} aria-expanded={mobileMenu} aria-label={sidebarCollapsed ? "Развернуть навигацию" : "Свернуть навигацию"} title={sidebarCollapsed ? "Развернуть навигацию" : "Свернуть навигацию"}>
             {sidebarCollapsed ? <PanelLeft size={17} /> : <PanelLeftClose size={17} />}
           </button>
 
@@ -224,7 +237,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span>{label}</span>
           </NavLink>
         ))}
-        <button className={location.pathname === '/memory' ? 'active' : ''} onClick={() => viewNavigate(navigate,'/settings')} aria-label="Настройки" aria-current={location.pathname === '/memory' ? 'page' : undefined}><NavIcon icon="settings" size={18} /><span>Настройки</span></button>
       </nav>
     </div>
   );

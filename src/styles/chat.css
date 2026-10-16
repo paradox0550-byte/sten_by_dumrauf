@@ -1,11 +1,27 @@
 /* STEN AI workspace layout. Scoped to this page; theme tokens stay canonical. */
 .sten-ai-page { display: flex; flex-direction: column; height: calc(100dvh - 138px); min-height: 0; max-width: none; overflow: hidden; }
-.sten-ai-page > .page-head { flex: 0 0 auto; margin-bottom: 14px; }
+.sten-ai-page > .sten-ai-topbar { flex: 0 0 56px; min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: var(--space-lg, 24px); padding: 0 var(--space-lg, 24px); margin: 0 0 var(--space-md, 16px); user-select: none; -webkit-user-select: none; }
+.sten-ai-topbar__title, .sten-ai-topbar__actions { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.sten-ai-topbar__title h1 { margin: 0; color: var(--text-primary); font-size: 20px; line-height: 1.2; font-weight: 600; cursor: default; user-select: none; }
+.sten-ai-topbar__status { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); flex: 0 0 6px; }
+.sten-ai-topbar__status[aria-label*="обрабатывает"] { background: var(--color-success); }
+.sten-ai-topbar__actions .secondary-button { min-height: 32px; height: 32px; padding: 0 12px; cursor: pointer; }
+.sten-ai-page .page-head { display: none; }
 .sten-ai-page .ai-grid { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); align-items: stretch; gap: 14px; flex: 1 1 auto; min-width: 0; min-height: 0; height: 1px; }
 .sten-ai-page .docs-panel, .sten-ai-page .chat { min-width: 0; min-height: 0; max-height: 100%; }
 .sten-ai-page .docs-panel { display: flex; flex-direction: column; overflow: auto; overscroll-behavior: contain; }
 .sten-ai-page .chat { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
-.sten-ai-page .chat-head { flex: 0 0 auto; }
+.sten-ai-page .chat-head { display: flex; align-items: center; flex: 0 0 auto; min-height: 28px; padding: 0 16px; color: var(--text-muted); font-size: 12px; user-select: none; -webkit-user-select: none; }
+.sten-ai-page .chat-head button, .sten-ai-page .composer button { cursor: pointer; }
+.sten-ai-page .chat-body, .sten-ai-page .message-bubble, .sten-ai-page .message-text { user-select: text; -webkit-user-select: text; }
+.sten-ai-page h1, .sten-ai-page h2, .sten-ai-page .eyebrow, .sten-ai-page .chat-head { cursor: default; }
+.sten-ai-page .message-actions button, .sten-ai-page .starter-grid button, .sten-ai-page .chat-appearance-trigger { user-select: none; -webkit-user-select: none; cursor: pointer; }
+.sten-ai-page .composer-box textarea { cursor: text; }
+.sten-ai-page .composer button:disabled { cursor: not-allowed; }
+.sten-ai-tools { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 0 8px 42px; color: var(--text-muted); font-size: 11px; user-select: text; }
+.sten-ai-tools > span:first-child { color: var(--text-secondary); }
+.sten-ai-tools__item { padding: 3px 6px; border: 1px solid var(--border-subtle); border-radius: var(--ui-radius-sm); background: var(--bg-elevated); }
+.sten-ai-tools__item b { font-family: var(--font-mono); font-weight: 500; color: var(--text-secondary); }
 .sten-ai-page .chat-body { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; -webkit-overflow-scrolling: touch; }
 .sten-ai-page .chat-body > .welcome { width: min(100%, 900px); }
 .sten-ai-page .chat-body article.message { min-width: 0; max-width: 100%; }
@@ -17,6 +33,7 @@
 .sten-ai-page .chat-toast { flex: 0 0 auto; }
 @media (min-width: 1280px) {
   .sten-ai-page .ai-grid { grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); gap: 16px; }
+  .sten-ai-page .chat { width: min(100%, 900px); justify-self: center; }
   .sten-ai-page .chat-body { padding-inline: clamp(16px, 2vw, 28px); }
 }
 @media (min-width: 768px) and (max-width: 1279px) {
@@ -26,10 +43,9 @@
 }
 @media (max-width: 767px) {
   .sten-ai-page { height: calc(100dvh - 154px); }
-  .sten-ai-page > .page-head { align-items: flex-start; gap: 10px; margin-bottom: 10px; }
-  .sten-ai-page > .page-head p { display: none; }
-  .sten-ai-page > .page-head h1 { font-size: 26px; }
-  .sten-ai-page > .page-head .secondary-button { min-height: 36px; padding: 7px 10px; white-space: nowrap; }
+  .sten-ai-page > .sten-ai-topbar { padding-inline: var(--space-md, 16px); margin-bottom: 8px; }
+  .sten-ai-page > .sten-ai-topbar .secondary-button { min-height: 32px; height: 32px; padding: 0 9px; white-space: nowrap; }
+  .sten-ai-topbar__actions { gap: 6px; }
   .sten-ai-page .ai-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .sten-ai-page .docs-panel { display: none; }
   .sten-ai-page .chat { border-radius: var(--ui-radius-md); }
@@ -40,6 +56,32 @@
 }
 @media (max-height: 620px) {
   .sten-ai-page { height: calc(100dvh - 118px); }
-  .sten-ai-page > .page-head { margin-bottom: 8px; }
-  .sten-ai-page > .page-head p { display: none; }
+  .sten-ai-page > .sten-ai-topbar { margin-bottom: 8px; }
 }
+@media (max-width: 420px) {
+  .sten-ai-topbar__actions .chat-appearance-trigger { display: none; }
+  .sten-ai-tools { padding-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .sten-ai-page * { scroll-behavior: auto; } }
+
+
+/* Safe, semantic Markdown for assistant replies. */
+.sten-markdown { min-width: 0; max-width: 100%; color: var(--text-primary); line-height: 1.7; user-select: text; -webkit-user-select: text; overflow-wrap: anywhere; }
+.sten-markdown > :first-child { margin-top: 0; }
+.sten-markdown > :last-child { margin-bottom: 0; }
+.sten-markdown h1, .sten-markdown h2, .sten-markdown h3, .sten-markdown h4 { margin: 1em 0 .45em; color: var(--text-primary); line-height: 1.35; font-weight: 600; cursor: default; }
+.sten-markdown h1 { font-size: 20px; } .sten-markdown h2 { font-size: 18px; } .sten-markdown h3, .sten-markdown h4 { font-size: 16px; }
+.sten-markdown p { margin: .55em 0; }
+.sten-markdown ul, .sten-markdown ol { margin: .55em 0; padding-left: 1.5em; }
+.sten-markdown li + li { margin-top: .25em; }
+.sten-markdown code { font-family: var(--font-mono); font-size: .9em; font-variant-numeric: tabular-nums; }
+.sten-markdown :not(pre) > code { padding: 2px 5px; border: 1px solid var(--border-subtle); border-radius: var(--ui-radius-sm); background: var(--bg-elevated); }
+.sten-markdown pre { max-width: 100%; overflow: auto; margin: .75em 0; padding: 12px; border: 1px solid var(--border-subtle); border-radius: var(--ui-radius-md); background: var(--bg-elevated); }
+.sten-markdown pre code { white-space: pre; }
+.sten-markdown__table-wrap { max-width: 100%; overflow-x: auto; margin: .75em 0; border: 1px solid var(--border-subtle); border-radius: var(--ui-radius-sm); }
+.sten-markdown table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sten-markdown th, .sten-markdown td { padding: 7px 10px; border-bottom: 1px solid var(--border-subtle); text-align: left; vertical-align: top; }
+.sten-markdown th { background: var(--bg-elevated); color: var(--text-secondary); font-weight: 600; }
+.sten-markdown td { font-variant-numeric: tabular-nums; }
+.sten-markdown a { color: var(--color-brand); text-decoration: underline; text-underline-offset: 2px; }
+.sten-markdown blockquote { margin: .75em 0; padding: 4px 12px; border-left: 2px solid var(--border-strong); color: var(--text-secondary); }

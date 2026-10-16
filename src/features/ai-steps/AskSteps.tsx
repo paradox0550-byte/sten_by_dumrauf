@@ -26,7 +26,9 @@ export function AskSteps({ steps, totalMs, className }: AskStepsProps) {
   const bodyId = useId();
   if (!steps?.length) return null;
   const rootClass = ['ai-steps', className].filter(Boolean).join(' ');
-  const durationLabel = totalMs === undefined ? 'Обработка · —' : `Обработка · ${formatDuration(totalMs)}`;
+  const durationLabel = totalMs === undefined || !Number.isFinite(totalMs)
+    ? 'Обработка · —'
+    : `Обработка · ${new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(totalMs / 1000)} с`;
   return (
     <section className={rootClass} aria-label="Ход обработки запроса">
       <button type="button" className="ai-steps__header" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen(value => !value)}>

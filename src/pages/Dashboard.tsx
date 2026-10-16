@@ -1,123 +1,150 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, AlertTriangle, BarChart3, CheckCircle2, Clock3, RefreshCw, TrendingUp } from 'lucide-react';
-import { api } from '../lib/api';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { api, ApiError } from '../lib/api';
 import { useScope } from '../lib/useScope';
-import { hasScopeId, scopeQuery } from '../lib/scope';
-import { formatMoneyAuto } from '../lib/format';
-import TrendLine from '../components/TrendLine';
-import { DeviationsWidget } from '../components/DeviationsWidget';
+import { scopeQuery } from '../lib/scope';
+import { formatDeltaPct, formatMoneyAuto, formatPercent } from '../lib/format';
+import WorkspaceSelector from '../components/WorkspaceSelector';
+import MetricCard from '../components/MetricCard';
+import AttentionBlock, { type AttentionItem } from '../components/AttentionBlock';
+import PrimeCostBlock from '../components/PrimeCostBlock';
+import './Dashboard.css';
 
-type Row = { article: string; plan: number | null; fact: number | null; source?: string };
-type Calc = { revenue: number | null; cogs: number | null; personnel: number | null; overtime: number | null; labor: number | null; operatingExpenses: number | null; ebitda: number | null; primeCostPercent: number | null; primeCostStatus: string; foodCostPercent: number | null; personnelPercent: number | null; opexPercent: number | null; ebitdaMargin: number | null };
-type PnlResp = { period: string; rows: Row[]; calculated?: { fact: Calc; plan: Calc } };
-
-const monthOf = (p: string, d: number) => { const [y, m] = p.split('-').map(Number); const x = new Date(y, m - 1 + d, 1); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); };
-const monthLabel = (p: string) => new Date(p + '-01T00:00:00').toLocaleDateString('ru-RU', { month: 'short', year: '2-digit' });
-
-// Расходные статьи: для них снижение факта относительно плана благоприятно.
-const EXPENSE_KEYWORDS = ['cogs', 'labor', 'payroll', 'opex', 'personnel', 'other', 'себестоим', 'фот', 'персонал', 'расход', 'затрат'];
-const isExpenseArticle = (article: string): boolean => {
-  const key = String(article || '').toLowerCase();
-  return EXPENSE_KEYWORDS.some(k => key.includes(k));
+type PnlRow = { article: string; plan: number | null; fact: number | null; source?: string };
+type Calculated = {
+  revenue?: number | null; cogs?: number | null; personnel?: number | null; labor?: number | null;
+  ebitda?: number | null; primeCostPercent?: number | null; foodCostPercent?: number | null;
+  personnelPercent?: number | null; ebitdaMargin?: number | null;
 };
-const gapClass = (article: string, gap: number | null): string => {
-  if (gap === null) return '';
-  const favorable = isExpenseArticle(article) ? gap < 0 : gap > 0;
-  return favorable ? 'positive' : 'negative';
+type PnlResponse = {
+  period?: string;
+  rows?: PnlRow[];
+  calculated?: { fact?: Calculated; plan?: Calculated };
+  summary?: { calculated?: { fact?: Calculated; plan?: Calculated }; fact?: Calculated; plan?: Calculated };
 };
+
+const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+const getLabor = (calc?: Calculated) => calc?.labor ?? calc?.personnel ?? null;
+const getFact = (response: PnlResponse | null) => response?.calculated?.fact ?? response?.summary?.calculated?.fact ?? response?.summary?.fact;
+const getPlan = (response: PnlResponse | null) => response?.calculated?.plan ?? response?.summary?.calculated?.plan ?? response?.summary?.plan;
+const expenseArticle = (article: string) => /cogs|food.?cost|себестоим|фот|персонал|labor|payroll|расход|затрат|opex/i.test(article);
+const moneyDeltaPercent = (plan: number | null | undefined, fact: number | null | undefined) =>
+  isFiniteNumber(plan) && isFiniteNumber(fact) && plan !== 0 ? ((fact - plan) / Math.abs(plan)) * 100 : null;
+
+function attentionItems(rows: PnlRow[]): AttentionItem[] {
+  return rows.flatMap((row) => {
+    if (!isFiniteNumber(row.plan) || !isFiniteNumber(row.fact)) return [];
+    const delta = row.fact - row.plan;
+    const deltaPct = moneyDeltaPercent(row.plan, row.fact);
+    const unfavorable = expenseArticle(row.article) ? delta > 0 : delta < 0;
+    if (!unfavorable || delta === 0) return [];
+    return [{ article: row.article, plan: row.plan, fact: row.fact, delta, deltaPct }];
+  }).sort((a, b) => Math.abs(b.deltaPct ?? 0) - Math.abs(a.deltaPct ?? 0));
+}
 
 export default function Dashboard() {
-  const [scope] = useScope();
-  const [current, setCurrent] = useState<PnlResp | null>(null);
-  const [trend, setTrend] = useState<{ period: string; revenue: number | null }[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [actionBusy, setActionBusy] = useState(false);
+  const [scope, setScope] = useScope();
+  const [response, setResponse] = useState<PnlResponse | null>(null);
+  const [state, setState] = useState<'loading' | 'ready' | 'empty' | 'unavailable' | 'error'>('loading');
+  const [errorMessage, setErrorMessage] = useState('');
 
   const load = useCallback(async () => {
-    setLoading(true); setError('');
+    setState('loading');
+    setErrorMessage('');
     try {
-      const q = (p: string) => scopeQuery({ ...scope, period: p });
-      const offsets = [-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1,0];
-      const results = await Promise.all(offsets.map(o => api.get<PnlResp>('/api/pnl?' + q(monthOf(scope.period, o))).catch(() => null)));
-      setCurrent(results[results.length - 1]);
-      const readRevenue = (x: PnlResp | null) => x?.calculated?.fact?.revenue ?? null;
-      setTrend(results.map((x, i) => ({ period: monthOf(scope.period, offsets[i]), revenue: readRevenue(x) })));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ошибка загрузки данных.');
-      setCurrent(null); setTrend([]);
-    } finally { setLoading(false); }
+      const result = await api.get<PnlResponse>('/api/pnl?' + scopeQuery(scope));
+      setResponse(result);
+      setState(Array.isArray(result?.rows) && result.rows.length > 0 ? 'ready' : 'empty');
+    } catch (error) {
+      setResponse(null);
+      if (error instanceof ApiError && error.status === 503) {
+        setState('unavailable');
+        setErrorMessage('Данные временно недоступны.');
+      } else {
+        setState('error');
+        setErrorMessage(error instanceof Error ? error.message : 'Не удалось загрузить P&L.');
+      }
+    }
   }, [scope.period, scope.projectId, scope.branchId, scope.restaurantId, scope.departmentId]);
 
   useEffect(() => { void load(); }, [load]);
 
-  const fact = current?.calculated?.fact;
-  const plan = current?.calculated?.plan;
-  const prime = fact?.primeCostPercent ?? null;
-  const rows = current?.rows ?? [];
+  const fact = getFact(response);
+  const plan = getPlan(response);
+  const rows = response?.rows ?? [];
+  const attention = useMemo(() => attentionItems(rows), [rows]);
+  const revenueDelta = moneyDeltaPercent(plan?.revenue, fact?.revenue);
+  const laborFact = getLabor(fact);
+  const laborPlan = getLabor(plan);
+  const laborDelta = moneyDeltaPercent(laborPlan, laborFact);
+  const foodCost = fact?.foodCostPercent ?? (
+    isFiniteNumber(fact?.cogs) && isFiniteNumber(fact?.revenue) && fact.revenue > 0
+      ? fact.cogs / fact.revenue * 100 : null
+  );
+  const cogsPercent = isFiniteNumber(fact?.cogs) && isFiniteNumber(fact?.revenue) && fact.revenue > 0 ? fact.cogs / fact.revenue * 100 : null;
+  const laborPercent = fact?.personnelPercent ?? (
+    isFiniteNumber(laborFact) && isFiniteNumber(fact?.revenue) && fact.revenue > 0
+      ? laborFact / fact.revenue * 100 : null
+  );
+  const primeCost = fact?.primeCostPercent ?? (
+    cogsPercent !== null && laborPercent !== null ? cogsPercent + laborPercent : null
+  );
+  const ebitdaMargin = fact?.ebitdaMargin ?? (
+    isFiniteNumber(fact?.ebitda) && isFiniteNumber(fact?.revenue) && fact.revenue > 0
+      ? fact.ebitda / fact.revenue * 100 : null
+  );
 
-  const metrics: [string, number | null, number | null][] = [
-    ['Выручка', fact?.revenue ?? null, plan?.revenue ?? null],
-    ['Себестоимость', fact?.cogs ?? null, plan?.cogs ?? null],
-    ['ФОТ', fact?.labor ?? null, plan?.labor ?? null],
-    ['EBITDA', fact?.ebitda ?? null, plan?.ebitda ?? null]
-  ];
-
-  const day = useMemo(() => {
-    const revenueGap = fact?.revenue != null && plan?.revenue != null ? fact.revenue - plan.revenue : null;
-    const laborGap = fact?.labor != null && plan?.labor != null ? fact.labor - plan.labor : null;
-    const cogsGap = fact?.cogs != null && plan?.cogs != null ? fact.cogs - plan.cogs : null;
-    const ebitdaGap = fact?.ebitda != null && plan?.ebitda != null ? fact.ebitda - plan.ebitda : null;
-    const actions: { title: string; detail: string; href?: string }[] = [];
-    if (cogsGap != null && cogsGap > 0) actions.push({ title: 'Проверить COGS', detail: 'Себестоимость выше плана на ' + formatMoneyAuto(cogsGap), href: '/pnl' });
-    if (laborGap != null && laborGap > 0) actions.push({ title: 'Разобрать ФОТ', detail: 'ФОТ выше плана на ' + formatMoneyAuto(laborGap), href: '/team' });
-    if (fact?.overtime != null && fact.overtime > 0) actions.push({ title: 'Проверить переработки', detail: formatMoneyAuto(fact.overtime) + ' ₽ в Labor Cost', href: '/team' });
-    if (revenueGap != null && revenueGap < 0) actions.push({ title: 'Разобрать недобор выручки', detail: 'Факт ниже плана на ' + formatMoneyAuto(Math.abs(revenueGap)), href: '/analytics' });
-    if (!actions.length) actions.push({ title: 'Контроль периода', detail: 'По доступным данным новых действий не сформировано.' });
-    return { revenueGap, laborGap, cogsGap, ebitdaGap, actions };
-  }, [fact, plan]);
-
-  const createSecretaryTask = async (title: string, detail: string) => {
-    setActionBusy(true);
-    try {
-      const start = new Date(Date.now() + 60 * 60 * 1000);
-      await api.post('/api/secretary/events', { title, description: detail, start_at: start.toISOString(), event_type: 'task', status: 'planned', reminder_minutes: 30 });
-      alert('Задача добавлена в Секретарь.');
-    } catch (e) { setError(e instanceof Error ? e.message : 'Не удалось создать задачу.'); }
-    finally { setActionBusy(false); }
-  };
-
-  const status = prime === null ? 'Нет данных' : prime <= 60 ? 'Ниже 60%' : prime <= 65 ? '60–65%' : 'Выше 65%';
+  const monthName = new Date((scope.period || '2000-01') + '-01T00:00:00').toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+  const monthLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+  const foodStatus = foodCost === null ? undefined : foodCost <= 35
+    ? { label: 'В норме', tone: 'success' as const }
+    : foodCost <= 40 ? { label: 'Требует внимания', tone: 'warning' as const }
+    : { label: 'Критично', tone: 'danger' as const };
 
   return (
-    <div className="page dashboard-cockpit">
-      <div className="page-head">
-        <div><span className="eyebrow"><Activity size={12} /> РУКОВОДИТЕЛЬ · МОЙ ДЕНЬ</span><h1>Мой день</h1><p>Один экран: что произошло, где отклонение и какое действие логично сделать первым.</p></div>
-        <button className="secondary-button" onClick={() => void load()} disabled={loading}><RefreshCw size={15} /> Обновить</button>
-      </div>
-      {!hasScopeId(scope) && <div className="import-result warn">Выберите проект, филиал, ресторан или подразделение в Настройках → Рабочий контур.</div>}
-      {error && <div className="error">{error}</div>}
-      <DeviationsWidget period={scope.period} scope={scope} />
-      {loading ? <div className="panel empty">Собираем рабочий день…</div> : !rows.length ? <div className="panel empty-state"><b>Нет данных за выбранный период</b><span>Загрузите P&L или введите подтверждённые данные. STEN не создаёт синтетический факт.</span></div> : <>
-        <section className="analytics-summary"><div><span className="eyebrow">ЧТО ПРОИЗОШЛО</span><p>Выручка {formatMoneyAuto(fact?.revenue)} · EBITDA {formatMoneyAuto(fact?.ebitda)} · Prime Cost {prime == null ? '—' : prime.toFixed(1).replace('.', ',') + ' %'}</p></div><div className="analytics-summary-delta"><small>План / факт</small><strong>{formatMoneyAuto(fact?.revenue)}</strong><span>{formatMoneyAuto(plan?.revenue)} · Δ {day.revenueGap == null ? '—' : formatMoneyAuto(day.revenueGap)}</span></div></section>
-        <section className="analytics-kpi-strip">{metrics.map(([label, fv, pv]) => <article key={label}><small>{label}</small><strong>{formatMoneyAuto(fv)}</strong><span>План {formatMoneyAuto(pv)}</span></article>)}<article><small>Prime Cost</small><strong>{prime == null ? '—' : prime.toFixed(1).replace('.', ',') + ' %'}</strong><span>{status}</span></article></section>
-        <div className="two-col dashboard-columns">
-          <section className="panel"><div className="panel-title"><AlertTriangle size={16}/> ПОЧЕМУ</div>
-            <div className="analytics-report-table driver-tree"><div className="analytics-report-head"><span>Драйвер</span><span>Факт</span><span>План</span><span>Δ</span></div>
-              <div><b>Выручка</b><span>{formatMoneyAuto(fact?.revenue)}</span><span>{formatMoneyAuto(plan?.revenue)}</span><strong className={gapClass('revenue', day.revenueGap)}>{formatMoneyAuto(day.revenueGap)}</strong></div>
-              <div><b>COGS</b><span>{formatMoneyAuto(fact?.cogs)}</span><span>{formatMoneyAuto(plan?.cogs)}</span><strong className={gapClass('cogs', day.cogsGap)}>{formatMoneyAuto(day.cogsGap)}</strong></div>
-              <div><b>ФОТ</b><span>{formatMoneyAuto(fact?.labor)}</span><span>{formatMoneyAuto(plan?.labor)}</span><strong className={gapClass('labor', day.laborGap)}>{formatMoneyAuto(day.laborGap)}</strong></div>
-              <div><b>EBITDA</b><span>{formatMoneyAuto(fact?.ebitda)}</span><span>{formatMoneyAuto(plan?.ebitda)}</span><strong className={gapClass('ebitda', day.ebitdaGap)}>{formatMoneyAuto(day.ebitdaGap)}</strong></div>
-            </div>
-            <p className="dashboard-note"><BarChart3 size={14}/> Для расходов (COGS, ФОТ) ниже плана — хорошо; для выручки и EBITDA — выше плана хорошо. Приложение показывает факт-план без инверсии, но подсвечивает цветом.</p>
-          </section>
-          <section className="panel"><div className="panel-title"><CheckCircle2 size={16}/> ЧТО ДЕЛАТЬ</div>
-            {day.actions.map((a, i) => <div className="secretary-event" key={a.title}><div className="secretary-date"><b>{String(i + 1).padStart(2, '0')}</b><small>действие</small></div><div className="secretary-main"><strong>{a.title}</strong><span>{a.detail}</span></div>{a.href ? <a className="secondary-button" href={a.href}>Открыть</a> : <button className="secondary-button" disabled={actionBusy} onClick={() => void createSecretaryTask(a.title, a.detail)}>В Секретарь</button>}</div>)}
-            {day.actions.some(a => !a.href) && <button className="primary-button wide" disabled={actionBusy} onClick={() => { const a = day.actions.find(x => !x.href); if (a) void createSecretaryTask(a.title, a.detail); }}><Clock3 size={15}/> Поставить контроль в Секретарь</button>}
-          </section>
+    <main className="page director-dashboard">
+      <header className="director-topbar">
+        <h1>Сводка</h1>
+        <div className="director-topbar__controls">
+          <label className="director-period">
+            <span className="sr-only">Период</span>
+            <input aria-label="Период" type="month" value={scope.period} onChange={(event) => setScope({ ...scope, period: event.target.value })} />
+          </label>
+          <div className="director-workspace"><WorkspaceSelector value={scope} onChange={setScope} variant="compact" /></div>
         </div>
-        <section className="panel"><div className="panel-title"><TrendingUp size={16}/> Динамика выручки за 12 месяцев</div><TrendLine data={trend.map(t => ({ label: monthLabel(t.period), value: t.revenue }))} /></section>
-      </>}
-    </div>
+      </header>
+
+      {state === 'loading' && <div className="director-state" aria-live="polite">Загружаем данные за {monthLabel}…</div>}
+
+      {(state === 'unavailable' || state === 'error') && (
+        <section className="director-state director-state--error" role="alert">
+          <p>{state === 'unavailable' ? 'Данные временно недоступны' : errorMessage || 'Не удалось загрузить P&L.'}</p>
+          {state === 'unavailable' && <p className="director-state__detail">Сервис данных временно недоступен. Попробуйте ещё раз.</p>}
+          <button className="secondary-button" type="button" onClick={() => void load()}><RefreshCw size={15} /> Повторить</button>
+        </section>
+      )}
+
+      {state === 'empty' && (
+        <section className="director-state director-state--empty">
+          <AlertTriangle size={20} aria-hidden="true" />
+          <div><h2>Нет данных за {monthLabel}</h2><p>Загрузите P&amp;L или отчёт смены. STEN не подставляет демонстрационные значения.</p></div>
+          <Link className="secondary-button" to="/pnl">Открыть P&amp;L</Link>
+        </section>
+      )}
+
+      {state === 'ready' && (
+        <div className="director-dashboard__content">
+          <AttentionBlock items={attention} />
+          <section className="director-metrics" aria-label="Ключевые метрики">
+            <MetricCard label="ВЫРУЧКА" value={formatMoneyAuto(fact?.revenue)} detail={'План ' + formatMoneyAuto(plan?.revenue)} delta={formatDeltaPct(plan?.revenue, fact?.revenue)} deltaTone={revenueDelta === null ? 'neutral' : revenueDelta >= 0 ? 'success' : 'danger'} />
+            <MetricCard label="FOOD COST %" value={formatPercent(foodCost)} detail="Доля себестоимости в выручке" status={foodStatus?.label} statusTone={foodStatus?.tone} />
+            <MetricCard label="ФОТ" value={formatMoneyAuto(laborFact)} detail={'План ' + formatMoneyAuto(laborPlan)} delta={formatDeltaPct(laborPlan, laborFact)} deltaTone={laborDelta === null ? 'neutral' : laborDelta <= 0 ? 'success' : 'danger'} />
+            <MetricCard label="EBITDA" value={formatMoneyAuto(fact?.ebitda)} detail={ebitdaMargin === null ? 'Маржа —' : 'Маржа ' + formatPercent(ebitdaMargin)} delta={formatDeltaPct(plan?.ebitda, fact?.ebitda)} deltaTone={fact?.ebitda == null || plan?.ebitda == null ? 'neutral' : fact.ebitda >= plan.ebitda ? 'success' : 'danger'} />
+          </section>
+          <PrimeCostBlock total={primeCost} cogs={cogsPercent} labor={laborPercent} />
+        </div>
+      )}
+    </main>
   );
 }

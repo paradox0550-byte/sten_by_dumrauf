@@ -1,5 +1,6 @@
 .sten-ai-page .ai-steps {
-  margin: 14px 0 4px; padding: 12px; min-width: 0;
+  margin: 14px 0 4px; padding: var(--space-md, 16px); min-width: 0;
+  user-select: none; -webkit-user-select: none;
   color: var(--text-primary); background: var(--bg-elevated);
   border: 1px solid var(--border-subtle); border-radius: var(--ui-radius-md);
   box-shadow: var(--shadow-sm); animation: ai-steps-fade 160ms ease-out both;
@@ -38,12 +39,15 @@
 .sten-ai-page .step-row__body { min-width: 0; }
 .sten-ai-page .step-row__label { color: var(--text-primary); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
 .sten-ai-page .step-row__tech { display: inline-block; max-width: 100%; margin-left: 6px; color: var(--text-muted); font: 10px/1.5 var(--font-mono); overflow-wrap: anywhere; }
-.sten-ai-page .step-row__detail { margin-top: 3px; color: var(--text-secondary); font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
+.sten-ai-page .step-row__detail { margin-top: 3px; color: var(--text-muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
+.sten-ai-page .step-row__label, .sten-ai-page .step-row__ms, .sten-ai-page .step-row__index { cursor: default; user-select: none; -webkit-user-select: none; }
+.sten-ai-page .ai-steps__header { cursor: pointer; user-select: none; -webkit-user-select: none; }
+.sten-ai-page .step-row__badge { color: var(--color-warning, #fbbf24); }
 .sten-ai-page .step-row__ms { color: var(--text-secondary); font: 11px/1.5 var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.sten-ai-page .step-row__dot { width: 7px; height: 7px; flex: 0 0 7px; margin-top: 4px; border-radius: 50%; display: inline-block; }
-.sten-ai-page .step-row__dot--ok { background: #5bfa9a; }
-.sten-ai-page .step-row__dot--warn { background: #fa9a5b; }
-.sten-ai-page .step-row__dot--danger { background: #ff4d6d; }
+.sten-ai-page .step-row__dot { width: 6px; height: 6px; flex: 0 0 6px; margin-top: 5px; border-radius: 50%; display: inline-block; }
+.sten-ai-page .step-row__dot--ok { background: var(--color-success, #5bfa9a); }
+.sten-ai-page .step-row__dot--warn { background: var(--color-warning, #fa9a5b); }
+.sten-ai-page .step-row__dot--danger { background: var(--color-danger, #ff4d6d); }
 .sten-ai-page .step-row__badge {
   display: inline-block;
   margin-left: 7px;

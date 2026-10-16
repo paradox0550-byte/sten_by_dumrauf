@@ -12,7 +12,7 @@ export default function FloatingAIAssistant() {
   const [status, setStatus] = useState<AIStatus>('ready');
   const longPress = useRef<number | null>(null);
   const longPressed = useRef(false);
-  const hidden = ['/sten', '/ai', '/auth', '/login'].includes(location.pathname);
+  const hidden = ['/sten', '/ai', '/unlock', '/auth', '/login'].includes(location.pathname);
 
   useEffect(() => {
     let errorTimer: number | undefined;
