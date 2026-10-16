@@ -2328,19 +2328,31 @@ app.post('/ask', requireAuth, async (req, res, next) => {
     }
     if (skillConfig.documents !== false) {
       const docsStarted = Date.now();
-      const docs = await safeQuery(
-        'SELECT name, extracted_text, extraction_json FROM ai_documents WHERE organization_id=$1::uuid AND status=\'ready\' ORDER BY created_at DESC LIMIT 20',
-        [req.user.organizationId], []
-      );
+      let docs = [];
+      let docsUnavailable = false;
+      try {
+        const docsResult = await queryWithRetry(
+          "SELECT name, extracted_text, extraction_json FROM ai_documents WHERE organization_id=$1::uuid AND status='ready' ORDER BY created_at DESC LIMIT 20",
+          [req.user.organizationId],
+          { orgId: req.user.organizationId }
+        );
+        docs = docsResult.rows || [];
+      } catch (docsError) {
+        docsUnavailable = true;
+        log('ask document context unavailable:', docsError.message);
+      }
       const docContext = docs.filter(d => d.extracted_text).map(d => `Документ: ${d.name}\n${String(d.extracted_text).slice(0, 12000)}`).join('\n\n').slice(0, 36000);
       const docsMs = Math.round(Date.now() - docsStarted);
       const docsCount = docs.filter(d => d.extracted_text).length;
-      if (docContext) {
-        messages.splice(2, 0, { role: 'system', text: 'КОНТЕКСТ ДОКУМЕНТОВ:\\n' + docContext });
+      if (docsUnavailable) {
+        messages.splice(2, 0, { role: 'system', text: 'Источник документов временно недоступен. Не утверждай, что документов нет; сообщи, что поиск по документам не удалось выполнить.' });
+        steps.push({ kind: 'docs', ok: false, label: 'Документы недоступны', detail: 'Источник документов временно недоступен', ms: docsMs });
+      } else if (docContext) {
+        messages.splice(2, 0, { role: 'system', text: 'КОНТЕКСТ ДОКУМЕНТОВ (выборка, не гарантирует полноту файла):\n' + docContext });
         steps.push({
           kind: 'docs',
           label: `Загружено ${docsCount} ${pluralizeRu(docsCount, ['документ', 'документа', 'документов'])} в контекст`,
-          detail: `${docContext.length.toLocaleString('ru-RU')} символов текста`.slice(0, 120),
+          detail: `${docContext.length.toLocaleString('ru-RU')} символов текста; выборка до 20 документов`.slice(0, 120),
           ms: docsMs,
         });
       }
