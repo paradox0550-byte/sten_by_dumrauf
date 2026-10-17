@@ -11,6 +11,11 @@ describe('safeRatioPercent', () => {
     expect(safeRatioPercent(25, -100)).toBeUndefined();
   });
 
+  it('accepts numeric strings returned by database drivers', () => {
+    expect(safeRatioPercent('25', '100')).toBe(25);
+    expect(safeRatioPercent(' ', 100)).toBeUndefined();
+  });
+
   it('rejects missing and non-finite values', () => {
     expect(safeRatioPercent(null, 100)).toBeUndefined();
     expect(safeRatioPercent(10, Number.NaN)).toBeUndefined();
