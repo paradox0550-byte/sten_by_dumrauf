@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aggregateLaborRecords, safeRatioPercent } from './financialAnalytics';
+import { aggregateLaborRecords, calculateSignedEbitda, safeRatioPercent } from './financialAnalytics';
 
 describe('safeRatioPercent', () => {
   it('calculates percentages for a positive denominator', () => {
@@ -56,5 +56,15 @@ describe('aggregateLaborRecords', () => {
     expect(result.totalHours).toBeUndefined();
     expect(result.totalAmount).toBeUndefined();
     expect(result.incompleteCount).toBe(1);
+  });
+});
+
+describe('calculateSignedEbitda', () => {
+  it('sums signed expense rows without subtracting negative expenses twice', () => {
+    expect(calculateSignedEbitda(1000000, -300000, -200000, -100000)).toBe(400000);
+  });
+
+  it('keeps EBITDA unavailable when any required component is missing', () => {
+    expect(calculateSignedEbitda(1000000, -300000, null, -100000)).toBeUndefined();
   });
 });
