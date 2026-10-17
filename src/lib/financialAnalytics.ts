@@ -74,3 +74,20 @@ export function aggregateLaborRecords(records: LaborRecord[]): LaborAggregation 
     validRecordCount,
   };
 }
+
+/**
+ * STEN P&L convention: expense articles are stored as negative values.
+ * EBITDA is therefore the signed sum of revenue, COGS, payroll and OPEX.
+ * Do not subtract negative expenses a second time.
+ */
+export function calculateSignedEbitda(
+  revenue: unknown,
+  cogs: unknown,
+  payroll: unknown,
+  opex: unknown,
+): number | undefined {
+  const values = [revenue, cogs, payroll, opex].map(finiteNumber);
+  if (values.some((value) => value === undefined)) return undefined;
+  const total = (values as number[]).reduce((sum, value) => sum + value, 0);
+  return Number.isFinite(total) ? total : undefined;
+}
