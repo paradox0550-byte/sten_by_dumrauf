@@ -2236,11 +2236,9 @@ textarea:focus-visible {
 /* STEN canonical brand system — mark and authentication */
 .brand-mark{overflow:hidden;background:var(--bg-surface);border-color:color-mix(in oklch,var(--color-brand) 18%,var(--border-subtle))}
 .brand-mark img{width:26px;height:26px;display:block;object-fit:contain}
-.sten-ai-page{position:relative;isolation:isolate;background-color:var(--bg-app);background-image:none}
+.sten-ai-page{position:relative;isolation:isolate}
 .auth-brand{display:flex;justify-content:center;margin:0 auto 22px}
 .auth-brand img{width:min(280px,78vw);height:auto;display:block}
-.unlock{position:relative;overflow:hidden;background-color:var(--bg-app);background-image:none}
-.unlock-card{position:relative;z-index:1;border:1px solid var(--border-subtle);background:var(--bg-surface);border-radius:14px}
 @media(max-width:767px){.brand-mark{width:34px;height:34px;flex-basis:34px}.brand-mark img{width:24px;height:24px}.auth-brand{margin-bottom:18px}.auth-brand img{width:min(240px,82vw)}}
 
 
@@ -2343,23 +2341,6 @@ textarea:focus-visible {
    Reference pattern: compact single-purpose SaaS authentication surface.
    No decorative wallpaper, gradients or glass effects.
    ========================================================================== */
-
-.unlock {
-  min-height: 100dvh;
-  padding: max(24px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
-    max(24px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
-  background: var(--bg-app);
-  background-image: none;
-}
-
-.unlock-card {
-  width: min(480px, 100%);
-  padding: 32px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 14px;
-  background: var(--bg-surface);
-  box-shadow: none;
-}
 
 .auth-brand {
   justify-content: flex-start;
