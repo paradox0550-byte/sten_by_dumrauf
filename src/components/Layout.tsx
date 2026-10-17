@@ -228,7 +228,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <div className="content">{children}<LegalFooter /></div>
+        <div className="content">{children}{location.pathname === '/sten' ? null : <LegalFooter />}</div>
       </main>
 
       <nav className="mobile-bottom-nav" aria-label="Основная навигация">
