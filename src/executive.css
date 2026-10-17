@@ -3438,3 +3438,76 @@ html[data-reduce-motion='true'] .cookie-banner { transition: none; }
  .legal-page__footer { align-items: flex-start; }
  .cookie-banner__actions { justify-content: flex-start; }
 }
+
+
+/* STEN navigation architecture: grouped sections with a compact mobile-first hierarchy. */
+.executive-shell .sten-primary-nav .nav-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+.executive-shell .sten-primary-nav .nav-group-toggle:hover,
+.executive-shell .sten-primary-nav .nav-group-toggle.is-current {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+.executive-shell .sten-primary-nav .nav-group-toggle > span {
+  flex: 1;
+  min-width: 0;
+}
+.executive-shell .sten-primary-nav .nav-group-chevron {
+  margin-left: auto;
+  transition: transform 160ms ease;
+}
+.executive-shell .sten-primary-nav .nav-group-toggle[aria-expanded="true"] .nav-group-chevron {
+  transform: rotate(180deg);
+}
+.executive-shell .sten-primary-nav .nav-group-children {
+  display: grid;
+  gap: 2px;
+  margin: 3px 0 8px 14px;
+  padding-left: 10px;
+  border-left: 1px solid var(--border-subtle, var(--border-color));
+}
+.executive-shell .sten-primary-nav .nav-group-children a {
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 0.92em;
+}
+.executive-shell .sten-primary-nav .nav-group-children a.active {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+.executive-shell .sten-primary-nav .nav-group-children a span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.executive-shell .sidebar.is-collapsed .sten-primary-nav .nav-group-toggle {
+  justify-content: center;
+  padding-inline: 0;
+}
+.executive-shell .sidebar.is-collapsed .sten-primary-nav .nav-group-toggle > span,
+.executive-shell .sidebar.is-collapsed .sten-primary-nav .nav-group-chevron,
+.executive-shell .sidebar.is-collapsed .sten-primary-nav .nav-group-children {
+  display: none;
+}
+.executive-shell .sidebar.is-collapsed .sten-primary-nav .nav-group-toggle {
+  font-size: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .executive-shell .sten-primary-nav .nav-group-toggle,
+  .executive-shell .sten-primary-nav .nav-group-chevron {
+    transition: none;
+  }
+}
