@@ -55,8 +55,19 @@ const salesSchema = z.object({
 }).strict();
 
 const documentsSchema = z.object({
-  limit: z.number().int().min(1).max(30).optional().default(10),
-  status: z.string().trim().min(1).max(60).optional().default('ready'),
+  limit: z.number().int().min(1).max(200).optional().default(30),
+  status: z.enum(['ready','all','stored','processing','failed']).optional().default('ready'),
+}).strict();
+
+const documentSearchSchema = z.object({
+  query: z.string().trim().min(2).max(200),
+  limit: z.number().int().min(1).max(10).optional().default(5),
+}).strict();
+
+const documentReadSchema = z.object({
+  name: z.string().trim().min(2).max(200),
+  start_char: z.number().int().min(0).max(99000).optional().default(0),
+  max_chars: z.number().int().min(1000).max(12000).optional().default(12000),
 }).strict();
 
 const memorySchema = z.object({
@@ -332,19 +343,171 @@ async function getDocuments(user, rawArgs, ctx) {
     `SELECT id, name, status, created_at, length(extracted_text) AS chars,
             LEFT(COALESCE(extracted_text,''), 1500) AS preview
        FROM ai_documents
-      WHERE organization_id=$1::uuid AND status=$2
+      WHERE organization_id=$1::uuid AND ($2='all' OR status=$2)
       ORDER BY created_at DESC LIMIT $3`,
     [user.organizationId, args.status, args.limit],
     { orgId: user.organizationId }
   );
+  const documents = (result.rows || []).map(row => ({
+    id: row.id,
+    name: row.name,
+    status: row.status,
+    chars: Number(row.chars || 0),
+    createdAt: row.created_at,
+    preview: row.preview || '',
+  }));
   return {
-    documents: (result.rows || []).map(row => ({
+    documents,
+    returned: documents.length,
+    limit: args.limit,
+    may_be_truncated: documents.length === args.limit,
+    note: documents.length === args.limit
+      ? 'Достигнут лимит выдачи; если нужен полный инвентарь, повтори запрос с большим limit (до 200).'
+      : undefined,
+  };
+}
+
+async function searchDocuments(user, rawArgs, ctx) {
+  const args = parseArgs(documentSearchSchema, rawArgs);
+  if (!UUID_RE.test(String(user.organizationId || ''))) {
+    throw httpError(403, 'Организация не назначена пользователю.', 'NO_ORG_SCOPE');
+  }
+
+  // Search is organization-bound. Split natural-language requests into useful
+  // terms so a question such as "мотивация управляющего" still finds a workbook
+  // whose cells do not contain that exact phrase.
+  const terms = [...new Set(
+    args.query.normalize('NFC').toLocaleLowerCase('ru-RU')
+      .match(/[a-zа-яё0-9]{2,}/giu) || []
+  )].slice(0, 8);
+  if (!terms.length) {
+    throw httpError(400, 'Укажите минимум одно слово для поиска.', 'DOCUMENT_QUERY_EMPTY');
+  }
+
+  const predicates = terms.map((_, index) =>
+    `(position(lower($${index + 3}) in lower(COALESCE(extracted_text, ''))) > 0 OR position(lower($${index + 3}) in lower(name)) > 0)`
+  );
+  const params = [user.organizationId, args.limit, ...terms];
+  const result = await ctx.queryWithRetry(
+    `SELECT id, name, created_at, extracted_text, extraction_json
+       FROM ai_documents
+      WHERE organization_id=$1::uuid
+        AND status='ready'
+        AND COALESCE(extracted_text, '') <> ''
+        AND (${predicates.join(' OR ')})
+      ORDER BY created_at DESC
+      LIMIT $2`,
+    params,
+    { orgId: user.organizationId }
+  );
+
+  const documents = (result.rows || []).map(row => {
+    const text = String(row.extracted_text || '');
+    const lower = text.toLocaleLowerCase('ru-RU');
+    const hits = [];
+    for (const term of terms) {
+      let from = 0;
+      let found = 0;
+      while (found < 3) {
+        const at = lower.indexOf(term, from);
+        if (at < 0) break;
+        hits.push({ term, at });
+        from = at + term.length;
+        found += 1;
+      }
+    }
+    hits.sort((a, b) => a.at - b.at);
+    const excerpts = [];
+    const seen = new Set();
+    for (const hit of hits) {
+      const start = Math.max(0, hit.at - 220);
+      const end = Math.min(text.length, hit.at + hit.term.length + 380);
+      const excerpt = text.slice(start, end).replace(/\s+/gu, ' ').trim();
+      const key = excerpt.slice(0, 80);
+      if (excerpt && !seen.has(key)) {
+        seen.add(key);
+        excerpts.push({ matched_term: hit.term, excerpt, char_offset: hit.at });
+      }
+      if (excerpts.length >= 5) break;
+    }
+    const meta = row.extraction_json && typeof row.extraction_json === 'object' ? row.extraction_json : {};
+    const sourceRows = (Array.isArray(meta.rows) ? meta.rows : [])
+      .filter(item => terms.some(term => JSON.stringify([item.label, item.article, item.sheet, item.source]).toLocaleLowerCase('ru-RU').includes(term)))
+      .slice(0, 10)
+      .map(item => ({
+        label: item.label || item.article || null,
+        sheet: item.sheet || null,
+        source_row: item.sourceRow || item.row || null,
+        source: item.source || null,
+        source_cell_plan: item.sourceCellPlan || null,
+        source_cell_fact: item.sourceCellFact || null,
+        plan: item.plan ?? null,
+        fact: item.fact ?? null,
+      }));
+    return {
       id: row.id,
       name: row.name,
-      chars: Number(row.chars || 0),
-      createdAt: row.created_at,
-      preview: row.preview || '',
-    })),
+      created_at: row.created_at,
+      total_chars: text.length,
+      extraction: { type: meta.type || null, sheets: meta.sheets || null, engine: meta.engine || null },
+      source_rows: sourceRows,
+      excerpts,
+    };
+  });
+  return {
+    query: args.query,
+    terms,
+    documents,
+    found: documents.length,
+    note: documents.length ? undefined : 'Совпадений в извлечённом тексте доступных документов не найдено.',
+  };
+}
+
+async function readDocument(user, rawArgs, ctx) {
+  const args = parseArgs(documentReadSchema, rawArgs);
+  if (!UUID_RE.test(String(user.organizationId || ''))) {
+    throw httpError(403, 'Организация не назначена пользователю.', 'NO_ORG_SCOPE');
+  }
+  const result = await ctx.queryWithRetry(
+    `SELECT id, name, created_at, extracted_text, extraction_json
+       FROM ai_documents
+      WHERE organization_id=$1::uuid
+        AND status='ready'
+        AND position(lower($2) in lower(name)) > 0
+      ORDER BY created_at DESC
+      LIMIT 5`,
+    [user.organizationId, args.name],
+    { orgId: user.organizationId }
+  );
+  const matches = result.rows || [];
+  if (!matches.length) {
+    return { found: false, query: args.name, note: 'Документ с таким названием не найден среди готовых документов этой организации.' };
+  }
+  if (matches.length > 1) {
+    return {
+      found: false,
+      ambiguous: true,
+      query: args.name,
+      matches: matches.map(row => ({ id: row.id, name: row.name, created_at: row.created_at })),
+      note: 'Найдено несколько документов. Уточни название, чтобы не прочитать не тот файл.',
+    };
+  }
+  const row = matches[0];
+  const text = String(row.extracted_text || '');
+  const content = text.slice(args.start_char, args.start_char + args.max_chars);
+  return {
+    found: true,
+    id: row.id,
+    name: row.name,
+    created_at: row.created_at,
+    total_chars: text.length,
+    start_char: args.start_char,
+    returned_chars: content.length,
+    has_more: args.start_char + content.length < text.length,
+    extraction: row.extraction_json && typeof row.extraction_json === 'object'
+      ? { type: row.extraction_json.type || null, sheets: row.extraction_json.sheets || null, engine: row.extraction_json.engine || null }
+      : null,
+    text: content,
   };
 }
 
@@ -411,10 +574,24 @@ const TOOLS = [
   },
   {
     name: 'get_documents',
-    description: 'Получить метаданные документов STEN с безопасным превью до 1500 символов.',
-    parameters: { type:'object', properties:{ limit:{type:'integer',minimum:1,maximum:30,default:10}, status:{type:'string',default:'ready'} }, required:[] },
+    description: 'Перечислить реальные документы текущей организации. Для полного списка передай status=all; ничего не выдумывает.',
+    parameters: { type:'object', properties:{ limit:{type:'integer',minimum:1,maximum:200,default:30}, status:{type:'string',enum:['ready','all','stored','processing','failed'],default:'ready'} }, required:[] },
     policy: ['requireAuth','requireOrg'],
     handler: getDocuments,
+  },
+  {
+    name: 'read_document',
+    description: 'Прочитать точный фрагмент извлечённого текста конкретного документа по названию. Используй для первых строк/записей, проверки формулы и просмотра полного содержимого по частям; tenant-scoped.',
+    parameters: { type:'object', properties:{ name:{type:'string',minLength:2,maxLength:200,description:'Название документа или уникальная часть названия'}, start_char:{type:'integer',minimum:0,maximum:99000,default:0}, max_chars:{type:'integer',minimum:1000,maximum:12000,default:12000} }, required:['name'] },
+    policy: ['requireAuth','requireOrg'],
+    handler: readDocument,
+  },
+  {
+    name: 'search_documents',
+    description: 'Искать по полному извлечённому тексту доступных документов организации и возвращать точные фрагменты с названием источника. Используй для вопросов о зарплатах, ФИО, должностях, мотивации, формулах и строках таблиц.',
+    parameters: { type:'object', properties:{ query:{type:'string',minLength:2,maxLength:200,description:'Ключевые слова или фраза для поиска в документах'}, limit:{type:'integer',minimum:1,maximum:10,default:5} }, required:['query'] },
+    policy: ['requireAuth','requireOrg'],
+    handler: searchDocuments,
   },
   {
     name: 'get_memory',
