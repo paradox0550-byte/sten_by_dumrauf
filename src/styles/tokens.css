@@ -6,11 +6,11 @@
     color-scheme: dark;
     --bg-base: #0a0d14;
     --bg-app: var(--bg-base);
-    --bg-surface: #111722;
-    --bg-surface-subtle: #171f2d;
-    --bg-elevated: #202a3b;
+    --bg-surface: #141d2c;
+    --bg-surface-subtle: #1b2739;
+    --bg-elevated: #26364d;
     --bg-inset: #0a0d14;
-    --bg-subtle: #253146;
+    --bg-subtle: #2f405a;
     --bg-success: rgba(16,185,129,.10);
     --bg-warning: rgba(245,158,11,.10);
     --bg-danger: rgba(239,68,68,.10);
@@ -67,9 +67,9 @@
     --neutral: #9ca3af;
     --neutral-bg: rgba(139,155,191,.10);
     --hair: 1px solid var(--border-subtle);
-    --skeleton-gradient: linear-gradient(90deg,#171f2d 0%,#253146 100%);
-    --skeleton-base: #171f2d;
-    --skeleton-shine: #253146;
+    --skeleton-gradient: linear-gradient(90deg,#1b2739 0%,#2f405a 100%);
+    --skeleton-base: #1b2739;
+    --skeleton-shine: #2f405a;
     --ui-radius-sm: 6px;
     --ui-radius-md: 10px;
     --ui-radius-lg: 14px;
@@ -90,11 +90,11 @@
     color-scheme: dark;
     --bg-base: #0a0d14;
     --bg-app: var(--bg-base);
-    --bg-surface: #111722;
-    --bg-surface-subtle: #171f2d;
-    --bg-elevated: #202a3b;
+    --bg-surface: #141d2c;
+    --bg-surface-subtle: #1b2739;
+    --bg-elevated: #26364d;
     --bg-inset: #0a0d14;
-    --bg-subtle: #253146;
+    --bg-subtle: #2f405a;
     --bg-success: rgba(16,185,129,.10);
     --bg-warning: rgba(245,158,11,.10);
     --bg-danger: rgba(239,68,68,.10);
@@ -120,8 +120,8 @@
     --danger: var(--color-danger); --warning: var(--color-warning); --success: var(--color-success);
     --success-bg: var(--bg-success); --warning-bg: var(--bg-warning); --danger-bg: var(--bg-danger);
     --focus: 0 0 0 2px rgba(91,124,250,.45);
-    --skeleton-gradient: linear-gradient(90deg,#171f2d 0%,#253146 100%);
-    --skeleton-base: #171f2d; --skeleton-shine: #253146;
+    --skeleton-gradient: linear-gradient(90deg,#1b2739 0%,#2f405a 100%);
+    --skeleton-base: #1b2739; --skeleton-shine: #2f405a;
   }
 
   html[data-theme='light'], [data-theme='light'] {
@@ -129,16 +129,16 @@
     --bg-base: #f6f8fc;
     --bg-app: var(--bg-base);
     --bg-surface: #fff;
-    --bg-surface-subtle: #f1f4f9;
-    --bg-elevated: #e8edf5;
+    --bg-surface-subtle: #edf2f9;
+    --bg-elevated: #e0e8f3;
     --bg-inset: #fff;
-    --bg-subtle: #e1e8f2;
+    --bg-subtle: #d1dced;
     --bg-success: rgba(4,120,87,.08);
     --bg-warning: rgba(180,83,9,.08);
     --bg-danger: rgba(185,28,28,.08);
     --text-primary: #0b1220;
     --text-secondary: #475569;
-    --text-muted: #64748b;
+    --text-muted: #5f6b7c;
     --text-tertiary: var(--text-secondary);
     --text-disabled: #94a3b8;
     --color-brand: #3b5bdb;
@@ -168,8 +168,8 @@
     --violet-bg: rgba(124,58,237,.08); --cyan: #0891b2; --cyan-bg: rgba(8,145,178,.08);
     --neutral: #6b7280; --neutral-bg: rgba(100,116,139,.08);
     --focus: 0 0 0 2px rgba(59,91,219,.3);
-    --skeleton-gradient: linear-gradient(90deg,#e1e8f2 0%,#f1f4f9 100%);
-    --skeleton-base: #e1e8f2; --skeleton-shine: #f1f4f9;
+    --skeleton-gradient: linear-gradient(90deg,#d1dced 0%,#edf2f9 100%);
+    --skeleton-base: #d1dced; --skeleton-shine: #edf2f9;
   }
 @layer legacy {
   :root { font-family: var(--font-ui); }
