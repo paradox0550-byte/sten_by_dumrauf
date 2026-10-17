@@ -121,6 +121,22 @@ test('Russian labor law requests receive current-law and document safeguards', (
   assert.match(prompt, /защищённым категориям/u);
 });
 
+test('business process design requests receive end-to-end architecture guidance', () => {
+  const question = 'Спроектируй все бизнес и операционные процессы ресторана';
+  const skills = selectSkills(question);
+  assert.ok(skills.some(skill => skill.name === 'process_architecture'));
+  const prompt = buildSkillPrompt(question);
+  assert.match(prompt, /АРХИТЕКТОР БИЗНЕС- И ОПЕРАЦИОННЫХ ПРОЦЕССОВ/u);
+  assert.match(prompt, /AS-IS/u);
+  assert.match(prompt, /TO-BE/u);
+  assert.match(prompt, /паспорт/u);
+  assert.match(prompt, /RACI/u);
+  assert.match(prompt, /KPI И SLA/u);
+  assert.match(prompt, /PDCA/u);
+  assert.match(prompt, /Нет данных ≠ 0/u);
+  assert.match(prompt, /ручной fallback/u);
+});
+
 test('restaurant manager checklist requests include shift checkpoints, evidence and escalation', () => {
   const question = 'Составь чек-лист управляющего рестораном и контрольные точки смены';
   const skills = selectSkills(question);
