@@ -68,6 +68,7 @@ export default function Analytics() {
           <div className="analytics-kpi-strip">
             <div><small>Выручка по отчётам</small><strong>{salesMoney('revenue')} ₽</strong><span>Заполнено в {sales.fields.revenue.reportCount} отчётах</span></div>
             <div><small>Чеки</small><strong>{sales.fields.checks.total == null ? 'Нет данных' : money(sales.fields.checks.total)}</strong><span>Заполнено в {sales.fields.checks.reportCount} отчётах</span></div>
+            <div><small>Средний чек</small><strong>{sales.averageCheck.value == null ? 'Нет данных' : money(sales.averageCheck.value) + ' ₽'}</strong><span>{sales.averageCheck.source === 'calculated' ? 'Выручка / чеки' : sales.averageCheck.source === 'entered' ? 'Среднее введённых значений' : 'Недостаточно данных'}</span></div>
             <div><small>Наличные</small><strong>{salesMoney('cash')} ₽</strong><span>Заполнено в {sales.fields.cash.reportCount} отчётах</span></div>
             <div><small>Карта</small><strong>{salesMoney('card')} ₽</strong><span>Заполнено в {sales.fields.card.reportCount} отчётах</span></div>
             <div><small>Скидки</small><strong>{salesMoney('discounts')} ₽</strong><span>Заполнено в {sales.fields.discounts.reportCount} отчётах</span></div>
