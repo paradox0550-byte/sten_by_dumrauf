@@ -7,7 +7,7 @@
 .sten-ai-topbar__status[aria-label*="обрабатывает"] { background: var(--color-success); }
 .sten-ai-topbar__actions .secondary-button { min-height: 32px; height: 32px; padding: 0 12px; cursor: pointer; }
 .sten-ai-page .page-head { display: none; }
-.sten-ai-page .ai-grid { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); align-items: stretch; gap: 14px; flex: 1 1 auto; min-width: 0; min-height: 0; height: 1px; }
+.sten-ai-page .ai-grid { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); align-items: stretch; gap: 14px; flex: 1 1 0%; min-width: 0; min-height: 0; height: auto; }
 .sten-ai-page .docs-panel, .sten-ai-page .chat { min-width: 0; min-height: 0; max-height: 100%; }
 .sten-ai-page .docs-panel { display: flex; flex-direction: column; overflow: auto; overscroll-behavior: contain; }
 .sten-ai-page .chat { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
@@ -26,7 +26,7 @@
 .sten-ai-page .chat-body > .welcome { width: min(100%, 900px); }
 .sten-ai-page .chat-body article.message { min-width: 0; max-width: 100%; }
 .sten-ai-page .chat-body article.message .message-body, .sten-ai-page .chat-body .message-text, .sten-ai-page .chat-body pre, .sten-ai-page .chat-body table { max-width: 100%; overflow-wrap: anywhere; }
-.sten-ai-page .composer { position: relative; z-index: 3; flex: 0 0 auto; padding-bottom: max(12px, env(safe-area-inset-bottom)); background: var(--bg-surface); }
+.sten-ai-page .composer { position: relative; z-index: 3; display: block; box-sizing: border-box; flex: 0 0 auto; min-width: 0; margin-top: auto; padding-bottom: max(12px, env(safe-area-inset-bottom)); background: var(--bg-surface); }
 .sten-ai-page .composer-box { width: 100%; min-width: 0; }
 .sten-ai-page .composer-box textarea { min-width: 0; max-height: 120px; overflow-y: auto; resize: none; }
 .sten-ai-page .composer-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 10px; }
@@ -85,107 +85,6 @@
 .sten-markdown td { font-variant-numeric: tabular-nums; }
 .sten-markdown a { color: var(--color-brand); text-decoration: underline; text-underline-offset: 2px; }
 .sten-markdown blockquote { margin: .75em 0; padding: 4px 12px; border-left: 2px solid var(--border-strong); color: var(--text-secondary); }
-
-
-/* Hotfix: keep the STEN AI input composer visible in every viewport. */
-.sten-ai-page {
-  box-sizing: border-box;
-  min-height: 0;
-}
-.sten-ai-page .ai-grid {
-  min-height: 0;
-  height: auto;
-  flex: 1 1 0%;
-}
-.sten-ai-page .chat {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
-}
-.sten-ai-page .chat-body {
-  flex: 1 1 0%;
-  min-height: 0;
-  max-height: none;
-}
-.sten-ai-page .chat > .composer.sten-composer {
-  display: block;
-  position: relative;
-  inset: auto;
-  z-index: 10;
-  visibility: visible;
-  opacity: 1;
-  flex: 0 0 auto;
-  width: 100%;
-  min-width: 0;
-  min-height: 68px;
-  margin-top: auto;
-  padding: 10px 12px max(10px, env(safe-area-inset-bottom));
-  border-top: 1px solid var(--chat-border, var(--border-subtle, var(--line)));
-  background: var(--chat-panel, var(--bg-surface, var(--surface)));
-  box-sizing: border-box;
-}
-.sten-ai-page .chat > .composer.sten-composer .composer-box {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
-  width: 100%;
-  visibility: visible;
-}
-.sten-ai-page .chat > .composer.sten-composer .composer-box textarea {
-  display: block;
-  flex: 1 1 auto;
-  width: 0;
-  min-width: 0;
-  min-height: 22px;
-  max-height: 120px;
-  visibility: visible;
-  opacity: 1;
-}
-.sten-ai-page .chat > .composer.sten-composer .composer-attach,
-.sten-ai-page .chat > .composer.sten-composer .send,
-.sten-ai-page .chat > .composer.sten-composer .icon-button {
-  display: inline-flex;
-  flex: 0 0 36px;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  min-width: 36px;
-  height: 36px;
-}
-.sten-ai-page .chat > .composer.sten-composer .composer-footer {
-  display: flex;
-  min-height: 14px;
-  margin-top: 5px;
-  visibility: visible;
-  color: var(--chat-muted, var(--text-secondary, var(--muted)));
-}
-@media (max-width: 767px) {
-  .sten-ai-page {
-    height: calc(100dvh - 154px);
-    min-height: 360px;
-    overflow: visible;
-  }
-  .sten-ai-page .ai-grid {
-    min-height: 0;
-    height: auto;
-  }
-  .sten-ai-page .chat {
-    height: 100%;
-    min-height: 0;
-  }
-  .sten-ai-page .chat > .composer.sten-composer {
-    padding: 9px 9px max(10px, env(safe-area-inset-bottom));
-  }
-  .sten-ai-page .chat > .composer.sten-composer .composer-attach,
-  .sten-ai-page .chat > .composer.sten-composer .send,
-  .sten-ai-page .chat > .composer.sten-composer .icon-button {
-    flex-basis: 40px;
-    width: 40px;
-    min-width: 40px;
-    height: 40px;
-  }
-}
 
 
 /* STEN AI Executive Partner — complete page identity and responsive welcome. */
