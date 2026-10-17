@@ -1,5 +1,6 @@
 import{HashRouter,Navigate,Route,Routes}from'react-router-dom';import{AuthProvider,useAuth}from'./contexts/AuthContext';import AppShell from'./components/layout/AppShell';import AI from'./pages/AI';import Dashboard from'./pages/Dashboard';import Finances from'./pages/Finances';import PnL from'./pages/PnL';import PnLImport from'./pages/PnlImport';import Budget from'./pages/Budget';import Settings from'./pages/Settings';import QuickEntry from'./pages/QuickEntry';import Secretary from'./pages/Secretary';import Flash from'./pages/Flash';import Analytics from'./pages/Analytics';import Team from'./pages/Team';import Documents from'./pages/Documents';import AdminOrganizations from'./pages/AdminOrganizations';import AuthSetup from'./pages/Unlock';
 import Memory from './pages/Memory';
+import AIQualityLab from './pages/AIQualityLab';
 import Privacy from './pages/legal/Privacy';
 import Consent from './pages/legal/Consent';
 import Cookies from './pages/legal/Cookies';
