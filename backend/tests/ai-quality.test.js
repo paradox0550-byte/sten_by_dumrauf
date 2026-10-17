@@ -75,3 +75,26 @@ test('restaurant fire safety requests route to dedicated guidance', () => {
   assert.match(prompt, /ПП РФ № 1479/u);
   assert.match(prompt, /эвакуац/u);
 });
+
+
+test('technological card requests receive recipe, yield, and cost calculation guidance', () => {
+  const question = 'Составь техкарту блюда на 10 порций и рассчитай себестоимость';
+  const skills = selectSkills(question);
+  assert.ok(skills.some(skill => skill.name === 'procurement'));
+  const prompt = buildSkillPrompt(question);
+  assert.match(prompt, /СОСТАВЛЕНИЕ ТК\/ТТК/u);
+  assert.match(prompt, /брутто\/нетто/u);
+  assert.match(prompt, /выход полуфабрикатов и блюда/u);
+  assert.match(prompt, /Не выдумывай сроки хранения/u);
+});
+
+test('restaurant marketing strategy includes measurable 30-60-90 day plan', () => {
+  const question = 'Разработай маркетинговую стратегию ресторана';
+  const skills = selectSkills(question);
+  assert.ok(skills.some(skill => skill.name === 'marketing'));
+  const prompt = buildSkillPrompt(question);
+  assert.match(prompt, /позиционирования/u);
+  assert.match(prompt, /ROMI/u);
+  assert.match(prompt, /30\/60\/90 дней/u);
+  assert.match(prompt, /не предлагай скидку без расчёта экономики/u);
+});
