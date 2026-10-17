@@ -30,8 +30,8 @@ function simplifyAppearance(value: AppearanceSettings): AppearanceSettings {
     density: value.density === 'comfort' ? 'comfort' : 'compact',
     // Keep evidence and useful actions visible; remove decorative background options.
     background: 'none',
-    showAvatars: true,
-    showTime: true,
+    showAvatars: value.showAvatars,
+    showTime: value.showTime,
     showSources: true,
     showActions: true,
   };
