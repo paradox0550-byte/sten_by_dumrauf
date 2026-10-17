@@ -8,8 +8,6 @@ import { useAnalyticsSettings, type AnalyticsSettings } from '../lib/useAnalytic
 
 type Theme = 'light' | 'dark' | 'system';
 type FontSize = '100' | '110' | '120';
-type BlockVisibility = Record<'dashboard' | 'pnl' | 'finances' | 'budget', boolean>;
-
 type Metrics = {
   revenue: boolean;
   cashCard: boolean;
@@ -24,15 +22,6 @@ type Metrics = {
 const THEME_KEY = 'sten_theme_v5';
 const FONT_SIZE_KEY = 'sten_font_size_v1';
 const MOTION_KEY = 'sten_reduce_motion_v1';
-const BLOCKS_KEY = 'sten_blocks_v5';
-
-const defaults: BlockVisibility = {
-  dashboard: true,
-  pnl: true,
-  finances: true,
-  budget: true,
-};
-
 const metricDefaults: Metrics = {
   revenue: true,
   cashCard: true,
@@ -67,20 +56,6 @@ export default function Settings() {
     return value === '100' || value === '110' || value === '120' ? value : '100';
   });
   const [reduceMotion, setReduceMotion] = useState(() => localStorage.getItem(MOTION_KEY) === 'true');
-  const [blocks, setBlocks] = useState<BlockVisibility>(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem(BLOCKS_KEY) || '{}') as Partial<BlockVisibility>;
-      return {
-        dashboard: stored.dashboard === true ? true : stored.dashboard === false ? false : defaults.dashboard,
-        pnl: stored.pnl === true ? true : stored.pnl === false ? false : defaults.pnl,
-        finances: stored.finances === true ? true : stored.finances === false ? false : defaults.finances,
-        budget: stored.budget === true ? true : stored.budget === false ? false : defaults.budget,
-      };
-    } catch {
-      return { ...defaults };
-    }
-  });
-
   const [profile, setProfile] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
@@ -173,12 +148,6 @@ export default function Settings() {
     setFontSize(value);
   };
 
-  const setBlock = (key: keyof BlockVisibility, value: boolean) => {
-    const next: BlockVisibility = { ...blocks, [key]: value };
-    setBlocks(next);
-    localStorage.setItem(BLOCKS_KEY, JSON.stringify(next));
-  };
-
   const saveProfile = async () => {
     setProfileSaving(true);
     setProfileMessage('');
@@ -252,15 +221,28 @@ export default function Settings() {
         <div>
           <span className="eyebrow">МОЙ КАБИНЕТ</span>
           <h1>Настройки</h1>
-          <p>Только то, что нужно для работы STEN.</p>
+          <p>Профиль, рабочий контур, внешний вид и отчёты — в одном месте.</p>
         </div>
       </div>
 
-      <div className="settings-grid">
-        <WorkspaceSelector value={scope} onChange={setScope} />
+      <nav className="settings-quick-jump" aria-label="Быстрый переход по настройкам">
+        <a href="#settings-workspace">Рабочий контур</a>
+        <a href="#settings-profile">Профиль</a>
+        <a href="#settings-appearance">Внешний вид</a>
+        <a href="#settings-reports">Отчёты</a>
+        <a href="#settings-analytics">Аналитика</a>
+        <a href="#settings-session">Сеанс</a>
+      </nav>
 
-        <section className="panel">
-          <h2>Мои данные</h2>
+      <div className="settings-grid">
+        <section className="panel settings-workspace" id="settings-workspace">
+          <h2>Рабочий контур</h2>
+          <p className="muted">Выберите ресторан, подразделение и период для рабочих данных.</p>
+          <WorkspaceSelector value={scope} onChange={setScope} />
+        </section>
+
+        <section className="panel" id="settings-profile">
+          <h2>Профиль</h2>
           <p className="muted">Эти данные используются в профиле STEN и для отправки отчётов в Telegram.</p>
           <label className="settings-field">
             <span>Имя</span>
@@ -291,7 +273,7 @@ export default function Settings() {
           {profileMessage && <div className={`pnl-message ${profileMessageKind}`} role={profileMessageKind === 'error' ? 'alert' : 'status'} aria-live={profileMessageKind === 'error' ? 'assertive' : 'polite'}>{profileMessage}</div>}
         </section>
 
-        <section className="panel">
+        <section className="panel" id="settings-appearance">
           <h2>Внешний вид</h2>
           <p className="muted">Настройки сохраняются в этом браузере и не меняют финансовые данные.</p>
 
@@ -335,22 +317,7 @@ export default function Settings() {
           </label>
         </section>
 
-        <section className="panel">
-          <h2>Рабочие разделы</h2>
-          <p className="muted">Можно убрать раздел из меню. Данные не удаляются.</p>
-          {(Object.entries(blocks) as Array<[keyof BlockVisibility, boolean]>).map(([key, value]) => (
-            <label className="toggle-row" key={key}>
-              <span>
-                <b>{({ dashboard: 'Обзор', pnl: 'P&L', finances: 'Финансы', budget: 'Бюджет' } as Record<string, string>)[key]}</b>
-                <small>{value ? 'Показывать' : 'Скрыть'}</small>
-              </span>
-              <input type="checkbox" checked={value} onChange={(event) => setBlock(key, event.target.checked)} />
-              <i />
-            </label>
-          ))}
-        </section>
-
-        <section className="panel messenger-settings">
+        <section className="panel messenger-settings" id="settings-reports">
           <h2>Отчёты в Telegram</h2>
           <p className="muted">STEN будет отправлять выбранные показатели на указанный выше Telegram ID.</p>
           <label className="settings-field">
@@ -373,7 +340,7 @@ export default function Settings() {
           {messengerMessage && <div className={`pnl-message ${messengerMessageKind}`} role={messengerMessageKind === 'error' ? 'alert' : 'status'} aria-live={messengerMessageKind === 'error' ? 'assertive' : 'polite'}>{messengerMessage}</div>}
         </section>
 
-        <section className="panel analytics-settings">
+        <section className="panel analytics-settings" id="settings-analytics">
           <h2>Аналитика</h2>
           <p className="muted">Выберите, какие показатели STEN использует в аналитике.</p>
           <label className="toggle-row">
@@ -407,7 +374,7 @@ export default function Settings() {
           {analyticsSavedAt && !analyticsError && <div className="pnl-message ok">Аналитика сохранена.</div>}
         </section>
 
-        <section className="panel">
+        <section className="panel" id="settings-session">
           <h2>Сеанс</h2>
           <p className="muted">{user?.email || 'Ваша учётная запись'}</p>
           <button className="danger-button" onClick={signOut}>Выйти из STEN</button>
