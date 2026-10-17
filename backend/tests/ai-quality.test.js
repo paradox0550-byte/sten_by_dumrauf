@@ -99,3 +99,34 @@ test('restaurant marketing strategy includes measurable 30-60-90 day plan', () =
   assert.match(prompt, /30\/60\/90 дней/u);
   assert.match(prompt, /не предлагай скидку без расчёта экономики/u);
 });
+
+
+test('bar and wine questions receive professional beverage service guidance', () => {
+  const question = 'Составь обучение бармена по винам и настойкам';
+  const skills = selectSkills(question);
+  assert.ok(skills.some(skill => skill.name === 'bar_wine'));
+  const prompt = buildSkillPrompt(question);
+  assert.match(prompt, /терруар/u);
+  assert.match(prompt, /НАСТОЙКИ И ЗАГОТОВКИ/u);
+  assert.match(prompt, /не воспроизводи главы\/тексты защищённых книг и курсов дословно/u);
+});
+
+test('Russian labor law requests receive current-law and document safeguards', () => {
+  const question = 'Проверь график смен по Трудовому кодексу РФ';
+  const skills = selectSkills(question);
+  assert.ok(skills.some(skill => skill.name === 'labor_law'));
+  const prompt = buildSkillPrompt(question);
+  assert.match(prompt, /актуальную на дату ответа редакцию ТК РФ/u);
+  assert.match(prompt, /универсальную «максимальную смену»/u);
+  assert.match(prompt, /защищённым категориям/u);
+});
+
+test('restaurant occupational safety requests route to risk assessment guidance', () => {
+  const question = 'Сделай оценку профессиональных рисков на кухне ресторана';
+  const skills = selectSkills(question);
+  assert.ok(skills.some(skill => skill.name === 'occupational_safety'));
+  const prompt = buildSkillPrompt(question);
+  assert.match(prompt, /порезы ножами/u);
+  assert.match(prompt, /иерархии/u);
+  assert.match(prompt, /опасность → риск → мера/u);
+});
