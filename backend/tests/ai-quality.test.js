@@ -66,3 +66,12 @@ test('protocol forbids unsupported claims of completed actions', () => {
   const prompt = buildSkillPrompt('Составь план действий по отклонениям P&L');
   assert.match(prompt, /пока инструмент не подтвердил результат/);
 });
+
+
+test('restaurant fire safety requests route to dedicated guidance', () => {
+  const question = 'Чек-лист пожарной безопасности ресторана';
+  assert.ok(selectSkills(question).some(skill => skill.name === 'fire_safety'));
+  const prompt = buildSkillPrompt(question);
+  assert.match(prompt, /ПП РФ № 1479/u);
+  assert.match(prompt, /эвакуац/u);
+});
