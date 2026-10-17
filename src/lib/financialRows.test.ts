@@ -23,7 +23,7 @@ describe('aggregateFinancialRows', () => {
       { article: 'COGS', plan: -30, fact: -25 },
       { article: 'себестоимость', plan: -35, fact: null },
     ])).toEqual([
-      { article: 'COGS', plan: -65, fact: null, source: undefined },
+      { article: 'Себестоимость', plan: -65, fact: null, source: undefined },
     ]);
   });
 });
