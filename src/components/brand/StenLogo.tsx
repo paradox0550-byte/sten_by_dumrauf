@@ -27,8 +27,8 @@ export function StenLogo({
 
   const cssVars = {
     '--sten-brand': '#5B7CFA',
-    '--sten-ink': '#0B0D10',
-    '--sten-muted': '#5B6578',
+    '--sten-ink': 'var(--text-primary, #0B0D10)',
+    '--sten-muted': 'var(--text-secondary, #5B6578)',
   } as CSSProperties;
 
   return (
