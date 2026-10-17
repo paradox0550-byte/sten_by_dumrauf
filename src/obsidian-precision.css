@@ -437,17 +437,6 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
   background: var(--bg-base);
   color: var(--text-primary);
 }
-.unlock::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: .24;
-  background-image: none;
-  background-size: 40px 40px;
-  mask-image: none;
-}
 .unlock-card {
   width: min(100%, 448px);
   padding: clamp(24px, 5vw, 36px);

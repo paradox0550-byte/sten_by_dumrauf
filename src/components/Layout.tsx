@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3, Bot, Brain, CalendarDays, Menu, Moon, PanelLeft, PanelLeftClose, FlaskConical,
-  LogOut, Scale, Sun, WalletCards, X, ChevronDown, ClipboardList, Gauge,
+  LogOut, Scale, Sun, WalletCards, X, ChevronDown, ClipboardList, Gauge, Monitor,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import WorkspaceSelector from './WorkspaceSelector';
@@ -241,8 +241,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>}
 
           <div className="top-actions">
-            <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}>
-              {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+            <button
+              className="icon-button"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark')}
+              aria-label={theme === 'dark' ? 'Тема: тёмная. Переключить на светлую' : theme === 'light' ? 'Тема: светлая. Переключить на системную' : 'Тема: системная. Переключить на тёмную'}
+              title={theme === 'dark' ? 'Тёмная тема' : theme === 'light' ? 'Светлая тема' : 'Системная тема'}
+            >
+              {theme === 'dark' ? <Sun size={17} /> : theme === 'light' ? <Moon size={17} /> : <Monitor size={17} />}
             </button>
           </div>
           <div className="top-profile" title={user?.email || ''}>
