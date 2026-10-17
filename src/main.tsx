@@ -16,5 +16,5 @@ document.documentElement.dataset.theme=initialTheme;document.documentElement.sty
 const syncSystemTheme=()=>{if(localStorage.getItem(THEME_KEY)==='system')applyTheme('system');};
 if(typeof systemThemeQuery.addEventListener==='function')systemThemeQuery.addEventListener('change',syncSystemTheme);else systemThemeQuery.addListener(syncSystemTheme);
 class ErrorBoundary extends React.Component<React.PropsWithChildren,{error:Error|null}>{state={error:null as Error|null};static getDerivedStateFromError(error:Error){return{error}}componentDidCatch(error:Error){console.error('[STEN]',error)}render(){return this.state.error?<main className="fatal"><section><b>СТЕН</b><h1>Рабочий контур не открылся</h1><p>Ошибка интерфейса. Обновите страницу.</p><button onClick={()=>location.reload()}>Обновить</button></section></main>:this.props.children}}
-ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><ErrorBoundary><div className="sten-brand-bg" aria-hidden="true" /><App/></ErrorBoundary></React.StrictMode>);
+ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><ErrorBoundary><App/></ErrorBoundary></React.StrictMode>);
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
