@@ -121,6 +121,34 @@ test('Russian labor law requests receive current-law and document safeguards', (
   assert.match(prompt, /защищённым категориям/u);
 });
 
+test('restaurant opening requests include launch gates, opening checklists and stabilization', () => {
+  const question = 'Составь план открытия ресторана с нуля и чек-лист готовности';
+  const skills = selectSkills(question);
+  assert.ok(skills.some(skill => skill.name === 'opening_and_governance'));
+  const prompt = buildSkillPrompt(question);
+  assert.match(prompt, /ОТКРЫТИЕ ТОЧКИ ОБЩЕПИТА С НУЛЯ/u);
+  assert.match(prompt, /GO\/NO-GO/u);
+  assert.match(prompt, /CAPEX/u);
+  assert.match(prompt, /критический путь/u);
+  assert.match(prompt, /SOFT OPENING/u);
+  assert.match(prompt, /план 30\/60\/90 дней/u);
+  assert.match(prompt, /доказательство/u);
+  assert.match(prompt, /не переносить нормы РФ на другую юрисдикцию/u);
+});
+
+test('holding governance requests include document hierarchy and rollout', () => {
+  const question = 'Построй систему управления холдингом и регламенты компании';
+  const skills = selectSkills(question);
+  assert.ok(skills.some(skill => skill.name === 'opening_and_governance'));
+  const prompt = buildSkillPrompt(question);
+  assert.match(prompt, /СИСТЕМА УПРАВЛЕНИЯ КОМПАНИЕЙ И ХОЛДИНГОМ/u);
+  assert.match(prompt, /Архитектура процессов/u);
+  assert.match(prompt, /политика/u);
+  assert.match(prompt, /матрица полномочий/u);
+  assert.match(prompt, /аудит через 7\/30\/60\/90 дней/u);
+  assert.match(prompt, /не считать рассылку или подпись доказательством/u);
+});
+
 test('business process design requests receive end-to-end architecture guidance', () => {
   const question = 'Спроектируй все бизнес и операционные процессы ресторана';
   const skills = selectSkills(question);
