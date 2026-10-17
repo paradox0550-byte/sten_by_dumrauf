@@ -96,3 +96,17 @@ export function calculateSignedEbitda(
   const total = (values as number[]).reduce((sum, value) => sum + value, 0);
   return Number.isFinite(total) ? total : undefined;
 }
+
+
+/**
+ * Variance impact under STEN's signed P&L convention: expenses are negative,
+ * so a positive fact-minus-plan delta improves the result for both revenue
+ * and expense articles. Unknown article types should be filtered by caller.
+ */
+export function signedVarianceImpact(plan: unknown, fact: unknown): number | undefined {
+  const p = finiteNumber(plan);
+  const f = finiteNumber(fact);
+  if (p === undefined || f === undefined) return undefined;
+  const impact = f - p;
+  return Number.isFinite(impact) ? impact : undefined;
+}
