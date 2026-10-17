@@ -121,6 +121,50 @@ test('Russian labor law requests receive current-law and document safeguards', (
   assert.match(prompt, /защищённым категориям/u);
 });
 
+test('restaurant staff management requests receive practical people-development guidance', () => {
+  const question = 'Разработай систему управления персоналом ресторана';
+  const skills = selectSkills(question);
+  assert.ok(skills.some(skill => skill.name === 'staff_management'));
+  const prompt = buildSkillPrompt(question);
+  assert.match(prompt, /ЦИКЛ СОТРУДНИКА/u);
+  assert.match(prompt, /матрицу RACI/u);
+  assert.match(prompt, /программа адаптации на 1\/7\/30 дней/u);
+  assert.match(prompt, /незаконные штрафы/u);
+});
+
+test('franchise packaging includes readiness gates and unit economics for both parties', () => {
+  const question = 'Упакуй ресторан во франшизу';
+  const skills = selectSkills(question);
+  assert.ok(skills.some(skill => skill.name === 'franchise'));
+  const prompt = buildSkillPrompt(question);
+  assert.match(prompt, /ГОТОВНОСТЬ К ТИРАЖИРОВАНИЮ/u);
+  assert.match(prompt, /экономику управляющей компании и франчайзи/u);
+  assert.match(prompt, /gap-анализ готовности/iu);
+  assert.match(prompt, /коммерческой концессии/u);
+});
+
+test('iiko inventory questions include reconciliation and report provenance', () => {
+  const question = 'Как вести складской учет и отчеты в iiko?';
+  const skills = selectSkills(question);
+  assert.ok(skills.some(skill => skill.name === 'iiko_inventory'));
+  const prompt = buildSkillPrompt(question);
+  assert.match(prompt, /физический остаток, учётный остаток/u);
+  assert.match(prompt, /инвентаризационную разниц/u);
+  assert.match(prompt, /не выдумывай точный путь меню/u);
+  assert.match(prompt, /не объявляй недостачу воровством/u);
+});
+
+test('brand strength skill links positioning to measurable guest behavior', () => {
+  const question = 'Как понять и усилить силу бренда ресторана?';
+  const skills = selectSkills(question);
+  assert.ok(skills.some(skill => skill.name === 'brand_strength'));
+  const prompt = buildSkillPrompt(question);
+  assert.match(prompt, /обещание бренда/u);
+  assert.match(prompt, /повторные визиты/u);
+  assert.match(prompt, /Не начинай с логотипа/u);
+  assert.match(prompt, /гипотез/u);
+});
+
 test('restaurant occupational safety requests route to risk assessment guidance', () => {
   const question = 'Сделай оценку профессиональных рисков на кухне ресторана';
   const skills = selectSkills(question);
