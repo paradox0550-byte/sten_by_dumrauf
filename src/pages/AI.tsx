@@ -361,7 +361,7 @@ function AIContent({user}:{user:User|null}){
              )}
            </Fragment>;
          })}
-         {busy&&<div className="typing" aria-label="STEN готовит ответ"><i/><i/><i/></div>}
+         {busy&&<div className="typing" role="status" aria-live="polite" aria-label="STEN AI обрабатывает запрос"><span className="typing__label">STEN AI думает...</span><i/><i/><i/></div>}
        </div>
        {chatToast&&<div className="chat-toast" role="status" aria-live="polite">{chatToast}</div>}
 
