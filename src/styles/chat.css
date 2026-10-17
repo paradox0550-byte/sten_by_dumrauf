@@ -412,3 +412,39 @@
 @media (max-width:767px) {
   .sten-ai-page .ai-grid.docs-collapsed { grid-template-columns:minmax(0,1fr); }
 }
+
+
+/* Compact thinking status; keep the mobile conversation viewport focused on messages. */
+.sten-ai-page .chat-body .typing {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 26px;
+  padding: 5px 12px 5px 42px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.sten-ai-page .chat-body .typing__label {
+  margin-right: 2px;
+  color: var(--text-secondary);
+  animation: sten-thinking-pulse 1.8s ease-in-out infinite;
+}
+.sten-ai-page .chat-body .typing i:nth-of-type(1) { animation-delay: 0s; }
+.sten-ai-page .chat-body .typing i:nth-of-type(2) { animation-delay: .15s; }
+.sten-ai-page .chat-body .typing i:nth-of-type(3) { animation-delay: .3s; }
+@keyframes sten-thinking-pulse {
+  0%, 100% { opacity: .65; }
+  50% { opacity: 1; }
+}
+@media (max-width: 520px) {
+  .sten-ai-page .chat-body .typing {
+    min-height: 22px;
+    padding: 4px 8px 4px 0;
+    font-size: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sten-ai-page .chat-body .typing__label { animation: none; }
+}
