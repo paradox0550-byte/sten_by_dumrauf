@@ -1,4 +1,4 @@
-import { CheckCircle2, ChevronDown, Clock3 } from 'lucide-react';
+import { CheckCircle2, ChevronDown } from 'lucide-react';
 import { StepRow } from './StepRow';
 import './steps.css';
 
@@ -7,7 +7,7 @@ export interface AskStep { kind: AskStepKind; label?: string; detail?: string; m
 export interface AskStepsProps { steps?: AskStep[]; totalMs?: number; className?: string; }
 
 export function formatDuration(ms?: number): string {
-  if (ms === undefined || !Number.isFinite(ms) || ms < 0) return '';
+  if (ms === undefined || !Number.isFinite(ms) || ms < 0) return '—';
   if (ms < 1000) return `${Math.round(ms)} мс`;
   if (ms < 60000) return `${new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(ms / 1000)} с`;
   return `${Math.floor(ms / 60000)} мин ${Math.round((ms % 60000) / 1000)} с`;
@@ -24,7 +24,7 @@ export function AskSteps({ steps, totalMs, className }: AskStepsProps) {
   if (!steps?.length) return null;
   const rootClass = ['ai-steps', className].filter(Boolean).join(' ');
   const duration = formatDuration(totalMs);
-  const summary = duration
+  const summary = duration !== '—'
     ? `Готово за ${duration} · ${steps.length} ${pluralizeRu(steps.length, 'шаг', 'шага', 'шагов')}`
     : `Готово · ${steps.length} ${pluralizeRu(steps.length, 'шаг', 'шага', 'шагов')}`;
 
