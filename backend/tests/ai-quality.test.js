@@ -121,6 +121,18 @@ test('Russian labor law requests receive current-law and document safeguards', (
   assert.match(prompt, /защищённым категориям/u);
 });
 
+test('restaurant manager checklist requests include shift checkpoints, evidence and escalation', () => {
+  const question = 'Составь чек-лист управляющего рестораном и контрольные точки смены';
+  const skills = selectSkills(question);
+  assert.ok(skills.some(skill => skill.name === 'operations'));
+  const prompt = buildSkillPrompt(question);
+  assert.match(prompt, /ЧЕК-ЛИСТЫ УПРАВЛЯЮЩЕГО/u);
+  assert.match(prompt, /КОНТРОЛЬНЫЕ ТОЧКИ СМЕНЫ/u);
+  assert.match(prompt, /доказательство/u);
+  assert.match(prompt, /незакрытые риски/u);
+  assert.match(prompt, /Не скрывай неустранённые дефекты/u);
+});
+
 test('restaurant staff management requests receive practical people-development guidance', () => {
   const question = 'Разработай систему управления персоналом ресторана';
   const skills = selectSkills(question);
