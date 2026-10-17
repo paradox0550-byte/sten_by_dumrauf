@@ -1031,11 +1031,11 @@
 
 .sten-ai-page .chat-head small {
   color: var(--chat-muted);
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .sten-ai-page .chat-head-actions > span {
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
@@ -1157,7 +1157,7 @@
 
 .sten-ai-page .message-source-chip {
   min-height: 19px;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .sten-ai-page .typing {
@@ -1206,7 +1206,7 @@
 .sten-ai-page .composer-footer {
   min-height: 16px;
   padding: 3px 3px 0;
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .sten-ai-page .composer-footer .composer-context {
