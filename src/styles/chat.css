@@ -42,16 +42,16 @@
   .sten-ai-page .docs-panel { display: none; }
 }
 @media (max-width: 767px) {
-  .sten-ai-page { height: calc(100dvh - 154px); }
+  .sten-ai-page { height: calc(100dvh - 188px - env(safe-area-inset-bottom, 0px)); min-height: 0; }
   .sten-ai-page > .sten-ai-topbar { padding-inline: var(--space-md, 16px); margin-bottom: 8px; }
   .sten-ai-page > .sten-ai-topbar .secondary-button { min-height: 32px; height: 32px; padding: 0 9px; white-space: nowrap; }
   .sten-ai-topbar__actions { gap: 6px; }
-  .sten-ai-page .ai-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .sten-ai-page .ai-grid { grid-template-columns: minmax(0, 1fr); gap: 0; flex: 1 1 0%; min-height: 0; }
   .sten-ai-page .docs-panel { display: none; }
-  .sten-ai-page .chat { border-radius: var(--ui-radius-md); }
+  .sten-ai-page .chat { height: 100%; min-height: 0; border-radius: var(--ui-radius-md); }
   .sten-ai-page .chat-head { min-height: 48px; padding: 9px 12px; }
-  .sten-ai-page .chat-body { padding: 12px; }
-  .sten-ai-page .composer { padding: 10px 10px max(10px, env(safe-area-inset-bottom)); }
+  .sten-ai-page .chat-body { min-height: 0; padding: 12px 12px 20px; scroll-padding-bottom: 20px; }
+  .sten-ai-page .composer { flex: 0 0 auto; padding: 10px 10px max(10px, env(safe-area-inset-bottom)); }
   .sten-ai-page .composer-footer { font-size: 10px; }
 }
 @media (max-height: 620px) {
