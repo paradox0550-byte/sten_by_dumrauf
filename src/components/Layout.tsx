@@ -238,7 +238,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 onClick={() => setScale(value)}
               >{label}</button>
             ))}
-                    <div className="top-actions">
+          </div>}
+
+          <div className="top-actions">
             <button
               className="icon-button"
               onClick={() => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark')}
