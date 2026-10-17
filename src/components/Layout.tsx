@@ -61,7 +61,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     operations: operationsPaths.includes(location.pathname),
     tools: toolsPaths.includes(location.pathname),
   }));
-  const toggleGroup = (group: string) => setExpandedGroups(current => ({ ...current, [group]: !current[group] }));
+  const toggleGroup = (group: string) => {
+    if (sidebarCollapsed) {
+      setSidebarCollapsed(false);
+      setExpandedGroups(current => ({ ...current, [group]: true }));
+      return;
+    }
+    setExpandedGroups(current => ({ ...current, [group]: !current[group] }));
+  };
+  useEffect(() => {
+    if (financePaths.includes(location.pathname)) setExpandedGroups(current => ({ ...current, finance: true }));
+    if (operationsPaths.includes(location.pathname)) setExpandedGroups(current => ({ ...current, operations: true }));
+    if (toolsPaths.includes(location.pathname)) setExpandedGroups(current => ({ ...current, tools: true }));
+  }, [location.pathname]);
 
   useEffect(() => { applyTheme(theme); }, [theme]);
   useEffect(() => {
