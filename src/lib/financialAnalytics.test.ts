@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aggregateLaborRecords, calculateSignedEbitda, safeRatioPercent } from './financialAnalytics';
+import { aggregateLaborRecords, calculateSignedEbitda, safeRatioPercent, signedVarianceImpact } from './financialAnalytics';
 
 describe('safeRatioPercent', () => {
   it('calculates percentages for a positive denominator', () => {
@@ -71,5 +71,19 @@ describe('calculateSignedEbitda', () => {
 
   it('keeps EBITDA unavailable when any required component is missing', () => {
     expect(calculateSignedEbitda(1000000, -300000, null, -100000)).toBeUndefined();
+  });
+});
+
+
+describe('signedVarianceImpact', () => {
+  it('treats fact-minus-plan consistently for signed revenue and expenses', () => {
+    expect(signedVarianceImpact(100, 120)).toBe(20);
+    expect(signedVarianceImpact(-100, -80)).toBe(20);
+    expect(signedVarianceImpact(-100, -120)).toBe(-20);
+  });
+
+  it('keeps impact unavailable when plan or fact is missing', () => {
+    expect(signedVarianceImpact(null, 10)).toBeUndefined();
+    expect(signedVarianceImpact(10, Number.NaN)).toBeUndefined();
   });
 });
