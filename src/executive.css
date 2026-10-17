@@ -27,68 +27,13 @@
   --chip-font-size: 12px;
 }
 
-/* STEN brand background — static diagonal light slices behind all content. */
-.sten-brand-bg {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.sten-brand-bg::before,
-.sten-brand-bg::after {
-  content: '';
-  position: absolute;
-  width: 62vw;
-  height: 62vw;
-  background: linear-gradient(
-    135deg,
-    rgba(91,124,250,0.06) 0%,
-    rgba(58,87,214,0.04) 100%
-  );
-  clip-path: polygon(0 0, 100% 0, 62% 100%, 0 100%);
-}
-
-.sten-brand-bg::before {
-  top: -22vw;
-  left: -22vw;
-}
-
-.sten-brand-bg::after {
-  bottom: -22vw;
-  right: -22vw;
-  transform: rotate(180deg);
-}
-
-@media (max-width: 640px) {
-  .sten-brand-bg::before,
-  .sten-brand-bg::after {
-    width: 90vw;
-    height: 90vw;
-  }
-
-  .sten-brand-bg::before {
-    top: -35vw;
-    left: -35vw;
-  }
-
-  .sten-brand-bg::after {
-    bottom: -35vw;
-    right: -35vw;
-  }
-}
-
-[data-theme='light'] .sten-brand-bg {
-  opacity: 0.3;
-}
-
+/* Keep the app shell as the single background layer. Content surfaces
+   provide hierarchy; no fixed decorative layer is mounted behind every page. */
 .sten-app,
 .layout,
 main,
 .app-content {
   position: relative;
-  z-index: 1;
 }
 
 html,
@@ -2288,18 +2233,15 @@ textarea:focus-visible {
 
 
 
-/* STEN canonical brand system — mark, AI wallpaper, authentication */
+/* STEN canonical brand system — mark and authentication */
 .brand-mark{overflow:hidden;background:var(--bg-surface);border-color:color-mix(in oklch,var(--color-brand) 18%,var(--border-subtle))}
 .brand-mark img{width:26px;height:26px;display:block;object-fit:contain}
-.sten-ai-page{position:relative;isolation:isolate;background-color:var(--bg-app);background-image:url('/brand/sten-ai-wallpaper-light.svg');background-repeat:no-repeat;background-position:center top;background-size:cover}
-[data-theme='dark'] .sten-ai-page{background-image:url('/brand/sten-ai-wallpaper.svg')}
-.sten-ai-page>.page-head,.sten-ai-page>.ai-grid{position:relative;z-index:1}
+.sten-ai-page{position:relative;isolation:isolate;background-color:var(--bg-app);background-image:none}
 .auth-brand{display:flex;justify-content:center;margin:0 auto 22px}
 .auth-brand img{width:min(280px,78vw);height:auto;display:block}
-.unlock{position:relative;overflow:hidden;background-color:var(--bg-app);background-image:url('../brand/sten-ai-wallpaper-light.svg');background-repeat:no-repeat;background-position:center;background-size:cover}
-[data-theme='dark'] .unlock{background-image:url('../brand/sten-ai-wallpaper.svg')}
-.unlock-card{position:relative;z-index:1;border:1px solid var(--border-subtle);background:color-mix(in oklch,var(--bg-surface) 97%,transparent);border-radius:14px}
-@media(max-width:767px){.brand-mark{width:34px;height:34px;flex-basis:34px}.brand-mark img{width:24px;height:24px}.auth-brand{margin-bottom:18px}.auth-brand img{width:min(240px,82vw)}.sten-ai-page{background-size:auto 100%}}
+.unlock{position:relative;overflow:hidden;background-color:var(--bg-app);background-image:none}
+.unlock-card{position:relative;z-index:1;border:1px solid var(--border-subtle);background:var(--bg-surface);border-radius:14px}
+@media(max-width:767px){.brand-mark{width:34px;height:34px;flex-basis:34px}.brand-mark img{width:24px;height:24px}.auth-brand{margin-bottom:18px}.auth-brand img{width:min(240px,82vw)}}
 
 
 /* STEN auth/loading feedback */
