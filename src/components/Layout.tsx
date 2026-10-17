@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3, Bot, Brain, CalendarDays, Menu, Moon, PanelLeft, PanelLeftClose, FlaskConical,
-  LogOut, Scale, Sun, WalletCards, X,
+  LogOut, Scale, Sun, WalletCards, X, ChevronDown, ClipboardList, Gauge,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import WorkspaceSelector from './WorkspaceSelector';
@@ -53,6 +53,27 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [scope, setScope] = useScope();
   const location = useLocation();
   const navigate = useNavigate();
+  const financePaths = ['/pnl', '/pnl/import', '/budget', '/analytics', '/finances'];
+  const operationsPaths = ['/quick-entry', '/secretary', '/flash', '/team', '/documents'];
+  const toolsPaths = ['/ai-quality', '/memory', '/settings', '/legal', '/admin/organizations'];
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => ({
+    finance: financePaths.includes(location.pathname),
+    operations: operationsPaths.includes(location.pathname),
+    tools: toolsPaths.includes(location.pathname),
+  }));
+  const toggleGroup = (group: string) => {
+    if (sidebarCollapsed) {
+      setSidebarCollapsed(false);
+      setExpandedGroups(current => ({ ...current, [group]: true }));
+      return;
+    }
+    setExpandedGroups(current => ({ ...current, [group]: !current[group] }));
+  };
+  useEffect(() => {
+    if (financePaths.includes(location.pathname)) setExpandedGroups(current => ({ ...current, finance: true }));
+    if (operationsPaths.includes(location.pathname)) setExpandedGroups(current => ({ ...current, operations: true }));
+    if (toolsPaths.includes(location.pathname)) setExpandedGroups(current => ({ ...current, tools: true }));
+  }, [location.pathname]);
 
   useEffect(() => { applyTheme(theme); }, [theme]);
   useEffect(() => {
@@ -101,10 +122,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     .replace(/^./, char => char.toUpperCase());
 
   const mobileItems = [
-    ['/dashboard', 'Сводка', 'overview'],
+    ['/dashboard', 'Обзор', 'overview'],
     ['/sten', 'STEN AI', Bot],
-    ['/pnl', 'P&L', 'pnl'],
-    ['/flash', 'Flash', 'report'],
+    ['/pnl', 'Финансы', 'pnl'],
+    ['/quick-entry', 'Операции', ClipboardList],
   ] as const;
 
   return (
@@ -120,35 +141,59 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <button className="mobile-close" onClick={() => setMobileMenu(false)} aria-label="Закрыть меню"><X size={18} /></button>
           </div>
 
-          <nav aria-label="Навигация контура">
+          <nav className="sten-primary-nav" aria-label="Навигация контура">
             <div className="nav-section-label">Рабочее пространство</div>
-            {items.map(([to, label, Icon]) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={to === '/sten'}
-                onClick={() => setMobileMenu(false)}
-              >
-                <NavIcon icon={Icon} size={17} />
-                <span>{label}</span>
-              </NavLink>
-            ))}
-            <div className="nav-section-label nav-system-label">Система</div>
-            <NavLink to="/memory" onClick={() => setMobileMenu(false)}>
-              <Brain size={17} />
-              <span>Память</span>
+            <NavLink to="/dashboard" onClick={() => setMobileMenu(false)}>
+              <NavIcon icon="overview" size={17} />
+              <span>Обзор</span>
             </NavLink>
-            <NavLink to="/legal" onClick={() => setMobileMenu(false)}>
-              <Scale size={18} />
-              <span>Правовая информация</span>
+            <NavLink to="/sten" end onClick={() => setMobileMenu(false)}>
+              <Bot size={17} aria-hidden="true" />
+              <span>STEN AI</span>
             </NavLink>
-            <NavLink to="/settings" onClick={() => setMobileMenu(false)}>
-              <NavIcon icon="settings" size={18} />
-              <span>Настройки</span>
-            </NavLink>
-            {user?.role === 'super_admin' && <NavLink to="/admin/organizations" onClick={() => setMobileMenu(false)}>
-              <span>Организации</span>
-            </NavLink>}
+
+            <button className={`nav-group-toggle ${financePaths.includes(location.pathname) ? 'is-current' : ''}`} type="button" aria-expanded={!!expandedGroups.finance} onClick={() => toggleGroup('finance')}>
+              <BarChart3 size={17} aria-hidden="true" />
+              <span>Финансы</span>
+              <ChevronDown className="nav-group-chevron" size={15} aria-hidden="true" />
+            </button>
+            {expandedGroups.finance && <div className="nav-group-children" aria-label="Финансы">
+              {([
+                ['/pnl', 'P&L'],
+                ['/budget', 'Бюджет'],
+                ['/analytics', 'Аналитика'],
+                ['/finances', 'Финансовые операции'],
+              ] as const).map(([to, label]) => <NavLink key={to} to={to} onClick={() => setMobileMenu(false)}><span>{label}</span></NavLink>)}
+            </div>}
+
+            <button className={`nav-group-toggle ${operationsPaths.includes(location.pathname) ? 'is-current' : ''}`} type="button" aria-expanded={!!expandedGroups.operations} onClick={() => toggleGroup('operations')}>
+              <ClipboardList size={17} aria-hidden="true" />
+              <span>Операции</span>
+              <ChevronDown className="nav-group-chevron" size={15} aria-hidden="true" />
+            </button>
+            {expandedGroups.operations && <div className="nav-group-children" aria-label="Операции">
+              {([
+                ['/quick-entry', 'Мой день'],
+                ['/secretary', 'Секретарь'],
+                ['/flash', 'Flash'],
+                ['/team', 'Команда и ФОТ'],
+                ['/documents', 'Документы'],
+              ] as const).map(([to, label]) => <NavLink key={to} to={to} onClick={() => setMobileMenu(false)}><span>{label}</span></NavLink>)}
+            </div>}
+
+            <div className="nav-section-label nav-system-label">Настройки и инструменты</div>
+            <button className={`nav-group-toggle ${toolsPaths.includes(location.pathname) ? 'is-current' : ''}`} type="button" aria-expanded={!!expandedGroups.tools} onClick={() => toggleGroup('tools')}>
+              <Gauge size={17} aria-hidden="true" />
+              <span>Инструменты</span>
+              <ChevronDown className="nav-group-chevron" size={15} aria-hidden="true" />
+            </button>
+            {expandedGroups.tools && <div className="nav-group-children" aria-label="Настройки и инструменты">
+              <NavLink to="/ai-quality" onClick={() => setMobileMenu(false)}><FlaskConical size={16} aria-hidden="true" /><span>Лаборатория AI</span></NavLink>
+              <NavLink to="/memory" onClick={() => setMobileMenu(false)}><Brain size={16} aria-hidden="true" /><span>Память STEN</span></NavLink>
+              <NavLink to="/settings" onClick={() => setMobileMenu(false)}><span>Настройки</span></NavLink>
+              <NavLink to="/legal" onClick={() => setMobileMenu(false)}><Scale size={16} aria-hidden="true" /><span>Правовая информация</span></NavLink>
+              {user?.role === 'super_admin' && <NavLink to="/admin/organizations" onClick={() => setMobileMenu(false)}><span>Организации</span></NavLink>}
+            </div>}
           </nav>
         </div>
 
@@ -179,26 +224,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span className="period-chip">{periodLabel} · с начала месяца</span>
           </div>
 
-          <nav className="top-nav" aria-label="Основная навигация">
-            {([
-              ['/pnl', 'P&L', 'pnl'],
-              ['/dashboard', 'Мой день', 'overview'],
-              ['/sten', 'STEN AI', Bot],
-              ['/team', 'Команда', 'staff'],
-              ['/settings', 'Настройки', 'settings'],
-            ] as const).map(([to, label, Icon]) => (
-              <NavLink
-                key={to}
-                to={to}
-                className={({ isActive }) => isActive ? 'active' : ''}
-                end={to === '/sten'}
-                onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); viewNavigate(navigate, to); }}
-              >
-                <NavIcon icon={Icon} size={15} />
-                <span>{label}</span>
-              </NavLink>
-            ))}
-          </nav>
+
 
           <div className="top-workspace">
             <WorkspaceSelector value={scope} onChange={setScope} variant="compact" />
@@ -233,7 +259,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <nav className="mobile-bottom-nav" aria-label="Основная навигация">
         {mobileItems.map(([to, label, Icon]) => (
-          <NavLink key={to} to={to} end={to === '/dashboard'} onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); viewNavigate(navigate, to); }}>
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/dashboard'}
+            className={({ isActive }) => isActive || (to === '/pnl' && financePaths.includes(location.pathname)) || (to === '/quick-entry' && operationsPaths.includes(location.pathname)) ? 'active' : ''}
+            onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); viewNavigate(navigate, to); }}
+          >
             <NavIcon icon={Icon} size={18} />
             <span>{label}</span>
           </NavLink>

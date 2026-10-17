@@ -4487,3 +4487,57 @@ input[type="number"], input[type="month"], textarea, [contenteditable="true"] {
 @media (prefers-reduced-motion: reduce) {
   .team-page *, .secretary-page *, .flash-page * { scroll-behavior: auto; transition-duration: 0.01ms !important; }
 }
+
+/* Settings IA: a single compact quick-jump row replaces scattered navigation. */
+.settings-quick-jump {
+  position: sticky;
+  top: 66px;
+  z-index: 8;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin: 0 0 14px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.settings-quick-jump::-webkit-scrollbar { display: none; }
+.settings-quick-jump a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  flex: 0 0 auto;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color .16s ease, background .16s ease, border-color .16s ease;
+}
+.settings-quick-jump a:hover,
+.settings-quick-jump a:focus-visible {
+  color: var(--text);
+  border-color: var(--line);
+  background: var(--surface2);
+  outline-offset: 2px;
+}
+.settings-page [id^="settings-"] { scroll-margin-top: 124px; }
+.settings-workspace { grid-column: 1 / -1; }
+.settings-workspace > .workspace-selector,
+.settings-workspace > div { min-width: 0; }
+@media (max-width: 700px) {
+  .settings-quick-jump { top: 56px; margin-inline: -2px; }
+  .settings-quick-jump a { min-height: 38px; padding-inline: 10px; }
+  .settings-page [id^="settings-"] { scroll-margin-top: 112px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-quick-jump a { transition: none; }
+  .settings-page [id^="settings-"] { scroll-behavior: auto; }
+}

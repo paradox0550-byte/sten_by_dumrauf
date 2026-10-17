@@ -22,6 +22,21 @@ function isAppearanceSettings(value: unknown): value is AppearanceSettings {
   );
 }
 
+function simplifyAppearance(value: AppearanceSettings): AppearanceSettings {
+  return {
+    ...DEFAULT_APPEARANCE,
+    // Migrate old theme variants to the two supported choices.
+    theme: value.theme === 'paper' ? 'paper' : 'graphite',
+    density: value.density === 'comfort' ? 'comfort' : 'compact',
+    // Keep evidence and useful actions visible; remove decorative background options.
+    background: 'none',
+    showAvatars: value.showAvatars,
+    showTime: value.showTime,
+    showSources: true,
+    showActions: true,
+  };
+}
+
 export function loadAppearance(user: AppearanceUser | null | undefined): AppearanceSettings {
   const key = appearanceKey(user);
   if (!key || typeof window === 'undefined') return DEFAULT_APPEARANCE;
@@ -29,7 +44,7 @@ export function loadAppearance(user: AppearanceUser | null | undefined): Appeara
     const raw = window.localStorage.getItem(key);
     if (!raw) return DEFAULT_APPEARANCE;
     const parsed: unknown = JSON.parse(raw);
-    return isAppearanceSettings(parsed) ? parsed : DEFAULT_APPEARANCE;
+    return isAppearanceSettings(parsed) ? simplifyAppearance(parsed) : DEFAULT_APPEARANCE;
   } catch {
     return DEFAULT_APPEARANCE;
   }

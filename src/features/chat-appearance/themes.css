@@ -853,7 +853,7 @@
   margin: 0;
   padding: 0 12px;
   border-bottom: 1px solid var(--border-subtle);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 650;
   letter-spacing: 0.01em;
 }
@@ -864,7 +864,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: 5px;
   color: var(--text-muted);
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.1;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -893,7 +893,7 @@
   margin: 0;
   padding: 9px 12px;
   border-bottom: 1px solid var(--border-subtle);
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.35;
 }
 
@@ -922,14 +922,14 @@
 }
 
 .sten-ai-page .upload-box b {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 650;
 }
 
 .sten-ai-page .upload-box small {
   max-width: 220px;
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
   line-height: 1.35;
 }
 
@@ -963,7 +963,7 @@
 .sten-ai-page .doc-row b {
   overflow: hidden;
   color: var(--text-primary);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -972,7 +972,7 @@
 .sten-ai-page .doc-row small {
   overflow: hidden;
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -990,14 +990,14 @@
   margin: 0;
   padding: 9px 12px;
   border-top: 1px solid var(--border-subtle);
-  font-size: 8px;
+  font-size: 10px;
   line-height: 1.4;
 }
 
 .sten-ai-page .empty {
   padding: 24px 8px;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 12px;
   text-align: center;
 }
 
@@ -1031,11 +1031,11 @@
 
 .sten-ai-page .chat-head small {
   color: var(--chat-muted);
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .sten-ai-page .chat-head-actions > span {
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
@@ -1157,7 +1157,7 @@
 
 .sten-ai-page .message-source-chip {
   min-height: 19px;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .sten-ai-page .typing {
@@ -1206,7 +1206,7 @@
 .sten-ai-page .composer-footer {
   min-height: 16px;
   padding: 3px 3px 0;
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .sten-ai-page .composer-footer .composer-context {
@@ -1531,4 +1531,16 @@
   .sten-ai-page > .page-head p {
     display: none;
   }
+}
+
+/* Simplified appearance controls: two density choices and readable helper copy. */
+.chat-appearance-drawer .chat-density-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.chat-appearance-hint {
+  margin: 9px 0 0;
+  color: var(--chat-muted);
+  font-size: 11px;
+  line-height: 1.45;
 }
