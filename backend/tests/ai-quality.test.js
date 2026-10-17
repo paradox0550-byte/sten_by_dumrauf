@@ -59,7 +59,7 @@ test('food safety guidance includes specific new rules without inventing univers
   assert.match(prompt, /Не выдумывай единые сроки годности или температуры/u);
   assert.match(prompt, /ярлык сохраняют до конца обслуживания/u);
   assert.match(prompt, /приём сырья\/пищевой продукции требует маркировки/u);
-  assert.match(prompt, /Фритюрные жиры контролируют ежедневно/u);
+  assert.match(prompt, /фритюрные жиры контролируют ежедневно/iu);
 });
 
 test('protocol forbids unsupported claims of completed actions', () => {
