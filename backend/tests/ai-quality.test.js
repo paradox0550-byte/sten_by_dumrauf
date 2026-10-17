@@ -83,6 +83,7 @@ test('technological card requests receive recipe, yield, and cost calculation gu
   assert.ok(skills.some(skill => skill.name === 'procurement'));
   const prompt = buildSkillPrompt(question);
   assert.match(prompt, /СОСТАВЛЕНИЕ ТК\/ТТК/u);
+  assert.match(prompt, /ГОСТ 31987-2012/u);
   assert.match(prompt, /брутто\/нетто/u);
   assert.match(prompt, /выход полуфабрикатов и блюда/u);
   assert.match(prompt, /Не выдумывай сроки хранения/u);
