@@ -38,7 +38,7 @@ export default function AIQualityLab(){
      const response=await api.post<AskResponse & {steps?:unknown[];total_ms?:number}>('/ask',request);
      const answer=String(response.answer??response.message??'Ответ не получен.');
      setRuns(prev=>[{id:crypto.randomUUID(),scenarioId:s.id,prompt:s.prompt,answer,sources:Array.isArray(response.sources)?response.sources:[],tools:Array.isArray(response.tools_used)?response.tools_used:[],model:response.model,durationMs:Date.now()-started,at:new Date().toISOString()},...prev]);
-   }catch(e){const message=e instanceof ApiError?e.message:e instanceof Error?e.message:'Не удалось выполнить проверку.';setRuns(prev=>[{id:crypto.randomUUID(),scenarioId:s.id,prompt:s.prompt,answer:'',sources:[],tools:[],durationMs:Date.now()-started,error:message,at:new Date().toISOString()},...prev]);}
+   }catch(e){const message=e instanceof ApiError?e.message:e instanceof Error?e.message:'Не удалось выполнить проверку.';setError(message);setRuns(prev=>[{id:crypto.randomUUID(),scenarioId:s.id,prompt:s.prompt,answer:'',sources:[],tools:[],durationMs:Date.now()-started,error:message,at:new Date().toISOString()},...prev]);}
    finally{setBusyId(null)}
  };
  const runCustom=async()=>{const prompt=customPrompt.trim();if(!prompt||busyId)return;const custom:Scenario={id:'CUSTOM',title:'Пользовательский запрос',prompt,goal:'Проверьте полноту, точность, источники и честность ответа.',checks:['Задача выполнена напрямую','Факты подтверждены источниками','Нет выдуманных данных']};await runScenario(custom)};
