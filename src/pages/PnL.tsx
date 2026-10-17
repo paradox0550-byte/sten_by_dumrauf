@@ -12,6 +12,7 @@ import{writePnlAndVerify}from'../lib/saveVerify';
 import{formatMoney,parseMoneyInput,PnlDraftRow,PnlScale}from'../lib/pnl';
 import{formatDeltaPct}from'../lib/format';
 import{aggregateFinancialRows,canonicalArticleKey}from'../lib/financialRows';
+import{calculateSignedEbitda}from'../lib/financialAnalytics';
 import{PnlTransactionSchema,type PnlTransactionRequest,PnlApproveSchema,type PnlApproveRequest}from'../lib/contracts/pnl';
 import{getTemplateForPnL,USER_TEMPLATE_SOURCE,saveUserTemplate,loadUserTemplate}from'../lib/pnlTemplate';
 
@@ -51,8 +52,8 @@ export default function PnL(){
  const factCogs=cogs?.fact;
  const factPayroll=payroll?.fact;
  const factOpex=opex?.fact;
- const ebitdaPlan=has(planRevenue)&&has(planCogs)&&has(planPayroll)&&has(planOpex)?planRevenue-planCogs-planPayroll-planOpex:undefined;
- const ebitdaFact=has(factRevenue)&&has(factCogs)&&has(factPayroll)&&has(factOpex)?factRevenue-factCogs-factPayroll-factOpex:undefined;
+ const ebitdaPlan=calculateSignedEbitda(planRevenue,planCogs,planPayroll,planOpex);
+ const ebitdaFact=calculateSignedEbitda(factRevenue,factCogs,factPayroll,factOpex);
  const marginPlan=has(ebitdaPlan)&&has(planRevenue)&&planRevenue!==0?ebitdaPlan/planRevenue*100:undefined;
  const marginFact=has(ebitdaFact)&&has(factRevenue)&&factRevenue!==0?ebitdaFact/factRevenue*100:undefined;
  const canSave=rows.some(r=>r.plan!==undefined||r.fact!==undefined);

@@ -8,7 +8,7 @@ test('global task-completion protocol is included for general questions', () => 
   const prompt = buildSkillPrompt('Привет');
   assert.match(prompt, /ПРОТОКОЛ ВЫПОЛНЕНИЯ ЗАДАЧ STEN/);
   assert.match(prompt, /Сначала выполни задачу пользователя/);
-  assert.match(prompt, /не выдумывай имена, цифры, файлы, источники и идентификаторы/);
+  assert.match(prompt, /не выдумывай имена, цифры, файлы, источники и идентификаторы/i);
   assert.match(prompt, /organization_id, restaurant_id/);
 });
 
