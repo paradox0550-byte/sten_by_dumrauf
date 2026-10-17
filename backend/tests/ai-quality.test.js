@@ -41,6 +41,25 @@ test('ambiguous marking question receives context-sensitive operations guidance'
   assert.match(prompt, /Не выдавай общий список за юридически проверенный регламент/u);
 });
 
+test('HACCP and current 2026 Russian catering SanPiN use compliance guidance', () => {
+  const skills = selectSkills('Какие требования ХАССП и СанПиН действуют для ресторана в 2026 году?');
+  assert.ok(skills.some(skill => skill.name === 'compliance'));
+  assert.ok(skills.some(skill => skill.name === 'operations'));
+  const prompt = buildSkillPrompt('Какие требования ХАССП и СанПиН действуют для ресторана в 2026 году?');
+  assert.match(prompt, /ТР ТС 021\/2011/u);
+  assert.match(prompt, /СанПиН 2\.3\/2\.4\.4282-26/u);
+  assert.match(prompt, /01\.09\.2026/u);
+  assert.match(prompt, /проверены доступным текстом источника/u);
+});
+
+test('food safety guidance includes specific new rules without inventing universal shelf lives', () => {
+  const prompt = buildSkillPrompt('Как маркировать заготовки и контролировать сроки годности по СанПиН?');
+  assert.match(prompt, /не более 3 часов/u);
+  assert.match(prompt, /аллергенными свойствами/u);
+  assert.match(prompt, /Не выдумывай единые сроки годности или температуры/u);
+  assert.match(prompt, /ярлык сохраняют до конца обслуживания/u);
+});
+
 test('protocol forbids unsupported claims of completed actions', () => {
   const prompt = buildSkillPrompt('Составь план действий по отклонениям P&L');
   assert.match(prompt, /пока инструмент не подтвердил результат/);
