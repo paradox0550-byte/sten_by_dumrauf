@@ -24,10 +24,11 @@ describe('AskSteps processing timeline', () => {
     expect(markup(createElement(AskSteps, { steps: [] }))).toBe('');
   });
 
-  it('shows formatted total duration in the header', () => {
+  it('shows a compact completion summary with formatted duration', () => {
     const html = markup(createElement(AskSteps, { steps, totalMs: 12180 }));
-    expect(html).toContain('Обработка · 12,2 с');
-    expect(html).toContain('Шаги обработки');
+    expect(html).toContain('Готово за 12,2 с · 4 шага');
+    expect(html).toContain('<details');
+    expect(html).toContain('<summary');
   });
 
   it('uses correct Russian step-count forms', () => {
@@ -36,21 +37,22 @@ describe('AskSteps processing timeline', () => {
     expect(markup(createElement(AskSteps, { steps: [...steps, ...steps.slice(0, 1)] }))).toContain('5 шагов');
   });
 
-  it('is collapsed by default and keeps the region out of the markup', () => {
+  it('is collapsed by default and uses native details disclosure', () => {
     const html = markup(createElement(AskSteps, { steps }));
-    expect(html).toContain('aria-expanded="false"');
-    expect(html).not.toContain('aria-label="Детали обработки"');
+    expect(html).toContain('<details class="ai-steps"');
+    expect(html).not.toContain(' open');
+    expect(html).toContain('aria-label="Детали обработки"');
   });
 
-  it('renders a native button header with an accessible control relationship', () => {
+  it('renders an accessible summary control and chevron', () => {
     const html = markup(createElement(AskSteps, { steps }));
-    expect(html).toContain('<button');
-    expect(html).toContain('aria-controls="');
-    expect(html).toContain('data-testid="ai-steps-chevron"');
+    expect(html).toContain('<summary class="ai-steps__summary-row">');
+    expect(html).toContain('aria-label="Ход обработки запроса"');
+    expect(html).toContain('ai-steps__chevron');
   });
 
   it('uses the completed fallback when totalMs is undefined', () => {
-    expect(markup(createElement(AskSteps, { steps }))).toContain('Обработка · —');
+    expect(markup(createElement(AskSteps, { steps }))).toContain('Готово · 4 шага');
     expect(markup(createElement(AskSteps, { steps }))).toContain('4 шага');
   });
 
