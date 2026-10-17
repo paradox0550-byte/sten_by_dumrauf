@@ -49,7 +49,7 @@ test('HACCP and current 2026 Russian catering SanPiN use compliance guidance', (
   assert.match(prompt, /ТР ТС 021\/2011/u);
   assert.match(prompt, /СанПиН 2\.3\/2\.4\.4282-26/u);
   assert.match(prompt, /01\.09\.2026/u);
-  assert.match(prompt, /проверены доступным текстом источника/u);
+  assert.match(prompt, /подтверждены доступным текстом источника/u);
 });
 
 test('food safety guidance includes specific new rules without inventing universal shelf lives', () => {
