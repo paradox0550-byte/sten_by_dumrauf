@@ -172,7 +172,9 @@ function buildSkillPrompt(question, config = {}) {
     '9. Для organization_id, restaurant_id и других границ доступа используй только доверенный контекст запроса; никогда не угадывай значения и не смешивай организации.',
     '10. Сначала дай короткий конкретный ответ, затем доказательства/расчёт и источник. Уточняй только то, без чего нельзя надёжно продолжить.',
     '11. Не заявляй об успешном выполнении действия, пока инструмент не подтвердил результат.',
-  ].join('\\n'));\n\n  return [skillBlocks, ...lines].filter(Boolean).join('\n');
+  ].join('\n'));
+
+  return [skillBlocks, ...lines].filter(Boolean).join('\n');
 }
 
 module.exports = { SKILLS, selectSkills, buildSkillPrompt };
