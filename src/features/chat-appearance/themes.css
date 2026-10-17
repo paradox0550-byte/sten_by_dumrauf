@@ -1532,3 +1532,15 @@
     display: none;
   }
 }
+
+/* Simplified appearance controls: two density choices and readable helper copy. */
+.chat-appearance-drawer .chat-density-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.chat-appearance-hint {
+  margin: 9px 0 0;
+  color: var(--chat-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
