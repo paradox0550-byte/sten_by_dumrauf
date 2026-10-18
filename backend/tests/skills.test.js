@@ -30,3 +30,16 @@ test('HR skill allows source-grounded names for authorized tasks but protects un
   assert.match(prompt, /ФИО и должность можно назвать только если они прямо содержатся в источнике/u);
   assert.match(prompt, /Не раскрывай телефоны, паспортные данные/u);
 });
+
+test('payroll reduction questions activate finance and HR skills', () => {
+  const skills = selectSkills('Как сократить зарплаты');
+  const names = skills.map(skill => skill.name);
+  assert.ok(names.includes('finance'), `expected finance skill, got: ${names.join(', ')}`);
+  assert.ok(names.includes('people'), `expected people skill, got: ${names.join(', ')}`);
+  assert.ok(names.includes('management'), `expected management skill, got: ${names.join(', ')}`);
+});
+
+test('HR skill prioritizes available payroll and motivation documents', () => {
+  const prompt = buildSkillPrompt('Как сократить зарплаты');
+  assert.match(prompt, /Если в переданном контексте есть документы о ФОТ, зарплатах, окладах, премиях, KPI или мотивации — используй их как первичный источник/u);
+});
