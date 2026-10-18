@@ -448,3 +448,34 @@
 @media (prefers-reduced-motion: reduce) {
   .sten-ai-page .chat-body .typing__label { animation: none; }
 }
+
+
+/* Reliable first-tap focus on touch devices; keep the entire composer surface usable. */
+.sten-ai-page .composer,
+.sten-ai-page .composer-box {
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+.sten-ai-page .composer-box {
+  cursor: text;
+}
+.sten-ai-page .composer-box textarea {
+  min-height: 42px;
+  padding-block: 10px;
+  touch-action: manipulation;
+  -webkit-user-select: text;
+  user-select: text;
+}
+@media (max-width: 767px) {
+  .sten-ai-page .composer {
+    position: relative;
+    z-index: 20;
+  }
+  .sten-ai-page .composer-box {
+    min-height: 48px;
+  }
+  .sten-ai-page .composer-box textarea {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}
