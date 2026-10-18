@@ -68,6 +68,7 @@ function AIContent({user}:{user:User|null}){
  const[chatToast,setChatToast]=useState<string|null>(null);
  const[dragOver,setDragOver]=useState(false);
  const file=useRef<HTMLInputElement>(null);
+ const promptRef=useRef<HTMLTextAreaElement>(null);
  const recog=useRef<any>(null);
  const chatBodyRef=useRef<HTMLDivElement>(null);
  const shouldAutoScrollRef=useRef(true);
@@ -370,9 +371,9 @@ function AIContent({user}:{user:User|null}){
          onDragLeave={()=>setDragOver(false)}
          onDrop={e=>{e.preventDefault();setDragOver(false);void uploadFiles(e.dataTransfer.files)}}>
          {dragOver&&<div className="composer-drop-hint"><UploadCloud size={16}/> Отпустите файл — STEN добавит его в документы</div>}
-         <div className="composer-box">
+         <div className="composer-box" onClick={e=>{if((e.target as HTMLElement).closest("button"))return;promptRef.current?.focus({preventScroll:true})}}>
            <button className="icon-button composer-attach" onClick={()=>file.current?.click()} aria-label="Прикрепить документ" title="Добавить документ"><Paperclip size={18}/></button>
-           <textarea value={prompt} onFocus={(e)=>{setComposerFocused(true);requestAnimationFrame(()=>e.currentTarget.scrollIntoView({behavior:'smooth',block:'center'}))}} onBlur={()=>setComposerFocused(false)} onChange={e=>setPrompt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void ask()}}} placeholder={listening?'Говорите…':'Спросите про P&L, ФОТ или ситуацию в смене…'} rows={1} aria-label="Запрос к STEN AI"/>
+           <textarea ref={promptRef} value={prompt} onFocus={()=>{setComposerFocused(true);const textarea=promptRef.current;if(textarea)requestAnimationFrame(()=>textarea.scrollIntoView({behavior:'auto',block:'nearest'}))}} onBlur={()=>setComposerFocused(false)} onChange={e=>setPrompt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void ask()}}} placeholder={listening?'Говорите…':'Спросите про P&L, ФОТ или ситуацию в смене…'} rows={1} aria-label="Запрос к STEN AI"/>
            <button className={'icon-button'+(listening?' mic-active':'')} onClick={toggleVoice} aria-label={listening?'Остановить запись':'Голосовой ввод'} title={SR?'Голосовой ввод (Chrome / Edge)':'Голосовой ввод не поддерживается этим браузером'}>
              {listening?<MicOff size={18}/>:<Mic size={18}/>}
            </button>
