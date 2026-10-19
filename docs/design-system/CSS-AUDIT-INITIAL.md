@@ -132,3 +132,10 @@ No route destinations, access rules, API calls, tenant scope, business formulas,
 - This prevents the sidebar width and content offset from drifting between older breakpoint-specific rules. The rule applies from 768px upward; the mobile drawer keeps its independent overlay layout.
 - Combined with the header toggle fix, the desktop control now changes the actual collapsed state and the shell uses matching geometry.
 - Validation: source and selector relationships inspected. Automated CI for the newest commits and browser screenshots remain unconfirmed; no merge or deployment was performed.
+
+## CSS cleanup — exact duplicate semantic utilities
+
+- Removed four repeated rules from `src/obsidian-precision-completion.css`: placeholder color, positive status color, negative status color and warning status color.
+- Their identical declarations remain in the earlier `src/obsidian-precision.css`, so this removes redundant source without changing token values or selector semantics.
+- No selector families, media queries, import order, cascade layers, `!important` declarations, page layouts or business behavior were changed.
+- Validation so far: exact-match/source review only. CI and browser-rendered visual checks are still required before merge.
