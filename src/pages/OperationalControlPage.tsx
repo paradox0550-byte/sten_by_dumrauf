@@ -120,7 +120,6 @@ export default function OperationalControlPage() {
   const foodCostForDisplay = n(calc?.foodCostPercent) ?? n(financialCalc?.foodCostPercent) ?? (cogsForCost !== null && revenueForCost !== null && revenueForCost > 0 ? cogsForCost / revenueForCost * 100 : null);
   const laborPercentForDisplay = n(calc?.personnelPercent) ?? n(financialCalc?.personnelPercent) ?? (laborForCost !== null && revenueForCost !== null && revenueForCost > 0 ? laborForCost / revenueForCost * 100 : null);
   const primeForDisplay = n(calc?.primeCostPercent) ?? n(financialCalc?.primeCostPercent) ?? (foodCostForDisplay !== null && laborPercentForDisplay !== null ? foodCostForDisplay + laborPercentForDisplay : null);
-  const prime = calc?.primeCostPercent ?? null;
   const status = primeForDisplay === null ? 'Нет данных' : primeForDisplay <= 60 ? 'Норма' : primeForDisplay <= 65 ? 'Внимание' : 'Критично';
 
   const avgCheck = n(values.avgCheck) ?? (() => {
@@ -238,7 +237,7 @@ export default function OperationalControlPage() {
           <section className="panel">
             <div className="panel-title"><AlertTriangle size={16} /> Операционные заметки</div>
             <div className="empty">
-              {prime === null
+              {primeForDisplay === null
                 ? 'Нет данных для расчета Prime Cost. Проверьте ввод выручки и затрат.'
                 : calc?.overtime != null && calc.overtime > 0
                   ? 'Выявлены переработки персонала. Проверьте график смен и Labor Cost.'
