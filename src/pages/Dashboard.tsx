@@ -8,7 +8,6 @@ import { formatDeltaPct, formatMoneyAuto, formatPercent } from '../lib/format';
 import WorkspaceSelector from '../components/WorkspaceSelector';
 import MetricCard from '../components/MetricCard';
 import AttentionBlock from '../components/AttentionBlock';
-import PrimeCostBlock from '../components/PrimeCostBlock';
 import './Dashboard.css';
 
 type PnlRow = { article: string; plan: number | null; fact: number | null; source?: string };
@@ -154,7 +153,6 @@ export default function Dashboard() {
             <MetricCard label="ФОТ" value={formatMoneyAuto(laborFact)} detail={'План ' + formatMoneyAuto(laborPlan)} delta={formatDeltaPct(laborPlan, laborFact)} deltaTone={laborDelta === null ? 'neutral' : laborDelta <= 0 ? 'success' : 'danger'} />
             <MetricCard label="EBITDA" value={formatMoneyAuto(fact?.ebitda)} detail={ebitdaMargin === null ? 'Маржа —' : 'Маржа ' + formatPercent(ebitdaMargin)} delta={formatDeltaPct(plan?.ebitda, fact?.ebitda)} deltaTone={fact?.ebitda == null || plan?.ebitda == null ? 'neutral' : fact.ebitda >= plan.ebitda ? 'success' : 'danger'} />
           </section>
-          <PrimeCostBlock total={primeCost} cogs={cogsPercent} labor={laborPercent} />
         </div>
       )}
     </main>
