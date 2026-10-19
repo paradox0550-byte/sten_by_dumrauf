@@ -76,7 +76,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     if (matchesPath(toolsPaths)) setExpandedGroups(current => ({ ...current, tools: true }));
   }, [location.pathname]);
 
-  useEffect(() => { applyTheme(theme); }, [theme]);
+  useEffect(() => {
+    applyTheme(theme);
+    if (theme !== 'system') return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const syncSystemTheme = () => applyTheme('system');
+    media.addEventListener('change', syncSystemTheme);
+    return () => media.removeEventListener('change', syncSystemTheme);
+  }, [theme]);
   useEffect(() => {
     document.body.classList.toggle('sidebar-collapsed', sidebarCollapsed);
     localStorage.setItem(SIDEBAR_KEY, sidebarCollapsed ? '1' : '0');
