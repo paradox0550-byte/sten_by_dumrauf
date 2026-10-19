@@ -55,3 +55,27 @@ A simple selector inventory also finds substantial cross-file overlap. For examp
 ## What this audit does not claim
 
 This is a source-level pass based on the current `main` files and does not substitute for browser screenshots, computed-style inspection, accessibility testing, or CI results. No UI code, business calculations, API behavior, or deployment configuration was changed in this initial audit milestone.
+
+
+## First implementation slice — 2026-10-20
+
+A narrow, theme-safe P&L tree styling change was committed after the inventory:
+
+- Replaced fixed light-gray subtotal borders/backgrounds with semantic border and brand tokens.
+- Replaced fixed light-theme text colors in computed-row annotations, P&L codes, and split details with `--text-muted`.
+- Kept the existing component structure, formulas, data flow, selector scope, stylesheet order, API, and backend unchanged.
+
+This reduces obvious hard-coded light-palette leakage in dark mode without a broad CSS rewrite. It still needs visual verification in both themes and is not represented as browser-tested.
+
+## CI finding — existing backend validation failures
+
+The workflow for the audit PR completed with frontend typecheck, lint, frontend tests, and frontend production build passing. The job then failed at the separate backend-validation step; 6 of 54 backend tests failed:
+
+- restaurant opening requests include launch gates, opening checklists and stabilization
+- holding governance requests include document hierarchy and rollout
+- restaurant staff management requests receive practical people-development guidance
+- iiko inventory questions include reconciliation and report provenance
+- brand strength skill links positioning to measurable guest behavior
+- restaurant occupational safety requests route to risk assessment guidance
+
+These failures are outside the frontend-only design scope. Do not bypass or weaken backend validation to make the design PR green; handle them in a separately authorized backend task.
