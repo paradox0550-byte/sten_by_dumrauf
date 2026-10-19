@@ -139,3 +139,17 @@ No route destinations, access rules, API calls, tenant scope, business formulas,
 - Their identical declarations remain in the earlier `src/obsidian-precision.css`, so this removes redundant source without changing token values or selector semantics.
 - No selector families, media queries, import order, cascade layers, `!important` declarations, page layouts or business behavior were changed.
 - Validation so far: exact-match/source review only. CI and browser-rendered visual checks are still required before merge.
+
+
+## Fifth implementation slice — theme synchronization and responsive control density
+
+- The workspace now listens for operating-system appearance changes while the selected theme is `system`; it removes the listener when leaving that mode or unmounting.
+- Tablet header density is reduced deliberately: the global scale control is hidden in the shell at 768–1023px (the financial page controls remain available), workspace selection stays bounded, and account identity becomes a compact avatar.
+- Collapsed desktop navigation now hides section captions and child links while retaining the group icons. Activating a group still expands the rail and opens that group.
+- P&L heading/actions and KPI contents now wrap safely on narrow screens; the KPI strip becomes a single column at 390px and below to avoid compressed financial values.
+- Settings uses a single form column at tablet and phone widths, with quick-jump links wrapping instead of overflowing.
+- These are frontend-only changes. Theme tokens, API calls, authentication, tenant scope, financial formulas, backend files and deployment configuration remain unchanged.
+
+## Validation status after the responsive pass
+
+The source changes are committed to the PR branch. CI is required to validate the newest head; a previous run showed frontend typecheck, lint, frontend tests and production build passing, with the separate backend-validation stage failing. Do not treat the PR as release-ready until the latest frontend checks complete and visual QA is performed in dark/light themes at phone, tablet and desktop widths. Backend validation is recorded as an existing out-of-scope failure and must not be bypassed.
