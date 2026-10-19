@@ -448,3 +448,90 @@
 @media (prefers-reduced-motion: reduce) {
   .sten-ai-page .chat-body .typing__label { animation: none; }
 }
+
+
+/* Reliable first-tap focus on touch devices; keep the entire composer surface usable. */
+.sten-ai-page .composer,
+.sten-ai-page .composer-box {
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+.sten-ai-page .composer-box {
+  cursor: text;
+}
+.sten-ai-page .composer-box textarea {
+  min-height: 42px;
+  padding-block: 10px;
+  touch-action: manipulation;
+  -webkit-user-select: text;
+  user-select: text;
+}
+@media (max-width: 767px) {
+  .sten-ai-page .composer {
+    position: relative;
+    z-index: 20;
+  }
+  .sten-ai-page .composer-box {
+    min-height: 48px;
+  }
+  .sten-ai-page .composer-box textarea {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}
+
+
+/* Desktop workspace: use the available content width instead of constraining the chat column. */
+@media (min-width: 1280px) {
+  .sten-ai-page {
+    width: 100%;
+    min-width: 0;
+    height: calc(100dvh - 138px);
+  }
+  .sten-ai-page .ai-grid {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    gap: 16px;
+  }
+  .sten-ai-page .ai-grid.docs-collapsed {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+  .sten-ai-page .chat {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    justify-self: stretch;
+  }
+  .sten-ai-page .chat-body {
+    padding-inline: clamp(24px, 3vw, 48px);
+  }
+  .sten-ai-page .chat-body > .sten-ai-welcome {
+    width: min(100%, 1040px);
+  }
+  .sten-ai-page .chat-body .message-content {
+    max-width: min(88%, 1040px);
+  }
+  .sten-ai-page .chat-body .message-row--user .message-content {
+    max-width: min(82%, 860px);
+  }
+  .sten-ai-page .composer {
+    padding-inline: clamp(18px, 3vw, 40px);
+  }
+  .sten-ai-page .composer-box,
+  .sten-ai-page .composer-footer {
+    width: min(100%, 1120px);
+    margin-inline: auto;
+  }
+}
+@media (min-width: 768px) and (max-width: 1279px) {
+  .sten-ai-page .chat {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+  .sten-ai-page .composer-box,
+  .sten-ai-page .composer-footer {
+    width: 100%;
+  }
+}
