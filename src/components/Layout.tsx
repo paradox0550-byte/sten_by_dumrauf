@@ -106,6 +106,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     ['/team', 'Команда и ФОТ', 'staff'],
     ['/documents', 'Документы', 'terms'],
     ['/finances', 'Финансы', WalletCards],
+    ['/memory', 'Память STEN', Brain],
+    ['/settings', 'Настройки', Gauge],
+    ['/legal', 'Правовая информация', Scale],
+    ['/admin/organizations', 'Организации', Gauge],
   ] as const, []);
 
   const name = user
