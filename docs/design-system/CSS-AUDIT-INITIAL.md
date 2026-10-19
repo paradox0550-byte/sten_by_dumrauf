@@ -79,3 +79,16 @@ The workflow for the audit PR completed with frontend typecheck, lint, frontend 
 - restaurant occupational safety requests route to risk assessment guidance
 
 These failures are outside the frontend-only design scope. Do not bypass or weaken backend validation to make the design PR green; handle them in a separately authorized backend task.
+
+
+## Second implementation slice — responsive global header — 2026-10-20
+
+Added a token-driven style pass scoped to `.topbar.executive-topbar` in `src/obsidian-precision-completion.css` and documented the header contract in `STEN-DESIGN-CODE-1.0.md`.
+
+- Clarifies hierarchy between current page and period metadata.
+- Aligns workspace scope, financial scale, theme control, and account identity with consistent control sizes and semantic borders.
+- Adds tablet/mobile density rules without changing the underlying `Layout.tsx` state or selector behavior.
+- Keeps theme styling token-driven and avoids adding fake notification/status controls.
+- Does not touch backend/API, financial formulas, tenant scope, or deployment workflows.
+
+The latest commit has no PR-triggered workflow runs or combined status entries reported yet, so CI for this header slice is **not verified**. This is source-level implementation only; visual browser checks at 375/393px, tablet widths, and 1440px+ in dark/light themes remain outstanding.
