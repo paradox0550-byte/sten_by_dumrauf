@@ -125,3 +125,10 @@ No route destinations, access rules, API calls, tenant scope, business formulas,
 - `aria-expanded` now reflects the actual desktop sidebar state; the separate mobile menu button continues to control the mobile drawer.
 - Scope is limited to `src/components/Layout.tsx`. Routes, navigation destinations, permissions, tenant scope, business calculations, API contracts and deployment workflows are unchanged.
 - Validation: source-level contract checked. Browser verification at desktop/tablet/mobile and automated checks must still be confirmed by CI; this change is not described as visually verified.
+
+## Navigation follow-up — collapsed rail geometry
+
+- Standardized the collapsed desktop/tablet sidebar rail and the adjacent main-content offset on the existing `--sten-sidebar-collapsed-width` token (72px fallback), in the last-loaded completion stylesheet.
+- This prevents the sidebar width and content offset from drifting between older breakpoint-specific rules. The rule applies from 768px upward; the mobile drawer keeps its independent overlay layout.
+- Combined with the header toggle fix, the desktop control now changes the actual collapsed state and the shell uses matching geometry.
+- Validation: source and selector relationships inspected. Automated CI for the newest commits and browser screenshots remain unconfirmed; no merge or deployment was performed.
