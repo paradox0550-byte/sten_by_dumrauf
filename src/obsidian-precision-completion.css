@@ -561,3 +561,15 @@ input:focus, select:focus, textarea:focus { border-color: var(--color-brand); ou
     min-height: 42px;
   }
 }
+
+/* Keep the collapsed desktop rail and main-content offset on the same geometry. */
+@media (min-width: 768px) {
+  .executive-shell .sidebar.is-collapsed {
+    width: var(--sten-sidebar-collapsed-width, 72px);
+    min-width: var(--sten-sidebar-collapsed-width, 72px);
+  }
+  .executive-shell .sidebar.is-collapsed ~ .main {
+    margin-left: var(--sten-sidebar-collapsed-width, 72px);
+    width: calc(100% - var(--sten-sidebar-collapsed-width, 72px));
+  }
+}
