@@ -574,7 +574,16 @@ input:focus, select:focus, textarea:focus { border-color: var(--color-brand); ou
 
 /* Final responsive guardrails — resolve tablet density and narrow financial layouts. */
 @media (min-width: 768px) and (max-width: 1023px) {
-  .topbar.executive-topbar .global-scale { display: none; }
+  .topbar.executive-topbar { flex-wrap: wrap; }
+  .topbar.executive-topbar .top-actions { order: 4; }
+  .topbar.executive-topbar .top-profile { order: 5; }
+  .topbar.executive-topbar .global-scale {
+    display: flex;
+    order: 6;
+    flex: 0 0 auto;
+    max-width: 100%;
+    margin-left: 44px;
+  }
   .topbar.executive-topbar .top-context {
     flex: 0 1 160px;
     max-width: 160px;
