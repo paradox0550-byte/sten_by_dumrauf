@@ -145,7 +145,7 @@ export default function Dashboard() {
 
       {state === 'ready' && (
         <div className="director-dashboard__content">
-          <AttentionBlock items={attention} onCreateTask={item => void createDeviationTask(item)} creatingTask={creatingTask} />
+          <AttentionBlock items={attention} period={scope.period} onCreateTask={item => void createDeviationTask(item)} creatingTask={creatingTask} />
           {taskMessage && <p className="director-state" role="status">{taskMessage}</p>}
           <section className="director-metrics" aria-label="Ключевые метрики">
             <MetricCard label="ВЫРУЧКА" value={formatMoneyAuto(fact?.revenue)} detail={'План ' + formatMoneyAuto(plan?.revenue)} delta={formatDeltaPct(plan?.revenue, fact?.revenue)} deltaTone={revenueDelta === null ? 'neutral' : revenueDelta >= 0 ? 'success' : 'danger'} />
