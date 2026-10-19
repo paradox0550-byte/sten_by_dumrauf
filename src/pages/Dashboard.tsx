@@ -32,15 +32,20 @@ const expenseArticle = (article: string) => /cogs|food.?cost|себестоим|
 const moneyDeltaPercent = (plan: number | null | undefined, fact: number | null | undefined) =>
   isFiniteNumber(plan) && isFiniteNumber(fact) && plan !== 0 ? ((fact - plan) / Math.abs(plan)) * 100 : null;
 
-function attentionItems(rows: PnlRow[]): AttentionItem[] {
-  return rows.flatMap((row) => {
-    if (!isFiniteNumber(row.plan) || !isFiniteNumber(row.fact)) return [];
+export type DeviationItem = { article: string; plan: number | null; fact: number | null; delta: number | null; deltaPct: number | null; severity: 'high' | 'medium' | 'low'; group: 'critical' | 'positive' | 'missing' };
+function attentionItems(rows: PnlRow[]): DeviationItem[] {
+  return rows.map((row) => {
+    if (!isFiniteNumber(row.plan) || !isFiniteNumber(row.fact)) return { article: row.article, plan: row.plan ?? null, fact: row.fact ?? null, delta: null, deltaPct: null, severity: 'low' as const, group: 'missing' as const };
     const delta = row.fact - row.plan;
-    const deltaPct = moneyDeltaPercent(row.plan, row.fact);
+    const deltaPct = row.plan === 0 ? null : delta / Math.abs(row.plan) * 100;
+    const severity = (deltaPct !== null && Math.abs(deltaPct) > 10) || Math.abs(delta) > 100000 ? 'high' as const : (deltaPct !== null && Math.abs(deltaPct) > 5) || Math.abs(delta) > 30000 ? 'medium' as const : 'low' as const;
     const unfavorable = expenseArticle(row.article) ? delta > 0 : delta < 0;
-    if (!unfavorable || delta === 0) return [];
-    return [{ article: row.article, plan: row.plan, fact: row.fact, delta, deltaPct }];
-  }).sort((a, b) => Math.abs(b.deltaPct ?? 0) - Math.abs(a.deltaPct ?? 0));
+    return { article: row.article, plan: row.plan, fact: row.fact, delta, deltaPct, severity, group: unfavorable ? 'critical' as const : 'positive' as const };
+  }).filter(item => item.group === 'missing' || item.delta !== 0).sort((a, b) => {
+    const order = { critical: 0, missing: 1, positive: 2 };
+    const severityOrder = { high: 0, medium: 1, low: 2 };
+    return order[a.group] - order[b.group] || severityOrder[a.severity] - severityOrder[b.severity] || Math.abs(b.deltaPct ?? 0) - Math.abs(a.deltaPct ?? 0);
+  });
 }
 
 export default function Dashboard() {
@@ -48,6 +53,8 @@ export default function Dashboard() {
   const [response, setResponse] = useState<PnlResponse | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'empty' | 'unavailable' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
+  const [taskMessage, setTaskMessage] = useState('');
+  const [creatingTask, setCreatingTask] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setState('loading');
@@ -74,6 +81,14 @@ export default function Dashboard() {
   const plan = getPlan(response);
   const rows = response?.rows ?? [];
   const attention = useMemo(() => attentionItems(rows), [rows]);
+  const createDeviationTask = async (item: DeviationItem) => {
+    setCreatingTask(item.article); setTaskMessage('');
+    try {
+      await api.post('/api/secretary/events', { title: 'Разобраться с отклонением по ' + item.article, description: 'Период: ' + scope.period + '. План: ' + (item.plan ?? 'нет данных') + '; факт: ' + (item.fact ?? 'нет данных') + '. Проверьте источник и причину отклонения.', start_at: new Date().toISOString(), event_type: 'task', status: 'planned', reminder_minutes: 30 });
+      setTaskMessage('Задача добавлена в план руководителя.');
+    } catch (error) { setTaskMessage(error instanceof Error ? error.message : 'Не удалось создать задачу.'); }
+    finally { setCreatingTask(null); }
+  };
   const revenueDelta = moneyDeltaPercent(plan?.revenue, fact?.revenue);
   const laborFact = getLabor(fact);
   const laborPlan = getLabor(plan);
@@ -135,10 +150,11 @@ export default function Dashboard() {
 
       {state === 'ready' && (
         <div className="director-dashboard__content">
-          <AttentionBlock items={attention} />
+          <AttentionBlock items={attention} onCreateTask={item => void createDeviationTask(item)} creatingTask={creatingTask} />
+          {taskMessage && <p className="director-state" role="status">{taskMessage}</p>}
           <section className="director-metrics" aria-label="Ключевые метрики">
             <MetricCard label="ВЫРУЧКА" value={formatMoneyAuto(fact?.revenue)} detail={'План ' + formatMoneyAuto(plan?.revenue)} delta={formatDeltaPct(plan?.revenue, fact?.revenue)} deltaTone={revenueDelta === null ? 'neutral' : revenueDelta >= 0 ? 'success' : 'danger'} />
-            <MetricCard label="FOOD COST %" value={formatPercent(foodCost)} detail="Доля себестоимости в выручке" status={foodStatus?.label} statusTone={foodStatus?.tone} />
+            <MetricCard label="PRIME COST" value={formatPercent(primeCost)} detail="COGS + ФОТ" />
             <MetricCard label="ФОТ" value={formatMoneyAuto(laborFact)} detail={'План ' + formatMoneyAuto(laborPlan)} delta={formatDeltaPct(laborPlan, laborFact)} deltaTone={laborDelta === null ? 'neutral' : laborDelta <= 0 ? 'success' : 'danger'} />
             <MetricCard label="EBITDA" value={formatMoneyAuto(fact?.ebitda)} detail={ebitdaMargin === null ? 'Маржа —' : 'Маржа ' + formatPercent(ebitdaMargin)} delta={formatDeltaPct(plan?.ebitda, fact?.ebitda)} deltaTone={fact?.ebitda == null || plan?.ebitda == null ? 'neutral' : fact.ebitda >= plan.ebitda ? 'success' : 'danger'} />
           </section>
