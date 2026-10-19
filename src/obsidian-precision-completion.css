@@ -480,3 +480,84 @@ input:focus, select:focus, textarea:focus { border-color: var(--color-brand); ou
   .topbar.executive-topbar .top-workspace { flex-basis: 40%; max-width: 40%; }
   .topbar.executive-topbar .workspace-btn { padding-inline: 6px; }
 }
+
+
+/* STEN navigation refinement — consistent targets, focus visibility and group rhythm. */
+.executive-shell .sten-primary-nav {
+  min-width: 0;
+}
+.executive-shell .sten-primary-nav > .nav-section-label {
+  padding-inline: 12px;
+}
+.executive-shell .sten-primary-nav > a,
+.executive-shell .sten-primary-nav > .nav-group-toggle {
+  box-sizing: border-box;
+  min-height: 40px;
+  margin: 2px 8px;
+  width: calc(100% - 16px);
+  border-radius: var(--ui-radius-md);
+}
+.executive-shell .sten-primary-nav > .nav-group-toggle {
+  gap: 10px;
+  padding: 0 11px;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  background: transparent;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.executive-shell .sten-primary-nav > .nav-group-toggle:hover {
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+  background: var(--bg-surface-subtle);
+}
+.executive-shell .sten-primary-nav > .nav-group-toggle.is-current {
+  border-color: color-mix(in srgb, var(--color-brand) 22%, var(--border-subtle));
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--color-brand) 8%, var(--bg-surface));
+}
+.executive-shell .sten-primary-nav > .nav-group-toggle:focus-visible,
+.executive-shell .sten-primary-nav > a:focus-visible,
+.executive-shell .sten-primary-nav .nav-group-children a:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+.executive-shell .sten-primary-nav .nav-group-children {
+  margin: 2px 8px 8px 20px;
+  padding-left: 9px;
+}
+.executive-shell .sten-primary-nav .nav-group-children a {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 36px;
+  margin: 1px 0;
+  padding: 7px 10px;
+  border-radius: var(--ui-radius-sm);
+  border-left: 2px solid transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.executive-shell .sten-primary-nav .nav-group-children a:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-subtle);
+}
+.executive-shell .sten-primary-nav .nav-group-children a.active {
+  border-left-color: var(--color-brand);
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--color-brand) 8%, var(--bg-surface));
+}
+.executive-shell .sten-primary-nav .nav-group-toggle .nav-group-chevron {
+  color: var(--text-muted);
+}
+.executive-shell .sidebar.is-collapsed .sten-primary-nav > .nav-group-toggle {
+  width: calc(100% - 16px);
+  min-height: 40px;
+  margin-inline: 8px;
+  padding-inline: 0;
+}
+@media (max-width: 767px) {
+  .executive-shell .sten-primary-nav > a,
+  .executive-shell .sten-primary-nav > .nav-group-toggle {
+    min-height: 42px;
+  }
+}
