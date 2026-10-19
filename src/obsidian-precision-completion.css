@@ -570,3 +570,110 @@ input:focus, select:focus, textarea:focus { border-color: var(--color-brand); ou
     width: calc(100% - var(--sten-sidebar-collapsed-width, 72px));
   }
 }
+
+
+/* Final responsive guardrails — resolve tablet density and narrow financial layouts. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .topbar.executive-topbar .global-scale { display: none; }
+  .topbar.executive-topbar .top-context {
+    flex: 0 1 160px;
+    max-width: 160px;
+  }
+  .topbar.executive-topbar .top-workspace {
+    flex: 0 1 190px;
+    max-width: 190px;
+  }
+  .topbar.executive-topbar .top-profile {
+    flex: 0 0 38px;
+    width: 38px;
+    padding: 2px;
+    border-color: transparent;
+  }
+  .topbar.executive-topbar .top-profile-info { display: none; }
+
+  /* Two full-width settings sections are more usable than compressed form columns. */
+  .settings-page .settings-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (min-width: 768px) {
+  .executive-shell .sidebar.is-collapsed .sten-primary-nav > .nav-section-label,
+  .executive-shell .sidebar.is-collapsed .sten-primary-nav .nav-group-children {
+    display: none;
+  }
+  .executive-shell .sidebar.is-collapsed .sten-primary-nav > .nav-group-toggle {
+    justify-content: center;
+    gap: 0;
+  }
+  .executive-shell .sidebar.is-collapsed .sten-primary-nav > .nav-group-toggle > span,
+  .executive-shell .sidebar.is-collapsed .sten-primary-nav > .nav-group-toggle .nav-group-chevron {
+    display: none;
+  }
+}
+
+.pnl-v4-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  min-width: 0;
+}
+.pnl-v4-head > div:first-child { min-width: 0; }
+.pnl-v4-controls { min-width: 0; }
+.pnl-v4-controls > * { max-width: 100%; }
+.pnl-kpis > * { min-width: 0; }
+.pnl-kpi > div { min-width: 0; }
+.pnl-kpi > div > span { min-width: 0; overflow-wrap: anywhere; }
+.pnl-prime-control { min-width: 0; }
+.pnl-prime-control > * { min-width: 0; }
+.settings-quick-jump {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.settings-quick-jump a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ui-radius-md);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-decoration: none;
+}
+.settings-quick-jump a:hover,
+.settings-quick-jump a:focus-visible {
+  border-color: var(--border-strong);
+  background: var(--bg-surface-subtle);
+  color: var(--text-primary);
+}
+
+@media (max-width: 767px) {
+  .page-head { align-items: flex-start; }
+  .page h1, .page-head h1 { overflow-wrap: anywhere; }
+  .pnl-v4-head { align-items: stretch; }
+  .pnl-v4-controls { justify-content: flex-start; }
+  .pnl-v4-controls .workspace-btn { max-width: 100%; }
+  .pnl-toolbar { align-items: stretch; }
+  .pnl-toolbar > * { min-width: 0; }
+  .settings-grid { grid-template-columns: minmax(0, 1fr); }
+  .settings-page .choice-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .settings-quick-jump { gap: 5px; }
+  .settings-quick-jump a { min-height: 32px; padding-inline: 8px; font-size: 11px; }
+}
+
+@media (max-width: 390px) {
+  .pnl-kpis { grid-template-columns: minmax(0, 1fr); }
+  .pnl-v4-controls > button { flex: 1 1 auto; }
+  .settings-page .choice-grid { grid-template-columns: minmax(0, 1fr); }
+  .settings-page .choice { min-height: 40px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topbar.executive-topbar *,
+  .settings-quick-jump a { transition: none; }
+}
