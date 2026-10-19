@@ -125,3 +125,19 @@ These are initial repository observations, not a claim that every page has been 
 - Mobile layouts have no unintended horizontal page overflow or obstructed primary controls.
 - Existing automated checks pass, or failures are documented with their cause.
 - The design-code documentation matches the implementation and is updated with any approved exceptions.
+
+
+## 10. Global header contract
+
+The shared application header is part of the core workspace, not a decorative banner.
+
+- Desktop: current page, period context, restaurant/workspace selector, financial scale where relevant, theme control, and account identity align on one stable row.
+- The page name is the primary text; period context is secondary metadata and must not compete with it.
+- The workspace selector remains data-driven and must never fabricate restaurant names, IDs, or access scope.
+- Use semantic theme tokens for surfaces, borders, and text; avoid blur, glow, decorative gradients, and nested card treatments.
+- Tablet: reduce secondary metadata and profile text before compressing primary controls.
+- Mobile: keep menu, current page, workspace scope, theme, and account avatar reachable without horizontal page overflow. Hide non-essential period metadata and the financial scale control in the global header on narrow screens; page-level financial controls remain responsible for their own workflows.
+- Icon-only controls need accessible labels and visible keyboard focus.
+- Do not add notification or status indicators unless backed by a real application state.
+
+The first styling pass is in `src/obsidian-precision-completion.css`, scoped to `.topbar.executive-topbar`. It deliberately preserves `Layout.tsx` behavior, the scope selector, theme state, and financial-scale logic. Source-level implementation is recorded; browser visual QA at desktop/tablet/mobile sizes and in both themes remains outstanding.
