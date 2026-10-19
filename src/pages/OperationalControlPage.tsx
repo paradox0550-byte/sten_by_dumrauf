@@ -112,7 +112,14 @@ export default function OperationalControlPage() {
   }
 
   const values = r?.values ?? {};
-  const calc = r?.calculated;\n  const financialCalc = pnlCalc?.calculated?.fact ?? pnlCalc?.summary?.calculated?.fact;\n  const revenueForCost = n(values.revenue) ?? n(financialCalc?.revenue) ?? null;\n  const cogsForCost = n(financialCalc?.cogs);\n  const laborForCost = n(financialCalc?.labor) ?? n(financialCalc?.personnel);\n  const foodCostForDisplay = n(calc?.foodCostPercent) ?? n(financialCalc?.foodCostPercent) ?? (cogsForCost !== null && revenueForCost !== null && revenueForCost > 0 ? cogsForCost / revenueForCost * 100 : null);\n  const laborPercentForDisplay = n(calc?.personnelPercent) ?? n(financialCalc?.personnelPercent) ?? (laborForCost !== null && revenueForCost !== null && revenueForCost > 0 ? laborForCost / revenueForCost * 100 : null);\n  const primeForDisplay = n(calc?.primeCostPercent) ?? n(financialCalc?.primeCostPercent) ?? (foodCostForDisplay !== null && laborPercentForDisplay !== null ? foodCostForDisplay + laborPercentForDisplay : null);
+  const calc = r?.calculated;
+  const financialCalc = pnlCalc?.calculated?.fact ?? pnlCalc?.summary?.calculated?.fact;
+  const revenueForCost = n(values.revenue) ?? n(financialCalc?.revenue) ?? null;
+  const cogsForCost = n(financialCalc?.cogs);
+  const laborForCost = n(financialCalc?.labor) ?? n(financialCalc?.personnel);
+  const foodCostForDisplay = n(calc?.foodCostPercent) ?? n(financialCalc?.foodCostPercent) ?? (cogsForCost !== null && revenueForCost !== null && revenueForCost > 0 ? cogsForCost / revenueForCost * 100 : null);
+  const laborPercentForDisplay = n(calc?.personnelPercent) ?? n(financialCalc?.personnelPercent) ?? (laborForCost !== null && revenueForCost !== null && revenueForCost > 0 ? laborForCost / revenueForCost * 100 : null);
+  const primeForDisplay = n(calc?.primeCostPercent) ?? n(financialCalc?.primeCostPercent) ?? (foodCostForDisplay !== null && laborPercentForDisplay !== null ? foodCostForDisplay + laborPercentForDisplay : null);
   const prime = calc?.primeCostPercent ?? null;
   const status = primeForDisplay === null ? 'Нет данных' : primeForDisplay <= 60 ? 'Норма' : primeForDisplay <= 65 ? 'Внимание' : 'Критично';
 
@@ -127,7 +134,8 @@ export default function OperationalControlPage() {
     ['Чеков', 'checks'],
     ['Food Cost %', 'foodCostPercent'],
     ['Labor Cost %', 'personnelPercent'],
-    ['Prime Cost %', 'prime'],\n    ['Баланс кассы', 'cashBalance']
+    ['Prime Cost %', 'prime'],
+    ['Баланс кассы', 'cashBalance']
   ];
 
   return (
@@ -205,7 +213,7 @@ export default function OperationalControlPage() {
             </div>
             <div className="flash-scale">
               <svg viewBox="0 0 100 4" preserveAspectRatio="none">
-                <rect x="0" y="0" width={prime === null ? 0 : Math.min(100, primeForDisplay / 80 * 100)} height="4" />
+                <rect x="0" y="0" width={primeForDisplay === null ? 0 : Math.min(100, primeForDisplay / 80 * 100)} height="4" />
               </svg>
             </div>
             <p>≤60% = Норма • 60–65% = Внимание • &gt;65% = Критично</p>
