@@ -127,6 +127,11 @@ export default function OperationalControlPage() {
     return rev !== null && checks !== null && checks > 0 ? rev / checks : null;
   })();
 
+  const cashValue = n(values.cash);
+  const cardValue = n(values.card);
+  const revenueValue = n(values.revenue);
+  const cashBalance = cashValue !== null && cardValue !== null && revenueValue !== null ? cashValue + cardValue - revenueValue : null;
+
   const metrics: [string, string][] = [
     ['Выручка', 'revenue'],
     ['Средний чек', 'avgCheck'],
@@ -225,7 +230,7 @@ export default function OperationalControlPage() {
                 <strong>
                   {key === 'prime' ? fmt(primeForDisplay, true)
                    : key === 'avgCheck' ? fmt(avgCheck)
-                   : key === 'cashBalance' ? fmt(n(values.cash) !== null && n(values.card) !== null && n(values.revenue) !== null ? n(values.cash)! + n(values.card)! - n(values.revenue)! : null)
+                   : key === 'cashBalance' ? fmt(cashBalance)
                    : key === 'foodCostPercent' ? fmt(foodCostForDisplay, true)
                    : key === 'personnelPercent' ? fmt(laborPercentForDisplay, true)
                    : fmt(n(values[key]))}
