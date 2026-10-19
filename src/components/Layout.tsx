@@ -54,7 +54,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const financePaths = ['/pnl', '/pnl/import', '/budget', '/analytics', '/finances'];
-  const operationsPaths = ['/quick-entry', '/secretary', '/flash', '/team', '/documents'];
+  const operationsPaths = ['/ops', '/plan', '/staff', '/documents'];
   const toolsPaths = ['/ai-quality', '/memory', '/settings', '/legal', '/admin/organizations'];
   const matchesPath = (paths: string[]) => paths.some(path => location.pathname === path || location.pathname.startsWith(`${path}/`));
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => ({
@@ -104,13 +104,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     ['/dashboard', 'Обзор', 'overview'],
     ['/sten', 'STEN AI', Bot],
     ['/ai-quality', 'Лаборатория AI', FlaskConical],
-    ['/quick-entry', 'Мой день', CalendarDays],
-    ['/secretary', 'Секретарь', CalendarDays],
-    ['/flash', 'Flash', 'report'],
+    ['/ops', 'Оперативный контроль', 'report'],
+    ['/plan', 'План руководителя', CalendarDays],
     ['/pnl', 'P&L', 'pnl'],
     ['/budget', 'Бюджет', BarChart3],
     ['/analytics', 'Аналитика', BarChart3],
-    ['/team', 'Команда и ФОТ', 'staff'],
+    ['/staff', 'Персонал и производительность', 'staff'], 
     ['/documents', 'Документы', 'terms'],
     ['/finances', 'Финансы', WalletCards],
     ['/memory', 'Память STEN', Brain],
@@ -137,7 +136,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     ['/dashboard', 'Обзор', 'overview'],
     ['/sten', 'STEN AI', Bot],
     ['/pnl', 'Финансы', 'pnl'],
-    ['/quick-entry', 'Операции', ClipboardList],
+    ['/ops', 'Операции', ClipboardList],
   ] as const;
 
   return (
@@ -185,10 +184,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </button>
             {expandedGroups.operations && <div className="nav-group-children" aria-label="Операции">
               {([
-                ['/quick-entry', 'Мой день'],
-                ['/secretary', 'Секретарь'],
-                ['/flash', 'Flash'],
-                ['/team', 'Команда и ФОТ'],
+                ['/ops', 'Оперативный контроль'],
+                ['/plan', 'План руководителя'],
+                ['/staff', 'Персонал и производительность'], 
                 ['/documents', 'Документы'],
               ] as const).map(([to, label]) => <NavLink key={to} to={to} onClick={() => setMobileMenu(false)}><span>{label}</span></NavLink>)}
             </div>}
@@ -242,7 +240,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <WorkspaceSelector value={scope} onChange={setScope} variant="compact" />
           </div>
 
-          {matchesPath(['/pnl', '/flash', '/budget', '/analytics', '/finances']) && <div className="global-scale" role="group" aria-label="Масштаб финансовых значений">
+          {matchesPath(['/pnl', '/ops', '/budget', '/analytics', '/finances']) && <div className="global-scale" role="group" aria-label="Масштаб финансовых значений">
             {([['RUB', '₽'], ['THOUSAND', 'тыс. ₽'], ['MILLION', 'млн ₽']] as const).map(([value, label]) => (
               <button
                 key={value}
@@ -280,7 +278,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             key={to}
             to={to}
             end={to === '/dashboard'}
-            className={({ isActive }) => isActive || (to === '/pnl' && matchesPath(financePaths)) || (to === '/quick-entry' && matchesPath(operationsPaths)) ? 'active' : ''}
+            className={({ isActive }) => isActive || (to === '/pnl' && matchesPath(financePaths)) || (to === '/ops' && matchesPath(operationsPaths)) ? 'active' : ''}
             onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); viewNavigate(navigate, to); }}
           >
             <NavIcon icon={Icon} size={18} />
