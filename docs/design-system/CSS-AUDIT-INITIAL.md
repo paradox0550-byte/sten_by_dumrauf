@@ -105,3 +105,16 @@ Updated `src/components/Layout.tsx` within the existing shell:
 - No navigation destinations, permissions, tenant scope, business calculations, API behavior, or deployment configuration were changed.
 
 This is a source-level change. Browser/accessibility verification and CI for the latest commit are not yet confirmed. The known six backend validation failures remain out of scope and must not be bypassed.
+
+
+## Fourth implementation slice — navigation hierarchy and keyboard focus — 2026-10-20
+
+Updated `src/obsidian-precision-completion.css`:
+
+- Normalized primary navigation and group-toggle target heights to 40 px on desktop and 42 px on phones.
+- Applied the same semantic surface, border and brand tokens to group hover/current states and child links.
+- Added visible `:focus-visible` outlines for navigation links and expandable group controls.
+- Reduced visual weight of nested links while preserving a clear active marker and indentation.
+- Kept collapsed navigation geometry aligned with the existing 68 px sidebar behavior.
+
+No route destinations, access rules, API calls, tenant scope, business formulas, or deployment workflows were changed. This slice has not yet had browser visual QA or a confirmed CI run; it should not be treated as release-ready until both are checked.
