@@ -124,10 +124,10 @@ export default function OperationalControlPage() {
   const metrics: [string, string][] = [
     ['Выручка', 'revenue'],
     ['Средний чек', 'avgCheck'],
-    ['Гостей', 'guests'],
+    ['Чеков', 'checks'],
     ['Food Cost %', 'foodCostPercent'],
     ['Labor Cost %', 'personnelPercent'],
-    ['Prime Cost %', 'prime']
+    ['Prime Cost %', 'prime'],\n    ['Баланс кассы', 'cashBalance']
   ];
 
   return (
@@ -218,6 +218,7 @@ export default function OperationalControlPage() {
                 <strong>
                   {key === 'prime' ? fmt(primeForDisplay, true)
                    : key === 'avgCheck' ? fmt(avgCheck)
+                   : key === 'cashBalance' ? fmt(n(values.cash) !== null && n(values.card) !== null && n(values.revenue) !== null ? n(values.cash)! + n(values.card)! - n(values.revenue)! : null)
                    : key === 'foodCostPercent' ? fmt(foodCostForDisplay, true)
                    : key === 'personnelPercent' ? fmt(laborPercentForDisplay, true)
                    : fmt(n(values[key]))}
