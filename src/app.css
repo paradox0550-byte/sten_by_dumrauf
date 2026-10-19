@@ -4175,9 +4175,9 @@ html {
 }
 
 .pnl-edit-row.pnl-edit-subtotal {
-  background: color-mix(in srgb, #2563eb 6%, transparent);
+  background: color-mix(in srgb, var(--color-brand) 6%, transparent);
   font-weight: 600;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--border-subtle);
 }
 
 .pnl-edit-row.pnl-edit-subtotal .icon-button {
@@ -4191,15 +4191,15 @@ html {
 }
 
 .pnl-edit-row.pnl-edit-computed {
-  background: color-mix(in srgb, #111827 3%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 3%, transparent);
 }
 
 .pnl-edit-row.pnl-edit-computed > div > span:nth-child(2) {
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .pnl-edit-row.pnl-edit-subhead {
-  background: #f3f4f6;
+  background: var(--bg-surface-subtle);
   text-transform: uppercase;
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -4210,7 +4210,7 @@ html {
 .pnl-code {
   display: inline-block;
   min-width: 42px;
-  color: #6b7280;
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   font-size: 12px;
 }
@@ -4220,7 +4220,7 @@ html {
 .pnl-mix-split {
   margin: 12px 0;
   padding: 12px 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
 }
 
@@ -4246,7 +4246,7 @@ html {
 .pnl-mix-split small {
   display: block;
   grid-column: 1 / -1;
-  color: #6b7280;
+  color: var(--text-muted);
   margin-top: 8px;
   line-height: 1.4;
 }
