@@ -144,7 +144,7 @@ No route destinations, access rules, API calls, tenant scope, business formulas,
 ## Fifth implementation slice — theme synchronization and responsive control density
 
 - The workspace now listens for operating-system appearance changes while the selected theme is `system`; it removes the listener when leaving that mode or unmounting.
-- Tablet header density is reduced deliberately: the global scale control is hidden in the shell at 768–1023px (the financial page controls remain available), workspace selection stays bounded, and account identity becomes a compact avatar.
+- Tablet header density is reduced deliberately: at 768–1023px the global financial-scale control moves to a second row rather than disappearing, workspace selection stays bounded, and account identity becomes a compact avatar.
 - Collapsed desktop navigation now hides section captions and child links while retaining the group icons. Activating a group still expands the rail and opens that group.
 - P&L heading/actions and KPI contents now wrap safely on narrow screens; the KPI strip becomes a single column at 390px and below to avoid compressed financial values.
 - Settings uses a single form column at tablet and phone widths, with quick-jump links wrapping instead of overflowing.
