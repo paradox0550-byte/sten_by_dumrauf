@@ -118,3 +118,10 @@ Updated `src/obsidian-precision-completion.css`:
 - Kept collapsed navigation geometry aligned with the existing 68 px sidebar behavior.
 
 No route destinations, access rules, API calls, tenant scope, business formulas, or deployment workflows were changed. This slice has not yet had browser visual QA or a confirmed CI run; it should not be treated as release-ready until both are checked.
+
+## Navigation follow-up — desktop sidebar toggle
+
+- Fixed the executive header's desktop sidebar control: it now toggles `sidebarCollapsed` instead of toggling the mobile drawer state.
+- `aria-expanded` now reflects the actual desktop sidebar state; the separate mobile menu button continues to control the mobile drawer.
+- Scope is limited to `src/components/Layout.tsx`. Routes, navigation destinations, permissions, tenant scope, business calculations, API contracts and deployment workflows are unchanged.
+- Validation: source-level contract checked. Browser verification at desktop/tablet/mobile and automated checks must still be confirmed by CI; this change is not described as visually verified.
