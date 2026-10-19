@@ -220,7 +220,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <button className="icon-button mobile-menu" onClick={() => setMobileMenu(v => !v)} aria-label="Меню">
             {mobileMenu ? <X size={18} /> : <Menu size={18} />}
           </button>
-          <button className="sidebar-toggle" onClick={() => setMobileMenu(v => !v)} aria-expanded={mobileMenu} aria-label={sidebarCollapsed ? "Развернуть навигацию" : "Свернуть навигацию"} title={sidebarCollapsed ? "Развернуть навигацию" : "Свернуть навигацию"}>
+          <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(v => !v)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed ? "Развернуть навигацию" : "Свернуть навигацию"} title={sidebarCollapsed ? "Развернуть навигацию" : "Свернуть навигацию"}>
             {sidebarCollapsed ? <PanelLeft size={17} /> : <PanelLeftClose size={17} />}
           </button>
 
