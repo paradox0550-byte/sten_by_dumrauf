@@ -60,7 +60,6 @@ input, select { min-height: 40px; padding: 8px 11px; }
 textarea { padding: 10px 12px; }
 input:hover:not(:disabled), select:hover:not(:disabled), textarea:hover:not(:disabled) { border-color: var(--border-strong); }
 input:focus, select:focus, textarea:focus { border-color: var(--color-brand); outline: none; }
-::placeholder { color: var(--text-muted); opacity: 1; }
 .settings-field { display: grid; gap: 7px; min-width: 0; margin: 0 0 14px; }
 .settings-field > span { color: var(--text-secondary); font-size: 12px; font-weight: 600; }
 .settings-field small { color: var(--text-muted); font-size: 11px; line-height: 1.5; }
@@ -183,9 +182,6 @@ input:focus, select:focus, textarea:focus { border-color: var(--color-brand); ou
 .budget-grid { overflow-x: auto; border: var(--op-line); border-radius: var(--ui-radius-lg); }
 .budget-grid-row { min-width: 560px; border-bottom: var(--op-line); }
 .budget-grid-row.head { background: var(--bg-elevated); color: var(--text-secondary); }
-.positive, .is-positive, .status-success { color: var(--color-success); }
-.negative, .is-negative, .status-danger { color: var(--color-danger); }
-.status-warning { color: var(--color-warning); }
 
 /* Secretary modals, transaction dialogs and file surfaces use one geometry. */
 .modal-backdrop { background: rgba(2, 6, 14, .62); }
