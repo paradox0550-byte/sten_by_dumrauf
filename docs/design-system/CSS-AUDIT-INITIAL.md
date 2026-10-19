@@ -92,3 +92,16 @@ Added a token-driven style pass scoped to `.topbar.executive-topbar` in `src/obs
 - Does not touch backend/API, financial formulas, tenant scope, or deployment workflows.
 
 The latest commit has no PR-triggered workflow runs or combined status entries reported yet, so CI for this header slice is **not verified**. This is source-level implementation only; visual browser checks at 375/393px, tablet widths, and 1440px+ in dark/light themes remain outstanding.
+
+
+## Third implementation slice — route-aware navigation — 2026-10-20
+
+Updated `src/components/Layout.tsx` within the existing shell:
+
+- Nested routes now resolve to their parent section for the global header title and active navigation group.
+- Financial scale controls remain available on supported nested finance routes, including P&L import.
+- Collapsed sidebar group controls expose accessible labels and hover titles.
+- Header labels now resolve for Memory, Settings, Legal, and organization administration routes instead of falling back to a generic workspace label.
+- No navigation destinations, permissions, tenant scope, business calculations, API behavior, or deployment configuration were changed.
+
+This is a source-level change. Browser/accessibility verification and CI for the latest commit are not yet confirmed. The known six backend validation failures remain out of scope and must not be bypassed.
