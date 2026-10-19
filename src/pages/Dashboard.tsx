@@ -7,7 +7,7 @@ import { scopeQuery } from '../lib/scope';
 import { formatDeltaPct, formatMoneyAuto, formatPercent } from '../lib/format';
 import WorkspaceSelector from '../components/WorkspaceSelector';
 import MetricCard from '../components/MetricCard';
-import AttentionBlock, { type AttentionItem } from '../components/AttentionBlock';
+import AttentionBlock from '../components/AttentionBlock';
 import PrimeCostBlock from '../components/PrimeCostBlock';
 import './Dashboard.css';
 
@@ -112,10 +112,6 @@ export default function Dashboard() {
 
   const monthName = new Date((scope.period || '2000-01') + '-01T00:00:00').toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
   const monthLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-  const foodStatus = foodCost === null ? undefined : foodCost <= 35
-    ? { label: 'В норме', tone: 'success' as const }
-    : foodCost <= 40 ? { label: 'Требует внимания', tone: 'warning' as const }
-    : { label: 'Критично', tone: 'danger' as const };
 
   return (
     <main className="page director-dashboard">
