@@ -14,7 +14,7 @@ type Calc = {
   primeCostPercent: number | null; foodCostPercent: number | null;
   personnelPercent: number | null; ebitda: number | null;
 };
-type Report = { date: string; shift?: string | null; values?: Record<string, number | null>; calculated?: Calc };
+type Report = { date: string; values?: Record<string, number | null>; calculated?: Calc };
 type ReportsResponse = { reports: Report[] };
 type PnlRow = { article?: string; label?: string; name?: string; fact?: number | null; transaction_total?: number | null; transaction_count?: number | null };
 type PnlResponse = { rows?: PnlRow[]; calculated?: { fact?: { revenue?: number | null; cogs?: number | null; labor?: number | null; personnel?: number | null; foodCostPercent?: number | null; personnelPercent?: number | null; primeCostPercent?: number | null } }; summary?: { calculated?: { fact?: { revenue?: number | null; cogs?: number | null; labor?: number | null; personnel?: number | null; foodCostPercent?: number | null; personnelPercent?: number | null; primeCostPercent?: number | null } } } };
@@ -97,11 +97,15 @@ export default function OperationalControlPage() {
   const cash = n(values.cash), card = n(values.card);
   const cashBalance = cash !== null && card !== null && n(values.revenue) !== null ? cash + card - n(values.revenue)! : null;
   const missingFields = FIELDS.filter(field => n(values[field.key]) === null);
-  const dataStatus = missingFields.length === FIELDS.length ? 'нет данных' : missingFields.length ? 'частичные' : 'полные';
+  const dataStatus = error && !r ? 'ошибка' : !r ? 'нет данных' : missingFields.length ? 'частичные' : 'полные';
+  const periodLabel = /^\d{4}-\d{2}$/.test(scope.period)
+    ? new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' }).format(new Date(Number(scope.period.slice(0, 4)), Number(scope.period.slice(5, 7)) - 1, 1))
+    : scope.period;
+  const selectedScope = [scope.projectId && `Проект ${scope.projectId}`, scope.branchId && `Филиал ${scope.branchId}`, scope.restaurantId && `Ресторан ${scope.restaurantId}`, scope.departmentId && `Отдел ${scope.departmentId}`].filter(Boolean).join(' · ');
   const attentionSignals = [
     ...(missingFields.length ? [`Не заполнены поля отчёта: ${missingFields.map(field => field.label.replace(/, ₽|, шт\.|, чел\./g, '')).join(', ')}.`] : []),
     ...(pnlError ? [`P&L недоступен: ${pnlError}`] : []),
-    ...(prime !== null && prime > 65 ? ['Prime Cost выше ориентира 65%. Проверьте себестоимость и трудозатраты.'] : prime !== null && prime > 60 ? ['Prime Cost выше ориентира 60% и требует внимания.'] : []),
+    ...(!pnlError && prime !== null && prime > 65 ? ['Prime Cost выше ориентира 65%. Проверьте себестоимость и трудозатраты.'] : !pnlError && prime !== null && prime > 60 ? ['Prime Cost выше ориентира 60% и требует внимания.'] : []),
   ];
 
   async function saveReport() {
@@ -154,6 +158,11 @@ export default function OperationalControlPage() {
       </div>
 
       <section className="panel operational-control-toolbar">
+        <div className="operational-scope-context">
+          <strong>{scope.period === 'day' ? `Дата: ${date}` : `Выбран период: ${periodLabel}`}</strong>
+          <span>{selectedScope || 'Область учёта не выбрана'}</span>
+        </div>
+        {scope.period !== 'day' && <div className="operational-period-warning" role="note">Выбран период: {periodLabel}. В этом экране отчёт дня загружается по дате {date}; подтверждённый агрегат за весь период текущим API-потоком не формируется.</div>}
         <label className="settings-field operational-control-date"><span>Дата дня / смены</span><input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
         <div className="operational-day-actions">
           <button className="secondary-button" onClick={() => { setTxDate(date); setTxType('income'); setTxArticle(articles[0] ?? ''); setTxOpen(true); }}><Plus size={15} /> Доход</button>
@@ -168,15 +177,15 @@ export default function OperationalControlPage() {
       <section className="operational-day-overview panel" aria-labelledby="operational-day-overview-title">
         <div className="operational-overview-heading">
           <div><span className="eyebrow"><CalendarDays size={12} /> КАРТИНА ДНЯ</span><h2 id="operational-day-overview-title">{date}{r?.shift ? ` · ${r.shift}` : ''}</h2></div>
-          <span className={`operational-data-status operational-data-status--${dataStatus === 'полные' ? 'complete' : dataStatus === 'частичные' ? 'partial' : 'empty'}`}>{loading ? 'Загрузка…' : dataStatus}</span>
+          <span className={`operational-data-status operational-data-status--${dataStatus === 'полные' ? 'complete' : dataStatus === 'частичные' ? 'partial' : dataStatus === 'ошибка' ? 'error' : 'empty'}`}>{loading ? 'Загрузка…' : dataStatus}</span>
         </div>
-        <p className="operational-missing-fields" aria-live="polite">{loading ? 'Загружаем данные дня…' : missingFields.length === 0 ? 'Все поля заполнены' : `Нет данных: ${missingFields.map(field => field.label.replace(/, ₽|, шт\.|, чел\./g, '')).join(', ')}`}</p>
+        {error && !r ? <p className="operational-missing-fields operational-load-error" role="alert">Не удалось загрузить данные: {error}</p> : <p className="operational-missing-fields" aria-live="polite">{!r ? 'Нет данных за выбранный период' : missingFields.length === 0 ? 'Все поля заполнены' : `Нет данных: ${missingFields.map(field => field.label.replace(/, ₽|, шт\\.|, чел\\./g, '')).join(', ')}`}</p>}
         {pnlError && <div className="operational-pnl-error" role="alert"><AlertTriangle size={16} /><div><strong>P&L недоступен</strong><p>{pnlError}</p><a href="#/pnl">Открыть P&L</a></div></div>}
         <div className="operational-overview-metrics">
           {[
             ['Выручка', n(values.revenue), false], ['Чеков', n(values.checks), false], ['Гостей', n(values.guests), false],
             ['Наличные', n(values.cash), false], ['Карта', n(values.card), false], ['Скидки', n(values.discounts), false],
-            ['Средний чек', avgCheck, false], ['Food Cost', foodCost, true], ['Labor Cost', laborPercent, true], ['Prime Cost', prime, true],
+            ['Средний чек', avgCheck, false], ['Food Cost', pnlError ? null : foodCost, true], ['Labor Cost', pnlError ? null : laborPercent, true], ['Prime Cost', pnlError ? null : prime, true],
             ['Баланс наличные + карта − выручка', cashBalance, false],
           ].map(([label, value, percent]) => <article className="operational-overview-metric" key={String(label)}>
             <span>{String(label)}</span><strong>{fmt(typeof value === 'number' ? value : null, Boolean(percent))}{['Выручка', 'Наличные', 'Карта', 'Скидки', 'Средний чек', 'Баланс наличные + карта − выручка'].includes(String(label)) && typeof value === 'number' ? ' ₽' : ''}</strong>
