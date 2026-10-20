@@ -686,3 +686,63 @@ input:focus, select:focus, textarea:focus { border-color: var(--color-brand); ou
   .topbar.executive-topbar *,
   .settings-quick-jump a { transition: none; }
 }
+
+
+/* Operational control: one compact date control, optional message import. */
+.operational-control-toolbar {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  min-width: 0;
+  margin: 0 0 16px;
+}
+.operational-control-date {
+  flex: 0 1 220px;
+  min-width: min(100%, 180px);
+  margin: 0;
+}
+.operational-control-date input { max-width: 100%; }
+.operational-control-import {
+  flex: 1 1 260px;
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--ui-radius-md);
+  background: var(--bg-surface);
+}
+.operational-control-import > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  list-style-position: inside;
+  font-size: 13px;
+}
+.operational-control-import > summary:hover,
+.operational-control-import > summary:focus-visible {
+  color: var(--text-primary);
+  background: var(--bg-surface-subtle);
+  border-radius: var(--ui-radius-md);
+}
+.operational-control-import[open] { padding: 0 12px 12px; }
+.operational-control-import[open] > summary {
+  margin: 0 -12px 12px;
+  padding-inline: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: var(--ui-radius-md) var(--ui-radius-md) 0 0;
+}
+.operational-control-import .flash-income-input {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+.operational-control-import .flash-income-input__head > span { white-space: nowrap; }
+
+@media (max-width: 767px) {
+  .operational-control-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .operational-control-date,
+  .operational-control-import { width: 100%; min-width: 0; }
+}
