@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, AlertTriangle, RefreshCw, Save, Pencil, X } from 'lucide-react';
+import { Activity, AlertTriangle, RefreshCw, Save, Pencil, X, MessageSquareText } from 'lucide-react';
 import { api } from '../lib/api';
 import { useScope } from '../lib/useScope';
 import FlashIncomeInput from '../components/FlashIncomeInput';
@@ -162,14 +162,16 @@ export default function OperationalControlPage() {
         </div>
       </div>
 
-      <FlashIncomeInput period={date.slice(0, 7)} scope={{ ...scope, period: date.slice(0, 7) }} onSaved={() => void load()} />
-
-      <section className="panel flash-date">
-        <label className="settings-field">
-          <span>Дата отчетного периода</span>
+      <div className="operational-control-toolbar">
+        <label className="settings-field operational-control-date">
+          <span>Дата смены</span>
           <input type="date" value={date} onChange={e => setDate(e.target.value)} />
         </label>
-      </section>
+        <details className="operational-control-import">
+          <summary><MessageSquareText size={15} /> Загрузить из сообщения</summary>
+          <FlashIncomeInput period={date.slice(0, 7)} scope={{ ...scope, period: date.slice(0, 7) }} onSaved={() => void load()} />
+        </details>
+      </div>
 
       {error && <div className="import-result warn">{error}</div>}
       {message && <div className="pnl-message ok">{message}</div>}
