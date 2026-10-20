@@ -144,7 +144,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <aside className={`sidebar ${mobileMenu ? 'is-open' : ''} ${sidebarCollapsed ? 'is-collapsed' : ''}`}>
         <div>
           <div className="brand">
-            <div className="brand-mark" aria-hidden="true"><img src="/brand/sten-mark.svg?v=5.0.2" alt="" /></div>
+            <div className="brand-mark" aria-hidden="true"><img src="/brand/sten-mark.svg?v=5.0.3" alt="" /></div>
             <div className="brand-copy">
               <b>STEN</b>
               <small>Рабочий кабинет</small>
