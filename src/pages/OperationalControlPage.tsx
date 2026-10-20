@@ -189,6 +189,7 @@ export default function OperationalControlPage() {
             ['Баланс наличные + карта − выручка', cashBalance, false],
           ].map(([label, value, percent]) => <article className="operational-overview-metric" key={String(label)}>
             <span>{String(label)}</span><strong>{fmt(typeof value === 'number' ? value : null, Boolean(percent))}{['Выручка', 'Наличные', 'Карта', 'Скидки', 'Средний чек', 'Баланс наличные + карта − выручка'].includes(String(label)) && typeof value === 'number' ? ' ₽' : ''}</strong>
+            {!pnlError && value === null && ['Food Cost', 'Labor Cost', 'Prime Cost'].includes(String(label)) && <small>Нет данных в P&amp;L</small>}
           </article>)}
         </div>
         <div className="operational-attention">
