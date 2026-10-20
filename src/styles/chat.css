@@ -535,3 +535,48 @@
     width: 100%;
   }
 }
+
+
+/* Desktop repair: the page and chat must stretch through the application content area. */
+@media (min-width: 1280px) {
+  .page.sten-ai-page {
+    display: flex;
+    flex: 1 1 auto;
+    align-self: stretch;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    margin-inline: 0;
+  }
+  .page.sten-ai-page > .ai-grid {
+    display: grid;
+    flex: 1 1 auto;
+    align-self: stretch;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+  }
+  .page.sten-ai-page > .ai-grid.docs-collapsed {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+  .page.sten-ai-page > .ai-grid > .chat {
+    grid-column: 2;
+    justify-self: stretch;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+  .page.sten-ai-page > .ai-grid:not(.docs-collapsed) > .chat {
+    grid-column: 2;
+  }
+  .page.sten-ai-page .chat-head {
+    min-width: 0;
+  }
+  .page.sten-ai-page .chat-head__label {
+    flex: 0 0 auto;
+  }
+  .page.sten-ai-page .chat-body {
+    min-width: 0;
+  }
+}
