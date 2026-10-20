@@ -2,7 +2,7 @@ import '@fontsource-variable/inter';import React from 'react';import ReactDOM fr
 const THEME_KEY='sten_theme_v5';
 const storedTheme=localStorage.getItem(THEME_KEY);
 const systemThemeQuery=window.matchMedia('(prefers-color-scheme: dark)');
-const resolveTheme=(mode:string|null)=>mode==='light'||mode==='dark'?mode:mode==='system'?(systemThemeQuery.matches?'dark':'light'):'dark';
+const resolveTheme=(mode:string|null)=>mode==='light'||mode==='dark'?mode:mode==='system'?(systemThemeQuery.matches?'dark':'light'):'light';
 const applyTheme=(mode:string|null=localStorage.getItem(THEME_KEY))=>{const resolved=resolveTheme(mode);document.documentElement.dataset.theme=resolved;document.documentElement.style.colorScheme=resolved;};
 const initialTheme=resolveTheme(storedTheme);
 const FONT_SIZE_KEY='sten_font_size_v1';
