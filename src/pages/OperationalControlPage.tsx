@@ -6,6 +6,7 @@ import { scopeQuery } from '../lib/scope';
 import { ReportWriteSchema, type ReportWrite } from '../lib/contracts/reports';
 import { PnlTransactionSchema, type PnlTransactionRequest } from '../lib/contracts/pnl';
 import FlashIncomeInput from '../components/FlashIncomeInput';
+import './OperationalControlPage.css';
 
 type Calc = {
   revenue: number | null; cogs: number | null; labor: number | null;
@@ -98,7 +99,7 @@ export default function OperationalControlPage() {
   const missingFields = FIELDS.filter(field => n(values[field.key]) === null);
   const dataStatus = missingFields.length === FIELDS.length ? 'нет данных' : missingFields.length ? 'частичные' : 'полные';
   const attentionSignals = [
-    ...(missingFields.length ? [`Не заполнены поля отчёта: ${missingFields.map(field => field.label.replace(/, ₽|, шт\\.|, чел\\./g, '')).join(', ')}.`] : []),
+    ...(missingFields.length ? [`Не заполнены поля отчёта: ${missingFields.map(field => field.label.replace(/, ₽|, шт\.|, чел\./g, '')).join(', ')}.`] : []),
     ...(pnlError ? [`P&L недоступен: ${pnlError}`] : []),
     ...(prime !== null && prime > 65 ? ['Prime Cost выше ориентира 65%. Проверьте себестоимость и трудозатраты.'] : prime !== null && prime > 60 ? ['Prime Cost выше ориентира 60% и требует внимания.'] : []),
   ];
@@ -169,7 +170,7 @@ export default function OperationalControlPage() {
           <div><span className="eyebrow"><CalendarDays size={12} /> КАРТИНА ДНЯ</span><h2 id="operational-day-overview-title">{date}{r?.shift ? ` · ${r.shift}` : ''}</h2></div>
           <span className={`operational-data-status operational-data-status--${dataStatus === 'полные' ? 'complete' : dataStatus === 'частичные' ? 'partial' : 'empty'}`}>{dataStatus}</span>
         </div>
-        <p className="operational-missing-fields" aria-live="polite">{missingFields.length === 0 ? 'Все поля заполнены' : `Нет данных: ${missingFields.map(field => field.label.replace(/, ₽|, шт\\.|, чел\\./g, '')).join(', ')}`}</p>
+        <p className="operational-missing-fields" aria-live="polite">{missingFields.length === 0 ? 'Все поля заполнены' : `Нет данных: ${missingFields.map(field => field.label.replace(/, ₽|, шт\.|, чел\./g, '')).join(', ')}`}</p>
         <div className="operational-overview-metrics">
           {[
             ['Выручка', n(values.revenue), false], ['Чеков', n(values.checks), false], ['Гостей', n(values.guests), false],
