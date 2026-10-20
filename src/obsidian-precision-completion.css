@@ -746,3 +746,58 @@ input:focus, select:focus, textarea:focus { border-color: var(--color-brand); ou
   .operational-control-date,
   .operational-control-import { width: 100%; min-width: 0; }
 }
+
+
+/* STEN Calm Intelligence — visual-only refresh. Keep routes, layout, dashboards and data logic unchanged. */
+:root {
+  --sten-transition: 180ms cubic-bezier(.2, 0, 0, 1);
+  --sten-shadow-card: 0 1px 2px rgba(23, 33, 43, .04), 0 3px 10px rgba(23, 33, 43, .035);
+  --sten-shadow-hover: 0 5px 16px rgba(23, 33, 43, .08);
+}
+html, body, #root { background: var(--bg-base); color: var(--text-primary); }
+body { text-rendering: optimizeLegibility; }
+:where(.sidebar, .topbar, .mobile-bottom-nav, .panel, .card, .metric-card, .settings-card, .executive-card, .operational-control-import) {
+  border-color: var(--border-subtle);
+}
+:where(.sidebar, .topbar, .mobile-bottom-nav) {
+  background-color: var(--bg-surface);
+}
+:where(.panel, .card, .metric-card, .settings-card, .executive-card, .operational-control-import) {
+  background-color: var(--bg-surface);
+  box-shadow: var(--sten-shadow-card);
+}
+:where(.panel, .card, .metric-card, .settings-card, .executive-card, .operational-control-import):hover {
+  border-color: var(--border-default);
+}
+:where(button, input, select, textarea, [role="button"]) {
+  transition: color var(--sten-transition), background-color var(--sten-transition), border-color var(--sten-transition), box-shadow var(--sten-transition), transform var(--sten-transition);
+}
+:where(button, [role="button"]):not(:disabled):hover { box-shadow: var(--shadow-sm); }
+:where(input, select, textarea) {
+  color: var(--text-primary);
+  background-color: var(--bg-inset);
+  border-color: var(--border-default);
+}
+:where(input, select, textarea)::placeholder { color: var(--text-muted); opacity: 1; }
+:where(.muted, .text-muted, .secondary, .text-secondary, small, .hint, .helper-text) { color: var(--text-secondary); }
+:where(.sidebar nav a, .top-nav a, .mobile-bottom-nav a, .mobile-bottom-nav button) {
+  transition: color var(--sten-transition), background-color var(--sten-transition), border-color var(--sten-transition);
+}
+:where(.sidebar nav a, .top-nav a, .mobile-bottom-nav a, .mobile-bottom-nav button):hover {
+  background-color: var(--bg-surface-subtle);
+}
+:where(.sidebar nav a.active, .top-nav a.active, .mobile-bottom-nav a.active, [aria-current="page"]) {
+  color: var(--color-brand-strong);
+}
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+::selection { background: color-mix(in srgb, var(--color-brand) 22%, transparent); color: var(--text-primary); }
+@media (hover: hover) and (pointer: fine) {
+  :where(.panel, .card, .metric-card, .settings-card, .executive-card):hover { box-shadow: var(--sten-shadow-hover); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+html[data-reduce-motion='true'] *, html[data-reduce-motion='true'] *::before, html[data-reduce-motion='true'] *::after { animation: none !important; transition: none !important; }
