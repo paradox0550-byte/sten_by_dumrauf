@@ -168,9 +168,9 @@ export default function OperationalControlPage() {
       <section className="operational-day-overview panel" aria-labelledby="operational-day-overview-title">
         <div className="operational-overview-heading">
           <div><span className="eyebrow"><CalendarDays size={12} /> КАРТИНА ДНЯ</span><h2 id="operational-day-overview-title">{date}{r?.shift ? ` · ${r.shift}` : ''}</h2></div>
-          <span className={`operational-data-status operational-data-status--${dataStatus === 'полные' ? 'complete' : dataStatus === 'частичные' ? 'partial' : 'empty'}`}>{dataStatus}</span>
+          <span className={`operational-data-status operational-data-status--${dataStatus === 'полные' ? 'complete' : dataStatus === 'частичные' ? 'partial' : 'empty'}`}>{loading ? 'Загрузка…' : dataStatus}</span>
         </div>
-        <p className="operational-missing-fields" aria-live="polite">{missingFields.length === 0 ? 'Все поля заполнены' : `Нет данных: ${missingFields.map(field => field.label.replace(/, ₽|, шт\.|, чел\./g, '')).join(', ')}`}</p>
+        <p className="operational-missing-fields" aria-live="polite">{loading ? 'Загружаем данные дня…' : missingFields.length === 0 ? 'Все поля заполнены' : `Нет данных: ${missingFields.map(field => field.label.replace(/, ₽|, шт\.|, чел\./g, '')).join(', ')}`}</p>
         {pnlError && <div className="operational-pnl-error" role="alert"><AlertTriangle size={16} /><div><strong>P&L недоступен</strong><p>{pnlError}</p><a href="#/pnl">Открыть P&L</a></div></div>}
         <div className="operational-overview-metrics">
           {[
@@ -184,7 +184,7 @@ export default function OperationalControlPage() {
         </div>
         <div className="operational-attention">
           <div className="operational-attention-title"><AlertTriangle size={15} /><strong>Требует внимания</strong></div>
-          {attentionSignals.length === 0 ? <p>Нет замечаний</p> : <ul>{attentionSignals.map((signal, index) => <li key={signal}>
+          {loading ? <p>Загружаем данные дня…</p> : attentionSignals.length === 0 ? <p>Нет замечаний</p> : <ul>{attentionSignals.map((signal, index) => <li key={signal}>
             <span>{signal}</span>
             {index === 0 && missingFields.length > 0 && <button type="button" className="operational-inline-action" onClick={() => setEditing(true)}>Заполнить данные</button>}
             {signal.startsWith('P&L недоступен:') && <a className="operational-inline-action" href="#/pnl">Открыть P&L</a>}
