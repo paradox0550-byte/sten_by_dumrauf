@@ -13,7 +13,7 @@ type Calc = {
   primeCostPercent: number | null; foodCostPercent: number | null;
   personnelPercent: number | null; ebitda: number | null;
 };
-type Report = { date: string; values?: Record<string, number | null>; calculated?: Calc };
+type Report = { date: string; shift?: string | null; values?: Record<string, number | null>; calculated?: Calc };
 type ReportsResponse = { reports: Report[] };
 type PnlRow = { article?: string; label?: string; name?: string; fact?: number | null; transaction_total?: number | null; transaction_count?: number | null };
 type PnlResponse = { rows?: PnlRow[]; calculated?: { fact?: { revenue?: number | null; cogs?: number | null; labor?: number | null; personnel?: number | null; foodCostPercent?: number | null; personnelPercent?: number | null; primeCostPercent?: number | null } }; summary?: { calculated?: { fact?: { revenue?: number | null; cogs?: number | null; labor?: number | null; personnel?: number | null; foodCostPercent?: number | null; personnelPercent?: number | null; primeCostPercent?: number | null } } } };
@@ -42,6 +42,7 @@ export default function OperationalControlPage() {
   const [form, setForm] = useState<Record<string, string>>({});
   const [scope] = useScope();
   const [pnl, setPnl] = useState<PnlResponse | null>(null);
+  const [pnlError, setPnlError] = useState('');
   const [txOpen, setTxOpen] = useState(false);
   const [txType, setTxType] = useState<'income' | 'expense'>('expense');
   const [txDate, setTxDate] = useState(localDate);
@@ -51,12 +52,12 @@ export default function OperationalControlPage() {
   const [txSaving, setTxSaving] = useState(false);
 
   async function load() {
-    setLoading(true); setError(''); setMessage('');
+    setLoading(true); setError(''); setMessage(''); setPnlError('');
     const q = new URLSearchParams({ date, ...Object.fromEntries(new URLSearchParams(scopeQuery(scope))) });
     try {
       const [reports, pnlData] = await Promise.all([
         api.get<ReportsResponse>('/reports?' + q.toString()),
-        api.get<PnlResponse>('/api/pnl?' + scopeQuery({ ...scope, period: date.slice(0, 7) })).catch(() => null),
+        api.get<PnlResponse>('/api/pnl?' + scopeQuery({ ...scope, period: date.slice(0, 7) })).catch((e: unknown) => { setPnlError(e instanceof Error ? e.message : 'Не удалось загрузить финансовые данные.'); return null; }),
       ]);
       const found = reports.reports?.find(item => item.date === date) ?? null;
       setR(found);
@@ -94,7 +95,13 @@ export default function OperationalControlPage() {
   const avgCheck = checks !== null && checks > 0 && revenue !== null ? revenue / checks : null;
   const cash = n(values.cash), card = n(values.card);
   const cashBalance = cash !== null && card !== null && n(values.revenue) !== null ? cash + card - n(values.revenue)! : null;
-  const status = prime === null ? 'Нет данных' : prime <= 60 ? 'В норме' : prime <= 65 ? 'Требует внимания' : 'Критично';
+  const missingFields = FIELDS.filter(field => n(values[field.key]) === null);
+  const dataStatus = missingFields.length === FIELDS.length ? 'нет данных' : missingFields.length ? 'частичные' : 'полные';
+  const attentionSignals = [
+    ...(missingFields.length ? [`Не заполнены поля отчёта: ${missingFields.map(field => field.label.replace(/, ₽|, шт\\.|, чел\\./g, '')).join(', ')}.`] : []),
+    ...(pnlError ? [`P&L недоступен: ${pnlError}`] : []),
+    ...(prime !== null && prime > 65 ? ['Prime Cost выше ориентира 65%. Проверьте себестоимость и трудозатраты.'] : prime !== null && prime > 60 ? ['Prime Cost выше ориентира 60% и требует внимания.'] : []),
+  ];
 
   async function saveReport() {
     setSaving(true); setError(''); setMessage('');
@@ -157,6 +164,32 @@ export default function OperationalControlPage() {
       {error && <div className="import-result warn" role="alert">{error}</div>}
       {message && <div className="pnl-message ok" role="status"><CheckCircle2 size={15} /> {message}</div>}
 
+      <section className="operational-day-overview panel" aria-labelledby="operational-day-overview-title">
+        <div className="operational-overview-heading">
+          <div><span className="eyebrow"><CalendarDays size={12} /> КАРТИНА ДНЯ</span><h2 id="operational-day-overview-title">{date}{r?.shift ? ` · ${r.shift}` : ''}</h2></div>
+          <span className={`operational-data-status operational-data-status--${dataStatus === 'полные' ? 'complete' : dataStatus === 'частичные' ? 'partial' : 'empty'}`}>{dataStatus}</span>
+        </div>
+        <p className="operational-missing-fields" aria-live="polite">{missingFields.length === 0 ? 'Все поля заполнены' : `Нет данных: ${missingFields.map(field => field.label.replace(/, ₽|, шт\\.|, чел\\./g, '')).join(', ')}`}</p>
+        <div className="operational-overview-metrics">
+          {[
+            ['Выручка', n(values.revenue), false], ['Чеков', n(values.checks), false], ['Гостей', n(values.guests), false],
+            ['Наличные', n(values.cash), false], ['Карта', n(values.card), false], ['Скидки', n(values.discounts), false],
+            ['Средний чек', avgCheck, false], ['Food Cost', foodCost, true], ['Labor Cost', laborPercent, true], ['Prime Cost', prime, true],
+          ].map(([label, value, percent]) => <article className="operational-overview-metric" key={String(label)}>
+            <span>{String(label)}</span><strong>{fmt(typeof value === 'number' ? value : null, Boolean(percent))}{['Выручка', 'Наличные', 'Карта', 'Скидки', 'Средний чек'].includes(String(label)) && typeof value === 'number' ? ' ₽' : ''}</strong>
+          </article>)}
+        </div>
+        <div className="operational-attention">
+          <div className="operational-attention-title"><AlertTriangle size={15} /><strong>Требует внимания</strong></div>
+          {attentionSignals.length === 0 ? <p>Нет замечаний</p> : <ul>{attentionSignals.map((signal, index) => <li key={signal}>
+            <span>{signal}</span>
+            {index === 0 && missingFields.length > 0 && <button type="button" className="operational-inline-action" onClick={() => setEditing(true)}>Заполнить данные</button>}
+            {signal.startsWith('P&L недоступен:') && <a className="operational-inline-action" href="#/pnl">Открыть P&L</a>}
+            {signal.startsWith('Prime Cost') && <a className="operational-inline-action" href="#/pnl">Проверить в P&L</a>}
+          </li>)}</ul>}
+        </div>
+      </section>
+
       {txOpen && <section className="panel operational-transaction-panel">
         <div className="panel-title"><CircleDollarSign size={16} /> Новая финансовая операция</div>
         <div className="flash-form">
@@ -191,6 +224,7 @@ export default function OperationalControlPage() {
 
       <section className="operational-day-section">
         <div className="operational-section-heading"><div><span className="eyebrow">ЭКОНОМИКА</span><h2>Контроль ключевых показателей</h2></div></div>
+        {pnlError && <div className="operational-pnl-error" role="alert"><AlertTriangle size={16} /><div><strong>P&L недоступен</strong><p>{pnlError}</p><a href="#/pnl">Открыть P&L</a></div></div>}
         <div className="metric-grid">
           {[['Выручка', revenue, false], ['Средний чек', avgCheck, false], ['Food Cost', foodCost, true], ['Labor Cost', laborPercent, true], ['Prime Cost', prime, true], ['Баланс наличные + карта − выручка', cashBalance, false]].map(([label, value, percent]) => <article className="metric-card" key={String(label)}><span>{String(label)}</span><strong>{fmt(typeof value === 'number' ? value : null, Boolean(percent))}</strong></article>)}
         </div>
