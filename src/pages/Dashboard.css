@@ -5,9 +5,6 @@
 .director-topbar__controls { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-sm, 8px); min-width: 0; }
 .director-period input { width: 132px; height: 32px; padding: 0 8px; border: 1px solid var(--border-default); border-radius: var(--ui-radius-sm); background: var(--bg-surface); color: var(--text-primary); font: 12px var(--font-mono); }
 .director-period input:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
-.director-workspace { min-width: 0; }
-.director-workspace .workspace-btn { height: 32px; max-width: 220px; padding: 0 9px; border: 1px solid var(--border-default); border-radius: var(--ui-radius-sm); background: var(--bg-surface); color: var(--text-primary); cursor: pointer; user-select: none; }
-.director-workspace .workspace-btn-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .director-dashboard__content { display: grid; gap: var(--space-lg, 24px); min-width: 0; }
 .director-attention, .director-prime, .director-metric { min-width: 0; border: 1px solid var(--border-subtle); border-radius: var(--ui-radius-md); background: var(--bg-surface); }
 .director-attention { border-left: 3px solid var(--color-danger); padding: 16px 18px; }
@@ -76,9 +73,6 @@
   .director-topbar__controls { width: 100%; justify-content: flex-start; }
   .director-period { flex: 0 0 auto; }
   .director-period input { width: 132px; }
-  .director-workspace { flex: 1 1 auto; }
-  .director-workspace .workspace-btn { max-width: 100%; }
-  .director-workspace .workspace-btn-label { max-width: min(42vw, 180px); }
   .director-attention { padding: 14px; }
   .director-attention__row { grid-template-columns: minmax(0, 1fr); gap: 5px; }
   .director-attention__delta { text-align: left; }
@@ -90,4 +84,82 @@
   .director-prime__parts > div { align-items: flex-start; flex-direction: column; gap: 4px; }
 }
 @media (prefers-reduced-motion: reduce) { .director-prime__bar-fill { transition: none; } }
-@media (max-width: 360px) { .director-topbar__controls { flex-wrap: wrap; } .director-workspace { flex-basis: 100%; } }
+@media (max-width: 360px) { .director-topbar__controls { flex-wrap: wrap; } }
+
+
+/* Deviation centre: compact rows with explicit action hierarchy. */
+.director-attention__group { min-width: 0; }
+.director-attention__group h3 {
+  margin: 14px 0 2px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 650;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.director-attention__row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 9px;
+  min-width: 0;
+  padding: 12px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.director-attention__row-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 12px;
+  min-width: 0;
+}
+.director-attention__row-main .director-attention__article { grid-column: 1; }
+.director-attention__severity {
+  justify-self: end;
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.director-attention__severity--high { color: var(--color-danger); }
+.director-attention__severity--medium { color: var(--color-warning); }
+.director-attention__severity--low { color: var(--text-secondary); }
+.director-attention__row-main .director-attention__plan {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+}
+.director-attention__row-main .director-attention__delta {
+  grid-column: 1 / -1;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.director-attention__row--positive .director-attention__delta { color: var(--color-success); }
+.director-attention__row--missing .director-attention__delta { color: var(--text-muted); }
+.director-attention__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.director-attention__actions > a,
+.director-attention__actions > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+  text-decoration: none;
+}
+.director-attention__actions > button:disabled { opacity: .65; }
+@media (min-width: 768px) {
+  .director-attention__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px 18px;
+  }
+  .director-attention__row-main {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .director-attention__actions { justify-content: flex-end; }
+}
