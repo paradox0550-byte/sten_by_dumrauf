@@ -5,7 +5,6 @@ import { api, ApiError } from '../lib/api';
 import { useScope } from '../lib/useScope';
 import { scopeQuery } from '../lib/scope';
 import { formatDeltaPct, formatMoneyAuto, formatPercent } from '../lib/format';
-import WorkspaceSelector from '../components/WorkspaceSelector';
 import MetricCard from '../components/MetricCard';
 import AttentionBlock from '../components/AttentionBlock';
 import './Dashboard.css';
@@ -113,7 +112,7 @@ export default function Dashboard() {
   const monthLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
   return (
-    <main className="page director-dashboard">
+    <div className="page director-dashboard">
       <header className="director-topbar">
         <h1>Сводка</h1>
         <div className="director-topbar__controls">
@@ -121,7 +120,6 @@ export default function Dashboard() {
             <span className="sr-only">Период</span>
             <input aria-label="Период" type="month" value={scope.period} onChange={(event) => setScope({ ...scope, period: event.target.value })} />
           </label>
-          <div className="director-workspace"><WorkspaceSelector value={scope} onChange={setScope} variant="compact" /></div>
         </div>
       </header>
 
@@ -155,6 +153,6 @@ export default function Dashboard() {
           </section>
         </div>
       )}
-    </main>
+    </div>
   );
 }
