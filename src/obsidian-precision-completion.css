@@ -756,29 +756,29 @@ input:focus, select:focus, textarea:focus { border-color: var(--color-brand); ou
 }
 html, body, #root { background: var(--bg-base); color: var(--text-primary); }
 body { text-rendering: optimizeLegibility; }
-:where(.sidebar, .topbar, .mobile-bottom-nav, .panel, .card, .metric-card, .settings-card, .executive-card, .operational-control-import) {
+.sidebar, .topbar, .mobile-bottom-nav, .panel, .card, .metric-card, .settings-card, .executive-card, .operational-control-import {
   border-color: var(--border-subtle);
 }
-:where(.sidebar, .topbar, .mobile-bottom-nav) {
+.sidebar, .topbar, .mobile-bottom-nav {
   background-color: var(--bg-surface);
 }
-:where(.panel, .card, .metric-card, .settings-card, .executive-card, .operational-control-import) {
+.panel, .card, .metric-card, .settings-card, .executive-card, .operational-control-import {
   background-color: var(--bg-surface);
   box-shadow: var(--sten-shadow-card);
 }
-:where(.panel, .card, .metric-card, .settings-card, .executive-card, .operational-control-import):hover {
+.panel:hover, .card:hover, .metric-card:hover, .settings-card:hover, .executive-card:hover, .operational-control-import:hover {
   border-color: var(--border-default);
 }
 :where(button, input, select, textarea, [role="button"]) {
   transition: color var(--sten-transition), background-color var(--sten-transition), border-color var(--sten-transition), box-shadow var(--sten-transition), transform var(--sten-transition);
 }
 :where(button, [role="button"]):not(:disabled):hover { box-shadow: var(--shadow-sm); }
-:where(input, select, textarea) {
+input, select, textarea {
   color: var(--text-primary);
   background-color: var(--bg-inset);
   border-color: var(--border-default);
 }
-:where(input, select, textarea)::placeholder { color: var(--text-muted); opacity: 1; }
+input::placeholder, select::placeholder, textarea::placeholder { color: var(--text-muted); opacity: 1; }
 :where(.muted, .text-muted, .secondary, .text-secondary, small, .hint, .helper-text) { color: var(--text-secondary); }
 :where(.sidebar nav a, .top-nav a, .mobile-bottom-nav a, .mobile-bottom-nav button) {
   transition: color var(--sten-transition), background-color var(--sten-transition), border-color var(--sten-transition);
