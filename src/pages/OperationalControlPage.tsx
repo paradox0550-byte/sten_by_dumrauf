@@ -171,13 +171,15 @@ export default function OperationalControlPage() {
           <span className={`operational-data-status operational-data-status--${dataStatus === 'полные' ? 'complete' : dataStatus === 'частичные' ? 'partial' : 'empty'}`}>{dataStatus}</span>
         </div>
         <p className="operational-missing-fields" aria-live="polite">{missingFields.length === 0 ? 'Все поля заполнены' : `Нет данных: ${missingFields.map(field => field.label.replace(/, ₽|, шт\.|, чел\./g, '')).join(', ')}`}</p>
+        {pnlError && <div className="operational-pnl-error" role="alert"><AlertTriangle size={16} /><div><strong>P&L недоступен</strong><p>{pnlError}</p><a href="#/pnl">Открыть P&L</a></div></div>}
         <div className="operational-overview-metrics">
           {[
             ['Выручка', n(values.revenue), false], ['Чеков', n(values.checks), false], ['Гостей', n(values.guests), false],
             ['Наличные', n(values.cash), false], ['Карта', n(values.card), false], ['Скидки', n(values.discounts), false],
             ['Средний чек', avgCheck, false], ['Food Cost', foodCost, true], ['Labor Cost', laborPercent, true], ['Prime Cost', prime, true],
+            ['Баланс наличные + карта − выручка', cashBalance, false],
           ].map(([label, value, percent]) => <article className="operational-overview-metric" key={String(label)}>
-            <span>{String(label)}</span><strong>{fmt(typeof value === 'number' ? value : null, Boolean(percent))}{['Выручка', 'Наличные', 'Карта', 'Скидки', 'Средний чек'].includes(String(label)) && typeof value === 'number' ? ' ₽' : ''}</strong>
+            <span>{String(label)}</span><strong>{fmt(typeof value === 'number' ? value : null, Boolean(percent))}{['Выручка', 'Наличные', 'Карта', 'Скидки', 'Средний чек', 'Баланс наличные + карта − выручка'].includes(String(label)) && typeof value === 'number' ? ' ₽' : ''}</strong>
           </article>)}
         </div>
         <div className="operational-attention">
@@ -223,14 +225,6 @@ export default function OperationalControlPage() {
         </section>}
       </section>
 
-      <section className="operational-day-section">
-        <div className="operational-section-heading"><div><span className="eyebrow">ЭКОНОМИКА</span><h2>Контроль ключевых показателей</h2></div></div>
-        {pnlError && <div className="operational-pnl-error" role="alert"><AlertTriangle size={16} /><div><strong>P&L недоступен</strong><p>{pnlError}</p><a href="#/pnl">Открыть P&L</a></div></div>}
-        <div className="metric-grid">
-          {[['Выручка', revenue, false], ['Средний чек', avgCheck, false], ['Food Cost', foodCost, true], ['Labor Cost', laborPercent, true], ['Prime Cost', prime, true], ['Баланс наличные + карта − выручка', cashBalance, false]].map(([label, value, percent]) => <article className="metric-card" key={String(label)}><span>{String(label)}</span><strong>{fmt(typeof value === 'number' ? value : null, Boolean(percent))}</strong></article>)}
-        </div>
-        <section className="panel operational-insight-panel"><div className="panel-title"><AlertTriangle size={16} /> Сигнал для управляющего</div><p>{prime === null ? 'Недостаточно подтверждённых данных для оценки Prime Cost. Проверьте выручку, себестоимость и ФОТ.' : prime > 65 ? 'Prime Cost выше ориентира 65%. Проверьте структуру себестоимости и трудозатрат, прежде чем принимать решение о сокращении расходов.' : prime > 60 ? 'Prime Cost находится в зоне внимания. Проверьте динамику и причины изменения относительно бюджета вашего ресторана.' : 'Prime Cost не превышает ориентир 60% по доступным данным. Продолжайте контролировать динамику и качество исходных данных.'}</p><small>Ориентир не является универсальным нормативом: учитывайте бюджет и модель конкретного ресторана. Статус не заменяет анализ причин.</small></section>
-      </section>
     </div>
   );
 }
