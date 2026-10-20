@@ -103,7 +103,7 @@ export default function OperationalControlPage() {
     : scope.period;
   const selectedScope = [scope.projectId && `Проект ${scope.projectId}`, scope.branchId && `Филиал ${scope.branchId}`, scope.restaurantId && `Ресторан ${scope.restaurantId}`, scope.departmentId && `Отдел ${scope.departmentId}`].filter(Boolean).join(' · ');
   const attentionSignals = [
-    ...(missingFields.length ? [`Не заполнены поля отчёта: ${missingFields.map(field => field.label.replace(/, ₽|, шт\.|, чел\./g, '')).join(', ')}.`] : []),
+    ...(missingFields.length ? [`Не заполнены поля отчёта: ${missingFields.map(field => field.label.split(',')[0]).join(', ')}.`] : []),
     ...(pnlError ? [`P&L недоступен: ${pnlError}`] : []),
     ...(!pnlError && prime !== null && prime > 65 ? ['Prime Cost выше ориентира 65%. Проверьте себестоимость и трудозатраты.'] : !pnlError && prime !== null && prime > 60 ? ['Prime Cost выше ориентира 60% и требует внимания.'] : []),
   ];
@@ -176,10 +176,10 @@ export default function OperationalControlPage() {
 
       <section className="operational-day-overview panel" aria-labelledby="operational-day-overview-title">
         <div className="operational-overview-heading">
-          <div><span className="eyebrow"><CalendarDays size={12} /> КАРТИНА ДНЯ</span><h2 id="operational-day-overview-title">{date}{r?.shift ? ` · ${r.shift}` : ''}</h2></div>
+          <div><span className="eyebrow"><CalendarDays size={12} /> КАРТИНА ДНЯ</span><h2 id="operational-day-overview-title">{scope.period === 'day' ? `Дата: ${date}` : periodLabel}</h2></div>
           <span className={`operational-data-status operational-data-status--${dataStatus === 'полные' ? 'complete' : dataStatus === 'частичные' ? 'partial' : dataStatus === 'ошибка' ? 'error' : 'empty'}`}>{loading ? 'Загрузка…' : dataStatus}</span>
         </div>
-        {error && !r ? <p className="operational-missing-fields operational-load-error" role="alert">Не удалось загрузить данные: {error}</p> : <p className="operational-missing-fields" aria-live="polite">{!r ? 'Нет данных за выбранный период' : missingFields.length === 0 ? 'Все поля заполнены' : `Нет данных: ${missingFields.map(field => field.label.replace(/, ₽|, шт\\.|, чел\\./g, '')).join(', ')}`}</p>}
+        {error && !r ? <p className="operational-missing-fields operational-load-error" role="alert">Не удалось загрузить данные: {error}</p> : <p className="operational-missing-fields" aria-live="polite">{!r ? 'Нет данных за выбранный период' : missingFields.length === 0 ? 'Все поля заполнены' : `Нет данных: ${missingFields.map(field => field.label.split(',')[0]).join(', ')}`}</p>}
         {pnlError && <div className="operational-pnl-error" role="alert"><AlertTriangle size={16} /><div><strong>P&L недоступен</strong><p>{pnlError}</p><a href="#/pnl">Открыть P&L</a></div></div>}
         <div className="operational-overview-metrics">
           {[
