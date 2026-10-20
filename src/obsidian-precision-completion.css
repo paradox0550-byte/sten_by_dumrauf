@@ -801,3 +801,33 @@ input::placeholder, select::placeholder, textarea::placeholder { color: var(--te
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 html[data-reduce-motion='true'] *, html[data-reduce-motion='true'] *::before, html[data-reduce-motion='true'] *::after { animation: none !important; transition: none !important; }
+
+/* QA hardening: readable disabled states, clear press feedback and touch-safe controls. */
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  opacity: 1;
+  color: var(--text-disabled);
+  background-color: var(--bg-surface-subtle);
+  border-color: var(--border-subtle);
+  box-shadow: none;
+}
+:where(button, [role="button"]):not(:disabled):active {
+  transform: scale(.98);
+  box-shadow: none;
+}
+@media (hover: none), (pointer: coarse) {
+  :where(button, [role="button"], .sidebar nav a, .top-nav a, .mobile-bottom-nav a, .icon-button) {
+    min-height: 44px;
+  }
+  :where(.icon-button, .mobile-bottom-nav button) {
+    min-width: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
