@@ -88,9 +88,12 @@ export default function FlashIncomeInput({ period, scope, onSaved }: Props) {
       if (!response.parsed) {
         setParsed(null);
         setSelectedDate('');
-        setParseError(response.parseError
-          ? `Не удалось распознать: ${response.parseError}`
-          : 'Не удалось распознать отчёт. Проверьте текст и попробуйте снова.');
+        const reason = String(response.parseError ?? '').trim();
+        // Internal orchestration/tool-call codes are diagnostic details, not user-facing copy.
+        const userMessage = reason === 'AI_TOOL_CALL_MISSING'
+          ? 'Сервис распознавания не завершил разбор сообщения. Попробуйте ещё раз. Если ошибка повторится, внесите данные через доступный ручной ввод.'
+          : 'Не удалось распознать отчёт. Проверьте текст и попробуйте снова.';
+        setParseError(userMessage);
         return;
       }
       const parsedResponse = response.parsed;
