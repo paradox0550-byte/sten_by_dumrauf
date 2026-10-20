@@ -103,7 +103,7 @@ export default function OperationalControlPage() {
     : scope.period;
   const selectedScope = [scope.projectId && `Проект ${scope.projectId}`, scope.branchId && `Филиал ${scope.branchId}`, scope.restaurantId && `Ресторан ${scope.restaurantId}`, scope.departmentId && `Отдел ${scope.departmentId}`].filter(Boolean).join(' · ');
   const attentionSignals = [
-    ...(missingFields.length ? [`Не заполнены поля отчёта: ${missingFields.map(field => field.label.split(',')[0]).join(', ')}.`] : []),
+    ...(error && !r ? [`Не удалось загрузить данные: ${error}`] : !error && missingFields.length ? [`Не заполнены поля отчёта: ${missingFields.map(field => field.label.split(',')[0]).join(', ')}.`] : []),
     ...(pnlError ? [`P&L недоступен: ${pnlError}`] : []),
     ...(!pnlError && prime !== null && prime > 65 ? ['Prime Cost выше ориентира 65%. Проверьте себестоимость и трудозатраты.'] : !pnlError && prime !== null && prime > 60 ? ['Prime Cost выше ориентира 60% и требует внимания.'] : []),
   ];
