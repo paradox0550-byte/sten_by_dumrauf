@@ -132,7 +132,8 @@ export default function Team() {
   const completePlanRows = planRows.filter(row => row.complete);
   const plannedHours = completePlanRows.length ? completePlanRows.reduce((sum, row) => sum + (row.plannedHours ?? 0), 0) : null;
   const plannedCost = completePlanRows.length ? completePlanRows.reduce((sum, row) => sum + (row.plannedCost ?? 0), 0) : null;
-  const plannedHeadcount = completePlanRows.length ? completePlanRows.reduce((sum, row) => sum + (row.headcount ?? 0), 0) : null;
+  const headcountRows = planRows.filter(row => row.headcount != null && row.headcount >= 0);
+  const plannedHeadcount = headcountRows.length ? headcountRows.reduce((sum, row) => sum + (row.headcount ?? 0), 0) : null;
   const planComplete = completePlanRows.length === planRows.length;
   const hasScope = Boolean(scope.projectId || scope.branchId || scope.restaurantId || scope.departmentId);
 
