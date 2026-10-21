@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, BarChart3, CalendarClock, ChefHat, ClipboardList, RefreshCw, Users, Wallet } from 'lucide-react';
 import { api, ApiError } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 import { scopeQuery } from '../lib/scope';
 import { useScope } from '../lib/useScope';
 import { formatMoney } from '../lib/format';
@@ -13,6 +14,14 @@ type Pnl = {
 };
 type PayrollResponse = { records?: PayrollRecord[] };
 type DepartmentTotals = { department: string; hours: number | null; amount: number | null; rows: number; incomplete: boolean };
+type PositionPlan = { headcount: string; hoursPerPerson: string; hourlyRate: string };
+type PositionPlanMap = Record<string, PositionPlan>;
+const emptyPlan = (): PositionPlan => ({ headcount: '', hoursPerPerson: '', hourlyRate: '' });
+const planNumber = (value: string) => value.trim() === '' ? null : n(value.replace(',', '.'));
+const positionKey = (department: string, position: string) => department + '::' + position;
+function readPositionPlan(key: string): PositionPlanMap {
+  try { const value = localStorage.getItem(key); return value ? JSON.parse(value) as PositionPlanMap : {}; } catch { return {}; }
+}
 const n = (value: unknown): number | null => {
   if (value === null || value === undefined || value === '') return null;
   const parsed = typeof value === 'number' ? value : Number(value);
@@ -34,6 +43,12 @@ const DEPARTMENT_TEMPLATE = [
 
 export default function Team() {
   const [scope] = useScope();
+  const { user } = useAuth();
+  const planStorageKey = 'sten_fot_plan_v1:' + [user?.organizationId || 'no-org', user?.id || 'no-user', scope.period, scope.projectId || 'all-projects', scope.branchId || 'all-branches', scope.restaurantId || 'all-restaurants', scope.departmentId || 'all-departments'].join(':');
+  const [positionPlan, setPositionPlan] = useState<PositionPlanMap>(() => readPositionPlan(planStorageKey));
+  const [planLoadedFor, setPlanLoadedFor] = useState(planStorageKey);
+  useEffect(() => { const next = readPositionPlan(planStorageKey); setPositionPlan(next); setPlanLoadedFor(planStorageKey); }, [planStorageKey]);
+  useEffect(() => { if (planLoadedFor === planStorageKey) { try { localStorage.setItem(planStorageKey, JSON.stringify(positionPlan)); } catch { /* local planning draft remains in memory */ } } }, [planStorageKey, planLoadedFor, positionPlan]);
   const [records, setRecords] = useState<PayrollRecord[]>([]);
   const [pnl, setPnl] = useState<Pnl | null>(null);
   const [loading, setLoading] = useState(true);
@@ -105,6 +120,20 @@ export default function Team() {
   const laborGap = pnlLaborFact != null && pnlLaborPlan != null ? pnlLaborFact - pnlLaborPlan : null;
   const forecastLaborPercent = percent(pnlLaborPlan, revenuePlan);
   const hasPayroll = records.length > 0;
+  const planRows = useMemo(() => DEPARTMENT_TEMPLATE.flatMap(dept => dept.positions.map(position => {
+    const key = positionKey(dept.name, position);
+    const input = positionPlan[key] ?? emptyPlan();
+    const headcount = planNumber(input.headcount);
+    const hoursPerPerson = planNumber(input.hoursPerPerson);
+    const hourlyRate = planNumber(input.hourlyRate);
+    const complete = headcount != null && hoursPerPerson != null && hourlyRate != null && headcount >= 0 && hoursPerPerson >= 0 && hourlyRate >= 0;
+    return { key, department: dept.name, position, input, headcount, hoursPerPerson, hourlyRate, complete, plannedHours: complete ? headcount! * hoursPerPerson! : null, plannedCost: complete ? headcount! * hoursPerPerson! * hourlyRate! : null };
+  })), [positionPlan]);
+  const completePlanRows = planRows.filter(row => row.complete);
+  const plannedHours = completePlanRows.length ? completePlanRows.reduce((sum, row) => sum + (row.plannedHours ?? 0), 0) : null;
+  const plannedCost = completePlanRows.length ? completePlanRows.reduce((sum, row) => sum + (row.plannedCost ?? 0), 0) : null;
+  const plannedHeadcount = completePlanRows.length ? completePlanRows.reduce((sum, row) => sum + (row.headcount ?? 0), 0) : null;
+  const planComplete = completePlanRows.length === planRows.length;
   const hasScope = Boolean(scope.projectId || scope.branchId || scope.restaurantId || scope.departmentId);
 
   return <div className="page analytics-page team-page fot-page">
@@ -141,6 +170,28 @@ export default function Team() {
       <div className="fot-section-heading"><div><span className="eyebrow">ШТАТНАЯ МОДЕЛЬ</span><h2>Подразделения и должности</h2><p>Стартовый справочник структуры ресторана. Это шаблон для адаптации под формат заведения, а не фактический штат вашей компании.</p></div><button className="secondary-button" onClick={() => setShowStructure(value => !value)}>{showStructure ? 'Свернуть' : 'Показать структуру'}</button></div>
       {showStructure && <div className="fot-department-grid">{DEPARTMENT_TEMPLATE.map(dept => <article className="fot-department-card" key={dept.name}><div className="fot-department-title"><span><ChefHat size={17} /></span><div><h3>{dept.name}</h3><p>{dept.description}</p></div></div><div className="fot-position-list">{dept.positions.map(position => <div className="fot-position" key={position}><span>{position}</span><small>Штат: не задан</small></div>)}</div></article>)}</div>}
       <div className="fot-note"><ClipboardList size={16} /><span><b>Численность, ставки и графики пока не подключены.</b> В текущем API нет справочника сотрудников/должностей, штатного расписания и сменного графика. Поэтому количество ставок и плановые часы показаны как незаданные, а не как ноль.</span></div>
+    </section>
+
+    <section className="fot-section">
+      <div className="fot-section-heading"><div><span className="eyebrow">ПЛАНИРОВАНИЕ ШТАТА</span><h2>Штат, часы и прогноз стоимости</h2><p>Заполните план по должностям. STEN рассчитает штатную численность, месячные часы и прогноз ФОТ только по строкам с тремя введёнными параметрами.</p></div><span className="fot-source-tag">Локальный сценарий</span></div>
+      <div className="fot-planner-summary">
+        <article><small>Плановая численность, ставки</small><strong>{fmt(plannedHeadcount)}</strong></article>
+        <article><small>План часов за месяц</small><strong>{fmt(plannedHours)}</strong></article>
+        <article><small>Прогноз ФОТ, ₽</small><strong>{money(plannedCost)}</strong></article>
+        <article><small>Заполнено должностей</small><strong>{completePlanRows.length} / {planRows.length}</strong></article>
+      </div>
+      <div className="fot-note"><ClipboardList size={16} /><span><b>Это плановый сценарий, не фактические данные.</b> Черновик сохраняется локально в этом браузере для текущего пользователя, организации, периода и контура. Он не отправляется на сервер и не синхронизируется с другими устройствами.</span></div>
+      <div className="fot-table-wrap">
+        <table className="fot-table fot-planner-table"><thead><tr><th>Подразделение / должность</th><th>Ставки</th><th>Часов на ставку / мес.</th><th>Стоимость часа, ₽</th><th>Часы, план</th><th>ФОТ, прогноз</th></tr></thead>
+          <tbody>{planRows.map(row => <tr key={row.key}><td><b>{row.position}</b><small>{row.department}</small></td>
+            <td><input aria-label={row.position + ': количество ставок'} type="number" min="0" max="1000" step="0.25" value={row.input.headcount} onChange={event => setPositionPlan(prev => ({ ...prev, [row.key]: { ...(prev[row.key] ?? emptyPlan()), headcount: event.target.value } }))} /></td>
+            <td><input aria-label={row.position + ': часов на ставку в месяц'} type="number" min="0" max="744" step="1" value={row.input.hoursPerPerson} onChange={event => setPositionPlan(prev => ({ ...prev, [row.key]: { ...(prev[row.key] ?? emptyPlan()), hoursPerPerson: event.target.value } }))} /></td>
+            <td><input aria-label={row.position + ': стоимость часа'} type="number" min="0" step="1" value={row.input.hourlyRate} onChange={event => setPositionPlan(prev => ({ ...prev, [row.key]: { ...(prev[row.key] ?? emptyPlan()), hourlyRate: event.target.value } }))} /></td>
+            <td>{fmt(row.plannedHours)}</td><td>{money(row.plannedCost)}</td></tr>)}</tbody>
+        </table>
+      </div>
+      {!planComplete && <p className="fot-method-note">Прогноз суммирует только полностью заполненные строки. Пустые должности исключены из сценария и не считаются нулевыми ставками.</p>}
+      <div className="fot-planner-actions"><button className="secondary-button" onClick={() => setPositionPlan({})}>Очистить план</button></div>
     </section>
 
     <section className="fot-section">
