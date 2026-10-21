@@ -51,4 +51,7 @@ Files not changed for more than $threshold_days days:
           body+="
 This is an audit signal, not proof that the document is obsolete. Review against runtime/source-of-truth contracts."
 
-          gh issue list --state open --search "Docs staleness audit in:title" --limit 1 | grep -q . ||             gh issue create --title "Docs staleness audit" --body "$body"
+          ISSUE_EXISTS=$(gh issue list --state open --search "Docs staleness audit in:title" --limit 1)
+          if [ -z "$ISSUE_EXISTS" ]; then
+            gh issue create --title "Docs staleness audit" --body "$body"
+          fi
