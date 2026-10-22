@@ -123,9 +123,15 @@
   .pnl-expense-warning strong { color:var(--text-primary); }
   .pnl-expense-empty { margin:0; color:var(--text-secondary); font-size:12px; }
   .pnl-expense-footnote { margin-top:10px; }
+  .pnl-expense-totals { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:10px; }
+  .pnl-expense-total { display:grid; gap:5px; padding:10px; border:1px solid var(--border-subtle); border-radius:var(--ui-radius-sm, 6px); background:var(--bg-base); color:var(--text-secondary); font-size:11px; }
+  .pnl-expense-total > span { color:var(--text-primary); font-weight:600; }
+  .pnl-expense-total small { display:flex; justify-content:space-between; gap:8px; font-size:11px; }
+  .pnl-expense-total b { color:var(--text-primary); font-weight:600; text-align:right; }
   @media (max-width:767px) {
     .pnl-expense-classification { padding:10px; }
     .pnl-expense-list { grid-template-columns:1fr; }
+    .pnl-expense-totals { grid-template-columns:1fr; }
     .pnl-expense-item { align-items:flex-start; }
     .pnl-expense-item select { max-width:145px; }
   }
