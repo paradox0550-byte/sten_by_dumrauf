@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aggregateFinancialRows } from './financialRows';
+import { aggregateFinancialRows, isDerivedPnlArticle } from './financialRows';
 
 describe('aggregateFinancialRows', () => {
   it('sums duplicate canonical articles when plan and fact are present', () => {
@@ -25,5 +25,20 @@ describe('aggregateFinancialRows', () => {
     ])).toEqual([
       { article: 'Себестоимость', plan: -65, fact: null, source: undefined },
     ]);
+  });
+});
+
+
+describe('isDerivedPnlArticle', () => {
+  it('marks calculated financial totals as read-only', () => {
+    expect(isDerivedPnlArticle('Валовая прибыль')).toBe(true);
+    expect(isDerivedPnlArticle(' EBITDA ')).toBe(true);
+    expect(isDerivedPnlArticle('Контролируемая прибыль')).toBe(true);
+    expect(isDerivedPnlArticle('Чистая прибыль')).toBe(true);
+  });
+
+  it('leaves ordinary expense inputs editable', () => {
+    expect(isDerivedPnlArticle('Аренда')).toBe(false);
+    expect(isDerivedPnlArticle('Маркетинг')).toBe(false);
   });
 });

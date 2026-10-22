@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { PnlDraftRow } from '../lib/pnl';
-import { pnlDeltaTone } from '../lib/pnlPresentation';
+import { isPnlExpenseArticle, pnlDeltaTone } from '../lib/pnlPresentation';
 import PnlRow from './PnlRow';
 import PnlCardMobile from './PnlCardMobile';
 
@@ -46,6 +46,7 @@ export default function PnlTable(p: Props) {
   });
   const sorted = [...groups.values()].sort((a, b) => Number(a.id.slice(0, -2)) - Number(b.id.slice(0, -2)));
   const revenueDeltaPct = typeof p.revenuePlan === 'number' && typeof p.revenueFact === 'number' && p.revenuePlan !== 0 ? ((p.revenueFact - p.revenuePlan) / Math.abs(p.revenuePlan)) * 100 : undefined;
+  const sectionShare = (value: number | undefined, revenue: number | undefined, title: string) => typeof value === 'number' && typeof revenue === 'number' && revenue > 0 ? (isPnlExpenseArticle(title) ? Math.abs(value) : value) / revenue * 100 : undefined;
   if (p.loading) return <div className="pnl-v4-skeleton" aria-label="Загрузка P&L"><div className="pnl-v4-skeleton-head" />{Array.from({ length: 7 }, (_, i) => <div className="pnl-v4-skeleton-row" key={i}><i /><i /><i /><i /></div>)}</div>;
   if (p.unavailable) return <div className="pnl-v4-empty" role="alert"><strong>Данные временно недоступны</strong><span>{p.error || 'Не удалось загрузить P&L.'}</span><button type="button" className="secondary-button" onClick={p.onRetry}>Повторить</button></div>;
   if (!p.rows.length) return <div className="pnl-v4-empty"><strong>Нет данных за период</strong><span>В выбранном периоде нет подтверждённых строк P&L.</span><button type="button" className="primary-button" onClick={p.onImport}>Импортировать из Excel</button></div>;
@@ -68,7 +69,7 @@ export default function PnlTable(p: Props) {
             <span className="pnl-v4-section-title">{closed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}<b>{g.id} {g.title}</b><small>{g.rows.length}</small></span>
             <span className="pnl-v4-number">{money(plan)}</span><span className="pnl-v4-number">{money(fact)}</span>
             <span className={'pnl-v4-delta ' + tone}>{delta === undefined ? '—' : (delta > 0 ? '+' : '') + money(delta) + (deltaPct === undefined ? '' : ' / ' + (deltaPct > 0 ? '+' : '') + deltaPct.toFixed(1).replace('.', ',') + '%')}</span>
-            <span className="pnl-v4-number">—</span><span />
+            <span className="pnl-v4-number">{typeof sectionShare(fact, p.revenueFact, g.title) === 'number' ? sectionShare(fact, p.revenueFact, g.title)!.toFixed(1).replace('.', ',') + '%' : '—'}</span><span />
           </button>
           {!closed && <div className="pnl-v4-section-rows">{g.rows.map((row) => <div className="pnl-v4-responsive-row" key={row.id}>
             <PnlRow row={row} revenueFact={p.revenueFact} scale={p.scale} onUpdate={p.onUpdate} onArticleChange={p.onArticleChange} onRemove={p.onRemove} onAnalyze={p.onAnalyze} onSecretary={p.onSecretary} />

@@ -80,4 +80,59 @@
   }
   @media (hover:none) { .pnl-v4-row-actions { opacity:1; } .pnl-v4-mobile-actions { display:flex; } }
   @media (prefers-reduced-motion:reduce) { .pnl-v4-row-actions { transition:none; } }
+  .pnl-kpis-expanded { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+  .pnl-kpis-expanded .pnl-kpi { min-width:0; }
+  .pnl-kpis-expanded .pnl-kpi small { min-height:28px; display:block; }
+  .pnl-kpis-expanded .pnl-kpi > div { display:grid; gap:5px; }
+  .pnl-kpis-expanded .pnl-kpi > div span { display:flex; justify-content:space-between; gap:6px; align-items:baseline; }
+  .pnl-kpis-expanded .pnl-kpi b { font-variant-numeric:tabular-nums; }
+  .pnl-calculation-warning { border-color:var(--color-warning, #b7791f); background:var(--surface-warning, transparent); }
+  .pnl-calculation-warning strong { color:var(--color-warning, #b7791f); }
+  .pnl-calculation-note { display:flex; align-items:flex-start; gap:8px; margin:0 0 12px; padding:10px 12px; border:1px solid var(--border-subtle); border-radius:var(--ui-radius-sm); color:var(--text-secondary); font-size:12px; line-height:1.45; }
+  .pnl-calculation-note strong { color:var(--text-primary); white-space:nowrap; }
+  @media (max-width:900px) { .pnl-kpis-expanded { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media (max-width:767px) { .pnl-kpis-expanded { grid-template-columns:1fr; gap:8px; } .pnl-kpis-expanded .pnl-kpi small { min-height:0; } .pnl-calculation-note { flex-direction:column; gap:4px; } }
+
+  /* Calculated P&L lines are visibly distinct from editable inputs. */
+  .pnl-v4-row input[readonly],
+  .pnl-v4-mobile-card input[readonly] {
+    cursor: default;
+    opacity: .82;
+    border-style: dashed;
+  }
+  .pnl-v4-article > small[title*="Расчётная строка"],
+  .pnl-v4-mobile-card > small[title*="Расчётная строка"] {
+    display: inline-block;
+    margin-top: 3px;
+    color: var(--text-secondary);
+    font-size: 10px;
+    letter-spacing: .03em;
+  }
+
+  .pnl-expense-classification { margin:0 0 14px; padding:14px; border:1px solid var(--border-subtle); border-radius:var(--ui-radius-md, 10px); background:var(--bg-surface); }
+  .pnl-expense-classification-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px; }
+  .pnl-expense-classification-head h2 { margin:0 0 4px; font-size:14px; line-height:1.4; font-weight:600; color:var(--text-primary); }
+  .pnl-expense-classification-head p, .pnl-expense-footnote { margin:0; font-size:12px; line-height:1.5; color:var(--text-secondary); }
+  .pnl-expense-classification-head > span { flex:none; font-size:11px; color:var(--text-secondary); }
+  .pnl-expense-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .pnl-expense-item { display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; padding:9px 10px; border:1px solid var(--border-subtle); border-radius:var(--ui-radius-sm, 6px); }
+  .pnl-expense-name { min-width:0; display:grid; gap:3px; color:var(--text-primary); font-size:12px; overflow-wrap:anywhere; }
+  .pnl-expense-name small { color:var(--text-secondary); font-size:10px; }
+  .pnl-expense-item select { flex:none; max-width:170px; min-height:34px; padding:4px 8px; border:1px solid var(--border-default); border-radius:var(--ui-radius-sm, 6px); background:var(--bg-base); color:var(--text-primary); font-size:12px; }
+  .pnl-expense-warning { display:flex; flex-direction:column; gap:3px; margin-top:10px; padding:10px 12px; border:1px solid var(--color-warning, #b7791f); border-radius:var(--ui-radius-sm, 6px); color:var(--text-secondary); font-size:12px; line-height:1.45; }
+  .pnl-expense-warning strong { color:var(--text-primary); }
+  .pnl-expense-empty { margin:0; color:var(--text-secondary); font-size:12px; }
+  .pnl-expense-footnote { margin-top:10px; }
+  .pnl-expense-totals { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:10px; }
+  .pnl-expense-total { display:grid; gap:5px; padding:10px; border:1px solid var(--border-subtle); border-radius:var(--ui-radius-sm, 6px); background:var(--bg-base); color:var(--text-secondary); font-size:11px; }
+  .pnl-expense-total > span { color:var(--text-primary); font-weight:600; }
+  .pnl-expense-total small { display:flex; justify-content:space-between; gap:8px; font-size:11px; }
+  .pnl-expense-total b { color:var(--text-primary); font-weight:600; text-align:right; }
+  @media (max-width:767px) {
+    .pnl-expense-classification { padding:10px; }
+    .pnl-expense-list { grid-template-columns:1fr; }
+    .pnl-expense-totals { grid-template-columns:1fr; }
+    .pnl-expense-item { align-items:flex-start; }
+    .pnl-expense-item select { max-width:145px; }
+  }
 }
