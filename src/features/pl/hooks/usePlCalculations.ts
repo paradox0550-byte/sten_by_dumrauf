@@ -73,8 +73,16 @@ export function calculateClassifiedPlData(
     controlType: classifyExpense(row.article, row.id, overrides),
   }));
 
-  const sumByType = (type: ExpenseControlType, field: 'plan' | 'fact') =>
-    sumKnown(articlesWithTypes.filter((row) => row.controlType === type).map((row) => row[field]));
+  const sumByType = (type: ExpenseControlType, field: 'plan' | 'fact') => {
+    const selected = articlesWithTypes.filter((row) => row.controlType === type);
+    // An empty category is zero only when there is a detailed, fully classified expense list.
+    if (selected.length === 0) {
+      return articlesWithTypes.length > 0 && !articlesWithTypes.some((row) => row.controlType === 'unknown')
+        ? 0
+        : undefined;
+    }
+    return sumKnown(selected.map((row) => row[field]));
+  };
 
   const controllableOpex = { plan: sumByType('controllable', 'plan'), fact: sumByType('controllable', 'fact') };
   const uncontrollableOpex = { plan: sumByType('uncontrollable', 'plan'), fact: sumByType('uncontrollable', 'fact') };
