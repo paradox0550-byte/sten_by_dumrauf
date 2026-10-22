@@ -140,7 +140,13 @@ export default function FotScheduleImport({ period, historyScope = 'all' }: { pe
       setError('Не найдено строк сотрудников. Проверьте выбранные столбцы и строку заголовков.');
       return;
     }
-    setParsed({ ...source, ...columns, rows });
+    setParsed({
+      ...source,
+      employeeColumn: columns.employee,
+      positionColumn: columns.position,
+      rateColumn: columns.rate,
+      rows,
+    });
     setPayTypes(Object.fromEntries(rows.map(row => [row.sourceRow, inferFotPayType(row.rate)])));
     setCalculations(null);
     setError('');
