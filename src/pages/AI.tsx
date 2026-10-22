@@ -32,21 +32,26 @@ const supported=new Set(['pdf','docx','xlsx','xlsm','xls','csv','txt','md','json
 const speechSupported=typeof window!=='undefined' && 'speechSynthesis' in window && typeof window.SpeechSynthesisUtterance!=='undefined';
 export function cleanTextForSpeech(text:string):string{
  return text
-  .replace(/```[\s\S]*?```/g,' ')
-  .replace(/!?\[([^\]]+)\]\(([^)]+)\)/g,'$1')
+  .replace(/```[\\s\\S]*?```/g,' ')
+  .replace(/!?\\[([^\\]]+)\\]\\(([^)]+)\\)/g,'$1')
   .replace(/`([^`]*)`/g,'$1')
-  .replace(/^\s{0,3}#{1,6}\s+/gm,'')
-  .replace(/^\s*>\s?/gm,'')
-  .replace(/^\s*(?:[-*+]\s+|\d+[.)]\s+)/gm,'')
-  .replace(/\*\*(.*?)\*\*/gs,'$1')
-  .replace(/\*(.*?)\*/gs,'$1')
+  .replace(/^\\s{0,3}#{1,6}\\s+/gm,'')
+  .replace(/^\\s*>\\s?/gm,'')
+  .replace(/^\\s*(?:[-*+]\\s+|\\d+[.)]\\s+)/gm,'')
+  .replace(/^\\s*[-*_]{3,}\\s*$/gm,' ')
+  .replace(/\\|/g,' ')
+  .replace(/<[^>]+>/g,' ')
+  .replace(/\\*\\*(.*?)\\*\\*/gs,'$1')
   .replace(/__(.*?)__/gs,'$1')
-  .replace(/_(.*?)_/gs,'$1')
   .replace(/~~(.*?)~~/gs,'$1')
-  .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'$1')
-  .replace(/https?:\/\/\S+/g,'ссылка')
-  .replace(/[ \t]+/g,' ')
-  .replace(/\n{3,}/g,'\n\n')
+  .replace(/\\*(.*?)\\*/gs,'$1')
+  .replace(/_(.*?)_/gs,'$1')
+  .replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g,'$1')
+  .replace(/https?:\\/\\/\\S+/g,'ссылка')
+  .replace(/[#*_`~]/g,'')
+  .replace(/[ \\t]+/g,' ')
+  .replace(/ *\\n */g,'\\n')
+  .replace(/\\n{3,}/g,'\\n\\n')
   .trim();
 }
 function chatKey(user:{id?:string;organizationId?:string|null}|null){return user?.id?`sten_chat_v5:${user.organizationId||'no-org'}:${user.id}`:null;}
@@ -168,7 +173,10 @@ function AIContent({user}:{user:User|null}){
    try{
      const body: AskRequest = {
        question: text,
-       messages: nextMsgs.map(m => ({ role: m.role, content: m.text })),
+       messages: [
+          { role: 'system', content: 'Пользователя зовут Александр. Обращайся к нему по имени естественно и уместно, без повторения имени в каждом сообщении. Отвечай на русском языке, профессионально и по делу.' },
+          ...nextMsgs.map(m => ({ role: m.role, content: m.text })),
+        ],
        scope: {
          period: scope.period,
          project_id: scope.projectId ?? null,
