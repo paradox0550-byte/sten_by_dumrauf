@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { calculateEmployeeMonth, calculateTotalFOT, inferFotPayType, type FotPayType, type FotEmployeeCalculation } from '../lib/fotCalculator';
-import { AlertCircle, FileSpreadsheet, UploadCloud } from 'lucide-react';
+import { AlertCircle, FileSpreadsheet, UploadCloud, FileDown, Printer } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import './FotScheduleImport.css';
 
@@ -240,6 +240,10 @@ export default function FotScheduleImport({ period, historyScope = 'all' }: { pe
     return signedNumber(difference) + percent;
   };
   const manualNdfl = ndfl.trim() === '' ? null : Number(ndfl.replace(',', '.'));
+  const historyTrend = [...scopeHistory].sort((a, b) => a.period.localeCompare(b.period)).slice(-12);
+  const selectedEmployeeRows = selectedHistory?.calculations ?? [];
+  const printReport = () => window.print();
+
   const moneyLabel = (amount: number | null | undefined) => amount == null
     ? '—'
     : new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 2 }).format(amount);
@@ -309,6 +313,35 @@ export default function FotScheduleImport({ period, historyScope = 'all' }: { pe
         </div>
         {previousHistory && <p className="fot-history-compare">Сравнение: {selectedHistory.period} с {previousHistory.period}. Если база предыдущего месяца равна нулю, процентная динамика не показывается.</p>}
       </>}
+    </section>}
+    {selectedHistory && <section className="fot-analytics-panel" aria-label="Аналитика и отчёт ФОТ">
+      <div className="fot-analytics-toolbar"><div><span className="eyebrow">АНАЛИТИКА · ФОТ</span><h3>Динамика и отчёт</h3><p>Сохранённые расчёты по месяцам. В отчёт попадают только фактически сохранённые данные.</p></div><button type="button" className="secondary-button fot-print-button" onClick={printReport}><FileDown size={15}/>Скачать PDF / печать</button></div>
+      <div className="fot-analytics-kpis">
+        <div><span>Месяц</span><strong>{selectedHistory.period}</strong></div>
+        <div><span>Сотрудники</span><strong>{selectedHistory.totals.employeeCount}</strong></div>
+        <div><span>Ошибки расчёта</span><strong>{selectedHistory.totals.employeesWithErrors}</strong></div>
+        <div><span>Норма часов</span><strong>{new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(selectedHistory.normHours)} ч</strong></div>
+      </div>
+      <div className="fot-trend-section">
+        <div className="fot-trend-heading"><strong>Плановый ФОТ по месяцам</strong><span>До 12 последних сохранённых месяцев</span></div>
+        {historyTrend.some(record => record.totals.accrued != null) ? <div className="fot-trend-chart" role="img" aria-label="Столбчатая диаграмма планового ФОТ по сохранённым месяцам">
+          {historyTrend.map(record => {
+            const values = historyTrend.map(item => item.totals.accrued).filter((value): value is number => value != null);
+            const maxValue = Math.max(...values, 1);
+            return <div className="fot-trend-column" key={record.period} title={record.totals.accrued == null ? record.period + ': нет полного расчёта' : record.period + ': ' + moneyLabel(record.totals.accrued)}>
+              <span className="fot-trend-value">{record.totals.accrued == null ? '—' : new Intl.NumberFormat('ru-RU', { notation: 'compact', maximumFractionDigits: 1 }).format(record.totals.accrued)}</span>
+              <div className="fot-trend-track"><div className={'fot-trend-bar' + (record.period === selectedHistory.period ? ' is-selected' : '')} style={{ height: (record.totals.accrued == null ? 0 : Math.max(3, record.totals.accrued / maxValue * 100)) + '%' }} /></div>
+              <span className="fot-trend-month">{record.period.slice(2)}</span>
+            </div>;
+          })}
+        </div> : <p className="fot-analytics-empty">Нет полных сохранённых значений ФОТ для диаграммы.</p>}
+      </div>
+      <div className="fot-analytics-table-wrap">
+        <table className="fot-analytics-table"><thead><tr><th>Сотрудник</th><th>Должность</th><th>Тип ставки</th><th>Часы</th><th>Переработка</th><th>Начислено</th><th>Статус</th></tr></thead>
+          <tbody>{selectedEmployeeRows.map((employee, index) => <tr key={employee.employee + ':' + employee.position + ':' + index}><td>{employee.employee || 'Нет данных'}</td><td>{employee.position || 'Нет данных'}</td><td>{employee.payType === 'hourly' ? 'Почасовая' : employee.payType === 'shift' ? 'За смену' : employee.payType === 'salary' ? 'Оклад' : 'Не определён'}</td><td>{employee.hours == null ? '—' : new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(employee.hours)}</td><td>{employee.overtimeHours == null ? '—' : new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(employee.overtimeHours)}</td><td>{moneyLabel(employee.accrued)}</td><td>{employee.error ? employee.error : 'Рассчитано'}</td></tr>)}</tbody>
+        </table>
+      </div>
+      <p className="fot-analytics-footnote">Плановый расчёт по загруженному графику, не фактическая выплата. НДФЛ не рассчитывается автоматически. Источник: {selectedHistory.fileName}; сохранено {new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(selectedHistory.savedAt))}. Данные локальные для этого браузера.</p>
     </section>}
   </section>;
 }
