@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bot, FileText, Mic, MicOff, MoreHorizontal, Paperclip, Send, Sparkles, Trash2, UploadCloud, Eye, X, Database, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Bot, FileText, Mic, MicOff, MoreHorizontal, Paperclip, Send, Sparkles, Trash2, UploadCloud, Eye, X, Database, PanelLeftClose, PanelLeftOpen, Volume2, VolumeX, Play, Square } from 'lucide-react';
 import { api, ApiError, createMemory } from '../lib/api';
 import { useScope } from '../lib/useScope';
 import { useSearchParams } from 'react-router-dom';
@@ -29,6 +29,26 @@ const starters=[
  {eyebrow:'Команда',title:'Проверить ФОТ',description:'Часы, производительность и цена отклонения',prompt:'Проверь ФОТ: часы, производительность и стоимость отклонения'},
 ];
 const supported=new Set(['pdf','docx','xlsx','xlsm','xls','csv','txt','md','json','png','jpg','jpeg','webp','tiff','bmp']);const MAX_DOC_BYTES=15*1024*1024;const LEGACY_KEY='sten_chat_v5';
+const speechSupported=typeof window!=='undefined' && 'speechSynthesis' in window && typeof window.SpeechSynthesisUtterance!=='undefined';
+export function cleanTextForSpeech(text:string):string{
+ return text
+  .replace(/```[\s\S]*?```/g,' ')
+  .replace(/!?\[([^\]]+)\]\(([^)]+)\)/g,'$1')
+  .replace(/`([^`]*)`/g,'$1')
+  .replace(/^\s{0,3}#{1,6}\s+/gm,'')
+  .replace(/^\s*>\s?/gm,'')
+  .replace(/^\s*(?:[-*+]\s+|\d+[.)]\s+)/gm,'')
+  .replace(/\*\*(.*?)\*\*/gs,'$1')
+  .replace(/\*(.*?)\*/gs,'$1')
+  .replace(/__(.*?)__/gs,'$1')
+  .replace(/_(.*?)_/gs,'$1')
+  .replace(/~~(.*?)~~/gs,'$1')
+  .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'$1')
+  .replace(/https?:\/\/\S+/g,'ссылка')
+  .replace(/[ \t]+/g,' ')
+  .replace(/\n{3,}/g,'\n\n')
+  .trim();
+}
 function chatKey(user:{id?:string;organizationId?:string|null}|null){return user?.id?`sten_chat_v5:${user.organizationId||'no-org'}:${user.id}`:null;}
 function readMessages(key:string|null):Msg[]{if(!key)return[];try{const raw=localStorage.getItem(key);const parsed=raw?JSON.parse(raw):[];return Array.isArray(parsed)?parsed:[]}catch{return[]}}
 function to64(file:File){return new Promise<string>((ok,no)=>{const r=new FileReader();r.onload=()=>{const s=String(r.result);ok(s.includes(',')?s.split(',')[1]:s)};r.onerror=()=>no(r.error);r.readAsDataURL(file)})}
@@ -53,6 +73,9 @@ function AIContent({user}:{user:User|null}){
  const[docs,setDocs]=useState<Doc[]>([]);
  const loadSeqRef=useRef(0);
  const[busy,setBusy]=useState(false);
+  const[isAudioMuted,setIsAudioMuted]=useState(()=>{try{return localStorage.getItem('sten_ai_mute')==='1'}catch{return false}});
+  const[speakingMessageId,setSpeakingMessageId]=useState<string|null>(null);
+  const speechUtteranceRef=useRef<SpeechSynthesisUtterance|null>(null);
  const[upload,setUpload]=useState(false);
  const[previewDoc,setPreviewDoc]=useState<DocPreview|null>(null);
  const[previewBusy,setPreviewBusy]=useState(false);
@@ -63,6 +86,21 @@ function AIContent({user}:{user:User|null}){
  const[appearanceOpen,setAppearanceOpen]=useState(false);
  const[composerFocused,setComposerFocused]=useState(false);
  useEffect(()=>{if(initialQuery)setPrompt(initialQuery)},[initialQuery]);
+  useEffect(()=>{try{localStorage.setItem('sten_ai_mute',isAudioMuted?'1':'0')}catch{};if(isAudioMuted&&speechSupported){window.speechSynthesis.cancel();speechUtteranceRef.current=null;setSpeakingMessageId(null)}},[isAudioMuted]);
+  useEffect(()=>()=>{if(speechSupported)window.speechSynthesis.cancel()},[]);
+  const stopSpeech=()=>{if(speechSupported)window.speechSynthesis.cancel();speechUtteranceRef.current=null;setSpeakingMessageId(null)};
+  const toggleSpeech=(messageId:string,text:string)=>{
+    if(!speechSupported||isAudioMuted||busy)return;
+    if(speakingMessageId===messageId){stopSpeech();return;}
+    window.speechSynthesis.cancel();speechUtteranceRef.current=null;setSpeakingMessageId(null);
+    const cleaned=cleanTextForSpeech(text);
+    if(!cleaned)return;
+    const utterance=new SpeechSynthesisUtterance(cleaned);
+    utterance.lang='ru-RU';utterance.rate=1.0;
+    utterance.onend=()=>{if(speechUtteranceRef.current===utterance){speechUtteranceRef.current=null;setSpeakingMessageId(null)}};
+    utterance.onerror=()=>{if(speechUtteranceRef.current===utterance){speechUtteranceRef.current=null;setSpeakingMessageId(null)}};
+    speechUtteranceRef.current=utterance;setSpeakingMessageId(messageId);window.speechSynthesis.speak(utterance);
+  };
 
  useEffect(()=>{window.dispatchEvent(new CustomEvent('sten:ai-status',{detail:busy?'working':'ready'}))},[busy]);
  const[chatToast,setChatToast]=useState<string|null>(null);
@@ -248,6 +286,7 @@ function AIContent({user}:{user:User|null}){
      </div>
      <div className="sten-ai-topbar__actions">
        <span className={'sten-ai-context-pill '+(hasScopeId(scope)?'is-selected':'')}><Database size={14}/>{hasScopeId(scope)?'Контур выбран':'Контур не выбран'}</span>
+        {speechSupported&&<button className="sten-ai-audio-toggle" onClick={()=>setIsAudioMuted(value=>!value)} aria-label={isAudioMuted?'Включить озвучку ответов':'Выключить озвучку ответов'} aria-pressed={isAudioMuted} title={isAudioMuted?'Озвучка выключена':'Озвучка включена'}>{isAudioMuted?<VolumeX size={18}/>:<Volume2 size={18}/>}</button>}
        <button className="chat-appearance-trigger" onClick={()=>setAppearanceOpen(v=>!v)} aria-label="Настроить оформление STEN AI" aria-expanded={appearanceOpen} title="Настроить оформление"><MoreHorizontal size={18}/></button>
        <button className="secondary-button" onClick={clearChat}><span>Новый диалог</span></button>
      </div>
@@ -341,6 +380,7 @@ function AIContent({user}:{user:User|null}){
                  <AskSteps steps={m.steps} totalMs={m.totalMs} />
                )}
              </MessageRow>
+              {speechSupported&&m.role==='assistant'&&<div className="sten-ai-speech-action"><button type="button" className="sten-ai-speech-button" onClick={()=>toggleSpeech(m.id,m.text)} disabled={isAudioMuted||busy||!cleanTextForSpeech(m.text)} aria-label={speakingMessageId===m.id?'Остановить озвучку':'Прослушать ответ'} title={isAudioMuted?'Озвучка выключена':busy?'Дождитесь завершения ответа':speakingMessageId===m.id?'Остановить озвучку':'Прослушать ответ'}>{speakingMessageId===m.id?<Square size={15}/>:<Play size={15}/>}<span>{speakingMessageId===m.id?'Стоп':'Прослушать'}</span></button></div>
              {m.role === 'assistant' && m.toolsUsed && m.toolsUsed.length > 0 && (
                <div className="sten-ai-tools" aria-label="Использованные инструменты">
                  {m.model && <span>Модель · {m.model}</span>}
