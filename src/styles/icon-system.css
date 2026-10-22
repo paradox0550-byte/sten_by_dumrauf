@@ -21,7 +21,7 @@
 }
 .shell .nav-group-chevron { transition:transform 180ms var(--sten-icon-ease); }
 .shell .nav-group-toggle[aria-expanded="true"] .nav-group-chevron { transform:rotate(180deg); }
-.shell .brand-mark { transition:background-color 180ms var(--sten-icon-ease),border-color 180ms var(--sten-icon-ease); }
+.shell .brand-mark { background:var(--bg-surface-subtle) !important; border:1px solid var(--border-subtle); transition:background-color 180ms var(--sten-icon-ease),border-color 180ms var(--sten-icon-ease); }
 .shell .brand-mark svg { display:block; }
 .shell .sten-primary-nav a.active::before, .shell .mobile-bottom-nav a.active::before { animation:sten-nav-indicator-in 220ms var(--sten-icon-ease) both; }
 @keyframes sten-nav-indicator-in { from { opacity:0; transform:scaleX(.65); } to { opacity:1; transform:scaleX(1); } }
