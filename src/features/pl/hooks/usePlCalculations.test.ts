@@ -17,6 +17,10 @@ describe('expense classification', () => {
     expect(classifyExpense('Аренда помещения', 'rent-1', { 'rent-1': 'controllable' })).toBe('controllable');
   });
 
+  it('can infer a known category from a normalized article ID when the name is generic', () => {
+    expect(classifyExpense('Прочие расходы', 'marketing-expense')).toBe('controllable');
+  });
+
   it('does not calculate controllable profit when an unknown expense exists', () => {
     const result = calculateClassifiedPlData([
       row('rev', 'Выручка', 1000, 1200),
