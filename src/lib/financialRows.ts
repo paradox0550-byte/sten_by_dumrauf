@@ -18,6 +18,6 @@ export function aggregateFinancialRows(rows:FinancialRow[]):FinancialRow[]{const
 
 /** Derived P&L lines are display-only and must not be saved as independent inputs. */
 export function isDerivedPnlArticle(article: string): boolean {
-  const value = article.normalize('NFC').trim().toLocaleLowerCase('ru-RU').replace(/[–—-]+/g, ' ').replace(/\\s+/g, ' ');
+  const value = article.normalize('NFC').trim().toLocaleLowerCase('ru-RU').replace(/[–—-]+/g, ' ').replace(/\s+/g, ' ');
   return /^(?:валовая прибыль|валовая маржа|gross profit|gross margin|food cost(?: %| процент)?|labor cost(?: %| процент)?|prime cost(?: %| процент)?|контролируемая прибыль|прибыль контролируемая|неконтролируемая прибыль|ebitda|маржа ebitda|чистая прибыль|net profit|операционная прибыль|прибыль до налогообложения)$/.test(value);
 }
