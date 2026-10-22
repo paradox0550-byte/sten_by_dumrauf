@@ -222,3 +222,16 @@
   color: var(--text-danger, #b42318);
   border-color: var(--border-warning, #e4b363);
 }
+
+
+/* Keep the selected-period explanation readable in STEN dark mode. */
+html[data-theme='dark'] .operational-period-warning {
+  color: #f1f5f9;
+  background: #171e2b;
+  border-color: #465267;
+  border-left: 3px solid #d6a85f;
+}
+
+html[data-theme='dark'] .operational-period-warning strong {
+  color: #ffffff;
+}
