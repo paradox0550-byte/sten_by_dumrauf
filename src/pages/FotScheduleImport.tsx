@@ -266,10 +266,10 @@ export default function FotScheduleImport({ period, historyScope = 'all' }: { pe
   };
 
   return <section className="fot-import panel">
-    <div className="fot-import-heading"><div><span className="eyebrow">ИМПОРТ ГРАФИКА</span><h2>Загрузить Excel</h2><p>Исходный файл не изменяется. STEN читает первый лист и показывает распознанные смены до любых расчётов.</p></div><FileSpreadsheet size={20} /></div>
+    <div className="fot-import-heading"><div><span className="eyebrow">ПЛАН ФОТ</span><h2>Загрузить график</h2><p>Выберите Excel. Проверьте распознанные смены и рассчитайте план.</p></div><FileSpreadsheet size={20} /></div>
     <input ref={inputRef} className="fot-import-file" type="file" accept=".xlsx,.xls" onChange={event => void handleFile(event.target.files?.[0])} />
     <button type="button" className="fot-import-drop" onClick={() => inputRef.current?.click()} disabled={busy}>
-      <UploadCloud size={22} /><strong>{busy ? 'Читаем файл…' : 'Выбрать Excel-файл'}</strong><span>Форматы .xlsx и .xls</span>
+      <UploadCloud size={22} /><strong>{busy ? 'Читаем файл…' : 'Выбрать Excel-файл'}</strong><span>Excel · .xlsx или .xls</span>
     </button>
     {error && <div className="fot-import-error" role="alert"><AlertCircle size={16} /><span>{error}</span></div>}
     {pending && mapping && Object.values(mapping).some(index => index < 0) && <div className="fot-column-mapping">
@@ -289,13 +289,13 @@ export default function FotScheduleImport({ period, historyScope = 'all' }: { pe
         <tbody>{parsed.rows.map(row => <tr key={row.sourceRow}><td>{row.employee || 'Нет данных'}</td><td>{row.position || 'Нет данных'}</td><td>{row.rate || 'Нет данных'}</td><td><select className="fot-pay-type-select" aria-label={'Тип ставки: ' + row.employee} value={(Object.prototype.hasOwnProperty.call(payTypes, row.sourceRow) ? payTypes[row.sourceRow] : inferFotPayType(row.rate)) ?? ''} onChange={event => { setPayTypes(current => ({ ...current, [row.sourceRow]: event.target.value ? event.target.value as FotPayType : null })); setCalculations(null); }}><option value="">Не определён</option><option value="hourly">Руб./час</option><option value="shift">Руб./смена</option><option value="salary">Оклад</option></select></td><td className="fot-accrued-cell">{calculations ? <span title={calculations[parsed.rows.indexOf(row)]?.breakdown}>{moneyLabel(calculations[parsed.rows.indexOf(row)]?.accrued)}{calculations[parsed.rows.indexOf(row)]?.breakdown && <small className="fot-calculation-breakdown">{calculations[parsed.rows.indexOf(row)]?.breakdown}</small>}{calculations[parsed.rows.indexOf(row)]?.error && <small className="fot-calculation-error">{calculations[parsed.rows.indexOf(row)]?.error}</small>}</span> : '—'}</td>{row.shifts.map(shift => <td key={shift.date} title={shift.value.kind === 'unknown' ? 'Исходное значение: ' + shift.value.raw : shift.value.kind}>{cellLabel(shift.value)}</td>)}</tr>)}</tbody>
       </table></div>
       {parsed.rows.some(row => row.shifts.some(shift => shift.value.kind === 'unknown')) && <p className="fot-import-warning">Некоторые обозначения не распознаны. Они показаны как есть и не будут автоматически превращены в часы или деньги.</p>}
-      <p className="fot-import-note">Расчёт выполняется только по распознанным данным. Тип ставки можно уточнить вручную; неизвестные обозначения блокируют расчёт сотрудника до проверки.</p>
+      <p className="fot-import-note">Проверьте строки с ошибками и тип ставки перед расчётом. Нераспознанные смены не учитываются автоматически.</p>
       <section className="fot-calculation-panel" aria-label="Параметры расчёта">
-        <div className="fot-calculation-heading"><div><span className="eyebrow">РАСЧЁТ ФОТ</span><h3>Параметры расчёта</h3></div><span className="fot-calculation-hint">НДФЛ вводится вручную</span></div>
+        <div className="fot-calculation-heading"><div><span className="eyebrow">ПАРАМЕТРЫ</span><h3>Расчёт ФОТ</h3></div><span className="fot-calculation-hint">НДФЛ — необязательно</span></div>
         <div className="fot-calculation-fields">
           <label>Норма часов за месяц<input type="number" min="0" step="0.5" value={normHours} onChange={event => { setNormHours(event.target.value); setCalculations(null); }} /></label>
           <label>Общий НДФЛ за месяц (руб.)<input type="number" min="0" step="0.01" placeholder="Введите сумму вручную" value={ndfl} onChange={event => { setNdfl(event.target.value); }} /></label>
-          <button type="button" className="secondary-button" onClick={calculate}>Рассчитать ФОТ</button>
+          <button type="button" className="secondary-button" onClick={calculate}>Рассчитать и сохранить локально</button>
         </div>
         {calculations && totals && <div className="fot-calculation-results">
           <div className="fot-result-card"><span>Общий плановый ФОТ</span><strong>{moneyLabel(totals.accrued)}</strong><small>{totals.accrued == null ? 'Есть сотрудники с незавершённым расчётом' : 'Сумма начислений по рассчитанным сотрудникам'}</small></div>
@@ -308,8 +308,8 @@ export default function FotScheduleImport({ period, historyScope = 'all' }: { pe
     </div>}
     {historyWarning && <div className="fot-import-warning" role="status">{historyWarning}</div>}
     {scopeHistory.length > 0 && <section className="fot-history-panel" aria-label="История ФОТ">
-      <div className="fot-history-heading"><div><span className="eyebrow">ЛОКАЛЬНАЯ ИСТОРИЯ</span><h3>ФОТ по месяцам</h3></div><label>Месяц<select value={selectedHistory?.period ?? ''} onChange={event => setHistoryPeriod(event.target.value)}>{scopeHistory.map(record => <option key={record.period} value={record.period}>{record.period}</option>)}</select></label></div>
-      <p className="fot-history-disclaimer">История хранится только в этом браузере на этом устройстве. Она не синхронизируется с другими устройствами и не является подтверждённым payroll-источником.</p>
+      <div className="fot-history-heading"><div><span className="eyebrow">ИСТОРИЯ НА ЭТОМ УСТРОЙСТВЕ</span><h3>Сохранённые расчёты</h3></div><label>Месяц<select value={selectedHistory?.period ?? ''} onChange={event => setHistoryPeriod(event.target.value)}>{scopeHistory.map(record => <option key={record.period} value={record.period}>{record.period}</option>)}</select></label></div>
+      <p className="fot-history-disclaimer">Важно: расчёт сохраняется только в этом браузере. Общий план компании и синхронизация между устройствами пока не подключены.</p>
       {selectedHistory && <><div className="fot-history-meta"><span>Источник: {selectedHistory.fileName}</span><span>Сохранено: {new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(selectedHistory.savedAt))}</span></div>
         <div className="fot-history-grid">
           <div className="fot-history-metric"><span>Плановый ФОТ</span><strong>{moneyLabel(selectedHistory.totals.accrued)}</strong><small>К предыдущему месяцу: {previousHistory ? historyDelta(selectedHistory.totals.accrued, previousHistory.totals.accrued) : 'Нет сохранённого предыдущего месяца'}</small></div>
