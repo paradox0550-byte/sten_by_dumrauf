@@ -40,7 +40,7 @@ const isFiniteNumber = (value: unknown): value is number =>
 
 function sumKnown(values: Array<number | null | undefined>): number | undefined {
   if (values.length === 0 || values.some((value) => !isFiniteNumber(value))) return undefined;
-  return values.reduce<number>((sum, value) => sum + value, 0);
+  return values.reduce<number>((sum, value) => sum + (value as number), 0);
 }
 
 function signedExpenseRows(rows: PnlDraftRow[]): PnlDraftRow[] {
