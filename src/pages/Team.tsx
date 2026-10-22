@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { scopeQuery } from '../lib/scope';
 import { useScope } from '../lib/useScope';
 import { formatMoney } from '../lib/format';
+import FotScheduleImport from './FotScheduleImport';
 import './Team.css';
 
 type PayrollRecord = { department?: string | null; hours?: number | string | null; amount?: number | string | null; period?: string };
@@ -149,6 +150,8 @@ export default function Team() {
         <button className="secondary-button" onClick={() => void load()} disabled={loading}><RefreshCw size={15} /> Обновить</button>
       </div>
     </header>
+
+    <FotScheduleImport period={scope.period} historyScope={[user?.organizationId || 'no-org', user?.id || 'anonymous', scope.projectId || 'all', scope.branchId || 'all', scope.restaurantId || 'all', scope.departmentId || 'all'].join(':')} />
 
     {(error || pnlError) && <div className="fot-alert" role="alert"><AlertTriangle size={17} /><div><b>{error ? 'Не удалось загрузить ФОТ' : 'Часть аналитики недоступна'}</b><span>{[error, pnlError].filter(Boolean).join(' ')}</span></div></div>}
     {scopeUnavailable && <div className="fot-alert" role="status"><AlertTriangle size={17} /><div><b>ФОТ доступен только на уровне организации</b><span>Сервер пока не фильтрует payroll по выбранному ресторану, филиалу или подразделению. Чтобы не показать чужие данные, показатели ФОТ для этого контура скрыты.</span></div></div>}
