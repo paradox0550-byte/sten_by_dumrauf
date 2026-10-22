@@ -6,6 +6,7 @@ const rows: PnlDraftRow[] = [
   { id: 'revenue', article: 'Выручка', plan: 10_000_000, fact: 9_000_000 },
   { id: 'food-revenue', article: 'Выручка кухни', plan: 7_000_000, fact: 6_000_000 },
   { id: 'cogs', article: 'Себестоимость', plan: -2_800_000, fact: -2_700_000 },
+  { id: 'food-cogs', article: 'Себестоимость кухни', plan: -2_800_000, fact: -2_700_000 },
   { id: 'payroll', article: 'ФОТ', plan: -3_000_000, fact: -2_900_000 },
   { id: 'opex', article: 'OPEX', plan: -1_000_000, fact: -950_000 },
 ];
@@ -35,6 +36,11 @@ describe('calculatePnlMetrics', () => {
     const result = calculatePnlMetrics(rows.filter((row) => row.article !== 'Выручка кухни'), 'plan');
     expect(result.foodCostPercent).toBeUndefined();
     expect(result.cogsPercent).toBeCloseTo(28);
+  });
+
+  it('does not calculate Food Cost without food-specific COGS', () => {
+    const result = calculatePnlMetrics(rows.filter((row) => row.article !== 'Себестоимость кухни'), 'plan');
+    expect(result.foodCostPercent).toBeUndefined();
   });
 
   it('permits negative gross profit when signed cost exceeds revenue', () => {
