@@ -9859,6 +9859,7 @@ td.numeric,
   background-image: none !important;
 }
 
+* { font-size: inherit !important; }
 body { font-family: var(--font-sans) !important; font-size: var(--text-body) !important; }
 :where(h1, .h1, .page-title, .page h1, .page-head h1) { font-size: var(--text-page-title) !important; }
 :where(h2, h3, .h2, .h3, .section-title, .panel-title, .operational-section-heading) { font-size: var(--text-section-title) !important; }
