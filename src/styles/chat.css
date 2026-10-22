@@ -580,3 +580,40 @@
     min-width: 0;
   }
 }
+
+
+/* Browser-native speech controls for STEN AI */
+.sten-ai-audio-toggle,
+.sten-ai-speech-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  border: 1px solid var(--border-subtle, rgba(148, 163, 184, .28));
+  border-radius: 9px;
+  background: var(--bg-surface, transparent);
+  color: var(--text-secondary, inherit);
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+.sten-ai-audio-toggle { width: 36px; flex: 0 0 36px; }
+.sten-ai-speech-button { padding: 6px 10px; font: inherit; font-size: 12px; }
+.sten-ai-audio-toggle:hover,
+.sten-ai-speech-button:hover:not(:disabled) {
+  color: var(--text-primary, inherit);
+  border-color: var(--border-strong, rgba(148, 163, 184, .5));
+}
+.sten-ai-speech-button:disabled {
+  opacity: .42;
+  cursor: not-allowed;
+}
+.sten-ai-speech-action {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 12px 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sten-ai-audio-toggle,
+  .sten-ai-speech-button { transition: none; }
+}
