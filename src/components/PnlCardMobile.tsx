@@ -23,7 +23,7 @@ export default function PnlCardMobile({ row, revenueFact, onUpdate, onArticleCha
     <input className="pnl-v4-mobile-title" aria-label={'Название статьи: ' + row.article} title={row.article} value={row.article} readOnly={readOnly} onChange={(e) => onArticleChange(row.id, e.target.value)} />{readOnly && <small title="Расчётная строка — значение формируется автоматически">АВТО · только чтение</small>}
     <div className="pnl-v4-mobile-planfact">
       <label>План<input inputMode="decimal" aria-label={'План: ' + row.article} placeholder="—" value={formatMoneyInput(row.plan, scale)} readOnly={readOnly} onChange={(e) => onUpdate(row.id, 'plan', e.target.value)} /></label>
-      <label>Факт<input inputMode="decimal" aria-label={'Факт: ' + row.article} placeholder="—" value={formatMoneyInput(row.fact, scale)} onChange={(e) => onUpdate(row.id, 'fact', e.target.value)} /></label>
+      <label>Факт<input inputMode="decimal" aria-label={'Факт: ' + row.article} placeholder="—" value={formatMoneyInput(row.fact, scale)} readOnly={readOnly} onChange={(e) => onUpdate(row.id, 'fact', e.target.value)} /></label>
     </div>
     <div className={'pnl-v4-mobile-delta ' + tone}><span>{delta === undefined ? '—' : (delta > 0 ? '+' : '') + money(delta!)}</span><span>{fmt(pct)}</span></div>
     <small className="pnl-v4-mobile-share">Доля выручки: {fmt(share)}</small>
