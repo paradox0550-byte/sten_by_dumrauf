@@ -26,7 +26,7 @@ export function StenLogo({
   const height = lockup ? 132 : markOnly ? 256 : 96;
 
   const cssVars = {
-    '--sten-brand': '#5B7CFA',
+    '--sten-brand': 'var(--color-brand, #126b67)',
     '--sten-ink': 'var(--text-primary, #0B0D10)',
     '--sten-muted': 'var(--text-secondary, #5B6578)',
   } as CSSProperties;
