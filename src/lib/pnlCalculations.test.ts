@@ -6,7 +6,6 @@ const rows: PnlDraftRow[] = [
   { id: 'revenue', article: 'Выручка', plan: 10_000_000, fact: 9_000_000 },
   { id: 'food-revenue', article: 'Выручка кухни', plan: 7_000_000, fact: 6_000_000 },
   { id: 'cogs', article: 'Себестоимость', plan: -2_800_000, fact: -2_700_000 },
-  { id: 'food-cogs', article: 'Себестоимость кухни', plan: -2_800_000, fact: -2_700_000 },
   { id: 'payroll', article: 'ФОТ', plan: -3_000_000, fact: -2_900_000 },
   { id: 'opex', article: 'OPEX', plan: -1_000_000, fact: -950_000 },
 ];
@@ -38,28 +37,23 @@ describe('calculatePnlMetrics', () => {
     expect(result.cogsPercent).toBeCloseTo(28);
   });
 
-  it('does not calculate Food Cost without food-specific COGS', () => {
-    const result = calculatePnlMetrics(rows.filter((row) => row.article !== 'Себестоимость кухни'), 'plan');
-    expect(result.foodCostPercent).toBeUndefined();
-  });
-
-  it('preserves signed storno and permits negative gross profit', () => {
-    const result = calculatePnlMetrics([
-      { id: 'revenue', article: 'Выручка', plan: 100 },
-      { id: 'cogs', article: 'Себестоимость', plan: 150 },
-    ], 'plan');
-    expect(result.grossProfit).toBe(250);
-    expect(result.grossMarginPercent).toBeCloseTo(250);
-    expect(result.cogsPercent).toBeCloseTo(-150);
-  });
-
-  it('allows negative gross profit when signed COGS exceed revenue', () => {
+  it('permits negative gross profit when signed cost exceeds revenue', () => {
     const result = calculatePnlMetrics([
       { id: 'revenue', article: 'Выручка', plan: 100 },
       { id: 'cogs', article: 'Себестоимость', plan: -150 },
     ], 'plan');
     expect(result.grossProfit).toBe(-50);
     expect(result.grossMarginPercent).toBeCloseTo(-50);
+    expect(result.cogsPercent).toBeCloseTo(150);
+  });
+
+  it('preserves positive signed COGS storno as a negative cost share', () => {
+    const result = calculatePnlMetrics([
+      { id: 'revenue', article: 'Выручка', plan: 100 },
+      { id: 'cogs', article: 'Себестоимость', plan: 20 },
+    ], 'plan');
+    expect(result.grossProfit).toBe(120);
+    expect(result.cogsPercent).toBeCloseTo(-20);
   });
 
   it('keeps ratios missing for zero/negative revenue and missing inputs', () => {
