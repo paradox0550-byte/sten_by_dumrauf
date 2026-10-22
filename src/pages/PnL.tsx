@@ -1,5 +1,5 @@
 import{useEffect,useState}from'react';
-import{CheckCircle2,Copy,Download,FileSpreadsheet,LayoutTemplate,Plus,Receipt,RefreshCw,Save,Trash2,Upload,X}from'lucide-react';
+import{CheckCircle2,Copy,Download,FileSpreadsheet,LayoutTemplate,Plus,Receipt,RefreshCw,Save,Upload,X}from'lucide-react';
 import{useNavigate}from'react-router-dom';
 import WorkspaceSelector from '../components/WorkspaceSelector';
 import PnlTable from '../components/PnlTable';
@@ -47,7 +47,7 @@ export default function PnL(){
  async function load(){setLoading(true);setLoadUnavailable(false);setMessage('');setMessageKind('info');try{const x=await api.get<unknown>('/api/pnl?'+scopeQuery(scope));const envelope=typeof x==='object'&&x!==null?x as PnlEnvelope:{};const raw=Array.isArray(envelope.rows)?envelope.rows:[];setServerCalc(envelope.summary?.calculated??null);const mapped=raw.map(fromApi);const normalized=aggregateFinancialRows(mapped);setRows(normalized.map((r,i)=>({...r,id:canonicalArticleKey(r.article)||'row-'+i})) as PnlDraftRow[]);const a=await api.get<any>('/api/pnl/approval?'+scopeQuery(scope)).catch(()=>null);if(a){setApproval(a.status==='approved'?'approved':'draft');setCanApprove(Boolean(a.canApprove))}return normalized}catch(e){setRows([]);setServerCalc(null);const status=typeof e==='object'&&e!==null&&'status'in e?(e as {status?:number}).status:undefined;setLoadUnavailable(true);setMessage(status===503?'Данные временно недоступны':(e instanceof Error?e.message:'Не удалось загрузить P&L'));setMessageKind('warn');return null}finally{setLoading(false)}}
  useEffect(()=>{void load()},[scope.period,scope.projectId,scope.branchId,scope.restaurantId,scope.departmentId]);
  const revenue=rows.find(r=>canonicalArticleKey(r.article)==='revenue');const cogs=rows.find(r=>canonicalArticleKey(r.article)==='cogs');const payroll=rows.find(r=>canonicalArticleKey(r.article)==='payroll');const opex=rows.find(r=>canonicalArticleKey(r.article)==='opex');
- const hasAggregatedOpex=rows.some(r=>canonicalArticleKey(r.article)==='opex'); const planRevenue=revenue?.plan;
+ const planRevenue=revenue?.plan;
  const planCogs=cogs?.plan;
  const planPayroll=payroll?.plan;
  const planOpex=opex?.plan;
