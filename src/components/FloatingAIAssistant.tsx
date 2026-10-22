@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FileText, MessageCircle, Plus, X } from 'lucide-react';
-import stenAILogo from '../assets/sten-ai-logo.svg';
+import StenHeraldicLogo from './icons/StenHeraldicLogo';
 import './FloatingAIAssistant.css';
 
 type AIStatus = 'ready' | 'working' | 'error';
@@ -61,7 +61,7 @@ export default function FloatingAIAssistant() {
       onPointerDown={onPointerDown} onPointerUp={onPointerEnd} onPointerLeave={onPointerEnd}
       onContextMenu={(event) => { event.preventDefault(); setMenuOpen(true); }}
       onClick={() => { if (longPressed.current) { longPressed.current = false; return; } openChat(); }}>
-      <img src={stenAILogo} alt="" aria-hidden="true" />
+      <StenHeraldicLogo />
       <span className="sten-floating-ai__status" aria-hidden="true" />
     </button>
   </div>;
