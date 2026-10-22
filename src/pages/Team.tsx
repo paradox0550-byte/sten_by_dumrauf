@@ -21,7 +21,8 @@ type CustomPosition = { id: string; department: string; position: string };
 type CustomPositionMap = Record<string, CustomPosition>;
 const emptyPlan = (): PositionPlan => ({ headcount: '', hoursPerPerson: '', hourlyRate: '' });
 const planNumber = (value: string) => value.trim() === '' ? null : n(value.replace(',', '.'));
-const positionKey = (department: string, position: string) => department + '::' + position;\nconst CUSTOM_DEPARTMENT_OPTIONS = DEPARTMENT_TEMPLATE.map(dept => dept.name);
+const positionKey = (department: string, position: string) => department + '::' + position;
+const CUSTOM_DEPARTMENT_OPTIONS = DEPARTMENT_TEMPLATE.map(dept => dept.name);
 function readPositionPlan(key: string): PositionPlanMap {
   try { const value = localStorage.getItem(key); return value ? JSON.parse(value) as PositionPlanMap : {}; } catch { return {}; }
 }
@@ -225,7 +226,7 @@ export default function Team() {
         <label>Подразделение<select value={customDepartment} onChange={event => setCustomDepartment(event.target.value)}>{CUSTOM_DEPARTMENT_OPTIONS.map(name => <option key={name} value={name}>{name}</option>)}</select></label>
         <label>Название должности<input value={customPositionName} maxLength={100} onChange={event => { setCustomPositionName(event.target.value); setCustomPositionError(''); }} placeholder="Например, су-шеф ночной смены" /></label>
         <button className="secondary-button" type="button" onClick={() => {
-          const name = customPositionName.trim().replace(/\\s+/g, ' ');
+          const name = customPositionName.trim().replace(/\s+/g, ' ');
           if (!name) { setCustomPositionError('Введите название должности.'); return; }
           const duplicate = [...DEPARTMENT_TEMPLATE.flatMap(dept => dept.positions.map(position => ({ department: dept.name, position }))), ...Object.values(customPositions)].some(item => item.department === customDepartment && item.position.toLocaleLowerCase('ru-RU') === name.toLocaleLowerCase('ru-RU'));
           if (duplicate) { setCustomPositionError('Такая должность уже есть в выбранном подразделении.'); return; }
