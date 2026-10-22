@@ -51,7 +51,7 @@ export function classifyExpense(
   }
 
   for (const [keyword, type] of KEYWORD_MAPPING) {
-    if (name.includes(keyword)) return type;
+    if (name.includes(keyword) || (id && id.includes(keyword))) return type;
   }
   return 'unknown';
 }
