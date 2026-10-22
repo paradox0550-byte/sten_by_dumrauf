@@ -65,7 +65,6 @@ export function calculateEmployeeMonth(
   const rate = parseFotRate(employeeData.rate);
   const payType = employeeData.payType;
   const normHours = Number.isFinite(config.normHours) && config.normHours >= 0 ? config.normHours : null;
-  const exactHours = employeeData.days.reduce((sum, day) => sum + (day.kind === 'hours' && Number.isFinite(day.hours) && day.hours > 0 ? day.hours : 0), 0);
   const shifts = employeeData.days.filter(day => day.kind === 'shift' || day.kind === 'hours').length;
   const explicitShiftHours = employeeData.days.reduce((sum, day) => sum + (
     day.kind === 'hours' ? Math.max(0, day.hours) :
