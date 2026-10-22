@@ -60,7 +60,8 @@ export const EXPENSE_CLASSIFICATION_STORAGE_KEY = 'sten:pnl:expense-classificati
 
 export function readLocalClassificationOverrides(storage?: Pick<Storage, 'getItem'>): LocalClassificationOverride {
   try {
-    const raw = storage?.getItem(EXPENSE_CLASSIFICATION_STORAGE_KEY);
+    const target = storage ?? (typeof window !== 'undefined' ? window.localStorage : undefined);
+    const raw = target?.getItem(EXPENSE_CLASSIFICATION_STORAGE_KEY);
     if (!raw) return {};
     const parsed: unknown = JSON.parse(raw);
     const result = LocalClassificationOverrideSchema.safeParse(parsed);
@@ -77,7 +78,8 @@ export function writeLocalClassificationOverrides(
   const parsed = LocalClassificationOverrideSchema.safeParse(overrides);
   if (!parsed.success) return false;
   try {
-    storage?.setItem(EXPENSE_CLASSIFICATION_STORAGE_KEY, JSON.stringify(parsed.data));
+    const target = storage ?? (typeof window !== 'undefined' ? window.localStorage : undefined);
+    target?.setItem(EXPENSE_CLASSIFICATION_STORAGE_KEY, JSON.stringify(parsed.data));
     return true;
   } catch {
     return false;
