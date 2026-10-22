@@ -28,7 +28,14 @@ const starters=[
  {eyebrow:'Операции',title:'План на сегодня',description:'Приоритеты и конкретные действия управляющего',prompt:'Собери план действий для управляющего на сегодня'},
  {eyebrow:'Команда',title:'Проверить ФОТ',description:'Часы, производительность и цена отклонения',prompt:'Проверь ФОТ: часы, производительность и стоимость отклонения'},
 ];
-const supported=new Set(['pdf','docx','xlsx','xlsm','xls','csv','txt','md','json','png','jpg','jpeg','webp','tiff','bmp']);const MAX_DOC_BYTES=15*1024*1024;const LEGACY_KEY='sten_chat_v5';
+const supported=new Set(['pdf','docx','xlsx','xlsm','xls','csv','txt','md','json','png','jpg','jpeg','webp','tiff','bmp']);
+type PersonalMode='concise'|'analyst'|'coach';
+const PERSONAL_MODES:{id:PersonalMode;label:string;instruction:string}[]=[
+ {id:'concise',label:'Кратко',instruction:'Режим общения: КРАТКО И ПО ДЕЛУ. Сначала дай прямой вывод, затем до 3 главных аргументов и конкретные следующие действия. Не перегружай ответ.'},
+ {id:'analyst',label:'Аналитик',instruction:'Режим общения: АНАЛИТИК. Проверяй доступные данные, отделяй факты от гипотез, показывай причины, финансовые последствия, риски и формулы, если они применимы. Не выдумывай отсутствующие данные; явно отмечай ограничения.'},
+ {id:'coach',label:'Наставник',instruction:'Режим общения: НАСТАВНИК УПРАВЛЯЮЩЕГО. Объясняй логику решений, помогай развивать управленческое мышление и давай последовательный план действий с ответственными и критериями результата, если контекст это позволяет.'},
+];
+const PERSONAL_MODE_KEY='sten_ai_personal_mode';const MAX_DOC_BYTES=15*1024*1024;const LEGACY_KEY='sten_chat_v5';
 function chatKey(user:{id?:string;organizationId?:string|null}|null){return user?.id?`sten_chat_v5:${user.organizationId||'no-org'}:${user.id}`:null;}
 function readMessages(key:string|null):Msg[]{if(!key)return[];try{const raw=localStorage.getItem(key);const parsed=raw?JSON.parse(raw):[];return Array.isArray(parsed)?parsed:[]}catch{return[]}}
 function to64(file:File){return new Promise<string>((ok,no)=>{const r=new FileReader();r.onload=()=>{const s=String(r.result);ok(s.includes(',')?s.split(',')[1]:s)};r.onerror=()=>no(r.error);r.readAsDataURL(file)})}
@@ -53,6 +60,8 @@ function AIContent({user}:{user:User|null}){
  const[docs,setDocs]=useState<Doc[]>([]);
  const loadSeqRef=useRef(0);
  const[busy,setBusy]=useState(false);
+  const[personalMode,setPersonalMode]=useState<PersonalMode>(()=>{try{const value=localStorage.getItem(PERSONAL_MODE_KEY);return PERSONAL_MODES.some(mode=>mode.id===value)?value as PersonalMode:'analyst'}catch{return 'analyst'}});
+  useEffect(()=>{try{localStorage.setItem(PERSONAL_MODE_KEY,personalMode)}catch{}},[personalMode]);
  const[upload,setUpload]=useState(false);
  const[previewDoc,setPreviewDoc]=useState<DocPreview|null>(null);
  const[previewBusy,setPreviewBusy]=useState(false);
@@ -130,7 +139,14 @@ function AIContent({user}:{user:User|null}){
    try{
      const body: AskRequest = {
        question: text,
-       messages: nextMsgs.map(m => ({ role: m.role, content: m.text })),
+       messages: [
+          { role: 'system', content: [
+            `Пользователя зовут ${user?.firstName?.trim()||'Александр'}. ${user?.position?.trim()?`Должность пользователя: ${user.position.trim()}.`:''} Обращайся по имени естественно и уместно, не повторяй имя в каждом сообщении. Отвечай на русском языке.`,
+            PERSONAL_MODES.find(mode=>mode.id===personalMode)?.instruction||PERSONAL_MODES[1].instruction,
+            'Правила STEN: не выдумывай показатели; отсутствие данных не равно нулю; явно указывай источник, формулу и ограничения, когда это важно. Не утверждай, что выполнил действие, если оно не выполнено.'
+          ].join(' ') },
+          ...nextMsgs.slice(-49).map(m => ({ role: m.role, content: m.text })),
+        ],
        scope: {
          period: scope.period,
          project_id: scope.projectId ?? null,
@@ -288,6 +304,7 @@ function AIContent({user}:{user:User|null}){
          <span className="chat-head__label">РАБОЧИЙ ДИАЛОГ</span>
          <span className="chat-head__context"><span className="chat-head__dot"/>{hasScopeId(scope)?'Используется выбранный контур':'Финансовый контур не выбран'}</span>
          <span className="chat-head__documents"><FileText size={13}/>{readyCount} {readyCount===1?'документ готов':'документов готовы'}</span>
+          <label className="sten-ai-mode-control"><span>РЕЖИМ</span><select aria-label="Режим общения STEN AI" value={personalMode} onChange={event=>setPersonalMode(event.target.value as PersonalMode)} disabled={busy}><option value="concise">Кратко</option><option value="analyst">Аналитик</option><option value="coach">Наставник</option></select></label>
        </div>
        {appearanceOpen&&<AppearanceDrawer onClose={()=>setAppearanceOpen(false)}/>}
 
