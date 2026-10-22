@@ -580,3 +580,11 @@
     min-width: 0;
   }
 }
+
+
+/* STEN AI: compact persistent conversation-mode selector */
+.sten-ai-mode-control{display:inline-flex;align-items:center;gap:7px;min-width:0;margin-left:auto;padding:4px 7px;border:1px solid var(--border-subtle,rgba(127,127,127,.28));border-radius:9px;background:var(--bg-surface,transparent);}
+.sten-ai-mode-control>span{font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--text-muted,#7b8494);white-space:nowrap;}
+.sten-ai-mode-control select{max-width:124px;min-width:0;border:0;outline-offset:2px;background:transparent;color:var(--text-primary,inherit);font:inherit;font-size:12px;font-weight:600;cursor:pointer;}
+.sten-ai-mode-control select:disabled{opacity:.65;cursor:wait;}
+@media(max-width:640px){.sten-ai-mode-control{gap:4px;padding:4px 5px}.sten-ai-mode-control>span{display:none}.sten-ai-mode-control select{max-width:104px;font-size:11px}}
