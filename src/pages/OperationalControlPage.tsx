@@ -52,7 +52,7 @@ export default function OperationalControlPage() {
   const [txComment, setTxComment] = useState('');
   const [txSaving, setTxSaving] = useState(false);
 
-  async function load() {
+  async function load(): Promise<boolean> {
     setLoading(true); setError(''); setMessage(''); setPnlError('');
     const q = new URLSearchParams({ date, ...Object.fromEntries(new URLSearchParams(scopeQuery(scope))) });
     try {
@@ -67,9 +67,11 @@ export default function OperationalControlPage() {
       for (const f of FIELDS) { const v = found?.values?.[f.key]; next[f.key] = v == null ? '' : String(v); }
       setForm(next);
       setEditing(!found);
+      return pnlData !== null;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось загрузить данные дня.');
       setR(null); setPnl(null); setEditing(true);
+      return false;
     } finally { setLoading(false); }
   }
 
@@ -138,8 +140,10 @@ export default function OperationalControlPage() {
       const body: PnlTransactionRequest = { period: date.slice(0, 7), date: txDate, type: txType, article: txArticle, amount, comment: txComment.trim() || null, project_id: scope.projectId ?? '', branch_id: scope.branchId ?? '', restaurant_id: scope.restaurantId ?? '', department_id: scope.departmentId ?? '' };
       await api.post('/api/pnl/transactions', PnlTransactionSchema.parse(body));
       setTxOpen(false); setTxAmount(''); setTxComment('');
-      await load();
-      setMessage((txType === 'income' ? 'Доход' : 'Расход') + ' отправлен. P&L обновлён из источника.');
+      const pnlReloaded = await load();
+      setMessage(pnlReloaded
+        ? (txType === 'income' ? 'Доход' : 'Расход') + ' сохранен. Данные P&L повторно загружены.'
+        : (txType === 'income' ? 'Доход' : 'Расход') + ' сохранен, но P&L не удалось обновить. Проверьте предупреждение и повторите загрузку.');
     } catch (e) { setError(e instanceof Error ? e.message : 'Не удалось сохранить финансовую операцию.'); }
     finally { setTxSaving(false); }
   }
