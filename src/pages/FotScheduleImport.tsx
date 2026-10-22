@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { calculateEmployeeMonth, calculateTotalFOT, inferFotPayType, type FotPayType, type FotEmployeeCalculation } from '../lib/fotCalculator';
 import { AlertCircle, FileSpreadsheet, UploadCloud } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -19,6 +19,22 @@ type ScheduleRow = {
   sourceRow: number;
   shifts: Array<{ date: string; label: string; value: ShiftCell }>;
 };
+
+type FotHistoryRecord = { scopeKey: string; period: string; savedAt: string; fileName: string; normHours: number; ndfl: number | null; calculations: FotEmployeeCalculation[]; totals: ReturnType<typeof calculateTotalFOT> };
+type StoredFotHistory = { version: 1; records: FotHistoryRecord[] };
+const FOT_HISTORY_KEY = 'sten_fot_history_v1';
+const previousPeriod = (period: string) => { const [year, month] = period.split('-').map(Number); return new Date(Date.UTC(year, month - 2, 1)).toISOString().slice(0, 7); };
+function readFotHistory(): FotHistoryRecord[] {
+  try {
+    const raw = localStorage.getItem(FOT_HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as StoredFotHistory;
+    return parsed?.version === 1 && Array.isArray(parsed.records)
+      ? parsed.records.filter(record => record && typeof record.scopeKey === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(record.period) && Array.isArray(record.calculations) && record.totals)
+      : [];
+  } catch { return []; }
+}
+const signedNumber = (value: number | null, suffix = '') => value == null ? '—' : `${value > 0 ? '+' : value < 0 ? '−' : ''}${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(Math.abs(value))}${suffix}`;
 
 type ParsedSchedule = {
   fileName: string;
@@ -88,7 +104,7 @@ const findColumn = (headers: string[], words: string[]) =>
   headers.findIndex(header => words.some(word => normalize(header).includes(word)));
 const columnLabel = (headers: string[], index: number) => index >= 0 ? headers[index] || 'Столбец ' + (index + 1) : 'Не определён';
 
-export default function FotScheduleImport({ period }: { period: string }) {
+export default function FotScheduleImport({ period, historyScope = 'all' }: { period: string; historyScope?: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [parsed, setParsed] = useState<ParsedSchedule | null>(null);
   const [error, setError] = useState('');
@@ -98,6 +114,11 @@ export default function FotScheduleImport({ period }: { period: string }) {
   const [ndfl, setNdfl] = useState('');
   const [payTypes, setPayTypes] = useState<Record<number, FotPayType | null>>({});
   const [calculations, setCalculations] = useState<FotEmployeeCalculation[] | null>(null);
+  const [history, setHistory] = useState<FotHistoryRecord[]>([]);
+  const [historyPeriod, setHistoryPeriod] = useState(period);
+  const [historyWarning, setHistoryWarning] = useState('');
+  useEffect(() => { setHistory(readFotHistory()); }, []);
+  useEffect(() => { setHistoryPeriod(period); }, [period]);
   const [pending, setPending] = useState<{ fileName: string; sheetName: string; headers: string[]; rows: unknown[][]; dateColumns: Array<{ index: number; date: string; label: string }> } | null>(null);
 
   const finishParse = (source: NonNullable<typeof pending>, columns: { employee: number; position: number; rate: number }) => {
@@ -196,9 +217,28 @@ export default function FotScheduleImport({ period }: { period: string }) {
       }),
     }, { normHours: norm }));
     setCalculations(results);
+    const totalsForSave = calculateTotalFOT(results, { normHours: norm });
+    const record: FotHistoryRecord = { scopeKey: historyScope, period, savedAt: new Date().toISOString(), fileName: parsed.fileName, normHours: norm, ndfl: ndfl.trim() === '' ? null : Number(ndfl.replace(',', '.')), calculations: results, totals: totalsForSave };
+    try {
+      const existing = readFotHistory().filter(item => !(item.scopeKey === historyScope && item.period === period));
+      const sameScope = [...existing.filter(item => item.scopeKey === historyScope), record].sort((a, b) => b.period.localeCompare(a.period)).slice(0, 36);
+      const nextHistory = [...existing.filter(item => item.scopeKey !== historyScope), ...sameScope]
+        .sort((a, b) => a.scopeKey.localeCompare(b.scopeKey) || b.period.localeCompare(a.period));
+      localStorage.setItem(FOT_HISTORY_KEY, JSON.stringify({ version: 1, records: nextHistory } satisfies StoredFotHistory));
+      setHistory(nextHistory); setHistoryPeriod(period); setHistoryWarning('');
+    } catch { setHistoryWarning('Расчёт выполнен, но браузер не разрешил сохранить историю. История не синхронизируется между устройствами.'); }
     setError('');
   };
   const totals = calculations ? calculateTotalFOT(calculations, { normHours: Number(normHours.replace(',', '.')) }) : null;
+  const scopeHistory = history.filter(record => record.scopeKey === historyScope).sort((a, b) => b.period.localeCompare(a.period));
+  const selectedHistory = scopeHistory.find(record => record.period === historyPeriod) ?? null;
+  const previousHistory = selectedHistory ? scopeHistory.find(record => record.period === previousPeriod(selectedHistory.period)) ?? null : null;
+  const historyDelta = (current: number | null, prior: number | null) => {
+    if (current == null || prior == null) return '—';
+    const difference = current - prior;
+    const percent = prior === 0 ? '' : ` (${(difference / Math.abs(prior) * 100).toLocaleString('ru-RU', { maximumFractionDigits: 1, signDisplay: 'always' })}%)`;
+    return signedNumber(difference) + percent;
+  };
   const manualNdfl = ndfl.trim() === '' ? null : Number(ndfl.replace(',', '.'));
   const moneyLabel = (amount: number | null | undefined) => amount == null
     ? '—'
@@ -256,5 +296,19 @@ export default function FotScheduleImport({ period }: { period: string }) {
         {calculations && totals && totals.employeesWithErrors > 0 && <p className="fot-calculation-warning">Расчёт требует проверки: {totals.employeesWithErrors} сотрудник(ов) имеют неполные или неоднозначные данные. Общие итоги не подменяются нулями.</p>}
       </section>
     </div>}
+    {historyWarning && <div className="fot-import-warning" role="status">{historyWarning}</div>}
+    {scopeHistory.length > 0 && <section className="fot-history-panel" aria-label="История ФОТ">
+      <div className="fot-history-heading"><div><span className="eyebrow">ЛОКАЛЬНАЯ ИСТОРИЯ</span><h3>ФОТ по месяцам</h3></div><label>Месяц<select value={selectedHistory?.period ?? ''} onChange={event => setHistoryPeriod(event.target.value)}>{scopeHistory.map(record => <option key={record.period} value={record.period}>{record.period}</option>)}</select></label></div>
+      <p className="fot-history-disclaimer">История хранится только в этом браузере на этом устройстве. Она не синхронизируется с другими устройствами и не является подтверждённым payroll-источником.</p>
+      {selectedHistory && <><div className="fot-history-meta"><span>Источник: {selectedHistory.fileName}</span><span>Сохранено: {new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(selectedHistory.savedAt))}</span></div>
+        <div className="fot-history-grid">
+          <div className="fot-history-metric"><span>Плановый ФОТ</span><strong>{moneyLabel(selectedHistory.totals.accrued)}</strong><small>К предыдущему месяцу: {previousHistory ? historyDelta(selectedHistory.totals.accrued, previousHistory.totals.accrued) : 'Нет сохранённого предыдущего месяца'}</small></div>
+          <div className="fot-history-metric"><span>Часы</span><strong>{selectedHistory.totals.hours == null ? '—' : new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(selectedHistory.totals.hours) + ' ч'}</strong><small>К предыдущему месяцу: {previousHistory ? historyDelta(selectedHistory.totals.hours, previousHistory.totals.hours) : 'Нет сохранённого предыдущего месяца'}</small></div>
+          <div className="fot-history-metric"><span>Переработка</span><strong>{selectedHistory.totals.overtimeHours == null ? '—' : new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(selectedHistory.totals.overtimeHours) + ' ч'}</strong><small>К предыдущему месяцу: {previousHistory ? historyDelta(selectedHistory.totals.overtimeHours, previousHistory.totals.overtimeHours) : 'Нет сохранённого предыдущего месяца'}</small></div>
+          <div className="fot-history-metric"><span>После НДФЛ</span><strong>{selectedHistory.totals.accrued == null || selectedHistory.ndfl == null ? '—' : moneyLabel(selectedHistory.totals.accrued - selectedHistory.ndfl)}</strong><small>{selectedHistory.ndfl == null ? 'НДФЛ не был введён вручную' : 'НДФЛ введён вручную'}</small></div>
+        </div>
+        {previousHistory && <p className="fot-history-compare">Сравнение: {selectedHistory.period} с {previousHistory.period}. Если база предыдущего месяца равна нулю, процентная динамика не показывается.</p>}
+      </>}
+    </section>}
   </section>;
 }
