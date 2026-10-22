@@ -24,7 +24,7 @@ export default function PnlRow({ row, revenueFact, onUpdate, onArticleChange, on
     <div className="pnl-v4-row-actions">
       <button type="button" title="Разобрать в AI" aria-label={'Разобрать в AI: ' + row.article} onClick={() => onAnalyze(row)}><MessageSquareText size={15} /></button>
       <button type="button" title="В Секретарь" aria-label={'Создать задачу по статье ' + row.article} onClick={() => onSecretary(row)}><Save size={15} /></button>
-      <button type="button" title="Удалить статью" aria-label={'Удалить статью ' + row.article} onClick={() => onRemove(row.id)}><Trash2 size={15} /></button>
+      {!readOnly && <button type="button" title="Удалить статью" aria-label={'Удалить статью ' + row.article} onClick={() => onRemove(row.id)}><Trash2 size={15} /></button>}
     </div>
   </div>;
 }
