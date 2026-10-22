@@ -18,7 +18,7 @@ export default function PnlRow({ row, revenueFact, onUpdate, onArticleChange, on
   return <div className="pnl-v4-grid pnl-v4-row">
     <div className="pnl-v4-article"><input aria-label={'Название статьи: ' + row.article} title={row.article} value={row.article} readOnly={readOnly} onChange={(e) => onArticleChange(row.id, e.target.value)} />{readOnly && <small title="Расчётная строка — значение формируется автоматически">АВТО · только чтение</small>}{row.source && <small title={row.source}>{row.source}</small>}</div>
     <label className="pnl-v4-edit-number"><span>План</span><input aria-label={'План: ' + row.article} inputMode="decimal" placeholder="—" value={formatMoneyInput(row.plan, scale)} readOnly={readOnly} onChange={(e) => onUpdate(row.id, 'plan', e.target.value)} /></label>
-    <label className="pnl-v4-edit-number"><span>Факт</span><input aria-label={'Факт: ' + row.article} inputMode="decimal" placeholder="—" value={formatMoneyInput(row.fact, scale)} onChange={(e) => onUpdate(row.id, 'fact', e.target.value)} /></label>
+    <label className="pnl-v4-edit-number"><span>Факт</span><input aria-label={'Факт: ' + row.article} inputMode="decimal" placeholder="—" value={formatMoneyInput(row.fact, scale)} readOnly={readOnly} onChange={(e) => onUpdate(row.id, 'fact', e.target.value)} /></label>
     <div className={'pnl-v4-delta ' + pnlDeltaTone(row.article, delta)} title="Факт минус план"><span>{valid(delta) ? (delta! > 0 ? '+' : '') + money(delta!) : '—'}</span><small>{formatPct(pct)}</small></div>
     <span className="pnl-v4-share">{formatPct(share)}</span>
     <div className="pnl-v4-row-actions">
