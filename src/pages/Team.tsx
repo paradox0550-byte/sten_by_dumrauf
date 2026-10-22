@@ -22,7 +22,6 @@ type CustomPositionMap = Record<string, CustomPosition>;
 const emptyPlan = (): PositionPlan => ({ headcount: '', hoursPerPerson: '', hourlyRate: '' });
 const planNumber = (value: string) => value.trim() === '' ? null : n(value.replace(',', '.'));
 const positionKey = (department: string, position: string) => department + '::' + position;
-const CUSTOM_DEPARTMENT_OPTIONS = DEPARTMENT_TEMPLATE.map(dept => dept.name);
 function readPositionPlan(key: string): PositionPlanMap {
   try { const value = localStorage.getItem(key); return value ? JSON.parse(value) as PositionPlanMap : {}; } catch { return {}; }
 }
@@ -44,6 +43,7 @@ const DEPARTMENT_TEMPLATE = [
   { name: 'Мойка и чистота', description: 'Санитарное состояние и готовность зон', positions: ['Посудомойщик зала', 'Уборщик производственных и гостевых зон'] },
   { name: 'Склад и приёмка', description: 'Приёмка, хранение и движение запасов', positions: ['Кладовщик / товаровед', 'Приёмщик товара (может совмещаться)'] },
 ] as const;
+const CUSTOM_DEPARTMENT_OPTIONS = DEPARTMENT_TEMPLATE.map(dept => dept.name);
 
 export default function Team() {
   const [scope] = useScope();
