@@ -5,6 +5,7 @@ import type { PnlDraftRow } from './pnl';
 const rows: PnlDraftRow[] = [
   { id: 'revenue', article: 'Выручка', plan: 10_000_000, fact: 9_000_000 },
   { id: 'food-revenue', article: 'Выручка кухни', plan: 7_000_000, fact: 6_000_000 },
+  { id: 'food-cogs', article: 'Себестоимость кухни', plan: -2_800_000, fact: -2_700_000 },
   { id: 'cogs', article: 'Себестоимость', plan: -2_800_000, fact: -2_700_000 },
   { id: 'food-cogs', article: 'Себестоимость кухни', plan: -2_800_000, fact: -2_700_000 },
   { id: 'payroll', article: 'ФОТ', plan: -3_000_000, fact: -2_900_000 },
