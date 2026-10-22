@@ -831,3 +831,33 @@ button:disabled,
     transform: none !important;
   }
 }
+
+
+/* STEN My Day — daily management workspace */
+.operational-day-actions { display:flex; align-items:end; flex-wrap:wrap; gap:8px; }
+.operational-day-actions .settings-field { margin:0; }
+.operational-section-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:24px 0 12px; }
+.operational-section-heading h2 { margin:5px 0 0; font-size:clamp(18px,2vw,22px); font-weight:650; letter-spacing:-.025em; }
+.operational-day-date { color:var(--text-secondary); font-size:13px; font-variant-numeric:tabular-nums; }
+.operational-transaction-panel { margin:12px 0 20px; }
+.operational-transaction-comment { grid-column:1 / -1; }
+.operational-hint { margin:12px 0 0; color:var(--text-secondary); font-size:12px; line-height:1.5; }
+.operational-day-summary { padding:16px; border:1px solid var(--border-subtle); border-radius:var(--radius-lg, 12px); background:var(--bg-surface); }
+.operational-summary-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+.operational-summary-head > div { display:grid; gap:4px; }
+.operational-summary-head strong { color:var(--text-primary); font-size:14px; }
+.operational-summary-head span { color:var(--text-secondary); font-size:12px; }
+.operational-insight-panel { margin-top:14px; }
+.operational-insight-panel p { margin:0 0 8px; color:var(--text-primary); line-height:1.55; }
+.operational-insight-panel small { color:var(--text-secondary); line-height:1.5; }
+.operational-control-toolbar { display:flex; align-items:end; justify-content:space-between; flex-wrap:wrap; gap:14px; }
+.operational-control-toolbar .operational-control-date { min-width:180px; margin:0; }
+.operational-control-toolbar .operational-control-import summary { cursor:pointer; min-height:40px; display:flex; align-items:center; color:var(--text-secondary); }
+@media(max-width:640px) {
+  .operational-control-toolbar { align-items:stretch; }
+  .operational-day-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; }
+  .operational-day-actions > button { justify-content:center; }
+  .operational-section-heading { align-items:flex-start; }
+  .operational-transaction-comment { grid-column:auto; }
+  .operational-summary-head { align-items:flex-start; }
+}
