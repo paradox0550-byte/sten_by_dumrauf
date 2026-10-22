@@ -95,3 +95,10 @@
   .fot-planner-summary strong { font-size: 17px; }
   .fot-planner-table { min-width: 920px; }
 }
+
+
+.fot-planner-heading-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.fot-planner-heading-actions .secondary-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; }
+@media (max-width: 680px) {
+  .fot-planner-heading-actions { justify-content: flex-start; }
+}
