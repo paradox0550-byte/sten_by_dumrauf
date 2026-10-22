@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { MessageSquareText, Save } from 'lucide-react';
 import { formatMoneyInput, type PnlDraftRow, type PnlScale } from '../lib/pnl';
-import { pnlDeltaTone } from '../lib/pnlPresentation';
+import { isPnlExpenseArticle, pnlDeltaTone } from '../lib/pnlPresentation';
 type Props = {
   row: PnlDraftRow; revenueFact?: number; scale: PnlScale;
   onUpdate: (id: string, field: 'plan' | 'fact', value: string) => void;
@@ -15,7 +15,7 @@ export default function PnlCardMobile({ row, revenueFact, onUpdate, onArticleCha
   const [revealed, setRevealed] = useState(false);
   const delta = valid(row.plan) && valid(row.fact) ? row.fact! - row.plan! : undefined;
   const pct = valid(row.plan) && valid(row.fact) && row.plan !== 0 ? delta! / Math.abs(row.plan!) * 100 : undefined;
-  const share = valid(row.fact) && valid(revenueFact) && revenueFact !== 0 ? row.fact! / revenueFact! * 100 : undefined;
+  const share = valid(row.fact) && valid(revenueFact) && revenueFact > 0 ? (isPnlExpenseArticle(row.article) ? Math.abs(row.fact!) : row.fact!) / revenueFact! * 100 : undefined;
   const tone = pnlDeltaTone(row.article, delta);
   const fmt = (v?: number) => valid(v) ? (v! > 0 ? '+' : '') + v!.toFixed(1).replace('.', ',') + '%' : '—';
   return <article className="pnl-v4-mobile-card" onTouchStart={(e) => { startX.current = e.touches[0]?.clientX ?? null; }} onTouchEnd={(e) => { if (startX.current === null) return; const diff = e.changedTouches[0].clientX - startX.current; if (diff < -36) setRevealed(false); if (diff > 36) setRevealed(true); startX.current = null; }}>
