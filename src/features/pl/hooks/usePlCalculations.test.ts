@@ -67,4 +67,16 @@ describe('expense classification', () => {
     expect(result.controllableProfit.fact).toBe(620);
     expect(result.controllableMargin.fact).toBeCloseTo(51.6667);
   });
+
+  it('allows a zero controllable OPEX subtotal when all detailed expenses are classified as uncontrollable', () => {
+    const result = calculateClassifiedPlData([
+      row('rev', 'Выручка', 1000, 1200),
+      row('cogs', 'Себестоимость', -250, -300),
+      row('payroll', 'ФОТ', -200, -220),
+      row('rent', 'Аренда помещения', -50, -60),
+    ]);
+    expect(result.controllableOpex.plan).toBe(0);
+    expect(result.controllableProfit.plan).toBe(550);
+    expect(result.canCalculateControllableProfit).toBe(true);
+  });
 });
