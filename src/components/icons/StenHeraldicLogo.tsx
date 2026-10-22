@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function StenHeraldicLogo() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" className="sten-fab-icon" role="img" aria-label="Герб STEN">
