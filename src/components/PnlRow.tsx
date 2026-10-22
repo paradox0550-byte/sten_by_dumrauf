@@ -12,7 +12,7 @@ const money = (v?: number) => valid(v) ? new Intl.NumberFormat('ru-RU', { maximu
 export default function PnlRow({ row, revenueFact, onUpdate, onArticleChange, onRemove, onAnalyze, onSecretary, scale }: Props) {
   const delta = valid(row.plan) && valid(row.fact) ? row.fact! - row.plan! : undefined;
   const pct = valid(row.plan) && valid(row.fact) && row.plan !== 0 ? delta! / Math.abs(row.plan!) * 100 : undefined;
-  const share = valid(row.fact) && valid(revenueFact) && revenueFact > 0 ? (isPnlExpenseArticle(row.article) ? Math.abs(row.fact!) : row.fact!) / revenueFact! * 100 : undefined;
+  const share = valid(row.fact) && typeof revenueFact === 'number' && Number.isFinite(revenueFact) && revenueFact > 0 ? (isPnlExpenseArticle(row.article) ? Math.abs(row.fact!) : row.fact!) / revenueFact! * 100 : undefined;
   const formatPct = (v?: number) => valid(v) ? (v! > 0 ? '+' : '') + v!.toFixed(1).replace('.', ',') + '%' : '—';
   return <div className="pnl-v4-grid pnl-v4-row">
     <div className="pnl-v4-article"><input aria-label={'Название статьи: ' + row.article} title={row.article} value={row.article} onChange={(e) => onArticleChange(row.id, e.target.value)} />{row.source && <small title={row.source}>{row.source}</small>}</div>
