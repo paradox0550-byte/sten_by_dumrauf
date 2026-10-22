@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, BarChart3, CalendarClock, ChefHat, ClipboardList, RefreshCw, Users, Wallet } from 'lucide-react';
+import { AlertTriangle, BarChart3, CalendarClock, ChefHat, ClipboardList, Download, RefreshCw, Users, Wallet } from 'lucide-react';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { scopeQuery } from '../lib/scope';
@@ -138,6 +138,31 @@ export default function Team() {
   const planComplete = completePlanRows.length === planRows.length;
   const hasScope = Boolean(scope.projectId || scope.branchId || scope.restaurantId || scope.departmentId);
 
+  function exportPositionPlan() {
+    const escapeCell = (value: string | number | null) => {
+      const text = value == null ? '' : String(value);
+      return '"' + text.replace(/"/g, '""') + '"';
+    };
+    const rows = [
+      ['Период', scope.period, 'Контур', scope.restaurantId || scope.branchId || scope.projectId || 'Организация'],
+      ['Подразделение', 'Должность', 'Ставки', 'Часов на ставку в месяц', 'Стоимость часа, ₽', 'План часов', 'Прогноз ФОТ, ₽'],
+      ...planRows.map(row => [
+        row.department, row.position, row.headcount, row.hoursPerPerson, row.hourlyRate,
+        row.plannedHours, row.plannedCost,
+      ]),
+    ];
+    const csv = '\\uFEFF' + rows.map(row => row.map(value => escapeCell(value)).join(';')).join('\\r\\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'sten-shtatny-plan-' + scope.period + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   return <div className="page analytics-page team-page fot-page">
     <header className="page-head fot-page-head">
       <div>
@@ -177,7 +202,7 @@ export default function Team() {
     </section>
 
     <section className="fot-section">
-      <div className="fot-section-heading"><div><span className="eyebrow">ПЛАНИРОВАНИЕ ШТАТА</span><h2>Штат, часы и прогноз стоимости</h2><p>Заполните план по должностям. STEN рассчитает штатную численность, месячные часы и прогноз ФОТ только по строкам с тремя введёнными параметрами.</p></div><span className="fot-source-tag">Локальный сценарий</span></div>
+      <div className="fot-section-heading"><div><span className="eyebrow">ПЛАНИРОВАНИЕ ШТАТА</span><h2>Штат, часы и прогноз стоимости</h2><p>Заполните план по должностям. STEN рассчитает штатную численность, месячные часы и прогноз ФОТ только по строкам с тремя введёнными параметрами.</p></div><div className="fot-planner-heading-actions"><span className="fot-source-tag">Локальный сценарий</span><button type="button" className="secondary-button" onClick={exportPositionPlan}><Download size={14} /> Экспорт плана CSV</button></div></div>
       <div className="fot-planner-summary">
         <article><small>Плановая численность, ставки</small><strong>{fmt(plannedHeadcount)}</strong></article>
         <article><small>План часов за месяц</small><strong>{fmt(plannedHours)}</strong></article>
