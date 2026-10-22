@@ -4,7 +4,7 @@ import { calculateClassifiedPlData } from './usePlCalculations';
 import { classifyExpense } from '../constants/expenseClassification';
 
 const row = (id: string, article: string, plan?: number | null, fact?: number | null): PnlDraftRow =>
-  ({ id, article, plan, fact });
+  ({ id, article, plan: plan ?? undefined, fact: fact ?? undefined });
 
 describe('expense classification', () => {
   it('classifies known keywords and leaves ambiguous articles unknown', () => {
