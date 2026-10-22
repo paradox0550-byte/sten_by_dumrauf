@@ -83,3 +83,47 @@
 .fot-history-compare { margin: 0; color: var(--text-secondary); font-size: 10px; line-height: 1.5; }
 @media (max-width: 760px) { .fot-history-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .fot-history-heading { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 420px) { .fot-history-grid { grid-template-columns: minmax(0, 1fr); } }
+
+
+.fot-analytics-panel { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; padding: 15px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--bg-surface); }
+.fot-analytics-toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.fot-analytics-toolbar h3 { margin: 4px 0; font-size: 15px; }
+.fot-analytics-toolbar p { margin: 4px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.5; }
+.fot-print-button { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.fot-analytics-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.fot-analytics-kpis > div { display: flex; flex-direction: column; gap: 7px; min-width: 0; padding: 11px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--bg-surface-subtle); }
+.fot-analytics-kpis span { color: var(--text-secondary); font-size: 10px; }
+.fot-analytics-kpis strong { font-size: 16px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.fot-trend-section { display: flex; flex-direction: column; gap: 12px; padding: 12px; border: 1px solid var(--border-subtle); border-radius: 8px; }
+.fot-trend-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px; }
+.fot-trend-heading strong { font-size: 12px; }
+.fot-trend-heading span { color: var(--text-secondary); font-size: 10px; }
+.fot-trend-chart { display: flex; align-items: stretch; gap: 9px; min-height: 145px; overflow-x: auto; padding-top: 8px; }
+.fot-trend-column { display: flex; flex: 1 0 38px; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; min-width: 38px; }
+.fot-trend-value { color: var(--text-secondary); font-size: 9px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fot-trend-track { display: flex; align-items: flex-end; justify-content: center; width: 100%; height: 92px; border-bottom: 1px solid var(--border-subtle); }
+.fot-trend-bar { width: min(24px, 70%); min-height: 0; border-radius: 4px 4px 0 0; background: var(--text-secondary); opacity: .55; }
+.fot-trend-bar.is-selected { background: var(--color-brand); opacity: 1; }
+.fot-trend-month { color: var(--text-secondary); font-size: 10px; }
+.fot-analytics-empty { margin: 0; color: var(--text-secondary); font-size: 11px; }
+.fot-analytics-table-wrap { max-width: 100%; overflow: auto; border: 1px solid var(--border-subtle); border-radius: 8px; }
+.fot-analytics-table { width: 100%; min-width: 680px; border-collapse: collapse; font-size: 11px; font-variant-numeric: tabular-nums; }
+.fot-analytics-table th, .fot-analytics-table td { padding: 9px 10px; border-bottom: 1px solid var(--border-subtle); text-align: left; vertical-align: top; }
+.fot-analytics-table th { color: var(--text-secondary); background: var(--bg-surface-subtle); font-weight: 650; }
+.fot-analytics-table td:last-child { white-space: normal; min-width: 160px; }
+.fot-analytics-table tr:last-child td { border-bottom: 0; }
+.fot-analytics-footnote { margin: 0; color: var(--text-secondary); font-size: 10px; line-height: 1.55; }
+@media (max-width: 680px) { .fot-analytics-toolbar { flex-direction: column; } .fot-analytics-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media print {
+  body * { visibility: hidden !important; }
+  .fot-analytics-panel, .fot-analytics-panel * { visibility: visible !important; }
+  .fot-analytics-panel { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: white !important; color: black !important; }
+  .fot-print-button { display: none !important; }
+  .fot-analytics-panel * { color: black !important; box-shadow: none !important; }
+  .fot-analytics-table-wrap { overflow: visible !important; }
+  .fot-analytics-table { min-width: 0 !important; font-size: 8pt !important; }
+  .fot-analytics-table th, .fot-analytics-table td { padding: 4px !important; border-color: #ccc !important; }
+  .fot-analytics-kpis > div, .fot-trend-section { background: white !important; border-color: #ccc !important; break-inside: avoid; }
+  .fot-trend-chart { min-height: 100px !important; }
+  @page { size: A4 landscape; margin: 12mm; }
+}
