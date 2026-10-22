@@ -92,9 +92,9 @@ export function calculateEmployeeMonth(
   let accrued: number;
   let breakdown: string;
   if (payType === 'hourly') {
-    accrued = exactHours * rate;
+    accrued = explicitShiftHours * rate;
     hours = explicitShiftHours;
-    breakdown = `${fmt(exactHours)} ч × ${fmt(rate)} ₽/ч = ${fmt(accrued)} ₽`;
+    breakdown = `${fmt(explicitShiftHours)} ч × ${fmt(rate)} ₽/ч = ${fmt(accrued)} ₽`;
   } else if (payType === 'shift') {
     accrued = shifts * rate;
     hours = explicitShiftHours;
