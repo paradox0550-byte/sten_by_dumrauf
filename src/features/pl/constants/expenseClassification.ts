@@ -56,8 +56,18 @@ export function classifyExpense(
   if (overrides) {
     const parsed = LocalClassificationOverrideSchema.safeParse(overrides);
     if (parsed.success) {
-      if (id && Object.prototype.hasOwnProperty.call(parsed.data, id)) return parsed.data[id];
-      if (Object.prototype.hasOwnProperty.call(parsed.data, name)) return parsed.data[name];
+      const findOverride = (candidate: string | undefined): ExpenseControlType | undefined => {
+        if (!candidate) return undefined;
+        if (Object.prototype.hasOwnProperty.call(parsed.data, candidate)) return parsed.data[candidate];
+        const normalized = normalizeExpenseKey(candidate);
+        if (Object.prototype.hasOwnProperty.call(parsed.data, normalized)) return parsed.data[normalized];
+        const matchingEntry = Object.entries(parsed.data).find(([key]) => normalizeExpenseKey(key) === normalized);
+        return matchingEntry?.[1];
+      };
+      const idOverride = findOverride(articleId);
+      if (idOverride) return idOverride;
+      const nameOverride = findOverride(articleName);
+      if (nameOverride) return nameOverride;
     }
   }
 
