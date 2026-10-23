@@ -270,7 +270,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               {theme === 'dark' ? <Sun size={17} /> : theme === 'light' ? <Moon size={17} /> : <Monitor size={17} />}
             </button>
           </div>
-          <div className="top-profile" title={user?.email || ''}>
+          <div
+            className="top-profile"
+            title={user?.email || 'Открыть настройки аккаунта'}
+            role="button"
+            tabIndex={0}
+            aria-label="Открыть настройки аккаунта"
+            onClick={() => navigate('/settings#settings-profile')}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                navigate('/settings#settings-profile');
+              }
+            }}
+          >
             <div className="avatar">{name.slice(0, 1)}</div>
             <div className="top-profile-info">
               <b>{name}</b>
