@@ -75,7 +75,7 @@ function AIContent({user}:{user:User|null}){
  const[composerFocused,setComposerFocused]=useState(false);
  useEffect(()=>{if(initialQuery)setPrompt(initialQuery)},[initialQuery]);
  useEffect(()=>{voiceModeRef.current=voiceMode},[voiceMode]);
- useEffect(()=>()=>{try{recog.current?.abort?.()}catch{};if(typeof window!=='undefined'&&'speechSynthesis' in window)window.speechSynthesis.cancel()},[]);
+ useEffect(()=>()=>{try{recog.current?.abort?.()}catch{} if(typeof window!=='undefined'&&'speechSynthesis' in window)window.speechSynthesis.cancel()},[]);
 
  useEffect(()=>{window.dispatchEvent(new CustomEvent('sten:ai-status',{detail:busy?'working':'ready'}))},[busy]);
  const[chatToast,setChatToast]=useState<string|null>(null);
