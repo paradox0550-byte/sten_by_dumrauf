@@ -69,9 +69,13 @@ function AIContent({user}:{user:User|null}){
  const[contextAt,setContextAt]=useState('');
  const[contextStatus,setContextStatus]=useState<'loading'|'both'|'partial'|'unavailable'>('loading');
  const[listening,setListening]=useState(false);
+ const[voiceMode,setVoiceMode]=useState(false);
+ const[voiceState,setVoiceState]=useState<'idle'|'listening'|'thinking'|'speaking'>('idle');
  const[appearanceOpen,setAppearanceOpen]=useState(false);
  const[composerFocused,setComposerFocused]=useState(false);
  useEffect(()=>{if(initialQuery)setPrompt(initialQuery)},[initialQuery]);
+ useEffect(()=>{voiceModeRef.current=voiceMode},[voiceMode]);
+ useEffect(()=>()=>{try{recog.current?.abort?.()}catch{};if(typeof window!=='undefined'&&'speechSynthesis' in window)window.speechSynthesis.cancel()},[]);
 
  useEffect(()=>{window.dispatchEvent(new CustomEvent('sten:ai-status',{detail:busy?'working':'ready'}))},[busy]);
  const[chatToast,setChatToast]=useState<string|null>(null);
@@ -79,6 +83,9 @@ function AIContent({user}:{user:User|null}){
  const file=useRef<HTMLInputElement>(null);
  const promptRef=useRef<HTMLTextAreaElement>(null);
  const recog=useRef<any>(null);
+ const speechRef=useRef<SpeechSynthesisUtterance|null>(null);
+ const voiceModeRef=useRef(false);
+ const finalTranscriptRef=useRef('');
  const chatBodyRef=useRef<HTMLDivElement>(null);
  const shouldAutoScrollRef=useRef(true);
 
@@ -157,7 +164,9 @@ function AIContent({user}:{user:User|null}){
      };
      const r = await api.post<AskResponse & { steps?: AskStep[]; total_ms?: number }>('/ask', AskRequestSchema.parse(body));
      const p = r;
-     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:String(p.answer??p.message??'Ответ не получен.'),sources:Array.isArray(p.sources)?p.sources:[],steps:Array.isArray(p.steps)?p.steps:undefined,totalMs:typeof p.total_ms==='number'?p.total_ms:undefined,proposedMemory:Array.isArray(p.proposed_memory)?p.proposed_memory:p.proposed_memory===null?null:undefined,model:typeof p.model==='string'?p.model:undefined,toolsUsed:Array.isArray(p.tools_used)?p.tools_used.map(t=>({name:t.name,ok:t.ok,ms:t.ms})):p.tools_used===null?null:undefined,createdAt:new Date().toISOString()}]);
+     const answer=String(p.answer??p.message??'Ответ не получен.');
+     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:answer,sources:Array.isArray(p.sources)?p.sources:[],steps:Array.isArray(p.steps)?p.steps:undefined,totalMs:typeof p.total_ms==='number'?p.total_ms:undefined,proposedMemory:Array.isArray(p.proposed_memory)?p.proposed_memory:p.proposed_memory===null?null:undefined,model:typeof p.model==='string'?p.model:undefined,toolsUsed:Array.isArray(p.tools_used)?p.tools_used.map(t=>({name:t.name,ok:t.ok,ms:t.ms})):p.tools_used===null?null:undefined,createdAt:new Date().toISOString()}]);
+     if(voiceModeRef.current)speakAnswer(answer);
    }catch(e){
      window.dispatchEvent(new CustomEvent('sten:ai-status',{detail:'error'}));
      const message = e instanceof ApiError && e.status === 503
@@ -166,6 +175,7 @@ function AIContent({user}:{user:User|null}){
          ? 'AI вернул ошибку. Повторите.'
          : e instanceof Error ? e.message : 'Не удалось получить ответ.';
      setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:message,createdAt:new Date().toISOString()}]);
+     if(voiceModeRef.current)setVoiceState('idle');
    }finally{setBusy(false)}
  }
 
@@ -197,25 +207,51 @@ function AIContent({user}:{user:User|null}){
    catch(e){setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось удалить документ.',createdAt:new Date().toISOString()}])}
  }
 
- function toggleVoice(){
-   if(!SR){setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:'Голосовой ввод не поддерживается этим браузером. Откройте STEN в Chrome или Edge.',createdAt:new Date().toISOString()}]);return}
-   if(listening){try{recog.current?.stop?.()}catch{}return}
-   const r=new SR();
-   r.lang='ru-RU';
-   r.interimResults=true;
-   r.continuous=false;
-   const base=prompt.trim();
-   r.onstart=()=>setListening(true);
-   r.onresult=(e:any)=>{
-     let text='';
-     for(let i=0;i<e.results.length;i++)text+=e.results[i][0].transcript;
-     setPrompt(((base?base+' ':'')+text).replace(/\s+/g,' ').trim());
-   };
-   r.onerror=()=>setListening(false);
-   r.onend=()=>setListening(false);
-   recog.current=r;
-   try{r.start()}catch{setListening(false)}
+ function stopSpeech(){
+   if(typeof window!=='undefined'&&'speechSynthesis' in window)window.speechSynthesis.cancel();
+   speechRef.current=null;
+   setVoiceState('idle');
  }
+ function speakAnswer(answer:string){
+   if(!('speechSynthesis' in window)||!answer.trim()){setVoiceState('idle');return}
+   window.speechSynthesis.cancel();
+   const plain=answer.replace(/\\[([^\\]]+)\\]\\([^)]*\\)/g,'$1').replace(/https?:\\/\\/\\S+/g,'').replace(/<[^>]*>/g,' ').replace(/```[\\s\\S]*?```/g,' Код опущен. ').replace(/[\\*_#>|]/g,' ').replace(/\\s+/g,' ').trim();
+   if(!plain){setVoiceState('idle');return}
+   const utterance=new SpeechSynthesisUtterance(plain.slice(0,12000));
+   utterance.lang='ru-RU';utterance.rate=1;
+   const russian=window.speechSynthesis.getVoices().find(voice=>/^ru([-_]|$)/i.test(voice.lang));
+   if(russian)utterance.voice=russian;
+   utterance.onstart=()=>setVoiceState('speaking');
+   utterance.onerror=()=>{speechRef.current=null;setVoiceState('idle')};
+   utterance.onend=()=>{speechRef.current=null;if(voiceModeRef.current)startRecognition();else setVoiceState('idle')};
+   speechRef.current=utterance;setVoiceState('speaking');window.speechSynthesis.speak(utterance);
+ }
+ function startRecognition(){
+   if(!SR){setVoiceState('idle');setListening(false);return}
+   try{recog.current?.abort?.()}catch{}
+   const r=new SR();r.lang='ru-RU';r.interimResults=true;r.continuous=false;finalTranscriptRef.current='';
+   const base=prompt.trim();
+   r.onstart=()=>{setListening(true);setVoiceState('listening')};
+   r.onresult=(e:any)=>{
+     let interim='';let finalText='';
+     for(let i=e.resultIndex;i<e.results.length;i++){const item=e.results[i];if(item.isFinal)finalText+=item[0].transcript;else interim+=item[0].transcript}
+     const recognized=(finalText||interim).replace(/\\s+/g,' ').trim();if(recognized)setPrompt(((base?base+' ':'')+recognized).trim());
+     if(finalText.trim()&&voiceModeRef.current&&!finalTranscriptRef.current){
+       finalTranscriptRef.current=finalText.trim();const question=((base?base+' ':'')+finalText).replace(/\\s+/g,' ').trim();setPrompt('');setListening(false);setVoiceState('thinking');window.speechSynthesis?.cancel?.();void ask(question);
+     }
+   };
+   r.onerror=(event:any)=>{setListening(false);if(voiceModeRef.current){setVoiceState('idle');if(event?.error==='not-allowed')showChatToast('Разрешите доступ к микрофону в настройках браузера.');else if(event?.error!=='aborted'&&event?.error!=='no-speech')showChatToast('Не удалось распознать речь. Попробуйте ещё раз.')}};
+   r.onend=()=>{setListening(false);if(!voiceModeRef.current)setVoiceState('idle')};recog.current=r;
+   try{r.start()}catch{setListening(false);setVoiceState('idle');showChatToast('Не удалось запустить микрофон. Проверьте разрешения браузера.')}
+ }
+ function toggleVoice(){
+   if(!SR){showChatToast('Голосовой ввод недоступен в этом браузере. Попробуйте Chrome или Edge.');return}
+   if(voiceMode){voiceModeRef.current=false;setVoiceMode(false);try{recog.current?.abort?.()}catch{}stopSpeech();setListening(false);return}
+   voiceModeRef.current=true;setVoiceMode(true);
+   if(!('speechSynthesis' in window))showChatToast('Голосовой ответ не поддерживается этим браузером.');
+   if(window.speechSynthesis?.speaking)stopSpeech();startRecognition();
+ }
+ function interruptVoice(){stopSpeech();try{recog.current?.abort?.()}catch{}if(voiceModeRef.current)startRecognition()}
 
  const readyCount=docs.filter(d=>d.status==='ready').length;
  const showChatToast=(message:string)=>setChatToast(message);
@@ -391,13 +427,15 @@ function AIContent({user}:{user:User|null}){
          <div className="composer-box" onPointerDown={e=>{if((e.target as HTMLElement).closest("button,textarea"))return;promptRef.current?.focus()}} onClick={e=>{if((e.target as HTMLElement).closest("button"))return;promptRef.current?.focus()}}>
            <button className="icon-button composer-attach" onClick={()=>file.current?.click()} aria-label="Прикрепить документ" title="Добавить документ"><Paperclip size={18}/></button>
            <textarea ref={promptRef} value={prompt} onFocus={()=>{setComposerFocused(true);const textarea=promptRef.current;if(textarea)requestAnimationFrame(()=>textarea.scrollIntoView({behavior:'auto',block:'nearest'}))}} onBlur={()=>setComposerFocused(false)} onChange={e=>setPrompt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void ask()}}} placeholder={listening?'Говорите…':'Спросите про P&L, ФОТ или ситуацию в смене…'} rows={1} aria-label="Запрос к STEN AI"/>
-           <button className={'icon-button'+(listening?' mic-active':'')} onClick={toggleVoice} aria-label={listening?'Остановить запись':'Голосовой ввод'} title={SR?'Голосовой ввод (Chrome / Edge)':'Голосовой ввод не поддерживается этим браузером'}>
+           {voiceState==='speaking'&&<button className="icon-button voice-stop" onClick={interruptVoice} aria-label="Перебить ответ STEN" title="Перебить ответ"><MicOff size={18}/></button>}
+           <button className={'icon-button'+(listening?' mic-active':'')+(voiceMode?' voice-mode-active':'')} onClick={toggleVoice} aria-label={voiceMode?'Завершить голосовой диалог':'Начать голосовой диалог'} title={SR?'Голосовой диалог (Chrome / Edge)':'Голосовой ввод не поддерживается этим браузером'}>
              {listening?<MicOff size={18}/>:<Mic size={18}/>}
            </button>
            <button className="send" disabled={!prompt.trim()||busy} onClick={()=>void ask()} aria-label="Отправить" title="Отправить (Enter)"><Send size={18}/></button>
          </div>
+         {voiceMode&&<div className="sten-voice-status" role="status" aria-live="polite"><span className={'sten-voice-status__dot is-'+voiceState}/>{voiceState==='listening'?'Слушаю — говорите':voiceState==='thinking'||busy?'Обрабатываю вопрос…':voiceState==='speaking'?'Отвечаю голосом — нажмите микрофон, чтобы перебить':'Голосовой диалог включён'}</div>}
          <div className="composer-footer">
-           <span>{upload?'Обрабатываем документ…':dragOver?'Добавление документа':'Enter — отправить · Shift+Enter — новая строка'}</span>
+           <span>{upload?'Обрабатываем документ…':dragOver?'Добавление документа':voiceMode?'Голосовой режим · микрофон завершает диалог':'Enter — отправить · Shift+Enter — новая строка'}</span>
            <span className="composer-context">{readyCount} док. готовы</span>
          </div>
        </div>
