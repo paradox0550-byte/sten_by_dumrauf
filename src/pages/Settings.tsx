@@ -320,7 +320,7 @@ export default function Settings() {
           <label className="settings-field">
             <span>Telegram ID</span>
             <input
-              inputMode="numeric"
+              inputMode="text"
               value={profile.telegramChatId}
               onChange={(event) => { const value = normalizeProfileText(event.target.value); setProfile((current) => ({ ...current, telegramChatId: value })); setProfileErrors((current) => ({ ...current, telegramChatId: undefined })); }}
               placeholder="Например, 123456789"
