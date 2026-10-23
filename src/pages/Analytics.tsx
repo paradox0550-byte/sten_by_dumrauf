@@ -65,6 +65,29 @@ export default function Analytics() {
       }
       return { ...item, check, evidence };
     }), [incomeExpenseControl]);
+
+  const salesDiagnostics = useMemo(() => {
+    const reportRevenue = sales.fields.revenue.total;
+    const pnlRevenue = metrics.r;
+    const discounts = sales.fields.discounts.total;
+    return {
+      reportRevenue, pnlRevenue,
+      revenueDifference: reportRevenue !== undefined && pnlRevenue !== undefined ? reportRevenue - pnlRevenue : undefined,
+      discountRate: discounts !== undefined && reportRevenue !== undefined && reportRevenue > 0 ? discounts / reportRevenue * 100 : undefined,
+      discounts, averageCheck: sales.averageCheck.value,
+      dailyRevenue: reportRevenue !== undefined && sales.daysWithReports > 0 ? reportRevenue / sales.daysWithReports : undefined,
+    };
+  }, [sales, metrics.r]);
+  const laborDiagnostics = useMemo(() => {
+    const pnlPayroll = metrics.l == null ? undefined : Math.abs(metrics.l);
+    const sourcePayroll = laborAggregation.totalAmount;
+    return {
+      pnlPayroll, sourcePayroll,
+      difference: pnlPayroll !== undefined && sourcePayroll !== undefined ? sourcePayroll - pnlPayroll : undefined,
+      hourlyCost: laborAggregation.totalHours != null && laborAggregation.totalHours > 0 && sourcePayroll != null ? sourcePayroll / laborAggregation.totalHours : undefined,
+      hours: laborAggregation.totalHours,
+    };
+  }, [metrics.l, laborAggregation]);
   const incompleteFinancialRows = useMemo(() => summaryRows.filter((row) =>
     finite(row.plan) === undefined || finite(row.fact) === undefined
   ), [summaryRows]);
@@ -110,6 +133,44 @@ export default function Analytics() {
         </div> : <div className="empty">Нет подтверждённых неблагоприятных отклонений с доступными планом и фактом. Неполные данные не трактуются как нулевое отклонение.</div>}
       </section>
       {settings.labor&&<section className="panel analytics-report-section"><div className="panel-title">ФОТ → часы → производительность → стоимость</div>{laborError&&<div className="dashboard-note">Источник ФОТ недоступен: {laborError}</div>}{laborAggregation.incompleteCount>0&&<div className="dashboard-note">Не включено в расчёты из-за неполных или некорректных значений: {laborAggregation.incompleteCount} записей. Пустые часы и суммы не заменяются нулём.</div>}{laborRows.length?<><div className="analytics-kpi-strip"><div><small>Часы</small><strong>{totalHours.toLocaleString('ru-RU',{maximumFractionDigits:1})}</strong><span>Источник ФОТ</span></div><div><small>ФОТ</small><strong>{money(totalPayroll)} ₽</strong><span>Факт</span></div><div><small>Выручка / час</small><strong>{money(revenuePerHour)} ₽</strong><span>Выручка ÷ часы</span></div><div><small>Стоимость часа</small><strong>{money(laborPerHour)} ₽</strong><span>ФОТ ÷ часы</span></div><div><small>Δ ФОТ</small><strong>{money(metrics.laborDelta)} ₽</strong><span>Факт − план</span></div></div><div className="analytics-report-table labor-table"><div className="analytics-report-head"><span>Подразделение</span><span>Часы</span><span>ФОТ</span><span>₽ / час</span></div>{laborRows.map(([d,v])=><div key={d}><b>{d}</b><span>{v.hours.toLocaleString('ru-RU',{maximumFractionDigits:1})} ч</span><span>{money(v.amount)} ₽</span><strong>{v.hours?money(v.amount/v.hours)+' ₽':'Нет данных'}</strong></div>)}</div></>:<div className="empty">{laborError?'Источник ФОТ недоступен: '+laborError:'Нет полных подтверждённых записей ФОТ. Производительность не рассчитывается.'}</div>}</section>}
+
+      <section className="panel analytics-report-section">
+        <div className="panel-title"><GitBranch size={16}/> Продажи · разбор отклонения</div>
+        <p className="dashboard-note">Сопоставляются только полученные отчёты смен и P&amp;L. Покрытие дат может быть неполным; сравнение не меняет P&amp;L.</p>
+        <div className="analytics-kpi-strip">
+          <div><small>Выручка по сменам</small><strong>{money(salesDiagnostics.reportRevenue)} ₽</strong><span>{sales.fields.revenue.reportCount} отчётов с выручкой</span></div>
+          <div><small>Выручка P&amp;L</small><strong>{money(salesDiagnostics.pnlRevenue)} ₽</strong><span>Источник: P&amp;L</span></div>
+          <div><small>Разница источников</small><strong>{salesDiagnostics.revenueDifference === undefined ? 'Нет данных' : delta(salesDiagnostics.revenueDifference) + ' ₽'}</strong><span>Отчёты смен − P&amp;L</span></div>
+          <div><small>Средний чек</small><strong>{money(salesDiagnostics.averageCheck)} ₽</strong><span>{sales.averageCheck.source === 'calculated' ? 'Выручка ÷ чеки' : sales.averageCheck.source === 'entered' ? 'Введённое значение' : 'Нет данных'}</span></div>
+          <div><small>Скидки / продажи</small><strong>{pct(salesDiagnostics.discountRate)}</strong><span>{money(salesDiagnostics.discounts)} ₽ скидок</span></div>
+          <div><small>Выручка / день с отчётом</small><strong>{money(salesDiagnostics.dailyRevenue)} ₽</strong><span>Не прогноз на полный месяц</span></div>
+        </div>
+        <p className="dashboard-note">{salesDiagnostics.revenueDifference === undefined ? 'Сверка недоступна: нет выручки хотя бы в одном источнике.' : Math.abs(salesDiagnostics.revenueDifference) < 1 ? 'Суммы источников практически совпадают; полнота дат всё равно требует проверки.' : 'Есть расхождение источников. Проверьте покрытие дат, дубли отчётов, скидки и соответствие периода до вывода о потерях.'}</p>
+        <p className="dashboard-note">Каналы продаж и daypart не подключены: текущий отчёт смен не содержит подтверждённых полей для такого анализа.</p>
+      </section>
+      <section className="panel analytics-report-section">
+        <div className="panel-title"><Database size={16}/> Food Cost · проверка доказательств</div>
+        <p className="dashboard-note">Food Cost считается по фактическим COGS и выручке. Причина перерасхода не утверждается без фактов закупок, списаний и инвентаризации.</p>
+        <div className="analytics-report-table">
+          <div className="analytics-report-head"><span>Контроль</span><span>Что известно</span><span>Что проверить</span><span>Статус данных</span></div>
+          <div><b>Фактический Food Cost</b><span>{pct(metrics.foodCost)} · COGS / выручка</span><span>Сверить COGS с выручкой того же периода и проверить знак расходной статьи.</span><strong>{metrics.foodCost === undefined ? 'Нет данных' : 'Расчёт доступен'}</strong></div>
+          <div><b>Закупочные цены</b><span>Строки закупок не получены.</span><span>Сравнить цену закупки с предыдущим периодом и договорной ценой.</span><strong>Источник не подключён</strong></div>
+          <div><b>Списания и инвентаризация</b><span>Факты списаний и остатки не получены.</span><span>Сверить причины списаний, фактический остаток и учётный остаток.</span><strong>Источник не подключён</strong></div>
+          <div><b>Техкарты и выход</b><span>Техкарты и фактический выход блюда недоступны.</span><span>Проверить закладку, выход, порционирование и калькуляцию.</span><strong>Источник не подключён</strong></div>
+        </div>
+      </section>
+      {settings.labor&&<section className="panel analytics-report-section">
+        <div className="panel-title"><Activity size={16}/> ФОТ · стоимость, часы и ограничения</div>
+        <p className="dashboard-note">Сверка диагностическая и не корректирует P&amp;L. Суммы сопоставимы только при одинаковом периоде и контексте ресторана.</p>
+        <div className="analytics-kpi-strip">
+          <div><small>ФОТ по P&amp;L</small><strong>{money(laborDiagnostics.pnlPayroll)} ₽</strong><span>Модуль финансов</span></div>
+          <div><small>ФОТ по записям</small><strong>{money(laborDiagnostics.sourcePayroll)} ₽</strong><span>ФОТ API</span></div>
+          <div><small>Разница источников</small><strong>{laborDiagnostics.difference === undefined ? 'Нет данных' : delta(laborDiagnostics.difference) + ' ₽'}</strong><span>ФОТ API − |P&amp;L ФОТ|</span></div>
+          <div><small>Часы</small><strong>{laborDiagnostics.hours == null ? 'Нет данных' : money(laborDiagnostics.hours)}</strong><span>Подтверждённые записи</span></div>
+          <div><small>Стоимость часа</small><strong>{money(laborDiagnostics.hourlyCost)} ₽</strong><span>ФОТ API ÷ часы</span></div>
+        </div>
+        <p className="dashboard-note">График смен, плановые часы и загрузка по чекам/гостям в интервалах не подключены. Без этих данных нельзя делать вывод о «лишнем персонале».</p>
+      </section>}
       {settings.forecast&&<section className="panel analytics-report-section"><div className="panel-title">Прогноз темпа</div><div className="analytics-summary"><div><span className="eyebrow">RUN-RATE</span><p>{forecast==null?'Доступен только для текущего месяца при наличии факта выручки.':'При сохранении текущего дневного темпа выручка составит '+money(forecast)+' ₽.'}</p></div></div></section>}
       <section className="panel analytics-report-section"><div className="panel-title"><Database size={16}/> Центр данных</div><div className="analytics-report-table"><div className="analytics-report-head"><span>Источник</span><span>Что подтверждает</span><span>Формула / правило</span><span>Обновлено</span></div><div><b>P&L API</b><span>Выручка, COGS, ФОТ, OPEX</span><span>Статья → факт / план</span><strong>{pnlUpdatedAt?new Date(pnlUpdatedAt).toLocaleTimeString('ru-RU'):'—'}</strong></div><div><b>ФОТ API</b><span>Часы и начисления по подразделениям</span><span>ФОТ ÷ часы = ₽/час</span><strong>{laborUpdatedAt?new Date(laborUpdatedAt).toLocaleTimeString('ru-RU'):'—'}</strong></div><div><b>STEN calculator</b><span>EBITDA и маржи</span><span>Выручка + COGS + ФОТ + OPEX (расходы со знаком минус)</span><strong>детерминированно</strong></div></div><p className="dashboard-note">«Обновлено» означает последний успешный запрос STEN. Серверная дата источника появится после добавления provenance/freshness в API.</p></section>
       <section className="analytics-gap-section"><div className="analytics-gap-head"><div><span className="eyebrow">КАЧЕСТВО ДАННЫХ</span><h2>Что ещё не подключено</h2></div><AlertTriangle size={17}/></div><div className="analytics-gap-list">{gaps.map(g=><span key={g}>{g}</span>)}</div><p>Отсутствующий источник не превращается в ноль. Следующий слой — продажи: гости, чеки, средний чек, daypart и каналы.</p></section>
