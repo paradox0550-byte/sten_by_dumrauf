@@ -44,6 +44,27 @@ export default function Analytics() {
     const bi = b.impact === undefined ? -1 : Math.abs(b.impact);
     return bi - ai;
   }), [summaryRows]);
+  const priorityChecks = useMemo(() => incomeExpenseControl
+    .filter((item) => item.impact !== undefined && item.impact < 0)
+    .map((item) => {
+      const article = item.article.toLowerCase().replace(/ё/g, 'е');
+      let check = 'Проверьте первичный документ, классификацию статьи и полноту факта/плана.';
+      let evidence = 'Подтверждено неблагоприятное отклонение; причина не установлена.';
+      if (/выруч|revenue|sales|оборот|доход от продаж/.test(article)) {
+        check = 'Сверьте дневные отчёты с P&L, затем проверьте количество чеков, средний чек, скидки и каналы продаж.';
+        evidence = 'Выручка ниже плана. Данных по чекам и каналам недостаточно, чтобы определить причину.';
+      } else if (/cogs|food.?cost|себестоим|продукт/.test(article)) {
+        check = 'Проверьте закупочные цены, списания, инвентаризацию, выход блюд и соблюдение техкарт.';
+        evidence = 'Расходы выше плана; товарные движения и техкарты не подключены к этому выводу.';
+      } else if (/фот|фонд оплаты|зарплат|payroll|personnel|labor|персонал/.test(article)) {
+        check = 'Сверьте график и табель с загрузкой, переработками, заменами и начислениями.';
+        evidence = 'ФОТ выше плана; связь с производительностью пока не доказана.';
+      } else if (/opex|операцион|аренд|коммунал|маркетинг|ремонт|расход|затрат|налог|амортизац|процент/.test(article)) {
+        check = 'Проверьте первичные документы и договоры, отделите разовые расходы от регулярных и проверьте дату признания.';
+        evidence = 'Расходы выше плана; требуется проверка документов и структуры затрат.';
+      }
+      return { ...item, check, evidence };
+    }), [incomeExpenseControl]);
   const incompleteFinancialRows = useMemo(() => summaryRows.filter((row) =>
     finite(row.plan) === undefined || finite(row.fact) === undefined
   ), [summaryRows]);
@@ -78,6 +99,16 @@ export default function Analytics() {
         </> : <div className="empty">{salesError ? 'Невозможно показать продажи: источник недоступен.' : 'За выбранный месяц нет полученных отчётов смен с данными.'}</div>}
       </section>
       <section className="panel analytics-report-section"><div className="panel-title">Контроль доходов и расходов · отклонения от плана</div><p className="dashboard-note">Доходы оцениваются по правилу «факт − план», расходы — «план − факт». Это показывает финансовое влияние отклонения, но само по себе не устанавливает операционную причину.</p>{incomeExpenseControl.length>0?<div className="analytics-report-table"><div className="analytics-report-head"><span>Статья</span><span>Факт</span><span>План</span><span>Влияние на результат</span></div>{incomeExpenseControl.map((item)=><div key={item.article}><b>{item.article}</b><span>{money(item.fact)} ₽</span><span>{money(item.plan)} ₽</span><strong className={item.impact===undefined?'':item.impact>0?'positive':'negative'}>{item.impact===undefined?'Тип статьи не определён':(item.impact>0?'+':'')+money(item.impact)+' ₽'}{item.impact!==undefined&&<small>{item.impact>0?'благоприятно к плану':'неблагоприятно к плану'}</small>}</strong></div>)}</div>:<div className="empty">Нет подтверждённых отклонений по статьям с доступными планом и фактом.</div>}{incompleteFinancialRows.length>0&&<div className="analytics-gap-list"><strong>Не включены в оценку влияния — неполные данные:</strong>{incompleteFinancialRows.map((row,i)=><span key={String(row.article||'row')+i}>{row.article||'Статья без названия'} · {finite(row.plan)===undefined?'нет плана':'план есть'} · {finite(row.fact)===undefined?'нет факта':'факт есть'}</span>)}</div>}</section>
+      <section className="panel analytics-report-section">
+        <div className="panel-title"><AlertTriangle size={16}/> Приоритет проверки · управленческие действия</div>
+        <p className="dashboard-note">Ранжирование по величине неблагоприятного влияния. Это подсказки для проверки, а не автоматически установленные причины или распоряжения сотрудникам.</p>
+        {priorityChecks.length ? <div className="analytics-report-table">
+          <div className="analytics-report-head"><span>Статья</span><span>Влияние</span><span>Что проверить</span><span>Основание</span></div>
+          {priorityChecks.map((item) => <div key={item.article}>
+            <b>{item.article}</b><strong className="negative">{money(item.impact)} ₽</strong><span>{item.check}</span><small>{item.evidence}</small>
+          </div>)}
+        </div> : <div className="empty">Нет подтверждённых неблагоприятных отклонений с доступными планом и фактом. Неполные данные не трактуются как нулевое отклонение.</div>}
+      </section>
       {settings.labor&&<section className="panel analytics-report-section"><div className="panel-title">ФОТ → часы → производительность → стоимость</div>{laborError&&<div className="dashboard-note">Источник ФОТ недоступен: {laborError}</div>}{laborAggregation.incompleteCount>0&&<div className="dashboard-note">Не включено в расчёты из-за неполных или некорректных значений: {laborAggregation.incompleteCount} записей. Пустые часы и суммы не заменяются нулём.</div>}{laborRows.length?<><div className="analytics-kpi-strip"><div><small>Часы</small><strong>{totalHours.toLocaleString('ru-RU',{maximumFractionDigits:1})}</strong><span>Источник ФОТ</span></div><div><small>ФОТ</small><strong>{money(totalPayroll)} ₽</strong><span>Факт</span></div><div><small>Выручка / час</small><strong>{money(revenuePerHour)} ₽</strong><span>Выручка ÷ часы</span></div><div><small>Стоимость часа</small><strong>{money(laborPerHour)} ₽</strong><span>ФОТ ÷ часы</span></div><div><small>Δ ФОТ</small><strong>{money(metrics.laborDelta)} ₽</strong><span>Факт − план</span></div></div><div className="analytics-report-table labor-table"><div className="analytics-report-head"><span>Подразделение</span><span>Часы</span><span>ФОТ</span><span>₽ / час</span></div>{laborRows.map(([d,v])=><div key={d}><b>{d}</b><span>{v.hours.toLocaleString('ru-RU',{maximumFractionDigits:1})} ч</span><span>{money(v.amount)} ₽</span><strong>{v.hours?money(v.amount/v.hours)+' ₽':'Нет данных'}</strong></div>)}</div></>:<div className="empty">{laborError?'Источник ФОТ недоступен: '+laborError:'Нет полных подтверждённых записей ФОТ. Производительность не рассчитывается.'}</div>}</section>}
       {settings.forecast&&<section className="panel analytics-report-section"><div className="panel-title">Прогноз темпа</div><div className="analytics-summary"><div><span className="eyebrow">RUN-RATE</span><p>{forecast==null?'Доступен только для текущего месяца при наличии факта выручки.':'При сохранении текущего дневного темпа выручка составит '+money(forecast)+' ₽.'}</p></div></div></section>}
       <section className="panel analytics-report-section"><div className="panel-title"><Database size={16}/> Центр данных</div><div className="analytics-report-table"><div className="analytics-report-head"><span>Источник</span><span>Что подтверждает</span><span>Формула / правило</span><span>Обновлено</span></div><div><b>P&L API</b><span>Выручка, COGS, ФОТ, OPEX</span><span>Статья → факт / план</span><strong>{pnlUpdatedAt?new Date(pnlUpdatedAt).toLocaleTimeString('ru-RU'):'—'}</strong></div><div><b>ФОТ API</b><span>Часы и начисления по подразделениям</span><span>ФОТ ÷ часы = ₽/час</span><strong>{laborUpdatedAt?new Date(laborUpdatedAt).toLocaleTimeString('ru-RU'):'—'}</strong></div><div><b>STEN calculator</b><span>EBITDA и маржи</span><span>Выручка + COGS + ФОТ + OPEX (расходы со знаком минус)</span><strong>детерминированно</strong></div></div><p className="dashboard-note">«Обновлено» означает последний успешный запрос STEN. Серверная дата источника появится после добавления provenance/freshness в API.</p></section>
