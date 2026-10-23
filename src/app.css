@@ -9904,8 +9904,8 @@ html[data-reduce-motion='true'] svg.lucide,html[data-reduce-motion='true'] .shel
 .sten-loading,
 .sten-fatal {
   min-height: 100vh;
-  min-height: 100dvh;
   min-height: 100svh;
+  min-height: 100dvh;
   padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
   background: var(--bg-base) !important;
   color: var(--text-primary) !important;
