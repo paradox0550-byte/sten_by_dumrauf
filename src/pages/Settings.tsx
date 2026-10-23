@@ -59,10 +59,10 @@ export default function Settings() {
   });
   const [reduceMotion, setReduceMotion] = useState(() => localStorage.getItem(MOTION_KEY) === 'true');
   const [profile, setProfile] = useState({
-    firstName: user?.firstName || '',
-    lastName: user?.lastName || '',
-    position: user?.position || '',
-    telegramChatId: user?.telegramChatId || '',
+    firstName: normalizeProfileText(user?.firstName || ''),
+    lastName: normalizeProfileText(user?.lastName || ''),
+    position: normalizeProfileText(user?.position || ''),
+    telegramChatId: normalizeProfileText(String(user?.telegramChatId || '')),
   });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
@@ -105,10 +105,10 @@ export default function Settings() {
 
   useEffect(() => {
     setProfile({
-      firstName: user?.firstName || '',
-      lastName: user?.lastName || '',
-      position: user?.position || '',
-      telegramChatId: user?.telegramChatId || '',
+      firstName: normalizeProfileText(user?.firstName || ''),
+      lastName: normalizeProfileText(user?.lastName || ''),
+      position: normalizeProfileText(user?.position || ''),
+      telegramChatId: normalizeProfileText(String(user?.telegramChatId || '')),
     });
   }, [user?.firstName, user?.lastName, user?.position, user?.telegramChatId]);
 
@@ -127,7 +127,7 @@ export default function Settings() {
           setSendTime(settings.send_time || '21:00');
           setMetrics({ ...metricDefaults, ...(settings.metrics || {}) });
           if (!user?.telegramChatId && settings.telegram_chat_id) {
-            setProfile((value) => ({ ...value, telegramChatId: settings.telegram_chat_id }));
+            setProfile((value) => ({ ...value, telegramChatId: normalizeProfileText(String(settings.telegram_chat_id)) }));
           }
         }
       } catch {
@@ -198,7 +198,7 @@ export default function Settings() {
           firstName: response.profile.firstName || '',
           lastName: response.profile.lastName || '',
           position: response.profile.position || '',
-          telegramChatId: response.profile.telegramChatId || '',
+          telegramChatId: normalizeProfileText(String(response.profile.telegramChatId || '')),
         });
       }
       await refresh();
@@ -210,7 +210,8 @@ export default function Settings() {
         setProfileErrors((current) => ({ ...current, telegramChatId: error.message || 'Проверьте Telegram ID.' }));
         setProfileMessage('Проверьте отмеченные поля.');
       } else if (error instanceof ApiError && error.code === 'PROFILE_INVALID') {
-        setProfileErrors((current) => ({ ...current, firstName: error.message || 'Проверьте поля профиля.' }));
+        const field = error.field === 'lastName' || error.field === 'position' || error.field === 'firstName' ? error.field : 'firstName';
+        setProfileErrors((current) => ({ ...current, [field]: error.message || 'Проверьте это поле.' }));
         setProfileMessage('Проверьте отмеченные поля.');
       } else {
         setProfileMessage(error instanceof Error ? error.message : 'Не удалось сохранить профиль.');
@@ -304,17 +305,17 @@ export default function Settings() {
           <p className="muted">Эти данные используются в профиле STEN и для отправки отчётов в Telegram.</p>
           <label className="settings-field">
             <span>Имя</span>
-            <input value={profile.firstName} onChange={(event) => { const value = normalizeProfileText(event.target.value); setProfile((current) => ({ ...current, firstName: value })); setProfileErrors((current) => ({ ...current, firstName: undefined })); }} placeholder="Александр" />
+            <input maxLength={80} value={profile.firstName} onChange={(event) => { const value = normalizeProfileText(event.target.value); setProfile((current) => ({ ...current, firstName: value })); setProfileErrors((current) => ({ ...current, firstName: undefined })); }} placeholder="Александр" />
           </label>
           {profileErrors.firstName && <small className="field-error" role="alert">{profileErrors.firstName}</small>}
           <label className="settings-field">
             <span>Фамилия</span>
-            <input value={profile.lastName} onChange={(event) => { const value = normalizeProfileText(event.target.value); setProfile((current) => ({ ...current, lastName: value })); setProfileErrors((current) => ({ ...current, lastName: undefined })); }} placeholder="Фамилия" />
+            <input maxLength={80} value={profile.lastName} onChange={(event) => { const value = normalizeProfileText(event.target.value); setProfile((current) => ({ ...current, lastName: value })); setProfileErrors((current) => ({ ...current, lastName: undefined })); }} placeholder="Фамилия" />
           </label>
           {profileErrors.lastName && <small className="field-error" role="alert">{profileErrors.lastName}</small>}
           <label className="settings-field">
             <span>Должность</span>
-            <input value={profile.position} onChange={(event) => { const value = normalizeProfileText(event.target.value); setProfile((current) => ({ ...current, position: value })); setProfileErrors((current) => ({ ...current, position: undefined })); }} placeholder="Операционный директор" />
+            <input maxLength={120} value={profile.position} onChange={(event) => { const value = normalizeProfileText(event.target.value); setProfile((current) => ({ ...current, position: value })); setProfileErrors((current) => ({ ...current, position: undefined })); }} placeholder="Операционный директор" />
           </label>
           {profileErrors.position && <small className="field-error" role="alert">{profileErrors.position}</small>}
           <label className="settings-field">
