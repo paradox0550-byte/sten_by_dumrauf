@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Check, Save } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import WorkspaceSelector from '../components/WorkspaceSelector';
 import { useScope } from '../lib/useScope';
 import { useAnalyticsSettings, type AnalyticsSettings } from '../lib/useAnalyticsSettings';
 import { isValidTelegramChatId, normalizeProfileText, type MessengerSettingsPayload, type MessengerSettingsResponse, type ProfileUpdatePayload, type ProfileUpdateResponse } from '../lib/contracts/profile';
-import { ApiError } from '../lib/api';
 
 type Theme = 'light' | 'dark' | 'system';
 type FontSize = '100' | '110' | '120';
