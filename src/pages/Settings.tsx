@@ -111,8 +111,9 @@ export default function Settings() {
         if (settings) {
           setSendTime(settings.send_time || '21:00');
           setMetrics({ ...metricDefaults, ...(settings.metrics || {}) });
-          if (!user?.telegramChatId && settings.telegram_chat_id) {
-            setProfile((value) => ({ ...value, telegramChatId: normalizeProfileText(settings.telegram_chat_id) }));
+          const messengerTelegramId = settings.telegram_chat_id;
+          if (!user?.telegramChatId && typeof messengerTelegramId === 'string' && messengerTelegramId) {
+            setProfile((value) => ({ ...value, telegramChatId: normalizeProfileText(messengerTelegramId) }));
           }
         }
       } catch {
