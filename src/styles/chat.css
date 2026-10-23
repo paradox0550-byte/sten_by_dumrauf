@@ -588,3 +588,15 @@
 .sten-ai-mode-control select{max-width:124px;min-width:0;border:0;outline-offset:2px;background:transparent;color:var(--text-primary,inherit);font:inherit;font-size:12px;font-weight:600;cursor:pointer;}
 .sten-ai-mode-control select:disabled{opacity:.65;cursor:wait;}
 @media(max-width:640px){.sten-ai-mode-control{gap:4px;padding:4px 5px}.sten-ai-mode-control>span{display:none}.sten-ai-mode-control select{max-width:104px;font-size:11px}}
+
+
+/* Compact voice dialogue controls; inherits STEN theme tokens. */
+.sten-voice-status { display:flex; align-items:center; gap:8px; min-height:28px; padding:4px 4px 7px; color:var(--text-secondary); font-size:11px; }
+.sten-voice-status__dot { width:7px; height:7px; flex:0 0 7px; border-radius:50%; background:var(--text-muted); }
+.sten-voice-status__dot.is-listening { background:var(--color-success); box-shadow:0 0 0 3px color-mix(in srgb,var(--color-success) 15%,transparent); }
+.sten-voice-status__dot.is-thinking { background:var(--color-brand); }
+.sten-voice-status__dot.is-speaking { background:var(--color-brand); animation:sten-voice-pulse 1.4s ease-in-out infinite; }
+.sten-ai-page .composer .voice-mode-active { color:var(--color-success); background:color-mix(in srgb,var(--color-success) 10%,var(--bg-elevated)); border-color:color-mix(in srgb,var(--color-success) 35%,var(--border-subtle)); }
+.sten-ai-page .composer .voice-stop { color:var(--color-danger, #d64545); }
+@keyframes sten-voice-pulse { 50% { opacity:.45; } }
+@media (prefers-reduced-motion: reduce) { .sten-voice-status__dot.is-speaking { animation:none; } }
