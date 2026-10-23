@@ -25,7 +25,12 @@ const classifyFinancialRow = (article: string): 'revenue' | 'expense' | 'unknown
 
 export default function Analytics() {
   const [scope] = useScope(); const [rows, setRows] = useState<Row[]>([]); const [labor, setLabor] = useState<Labor[]>([]); const [dailyReports, setDailyReports] = useState<DailySalesReport[]>([]); const [salesError, setSalesError] = useState('');
-  const { settings } = useAnalyticsSettings(); const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [laborError, setLaborError] = useState(''); const [pnlUpdatedAt, setPnlUpdatedAt] = useState<string>(''); const [laborUpdatedAt, setLaborUpdatedAt] = useState<string>('');
+  const { settings } = useAnalyticsSettings();
+  const [actionStates, setActionStates] = useState<Record<string, { status: 'recommended' | 'accepted' | 'confirmed'; note: string }>>({});
+  const updateActionState = (key: string, status: 'recommended' | 'accepted' | 'confirmed', note: string) => {
+    setActionStates((current) => ({ ...current, [key]: { status, note } }));
+  };
+ const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [laborError, setLaborError] = useState(''); const [pnlUpdatedAt, setPnlUpdatedAt] = useState<string>(''); const [laborUpdatedAt, setLaborUpdatedAt] = useState<string>('');
   async function load(){setLoading(true);setError('');setLaborError('');setSalesError('');const q=scopeQuery(scope);const [pnlResult,fotResult,salesResult]=await Promise.allSettled([api.get<any>('/api/pnl?'+q),api.get<any>('/fot-analytics?'+q),api.get<any>('/reports?'+q)]);if(pnlResult.status==='fulfilled'){const pnl=pnlResult.value;setRows(Array.isArray(pnl?.rows)?pnl.rows:[]);setPnlUpdatedAt(new Date().toISOString())}else{setRows([]);setError(pnlResult.reason instanceof Error?pnlResult.reason.message:'Не удалось загрузить P&L.')}if(fotResult.status==='fulfilled'){const fot=fotResult.value;setLabor(Array.isArray(fot?.records)?fot.records.filter((x:Labor)=>x.period===scope.period):[]);setLaborUpdatedAt(new Date().toISOString())}else{setLabor([]);setLaborError(fotResult.reason instanceof Error?fotResult.reason.message:'Не удалось загрузить аналитику ФОТ.')}if(salesResult.status==='fulfilled'){const data=salesResult.value;setDailyReports(Array.isArray(data?.reports)?data.reports:[])}else{setDailyReports([]);setSalesError(salesResult.reason instanceof Error?salesResult.reason.message:'Не удалось загрузить отчёты смен.')}setLoading(false)}
   useEffect(()=>{void load()},[scope.period,scope.projectId,scope.branchId,scope.restaurantId,scope.departmentId]);
   const summaryRows=useMemo(()=>aggregateFinancialRows(rows.map(row=>({...row,article:String(row.article??'Без названия'),plan:finite(row.plan),fact:finite(row.fact)}))),[rows]);
@@ -171,6 +176,28 @@ export default function Analytics() {
         </div>
         <p className="dashboard-note">График смен, плановые часы и загрузка по чекам/гостям в интервалах не подключены. Без этих данных нельзя делать вывод о «лишнем персонале».</p>
       </section>}
+
+      <section className="panel analytics-report-section">
+        <div className="panel-title"><CheckCircle2 size={16}/> Контроль управленческих действий</div>
+        <p className="dashboard-note">Статус отражает решение пользователя, а не автоматическое доказательство. В этой версии статусы хранятся только в текущем сеансе страницы и не отправляются в API.</p>
+        {priorityChecks.length ? <div className="analytics-report-table">
+          <div className="analytics-report-head"><span>Рекомендация</span><span>Статус</span><span>Решение / доказательство</span><span>Действие</span></div>
+          {priorityChecks.map((item) => {
+            const key = item.article.toLowerCase();
+            const action = actionStates[key] || { status: 'recommended' as const, note: '' };
+            return <div key={item.article}>
+              <b>{item.article}<small>{item.check}</small></b>
+              <span>{action.status === 'recommended' ? 'Рекомендовано' : action.status === 'accepted' ? 'Принято в работу' : 'Подтверждено пользователем'}</span>
+              <label><span>Решение / источник подтверждения</span><textarea value={action.note} maxLength={1000} onChange={(e) => setActionStates((prev) => ({ ...prev, [key]: { ...action, note: e.target.value } }))} placeholder="Что решили, какой документ проверили, что подтвердилось" /></label>
+              <span>
+                <button className="secondary-button" onClick={() => updateActionState(key, 'accepted', actionStates[key]?.note ?? action.note)}>Принять в работу</button>
+                <button className="secondary-button" disabled={!(actionStates[key]?.note ?? action.note).trim()} onClick={() => updateActionState(key, 'confirmed', actionStates[key]?.note ?? action.note)}>Подтвердить результат</button>
+                <button className="secondary-button" onClick={() => updateActionState(key, 'recommended', actionStates[key]?.note ?? action.note)}>Сбросить</button>
+              </span>
+            </div>;
+          })}
+        </div> : <div className="empty">Нет неблагоприятных отклонений с полными планом и фактом. Неполные данные не превращаются в ноль.</div>}
+      </section>
       {settings.forecast&&<section className="panel analytics-report-section"><div className="panel-title">Прогноз темпа</div><div className="analytics-summary"><div><span className="eyebrow">RUN-RATE</span><p>{forecast==null?'Доступен только для текущего месяца при наличии факта выручки.':'При сохранении текущего дневного темпа выручка составит '+money(forecast)+' ₽.'}</p></div></div></section>}
       <section className="panel analytics-report-section"><div className="panel-title"><Database size={16}/> Центр данных</div><div className="analytics-report-table"><div className="analytics-report-head"><span>Источник</span><span>Что подтверждает</span><span>Формула / правило</span><span>Обновлено</span></div><div><b>P&L API</b><span>Выручка, COGS, ФОТ, OPEX</span><span>Статья → факт / план</span><strong>{pnlUpdatedAt?new Date(pnlUpdatedAt).toLocaleTimeString('ru-RU'):'—'}</strong></div><div><b>ФОТ API</b><span>Часы и начисления по подразделениям</span><span>ФОТ ÷ часы = ₽/час</span><strong>{laborUpdatedAt?new Date(laborUpdatedAt).toLocaleTimeString('ru-RU'):'—'}</strong></div><div><b>STEN calculator</b><span>EBITDA и маржи</span><span>Выручка + COGS + ФОТ + OPEX (расходы со знаком минус)</span><strong>детерминированно</strong></div></div><p className="dashboard-note">«Обновлено» означает последний успешный запрос STEN. Серверная дата источника появится после добавления provenance/freshness в API.</p></section>
       <section className="analytics-gap-section"><div className="analytics-gap-head"><div><span className="eyebrow">КАЧЕСТВО ДАННЫХ</span><h2>Что ещё не подключено</h2></div><AlertTriangle size={17}/></div><div className="analytics-gap-list">{gaps.map(g=><span key={g}>{g}</span>)}</div><p>Отсутствующий источник не превращается в ноль. Следующий слой — продажи: гости, чеки, средний чек, daypart и каналы.</p></section>
