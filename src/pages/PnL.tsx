@@ -12,8 +12,8 @@ import{writePnlAndVerify}from'../lib/saveVerify';
 import{formatMoney,parseMoneyInput,PnlDraftRow,PnlScale}from'../lib/pnl';
 import{formatDeltaPct}from'../lib/format';
 import{canonicalArticleKey,isDerivedPnlArticle}from'../lib/financialRows';
-import{calculateSignedEbitda}from'../lib/financialAnalytics';
-import{calculatePnlMetrics}from'../lib/pnlCalculations';
+
+
 import{usePlCalculations}from'../features/pl/hooks/usePlCalculations';
 import{readLocalClassificationOverrides,writeLocalClassificationOverrides,type ExpenseControlType,type LocalClassificationOverride}from'../features/pl/constants/expenseClassification';
 import{PnlTransactionSchema,type PnlTransactionRequest,PnlApproveSchema,type PnlApproveRequest}from'../lib/contracts/pnl';
@@ -21,6 +21,19 @@ import{getTemplateForPnL,USER_TEMPLATE_SOURCE,saveUserTemplate,loadUserTemplate}
 
 type ApiRow={id?:string;article?:string;label?:string;name?:string;plan?:number;plan_rub?:number;fact?:number;fact_rub?:number;source?:string;status?:string;transaction_total?:number;transaction_count?:number;values?:Record<string,unknown>};
 type ServerCalc={
+  revenue?:number|null;
+  cogs?:number|null;
+  personnel?:number|null;
+  labor?:number|null;
+  opex?:number|null;
+  operatingExpenses?:number|null;
+  ebitda?:number|null;
+  netProfit?:number|null;
+  foodCostPercent?:number|null;
+  personnelPercent?:number|null;
+  opexPercent?:number|null;
+  ebitdaMargin?:number|null;
+  netMargin?:number|null;
   primeCostPercent?:number|null;
   primeCostStatus?:string;
   overtime?:number|null;
@@ -55,10 +68,10 @@ export default function PnL(){
  const factCogs=cogs?.fact;
  const factPayroll=payroll?.fact;
  const factOpex=opex?.fact;
- const ebitdaPlan=calculateSignedEbitda(planRevenue,planCogs,planPayroll,planOpex);
- const ebitdaFact=calculateSignedEbitda(factRevenue,factCogs,factPayroll,factOpex);
- const marginPlan=has(ebitdaPlan)&&has(planRevenue)&&planRevenue!==0?ebitdaPlan/planRevenue*100:undefined;
- const marginFact=has(ebitdaFact)&&has(factRevenue)&&factRevenue!==0?ebitdaFact/factRevenue*100:undefined;
+ const ebitdaPlan=serverCalc?.plan.ebitda??undefined;
+ const ebitdaFact=serverCalc?.fact.ebitda??undefined;
+ const marginPlan=serverCalc?.plan.ebitdaMargin??undefined;
+ const marginFact=serverCalc?.fact.ebitdaMargin??undefined;
  const canSave=rows.some(r=>!isDerivedPnlArticle(r.article)&&(r.plan!==undefined||r.fact!==undefined));
  function update(id:string,field:'plan'|'fact',value:string){const parsed=parseMoneyInput(value,scale);setRows(prev=>prev.map(r=>r.id===id&&!isDerivedPnlArticle(r.article)?{...r,[field]:parsed}:r));setMessage('')} function openTransaction(){setTxType('expense');setTxDate(`${scope.period}-01`);setTxArticle(rows.find(r=>r.article.trim())?.article||'');setTxAmount('');setTxComment('');setTxReview(false);setTxOpen(true)} function prepareTransaction(){const amount=parseMoneyInput(txAmount,'RUB');if(!txArticle.trim()||!amount||amount<=0){setMessage('Укажите статью и положительную сумму.');setMessageKind('warn');return}if(txDate.slice(0,7)!==scope.period){setMessage(`Дата операции должна относиться к выбранному периоду ${scope.period}.`);setMessageKind('warn');return}setTxReview(true)} async function saveTransaction(){const amount=parseMoneyInput(txAmount,'RUB');if(!amount||amount<=0||!txArticle.trim()||txDate.slice(0,7)!==scope.period)return;setTxSaving(true);try{const txBody:PnlTransactionRequest={period:scope.period,date:txDate,type:txType,article:txArticle.trim(),amount,comment:txComment.trim()||null,project_id:scope.projectId??'',branch_id:scope.branchId??'',restaurant_id:scope.restaurantId??'',department_id:scope.departmentId??''};await api.post('/api/pnl/transactions',PnlTransactionSchema.parse(txBody));setTxOpen(false);setTxReview(false);setMessage(`${txType==='expense'?'Расход':'Доход'} сохранён и подтверждён сервером. P&L обновлён.`);setMessageKind('ok');await load()}catch(e){setMessage(e instanceof Error?e.message:'Не удалось сохранить операцию.');setMessageKind('warn')}finally{setTxSaving(false)}}
  function addRow(){setRows(prev=>[...prev,{id:'draft-'+Date.now(),article:'Новая статья'}])}
@@ -70,23 +83,22 @@ function removeRow(id:string){setRows(prev=>prev.filter(r=>r.id!==id||isDerivedP
  function fillPlan(){const next=rows.map(r=>isDerivedPnlArticle(r.article)?r:{...r,plan:has(r.plan)?r.plan:r.fact});if(!next.some((r,i)=>r.plan!==rows[i].plan)){setMessage('Нет подтверждённого факта без плана.');setMessageKind('warn');return}if(!window.confirm('Заполнить пустые плановые значения фактом?'))return;setRows(next);setMessage('План заполнен фактом в черновике. Нажмите «Сохранить», чтобы записать и подтвердить сервером.');setMessageKind('info')}
  function exportExcel(){const data=rows.map(r=>({Статья:r.article,'План, ₽':r.plan??null,'Факт, ₽':r.fact??null,'Отклонение, ₽':has(r.plan)&&has(r.fact)?r.fact-r.plan:null,Источник:r.source??null}));const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data),'P&L');const scopeName=scope.restaurantId||scope.branchId||scope.projectId||scope.departmentId||'all';XLSX.writeFile(wb,`pnl-${scope.period}-${String(scopeName).replace(/[^a-zA-Z0-9_-]/g,'-')}.xlsx`);setMessage('Excel сформирован.');setMessageKind('ok')}
  async function approve(){if(!canApprove)return;try{const approveBody:PnlApproveRequest={period:scope.period,project_id:scope.projectId??'',branch_id:scope.branchId??'',restaurant_id:scope.restaurantId??'',department_id:scope.departmentId??''};const r=await api.post<any>('/api/pnl/approve',PnlApproveSchema.parse(approveBody));setApproval('approved');setMessage(r?.message||'План утверждён и записан в журнал контроля.');setMessageKind('ok')}catch(e){setMessage(e instanceof Error?e.message:'Не удалось утвердить план.');setMessageKind('warn')}}
- const planMetrics=calculatePnlMetrics(rows,'plan');const factMetrics=calculatePnlMetrics(rows,'fact');const classifiedPl=usePlCalculations(rows,expenseOverrides);
- const primeCostMismatch=[{label:'план',server:serverCalc?.plan.primeCostPercent,frontend:planMetrics.primeCostPercentFromInputs},{label:'факт',server:serverCalc?.fact.primeCostPercent,frontend:factMetrics.primeCostPercentFromInputs}].filter(item=>typeof item.server==='number'&&typeof item.frontend==='number'&&Math.abs(item.server-item.frontend)>1);
+ const classifiedPl=usePlCalculations(rows,expenseOverrides);
  const kpis=[
-  {label:'Выручка',plan:planMetrics.revenue,fact:factMetrics.revenue,format:'money',formula:'Исходное значение из плана/факта; не вычисляется из других строк.'},
-  {label:'Валовая прибыль',plan:planMetrics.grossProfit,fact:factMetrics.grossProfit,format:'money',formula:'Выручка + себестоимость со знаком минус. Требуются обе исходные суммы.'},
-  {label:'Валовая маржа',plan:planMetrics.grossMarginPercent,fact:factMetrics.grossMarginPercent,format:'percent',formula:'Валовая прибыль / выручка × 100%. Только при положительной выручке.'},
-  {label:'Food Cost · кухня',plan:planMetrics.foodCostPercent,fact:factMetrics.foodCostPercent,format:'percent',formula:'Себестоимость кухни / выручка кухни × 100%. Если обе отдельные строки не загружены — нет данных.'},
-  {label:'Себестоимость / выручка',plan:planMetrics.cogsPercent,fact:factMetrics.cogsPercent,format:'percent',formula:'Минус себестоимость со знаком / общая выручка × 100%. Не является Food Cost, если есть напитки и другие продажи.'},
-  {label:'Labor Cost',plan:planMetrics.laborCostPercent,fact:factMetrics.laborCostPercent,format:'percent',formula:'ФОТ со сменой знака / общая выручка × 100%.'},
-  {label:'Prime Cost',plan:serverCalc?.plan.primeCostPercent??undefined,fact:serverCalc?.fact.primeCostPercent??undefined,format:'percent',formula:'Подтверждённое значение API. Ниже показывается контроль расхождения с расчётом COGS + ФОТ.'},
-  {label:'EBITDA',plan:ebitdaPlan,fact:ebitdaFact,format:'money',formula:'Выручка + COGS + ФОТ + OPEX по знаковой модели STEN. Все четыре значения обязательны.'},
-  {label:'Маржа EBITDA',plan:marginPlan,fact:marginFact,format:'percent',formula:'EBITDA / выручка × 100%. Только при полной EBITDA и положительной выручке.'},
-  {label:'Управляемая прибыль',plan:classifiedPl.controllableProfit.plan,fact:classifiedPl.controllableProfit.fact,format:'money',formula:'Выручка + подписанная себестоимость + подписанный ФОТ + управляемые детальные расходы. Показывается только при полной классификации и без агрегированной строки OPEX.'},
-  {label:'Маржа управляемой прибыли',plan:classifiedPl.controllableMargin.plan,fact:classifiedPl.controllableMargin.fact,format:'percent',formula:'Управляемая прибыль / выручка × 100%. Нет данных при неполной классификации или неполных исходных суммах.'}
+  {label:'Выручка',plan:serverCalc?.plan.revenue??undefined,fact:serverCalc?.fact.revenue??undefined,format:'money',formula:'Источник: summary.calculated API.'},
+  {label:'Валовая прибыль',plan:undefined,fact:undefined,format:'money',formula:'Нет отдельного подтверждённого значения в summary.calculated.'},
+  {label:'Валовая маржа',plan:undefined,fact:undefined,format:'percent',formula:'Нет отдельного подтверждённого значения в summary.calculated.'},
+  {label:'Food Cost · кухня',plan:undefined,fact:undefined,format:'percent',formula:'Нет отдельного значения Food Cost кухни в summary.calculated.'},
+  {label:'Себестоимость / выручка',plan:serverCalc?.plan.foodCostPercent??undefined,fact:serverCalc?.fact.foodCostPercent??undefined,format:'percent',formula:'Источник: summary.calculated.foodCostPercent.'},
+  {label:'Labor Cost',plan:serverCalc?.plan.personnelPercent??undefined,fact:serverCalc?.fact.personnelPercent??undefined,format:'percent',formula:'Источник: summary.calculated.personnelPercent.'},
+  {label:'Prime Cost',plan:serverCalc?.plan.primeCostPercent??undefined,fact:serverCalc?.fact.primeCostPercent??undefined,format:'percent',formula:'Источник: summary.calculated.primeCostPercent.'},
+  {label:'EBITDA',plan:ebitdaPlan,fact:ebitdaFact,format:'money',formula:'Источник: summary.calculated.ebitda.'},
+  {label:'Маржа EBITDA',plan:marginPlan,fact:marginFact,format:'percent',formula:'Источник: summary.calculated.ebitdaMargin.'},
+  {label:'Управляемая прибыль',plan:undefined,fact:undefined,format:'money',formula:'Нет отдельного серверного показателя; клиентский расчёт не подставляется.'},
+  {label:'Маржа управляемой прибыли',plan:undefined,fact:undefined,format:'percent',formula:'Нет отдельного серверного показателя; клиентский расчёт не подставляется.'}
  ];
  return <div className="page"><div className="pnl-v4-head"><div><span className="eyebrow">ФИНАНСЫ · КОНТРОЛЬ</span><h1>P&L ресторана</h1></div><div className="pnl-v4-controls"><label className="sr-only" htmlFor="pnl-period">Период</label><input id="pnl-period" className="pnl-v4-period" type="month" value={scope.period} onChange={e=>setScope({...scope,period:e.target.value})}/><WorkspaceSelector value={scope} onChange={setScope} variant="compact"/><button className="secondary-button" onClick={exportExcel}><Download size={16}/>Экспорт XLSX</button><button className="secondary-button" onClick={()=>void load()} aria-label="Обновить P&L"><RefreshCw size={16}/></button><button className="secondary-button" onClick={()=>nav('/quick-entry')}><Plus size={16}/>Быстрый ввод</button><button className="secondary-button" onClick={openTransaction}><Receipt size={16}/>Расход / доход</button><button className="secondary-button" onClick={()=>nav('/pnl/import')}><Upload size={16}/>Импорт Excel</button><button className="primary-button" disabled={!canSave||saving} onClick={()=>void save()}><Save size={16}/>{saving?'Сохраняем…':'Сохранить'}</button></div></div>
-{primeCostMismatch.length>0&&<div className="pnl-calculation-note" role="alert"><strong>Расхождение Prime Cost</strong><span>Серверный и контрольный расчёты различаются более чем на 1 п.п. ({primeCostMismatch.map(item=>item.label+': сервер '+item.server!.toFixed(1)+'%, проверка '+item.frontend!.toFixed(1)+'%').join('; ')}). Проверьте состав себестоимости, ФОТ и базу выручки.</span></div>}<div className="pnl-kpis pnl-kpis-expanded">{kpis.map(kpi=><div className="pnl-kpi"key={kpi.label}><small title={kpi.formula}>{kpi.label}</small><div><span>План <b>{loading?'Загрузка…':kpi.format==='percent'?pctOrEmpty(kpi.plan):moneyOrEmpty(kpi.plan)}</b></span><span>Факт <b>{loading?'Загрузка…':kpi.format==='percent'?pctOrEmpty(kpi.fact):moneyOrEmpty(kpi.fact)}</b></span></div><em>{loading?'':kpi.format==='percent'&&has(kpi.plan)&&has(kpi.fact)?`${(kpi.fact-kpi.plan>0?'+':'')+(kpi.fact-kpi.plan).toFixed(1).replace('.',',')} п.п.`:formatDeltaPct(kpi.plan,kpi.fact)}</em></div>)}</div>
+<div className="pnl-kpis pnl-kpis-expanded">{kpis.map(kpi=><div className="pnl-kpi"key={kpi.label}><small title={kpi.formula}>{kpi.label}</small><div><span>План <b>{loading?'Загрузка…':kpi.format==='percent'?pctOrEmpty(kpi.plan):moneyOrEmpty(kpi.plan)}</b></span><span>Факт <b>{loading?'Загрузка…':kpi.format==='percent'?pctOrEmpty(kpi.fact):moneyOrEmpty(kpi.fact)}</b></span></div><em>{loading?'':kpi.format==='percent'&&has(kpi.plan)&&has(kpi.fact)?`${(kpi.fact-kpi.plan>0?'+':'')+(kpi.fact-kpi.plan).toFixed(1).replace('.',',')} п.п.`:formatDeltaPct(kpi.plan,kpi.fact)}</em></div>)}</div>
  <section className="pnl-expense-classification" aria-labelledby="pnl-expense-classification-title"><div className="pnl-expense-classification-head"><div><h2 id="pnl-expense-classification-title">Классификация расходов</h2><p>Автоматическая подсказка по названию статьи. Проверьте тип для своего ресторана; переопределения хранятся только в этом браузере.</p></div><span>{classifiedPl.articlesWithTypes.length} статей</span></div>
  {classifiedPl.articlesWithTypes.length===0?<p className="pnl-expense-empty">Детальные расходы для классификации не найдены. Агрегированная строка OPEX не разделяется автоматически.</p>:<div className="pnl-expense-list">{classifiedPl.articlesWithTypes.map(article=><label className="pnl-expense-item" key={article.id}><span className="pnl-expense-name">{article.name}<small>{article.controlType==='controllable'?'Управляемый · подсказка по названию':article.controlType==='uncontrollable'?'Неуправляемый · подсказка по названию':'Требует классификации'}</small></span><select aria-label={'Классификация статьи '+article.name} value={expenseOverrides[article.id]??article.controlType} onChange={event=>{const next={...expenseOverrides,[article.id]:event.target.value as ExpenseControlType};if(writeLocalClassificationOverrides(next)){setExpenseOverrides(next);setMessage('Локальная классификация сохранена в этом браузере.');setMessageKind('info')}else{setMessage('Не удалось сохранить классификацию локально.');setMessageKind('warn')}}}><option value="controllable">Управляемый</option><option value="uncontrollable">Неуправляемый</option><option value="unknown">Требует классификации</option></select></label>)}</div>}
  <div className="pnl-expense-totals" aria-label="Сводка классифицированных расходов">
