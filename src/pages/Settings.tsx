@@ -48,7 +48,7 @@ const applyAppearance = (fontSize: FontSize, reduceMotion: boolean) => {
 
 export default function Settings() {
   const { signOut, user, refresh } = useAuth();
-  const [scope, setScope] = useScope();
+  const [scope, setScope, scopeSave] = useScope();
   const [theme, setTheme] = useState<Theme>(() => {
     const value = localStorage.getItem(THEME_KEY);
     return value === 'light' || value === 'dark' || value === 'system' ? value : 'dark';
@@ -270,6 +270,9 @@ export default function Settings() {
           <h2>Рабочий контур</h2>
           <p className="muted">Выберите ресторан, подразделение и период для рабочих данных.</p>
           <WorkspaceSelector value={scope} onChange={setScope} />
+          {scopeSave.status === 'saving' && <div className="pnl-message" role="status">Сохраняем рабочий контур…</div>}
+          {scopeSave.status === 'saved' && <div className="pnl-message ok" role="status">Рабочий контур сохранён.</div>}
+          {scopeSave.status === 'error' && <div className="pnl-message warn" role="alert">Не удалось сохранить рабочий контур. AI временно не отправляет запросы с неподтверждённым контекстом. {scopeSave.error}</div>}
         </section>
 
         <section className="panel" id="settings-profile">
