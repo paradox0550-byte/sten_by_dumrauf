@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3, Bot, Brain, CalendarDays, Menu, Moon, PanelLeft, PanelLeftClose, FlaskConical,
-  LogOut, Scale, Sun, WalletCards, X, ChevronDown, ClipboardList, Gauge, Monitor,
+  LogOut, Scale, Sun, WalletCards, X, ChevronDown, ClipboardList, Gauge, Monitor, Users, FileText,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import WorkspaceSelector from './WorkspaceSelector';
@@ -14,11 +14,17 @@ type Theme = 'light' | 'dark' | 'system';
 type Scale = 'RUB' | 'THOUSAND' | 'MILLION';
 type NavIconName = 'overview' | 'pnl' | 'report' | 'settings' | 'staff' | 'terms';
 
+const NAV_ICONS: Record<NavIconName, React.ElementType> = {
+  overview: Gauge,
+  pnl: BarChart3,
+  report: ClipboardList,
+  settings: Gauge,
+  staff: Users,
+  terms: FileText,
+};
+
 function NavIcon({ icon, size = 17 }: { icon: React.ElementType | NavIconName; size?: number }) {
-  if (typeof icon === 'string') {
-    return <span className={`nav-glyph nav-glyph-${icon}`} aria-hidden="true" />;
-  }
-  const Icon = icon;
+  const Icon = typeof icon === 'string' ? NAV_ICONS[icon] : icon;
   return <Icon size={size} aria-hidden="true" />;
 }
 
@@ -32,6 +38,8 @@ const applyTheme = (theme: Theme) => {
     : theme;
   document.documentElement.setAttribute('data-theme', resolved);
   document.documentElement.style.colorScheme = resolved;
+  document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+    ?.setAttribute('content', resolved === 'dark' ? '#0B1015' : '#F3F5F7');
 };
 
 const viewNavigate=(nav:ReturnType<typeof useNavigate>,to:string)=>{if(typeof document!=='undefined'&&'startViewTransition' in document){(document as any).startViewTransition(()=>nav(to));}else{nav(to);}};
