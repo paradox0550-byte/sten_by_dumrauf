@@ -1,6 +1,5 @@
 /* Единый рабочий контекст (scope) для всех страниц: период + проект → филиал →
-   ресторан → отдел. Выбранный scope сохраняется локально и синхронизируется
-   между всеми компонентами (Layout, Настройки) через кастомное событие. */
+   ресторан → отдел. Контекст изолирован по организации и пользователю. */
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { DEFAULT_PERIOD, Scope, scopeKey } from './scope';
@@ -8,66 +7,128 @@ import { api } from './api';
 
 const LEGACY_KEY = 'sten_scope_v5';
 const EVT = 'sten-scope-change';
-function storageKey(user:{id?:string;organizationId?:string|null}|null){return user?.id?`sten_scope_v5:${user.organizationId||'no-org'}:${user.id}`:null;}
-function readSaved(key:string|null): Scope {
+function storageKey(user:{id?:string;organizationId?:string|null}|null){return user?.id? `sten_scope_v5:${user.organizationId||'no-org'}:${user.id}`:null;}
+
+function parseScope(raw:string|null):Scope|null {
+  if(!raw)return null;
   try {
-    const raw = key ? localStorage.getItem(key) : null;
-    if (raw) {
-      const s = JSON.parse(raw) as Scope;
-      if (typeof s === 'object' && s && /^\d{4}-(0[1-9]|1[0-2])$/.test(String(s.period || ''))) return s;
+    const s=JSON.parse(raw) as Partial<Scope>;
+    if(!s||typeof s!=='object'||!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(s.period||'')))return null;
+    for(const field of ['projectId','branchId','restaurantId','departmentId'] as const) {
+      if(s[field]!==undefined&&s[field]!==null&&typeof s[field]!=='string')return null;
     }
-  } catch { /* повреждённое хранилище — стартуем с чистого контекста */ }
-  return { period: DEFAULT_PERIOD };
+    return {
+      period:String(s.period),
+      projectId:typeof s.projectId==='string'&&s.projectId?s.projectId:undefined,
+      branchId:typeof s.branchId==='string'&&s.branchId?s.branchId:undefined,
+      restaurantId:typeof s.restaurantId==='string'&&s.restaurantId?s.restaurantId:undefined,
+      departmentId:typeof s.departmentId==='string'&&s.departmentId?s.departmentId:undefined,
+    };
+  } catch { return null; }
+}
+function readSaved(key:string|null):Scope {
+  try { return parseScope(key?localStorage.getItem(key):null) || {period:DEFAULT_PERIOD}; }
+  catch { return {period:DEFAULT_PERIOD}; }
+}
+function selectedIds(scope:Scope):string[] {
+  return [scope.projectId,scope.branchId,scope.restaurantId,scope.departmentId].filter((v):v is string=>Boolean(v));
+}
+function collectOrgIds(input:unknown,out=new Set<string>()):Set<string> {
+  if(Array.isArray(input)){for(const item of input)collectOrgIds(item,out);return out;}
+  if(!input||typeof input!=='object')return out;
+  const x=input as Record<string,unknown>;
+  if(typeof x.id==='string')out.add(x.id);
+  if(typeof x.uuid==='string')out.add(x.uuid);
+  for(const value of Object.values(x))if(value&&typeof value==='object')collectOrgIds(value,out);
+  return out;
 }
 
-export function useScope(): [Scope, (next: Scope) => void] {
-  const { user } = useAuth();
-  const key = storageKey(user);
-  const [scope, setScope] = useState<Scope>(() => readSaved(key));
-  const contextSeqRef = useRef(0);
+/* Legacy scope is global and therefore cannot be copied blindly between tenants.
+   Migrate selected IDs only when the authenticated user's org tree confirms every ID. */
+async function migrateLegacyScope(key:string):Promise<Scope|null> {
+  try {
+    if(localStorage.getItem(key))return null;
+    const legacy=parseScope(localStorage.getItem(LEGACY_KEY));
+    if(!legacy)return null;
+    const ids=selectedIds(legacy);
+    if(ids.length){
+      const tree=await api.get<unknown>('/api/b2b/org/tree');
+      const allowed=collectOrgIds(tree);
+      if(!ids.every(id=>allowed.has(id)))return null;
+    }
+    if(localStorage.getItem(key))return null;
+    localStorage.setItem(key,JSON.stringify(legacy));
+    localStorage.removeItem(LEGACY_KEY);
+    return legacy;
+  } catch { return null; }
+}
 
-  useEffect(() => {
-    const seq = ++contextSeqRef.current;
-    setScope(readSaved(key));
-    try { localStorage.removeItem(LEGACY_KEY); } catch { /* приватный режим */ }
-    void api.get<any>('/api/b2b/context').then((r:any) => {
-      if (seq !== contextSeqRef.current) return;
-      const c = r?.context ?? r?.data?.context;
-      if (!c) return;
-      setScope(prev => ({
-        ...prev,
-        projectId: c.project_id || undefined,
-        branchId: c.branch_id || undefined,
-        restaurantId: c.restaurant_id || undefined,
-        departmentId: c.department_id || undefined,
-      }));
-    }).catch(() => { /* server context недоступен — остаёмся на локальном scope */ });
-    const onChange = () => setScope(readSaved(key));
-    window.addEventListener(EVT, onChange);
-    window.addEventListener('storage', onChange);
-    return () => {
-      window.removeEventListener(EVT, onChange);
-      window.removeEventListener('storage', onChange);
+export function useScope():[Scope,(next:Scope)=>void] {
+  const {user}=useAuth();
+  const key=storageKey(user);
+  const [scope,setScope]=useState<Scope>(()=>readSaved(key));
+  const [loadedFor,setLoadedFor]=useState<string|null>(null);
+  const contextSeqRef=useRef(0);
+
+  useEffect(()=>{
+    const seq=++contextSeqRef.current;
+    let cancelled=false;
+    const initialize=async()=>{
+      let initial=readSaved(key);
+      if(key&&!localStorage.getItem(key)){
+        const migrated=await migrateLegacyScope(key);
+        if(migrated)initial=migrated;
+      }
+      if(cancelled||seq!==contextSeqRef.current)return;
+      setScope(initial);
+      setLoadedFor(key);
+      try {
+        const r=await api.get<any>('/api/b2b/context');
+        if(cancelled||seq!==contextSeqRef.current)return;
+        const c=r?.context??r?.data?.context;
+        if(!c)return;
+        // Empty/null server fields must not erase a validated local selection.
+        const serverHasSelection=['project_id','branch_id','restaurant_id','department_id'].some(k=>typeof c[k]==='string'&&c[k].length>0);
+        if(serverHasSelection){
+          setScope(prev=>({
+            ...prev,
+            projectId:typeof c.project_id==='string'&&c.project_id?c.project_id:undefined,
+            branchId:typeof c.branch_id==='string'&&c.branch_id?c.branch_id:undefined,
+            restaurantId:typeof c.restaurant_id==='string'&&c.restaurant_id?c.restaurant_id:undefined,
+            departmentId:typeof c.department_id==='string'&&c.department_id?c.department_id:undefined,
+          }));
+        }
+      } catch { /* API недоступен — сохраняем текущий локальный контекст; доступ проверяет сервер */ }
     };
-  }, [key]);
+    void initialize();
+    const onChange=()=>setScope(readSaved(key));
+    window.addEventListener(EVT,onChange);
+    window.addEventListener('storage',onChange);
+    return()=>{
+      cancelled=true;
+      window.removeEventListener(EVT,onChange);
+      window.removeEventListener('storage',onChange);
+    };
+  },[key]);
 
-  const update = (next: Scope) => {
+  const update=(next:Scope)=>{
     setScope(next);
-    void api.put('/api/b2b/context', {
-      restaurant_id: next.restaurantId ?? null,
-      project_id: next.projectId ?? null,
-      branch_id: next.branchId ?? null,
-      department_id: next.departmentId ?? null,
-    }).catch(() => { /* локальный scope остаётся рабочим при временной недоступности API */ });
-    try { if (key) localStorage.setItem(key, JSON.stringify(next)); } catch { /* приватный режим */ }
+    void api.put('/api/b2b/context',{
+      restaurant_id:next.restaurantId??null,
+      project_id:next.projectId??null,
+      branch_id:next.branchId??null,
+      department_id:next.departmentId??null,
+    }).catch(()=>{/* локальный выбор сохраняется; серверная авторизация не обходится */});
+    try{if(key)localStorage.setItem(key,JSON.stringify(next));}catch{/* приватный режим */}
     window.dispatchEvent(new Event(EVT));
   };
 
-  useEffect(() => {
-    try { if (key) localStorage.setItem(key, JSON.stringify(scope)); } catch { /* приватный режим */ }
-  }, [scopeKey(scope), key]);
+  useEffect(()=>{
+    if(!key||loadedFor!==key)return;
+    try{localStorage.setItem(key,JSON.stringify(scope));}catch{/* приватный режим */}
+  },[scopeKey(scope),key,loadedFor]);
 
-  return [scope, update];
+  return [scope,update];
 }
 
-export { hasScopeId } from './scope';
+export {hasScopeId} from './scope';
