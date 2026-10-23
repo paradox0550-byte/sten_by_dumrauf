@@ -113,12 +113,20 @@ export function useScope():[Scope,(next:Scope)=>void,{status:ScopeSaveStatus;err
     };
     void initialize();
     const onChange=()=>setScope(readSaved(key));
+    const onSaveStatus=(event:Event)=>{
+      const detail=(event as CustomEvent<{scope:Scope;status:ScopeSaveStatus;error?:string}>).detail;
+      if(!detail)return;
+      setScope(detail.scope);
+      setContextSave({status:detail.status,error:detail.error||''});
+    };
     window.addEventListener(EVT,onChange);
     window.addEventListener('storage',onChange);
+    window.addEventListener('sten-scope-save-status',onSaveStatus);
     return()=>{
       cancelled=true;
       window.removeEventListener(EVT,onChange);
       window.removeEventListener('storage',onChange);
+      window.removeEventListener('sten-scope-save-status',onSaveStatus);
     };
   },[key]);
 
@@ -126,6 +134,7 @@ export function useScope():[Scope,(next:Scope)=>void,{status:ScopeSaveStatus;err
     setScope(next);
     setLoadedFor(key);
     setContextSave({status:'saving',error:''});
+    window.dispatchEvent(new CustomEvent('sten-scope-save-status',{detail:{scope:next,status:'saving'}}));
     void api.put('/api/b2b/context',{
       restaurant_id:next.restaurantId??null,
       project_id:next.projectId??null,
@@ -134,10 +143,12 @@ export function useScope():[Scope,(next:Scope)=>void,{status:ScopeSaveStatus;err
     }).then(()=>{
       try{if(key)localStorage.setItem(key,JSON.stringify(next));}catch{/* приватный режим */}
       setContextSave({status:'saved',error:''});
+      window.dispatchEvent(new CustomEvent('sten-scope-save-status',{detail:{scope:next,status:'saved'}}));
       window.dispatchEvent(new Event(EVT));
     }).catch((error:unknown)=>{
       const message=error instanceof Error?error.message:'Не удалось сохранить рабочий контекст.';
       setContextSave({status:'error',error:message});
+      window.dispatchEvent(new CustomEvent('sten-scope-save-status',{detail:{scope:next,status:'error',error:message}}));
     });
   };
 
