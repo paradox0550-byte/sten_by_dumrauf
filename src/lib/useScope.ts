@@ -96,7 +96,7 @@ export function useScope():[Scope,(next:Scope)=>void,{status:ScopeSaveStatus;err
       setLoadedFor(canPersist?key:null);
       try {
         const r=await api.get<any>('/api/b2b/context');
-        if(cancelled||seq!==contextSeqRef.current)return;
+        if(cancelled||seq!==contextSeqRef.current||saveSeqRef.current>0)return;
         const c=r?.context??r?.data?.context;
         if(!c)return;
         // Empty/null server fields must not erase a validated local selection.
