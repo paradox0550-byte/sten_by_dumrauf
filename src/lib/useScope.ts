@@ -7,6 +7,7 @@ import { api } from './api';
 
 const LEGACY_KEY = 'sten_scope_v5';
 const EVT = 'sten-scope-change';
+const SCOPE_SAVE_ERROR_EVENT = 'sten:scope-save-error';
 function storageKey(user:{id?:string;organizationId?:string|null}|null){return user?.id? `sten_scope_v5:${user.organizationId||'no-org'}:${user.id}`:null;}
 
 function parseScope(raw:string|null):Scope|null {
@@ -69,6 +70,7 @@ export function useScope():[Scope,(next:Scope)=>void] {
   const [scope,setScope]=useState<Scope>(()=>readSaved(key));
   const [loadedFor,setLoadedFor]=useState<string|null>(null);
   const contextSeqRef=useRef(0);
+  const saveSeqRef=useRef(0);
 
   useEffect(()=>{
     const seq=++contextSeqRef.current;
@@ -121,16 +123,31 @@ export function useScope():[Scope,(next:Scope)=>void] {
   },[key]);
 
   const update=(next:Scope)=>{
-    setScope(next);
-    setLoadedFor(key);
-    void api.put('/api/b2b/context',{
-      restaurant_id:next.restaurantId??null,
-      project_id:next.projectId??null,
-      branch_id:next.branchId??null,
-      department_id:next.departmentId??null,
-    }).catch(()=>{/* локальный выбор сохраняется; серверная авторизация не обходится */});
-    try{if(key)localStorage.setItem(key,JSON.stringify(next));}catch{/* приватный режим */}
-    window.dispatchEvent(new Event(EVT));
+    const seq=++saveSeqRef.current;
+    void (async()=>{
+      try {
+        await api.put('/api/b2b/context',{
+          restaurant_id:next.restaurantId??null,
+          project_id:next.projectId??null,
+          branch_id:next.branchId??null,
+          department_id:next.departmentId??null,
+        });
+        if(seq!==saveSeqRef.current)return;
+        setScope(next);
+        setLoadedFor(key);
+        try{if(key)localStorage.setItem(key,JSON.stringify(next));}catch{/* приватный режим */}
+        window.dispatchEvent(new Event(EVT));
+      } catch(error) {
+        if(seq!==saveSeqRef.current)return;
+        // A failed write invalidates the selected contour locally: never keep sending a stale restaurant to AI.
+        const cleared:Scope={period:next.period};
+        setScope(cleared);
+        setLoadedFor(key);
+        try{if(key)localStorage.setItem(key,JSON.stringify(cleared));}catch{/* приватный режим */}
+        window.dispatchEvent(new Event(EVT));
+        window.dispatchEvent(new CustomEvent(SCOPE_SAVE_ERROR_EVENT,{detail:{message:error instanceof Error?error.message:'Не удалось сохранить рабочий контекст.'}}));
+      }
+    })();
   };
 
   useEffect(()=>{
