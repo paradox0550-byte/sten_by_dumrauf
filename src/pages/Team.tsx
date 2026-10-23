@@ -120,7 +120,7 @@ export default function Team() {
       const completeAmounts = amounts.every(value => value !== null);
       return {
         department,
-        hours: completeHours ? hours.reduce<number>((sum, value) => sum + (value ?? 0), 0) : null,
+        hours: completeHours ? hours.reduce<number>((sum, value) => sum + value!, 0) : null,
         amount: completeAmounts ? amounts.reduce<number>((sum, value) => sum + (value ?? 0), 0) : null,
         rows: rows.length,
         incomplete: !completeHours || !completeAmounts,
@@ -128,8 +128,8 @@ export default function Team() {
     }).sort((a, b) => (b.amount ?? -Infinity) - (a.amount ?? -Infinity));
   }, [records]);
 
-  const totalHours = records.length && records.every(row => n(row.hours) !== null) ? records.reduce((sum, row) => sum + (n(row.hours) ?? 0), 0) : null;
-  const totalAmount = records.length && records.every(row => n(row.amount) !== null) ? records.reduce((sum, row) => sum + (n(row.amount) ?? 0), 0) : null;
+  const totalHours = records.length && records.every(row => n(row.hours) !== null) ? records.reduce((sum, row) => sum + n(row.hours)!, 0) : null;
+  const totalAmount = records.length && records.every(row => n(row.amount) !== null) ? records.reduce((sum, row) => sum + n(row.amount)!, 0) : null;
   const revenue = n(pnl?.calculated?.fact?.revenue);
   const pnlLaborFact = n(pnl?.calculated?.fact?.labor);
   const pnlLaborPlan = n(pnl?.calculated?.plan?.labor);
@@ -158,10 +158,10 @@ export default function Team() {
     return { key, department, position, input, headcount, hoursPerPerson, hourlyRate, complete, plannedHours: complete ? headcount! * hoursPerPerson! : null, plannedCost: complete ? headcount! * hoursPerPerson! * hourlyRate! : null };
   }), [positionPlan, customPositions]);
   const completePlanRows = planRows.filter(row => row.complete);
-  const plannedHours = completePlanRows.length ? completePlanRows.reduce((sum, row) => sum + (row.plannedHours ?? 0), 0) : null;
-  const plannedCost = completePlanRows.length ? completePlanRows.reduce((sum, row) => sum + (row.plannedCost ?? 0), 0) : null;
+  const plannedHours = completePlanRows.length ? completePlanRows.reduce((sum, row) => sum + row.plannedHours!, 0) : null;
+  const plannedCost = completePlanRows.length ? completePlanRows.reduce((sum, row) => sum + row.plannedCost!, 0) : null;
   const headcountRows = planRows.filter(row => row.headcount != null && row.headcount >= 0);
-  const plannedHeadcount = headcountRows.length ? headcountRows.reduce((sum, row) => sum + (row.headcount ?? 0), 0) : null;
+  const plannedHeadcount = headcountRows.length ? headcountRows.reduce((sum, row) => sum + row.headcount!, 0) : null;
   const planComplete = completePlanRows.length === planRows.length;
   const hasScope = Boolean(scope.projectId || scope.branchId || scope.restaurantId || scope.departmentId);
 
