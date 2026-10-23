@@ -139,6 +139,7 @@ function AIContent({user}:{user:User|null}){
  async function ask(value=prompt){
    const text=value.trim();
    if(!text||busy)return;
+   if(!scope.restaurantId){showChatToast('Выберите рабочий контур в Настройках перед запросом к AI.');return;}
    setPrompt('');
    const nextMsgs=[...messages,{id:crypto.randomUUID(),role:'user' as const,text,createdAt:new Date().toISOString()}];
    shouldAutoScrollRef.current=true;
@@ -170,7 +171,13 @@ function AIContent({user}:{user:User|null}){
      if(voiceModeRef.current)speakAnswer(answer);
    }catch(e){
      window.dispatchEvent(new CustomEvent('sten:ai-status',{detail:'error'}));
-     const message = e instanceof ApiError && e.status === 503
+     const message = e instanceof ApiError && e.code === 'ORG_ACCESS_CLOSED'
+       ? 'Доступ к организации закрыт. Проверьте статус подписки или обратитесь к администратору.'
+       : e instanceof ApiError && e.code === 'RESTAURANT_FORBIDDEN'
+         ? 'Нет доступа к выбранному ресторану. Выберите другой рабочий контур в Настройках или обратитесь к администратору.'
+         : e instanceof ApiError && e.status === 403
+           ? 'Нет доступа к данным выбранного рабочего контура. Выберите другой ресторан или обратитесь к администратору.'
+       : e instanceof ApiError && e.status === 503
        ? 'AI временно недоступен.'
        : e instanceof ApiError && e.status === 502
          ? `AI вернул ошибку. Код: ${e.code}. ID запроса: ${e.requestId||'не указан'}.`
