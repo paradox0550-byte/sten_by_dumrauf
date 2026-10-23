@@ -1,57 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeProfileText, validateProfilePayload, type ProfileUpdatePayload } from './profile';
-import { AskRequestSchema } from './ask';
+import { isValidTelegramChatId, normalizeProfileText } from './profile';
 
-const payload = (telegramChatId: string | null): ProfileUpdatePayload => ({
-  firstName: 'Александр',
-  lastName: 'Думрауф',
-  position: 'Операционный директор',
-  telegramChatId,
-});
-
-describe('profile contract validation', () => {
-  it('rejects Telegram IDs containing letters', () => {
-    expect(validateProfilePayload(payload('123ab456')).telegramChatId).toBeTruthy();
+describe('profile contract helpers', () => {
+  it('rejects Telegram IDs containing letters or too few digits', () => {
+    expect(isValidTelegramChatId('123ab456')).toBe(false);
+    expect(isValidTelegramChatId('1234')).toBe(false);
   });
 
-  it('accepts negative Telegram group IDs with 5–20 digits', () => {
-    expect(validateProfilePayload(payload('-123456789'))).toEqual({});
+  it('accepts signed group chat IDs with 5–20 digits', () => {
+    expect(isValidTelegramChatId('-123456789')).toBe(true);
+    expect(isValidTelegramChatId('12345')).toBe(true);
+    expect(isValidTelegramChatId('12345678901234567890')).toBe(true);
   });
 
-  it('treats an empty Telegram ID as cleared/null', () => {
-    expect(validateProfilePayload(payload(null))).toEqual({});
+  it('rejects IDs longer than 20 digits and multiple signs', () => {
+    expect(isValidTelegramChatId('123456789012345678901')).toBe(false);
+    expect(isValidTelegramChatId('--12345')).toBe(false);
   });
 
-  it('enforces profile field length limits', () => {
-    expect(validateProfilePayload({
-      firstName: 'a'.repeat(81),
-      lastName: 'b'.repeat(81),
-      position: 'c'.repeat(121),
-      telegramChatId: null,
-    })).toMatchObject({
-      firstName: expect.any(String),
-      lastName: expect.any(String),
-      position: expect.any(String),
-    });
-  });
-
-  it('trims text and normalizes Unicode to NFC', () => {
-    expect(normalizeProfileText('  e\u0301  ')).toBe('é');
-  });
-});
-
-describe('AI request contract', () => {
-  it('requires an explicit scope and restaurant_id field', () => {
-    expect(AskRequestSchema.safeParse({ question: 'Проверь P&L' }).success).toBe(false);
-    expect(AskRequestSchema.safeParse({
-      question: 'Проверь P&L',
-      scope: {
-        period: '2026-10',
-        project_id: null,
-        branch_id: null,
-        restaurant_id: 'restaurant-1',
-        department_id: null,
-      },
-    }).success).toBe(true);
+  it('trims and normalizes text to NFC', () => {
+    expect(normalizeProfileText('  Cafe\u0301  ')).toBe('Café');
   });
 });

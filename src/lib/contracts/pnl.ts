@@ -132,21 +132,24 @@ export const PnlImportSchema: z.ZodType<PnlImportRequest> = z.object({
   mimeType: z.string().max(120).optional(),
   dataBase64: z.string().min(8).max(30 * 1024 * 1024),
 }).strict();
+
+/** POST /api/pnl/import response: imported rows are a preview until the user confirms. */
+export interface PnlImportRow {
+  id?: string;
+  article: string;
+  label?: string;
+  plan: number | null;
+  fact: number | null;
+  source?: string;
+  sheet?: string;
+  sourceRow?: number;
+  sourceCellPlan?: string | null;
+  sourceCellFact?: string | null;
+  confidence?: number;
+  requiresReview?: boolean;
+}
+
 export interface PnlImportResponse {
-  requiresConfirmation: boolean;
-  rows: Array<{
-    id?: string;
-    article: string;
-    label?: string;
-    plan: number | null;
-    fact: number | null;
-    source?: string;
-    sheet?: string;
-    sourceRow?: number;
-    sourceCellPlan?: string | null;
-    sourceCellFact?: string | null;
-    confidence?: number;
-    requiresReview?: boolean;
-  }>;
-  message?: string;
+  rows?: PnlImportRow[];
+  requiresConfirmation?: boolean;
 }

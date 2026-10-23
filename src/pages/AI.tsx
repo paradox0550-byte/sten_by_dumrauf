@@ -48,7 +48,7 @@ export default function AI(){
 }
 
 function AIContent({user}:{user:User|null}){
- const[scope,,scopeSave]=useScope();
+ const[scope]=useScope();
  const navigate=useNavigate();
  const[searchParams,setSearchParams]=useSearchParams();
  const initialQuery=searchParams.get('q')?.trim()||'';
@@ -79,7 +79,6 @@ function AIContent({user}:{user:User|null}){
 
  useEffect(()=>{window.dispatchEvent(new CustomEvent('sten:ai-status',{detail:busy?'working':'ready'}))},[busy]);
  const[chatToast,setChatToast]=useState<string|null>(null);
- const[accessDenied,setAccessDenied]=useState(false);
  const[dragOver,setDragOver]=useState(false);
  const file=useRef<HTMLInputElement>(null);
  const promptRef=useRef<HTMLTextAreaElement>(null);
@@ -103,7 +102,7 @@ function AIContent({user}:{user:User|null}){
    try{const persisted=messages.slice(-80).map(({proposedMemory,...message})=>message);localStorage.setItem(key,JSON.stringify(persisted));localStorage.removeItem(LEGACY_KEY)}catch{}
  },[messages,key]);
  useEffect(()=>{try{localStorage.setItem('sten_docs_collapsed',docsCollapsed?'1':'0')}catch{}},[docsCollapsed]);
- useEffect(()=>{if(!chatToast||accessDenied)return;const timer=window.setTimeout(()=>setChatToast(null),2200);return()=>window.clearTimeout(timer)},[chatToast,accessDenied]);
+ useEffect(()=>{if(!chatToast)return;const timer=window.setTimeout(()=>setChatToast(null),2200);return()=>window.clearTimeout(timer)},[chatToast]);
  useEffect(()=>{
    const el=document.querySelector<HTMLTextAreaElement>('.sten-ai-page .composer-box textarea');
    if(!el)return;
@@ -140,12 +139,7 @@ function AIContent({user}:{user:User|null}){
  async function ask(value=prompt){
    const text=value.trim();
    if(!text||busy)return;
-   if(scopeSave.status==='saving'||scopeSave.status==='error'){
-     setChatToast(scopeSave.status==='saving'?'Сохраняем рабочий контур. Повторите запрос после завершения.':'Не удалось сохранить рабочий контур. Выберите контур заново в Настройках.');
-     return;
-   }
-   const requiresRestaurant=/p&l|pnl|фот|ресторан|выручк|себестоим|продаж|чек|отклонен/i.test(text);
-   if(requiresRestaurant&&!scope.restaurantId){setChatToast('Выберите рабочий контур');return;}
+   if(!scope.restaurantId){showChatToast('Выберите рабочий контур в Настройках перед запросом к AI.');return;}
    setPrompt('');
    const nextMsgs=[...messages,{id:crypto.randomUUID(),role:'user' as const,text,createdAt:new Date().toISOString()}];
    shouldAutoScrollRef.current=true;
@@ -177,15 +171,17 @@ function AIContent({user}:{user:User|null}){
      if(voiceModeRef.current)speakAnswer(answer);
    }catch(e){
      window.dispatchEvent(new CustomEvent('sten:ai-status',{detail:'error'}));
-     const accessError=e instanceof ApiError&&(e.code==='ORG_ACCESS_CLOSED'||e.code==='RESTAURANT_FORBIDDEN');
-     const message = accessError
-       ? (e.code==='ORG_ACCESS_CLOSED'?'Доступ организации закрыт. Проверьте статус подписки или обратитесь к администратору.':'Нет доступа к выбранному ресторану. Выберите другой ресторан или обратитесь к администратору.')
+     const message = e instanceof ApiError && e.code === 'ORG_ACCESS_CLOSED'
+       ? 'Доступ к организации закрыт. Проверьте статус подписки или обратитесь к администратору.'
+       : e instanceof ApiError && e.code === 'RESTAURANT_FORBIDDEN'
+         ? 'Нет доступа к выбранному ресторану. Выберите другой рабочий контур в Настройках или обратитесь к администратору.'
+         : e instanceof ApiError && e.status === 403
+           ? 'Нет доступа к данным выбранного рабочего контура. Выберите другой ресторан или обратитесь к администратору.'
        : e instanceof ApiError && e.status === 503
-         ? 'AI временно недоступен.'
-         : e instanceof ApiError && e.status === 502
-           ? `AI вернул ошибку. Код: ${e.code}. ID запроса: ${e.requestId||'не указан'}.`
-           : e instanceof Error ? e.message : 'Не удалось получить ответ.';
-     if(accessError){setAccessDenied(true);setChatToast(message);}
+       ? 'AI временно недоступен.'
+       : e instanceof ApiError && e.status === 502
+         ? `AI вернул ошибку. Код: ${e.code}. ID запроса: ${e.requestId||'не указан'}.`
+         : e instanceof Error ? e.message : 'Не удалось получить ответ.';
      setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:message,createdAt:new Date().toISOString()}]);
      if(voiceModeRef.current)setVoiceState('idle');
    }finally{setBusy(false)}
@@ -432,7 +428,7 @@ function AIContent({user}:{user:User|null}){
          })}
          {busy&&<div className="typing" role="status" aria-live="polite" aria-label="STEN AI обрабатывает запрос"><span className="typing__label">STEN AI думает...</span><i/><i/><i/></div>}
        </div>
-       {chatToast&&<div className="chat-toast" role="status" aria-live="polite">{chatToast}{accessDenied&&<button type="button" className="secondary-button" onClick={()=>{setAccessDenied(false);setChatToast(null);navigate('/settings')}}>Выбрать другой ресторан</button>}</div>}
+       {chatToast&&<div className="chat-toast" role="status" aria-live="polite">{chatToast}</div>}
 
        <div className={'composer sten-composer '+(composerFocused?'is-focused ':'')+(dragOver?'is-dragover':'')}
          onDragOver={e=>{e.preventDefault();if(!upload)setDragOver(true)}}

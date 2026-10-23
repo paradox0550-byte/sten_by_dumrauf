@@ -10002,12 +10002,3 @@ html[data-reduce-motion='true'] svg.lucide,html[data-reduce-motion='true'] .shel
   .sten-loading .sten-logo--animated { animation: none; }
 }
 html[data-reduce-motion='true'] .sten-loading-track > span { animation: none; width: 100%; opacity: .7; }
-
-
-/* Secretary event save feedback */
-.secretary-toast{position:fixed;right:20px;bottom:20px;z-index:1200;max-width:min(420px,calc(100vw - 32px));padding:12px 16px;border:1px solid var(--border-subtle,var(--border-color,#343b49));border-radius:10px;background:var(--bg-elevated,#171d29);color:var(--text-primary,#f4f6fa);box-shadow:0 10px 32px rgba(0,0,0,.24)}
-.secretary-toast.ok{border-color:var(--color-success,#31866b)}
-.secretary-toast.error{border-color:var(--color-danger,#c34b58)}
-.field-error{display:block;color:var(--color-danger,#d95c66);margin-top:4px}
-.settings-field input[aria-invalid="true"]{border-color:var(--color-danger,#d95c66)}
-.import-confirmation{display:flex;align-items:flex-start;gap:8px;margin:12px 0;padding:10px 12px;border:1px solid var(--border-subtle,var(--border-color,#343b49));border-radius:8px}

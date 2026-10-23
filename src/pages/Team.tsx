@@ -83,10 +83,8 @@ export default function Team() {
       api.get<PayrollResponse>('/fot-analytics?' + query),
       api.get<Pnl>('/api/pnl?' + query),
     ]);
-    const scopeDenied = [fotResult, pnlResult].some(result => result.status === 'rejected' && result.reason instanceof ApiError && result.reason.code === 'SCOPE_ACCESS_CHECK_FAILED');
-    if (scopeDenied) {
-      setRecords([]); setPnl(null); setError('Нет доступа'); setPnlError('Нет доступа'); setScopeUnavailable(false); setLoading(false); return;
-    }
+    const scopeDenied=[fotResult,pnlResult].some(result=>result.status==='rejected'&&result.reason instanceof ApiError&&result.reason.status===403&&result.reason.code==='SCOPE_ACCESS_CHECK_FAILED');
+    if(scopeDenied){setRecords([]);setPnl(null);setScopeUnavailable(true);setError('Нет доступа к данным выбранного ресторана. Выберите другой рабочий контур или обратитесь к администратору.');setPnlError('');setLoading(false);return;}
     if (fotResult.status === 'fulfilled') {
       const result = fotResult.value;
       setRecords(Array.isArray(result?.records) ? result.records.filter(row => row.period === scope.period) : []);
@@ -120,7 +118,7 @@ export default function Team() {
       const completeAmounts = amounts.every(value => value !== null);
       return {
         department,
-        hours: completeHours ? hours.reduce<number>((sum, value) => sum + value!, 0) : null,
+        hours: completeHours ? hours.reduce<number>((sum, value) => sum + (value ?? 0), 0) : null,
         amount: completeAmounts ? amounts.reduce<number>((sum, value) => sum + (value ?? 0), 0) : null,
         rows: rows.length,
         incomplete: !completeHours || !completeAmounts,
@@ -128,8 +126,8 @@ export default function Team() {
     }).sort((a, b) => (b.amount ?? -Infinity) - (a.amount ?? -Infinity));
   }, [records]);
 
-  const totalHours = records.length && records.every(row => n(row.hours) !== null) ? records.reduce((sum, row) => sum + n(row.hours)!, 0) : null;
-  const totalAmount = records.length && records.every(row => n(row.amount) !== null) ? records.reduce((sum, row) => sum + n(row.amount)!, 0) : null;
+  const totalHours = records.length && records.every(row => n(row.hours) !== null) ? records.reduce((sum, row) => sum + (n(row.hours) ?? 0), 0) : null;
+  const totalAmount = records.length && records.every(row => n(row.amount) !== null) ? records.reduce((sum, row) => sum + (n(row.amount) ?? 0), 0) : null;
   const revenue = n(pnl?.calculated?.fact?.revenue);
   const pnlLaborFact = n(pnl?.calculated?.fact?.labor);
   const pnlLaborPlan = n(pnl?.calculated?.plan?.labor);
@@ -158,10 +156,10 @@ export default function Team() {
     return { key, department, position, input, headcount, hoursPerPerson, hourlyRate, complete, plannedHours: complete ? headcount! * hoursPerPerson! : null, plannedCost: complete ? headcount! * hoursPerPerson! * hourlyRate! : null };
   }), [positionPlan, customPositions]);
   const completePlanRows = planRows.filter(row => row.complete);
-  const plannedHours = completePlanRows.length ? completePlanRows.reduce((sum, row) => sum + row.plannedHours!, 0) : null;
-  const plannedCost = completePlanRows.length ? completePlanRows.reduce((sum, row) => sum + row.plannedCost!, 0) : null;
+  const plannedHours = completePlanRows.length ? completePlanRows.reduce((sum, row) => sum + (row.plannedHours ?? 0), 0) : null;
+  const plannedCost = completePlanRows.length ? completePlanRows.reduce((sum, row) => sum + (row.plannedCost ?? 0), 0) : null;
   const headcountRows = planRows.filter(row => row.headcount != null && row.headcount >= 0);
-  const plannedHeadcount = headcountRows.length ? headcountRows.reduce((sum, row) => sum + row.headcount!, 0) : null;
+  const plannedHeadcount = headcountRows.length ? headcountRows.reduce((sum, row) => sum + (row.headcount ?? 0), 0) : null;
   const planComplete = completePlanRows.length === planRows.length;
   const hasScope = Boolean(scope.projectId || scope.branchId || scope.restaurantId || scope.departmentId);
 
@@ -205,7 +203,7 @@ export default function Team() {
 
     <FotScheduleImport period={scope.period} historyScope={[user?.organizationId || 'no-org', user?.id || 'anonymous', scope.projectId || 'all', scope.branchId || 'all', scope.restaurantId || 'all', scope.departmentId || 'all'].join(':')} />
 
-    {(error || pnlError) && <div className="fot-alert" role="alert"><AlertTriangle size={17} /><div><b>{error ? 'Не удалось загрузить ФОТ' : 'Часть аналитики недоступна'}</b><span>{[error, pnlError].filter(Boolean).join(' ')}</span></div></div>}
+    {(error || pnlError) && <div className="fot-alert" role="alert"><AlertTriangle size={17} /><div><b>{error.includes('Нет доступа') ? 'Нет доступа' : error ? 'Не удалось загрузить ФОТ' : 'Часть аналитики недоступна'}</b><span>{[error, pnlError].filter(Boolean).join(' ')}</span></div></div>}
     {scopeUnavailable && <div className="fot-alert" role="status"><AlertTriangle size={17} /><div><b>ФОТ доступен только на уровне организации</b><span>Сервер пока не фильтрует payroll по выбранному ресторану, филиалу или подразделению. Чтобы не показать чужие данные, показатели ФОТ для этого контура скрыты.</span></div></div>}
 
     <section className="fot-kpi-grid" aria-label="Ключевые показатели ФОТ">

@@ -7,6 +7,7 @@ import { api } from './api';
 
 const LEGACY_KEY = 'sten_scope_v5';
 const EVT = 'sten-scope-change';
+const SCOPE_SAVE_ERROR_EVENT = 'sten:scope-save-error';
 function storageKey(user:{id?:string;organizationId?:string|null}|null){return user?.id? `sten_scope_v5:${user.organizationId||'no-org'}:${user.id}`:null;}
 
 function parseScope(raw:string|null):Scope|null {
@@ -63,13 +64,11 @@ async function migrateLegacyScope(key:string):Promise<Scope|null> {
   } catch { return null; }
 }
 
-export type ScopeSaveStatus = 'idle' | 'saving' | 'saved' | 'error';
-export function useScope():[Scope,(next:Scope)=>void,{status:ScopeSaveStatus;error:string}] {
+export function useScope():[Scope,(next:Scope)=>void] {
   const {user}=useAuth();
   const key=storageKey(user);
   const [scope,setScope]=useState<Scope>(()=>readSaved(key));
   const [loadedFor,setLoadedFor]=useState<string|null>(null);
-  const [contextSave,setContextSave]=useState<{status:ScopeSaveStatus;error:string}>({status:'idle',error:''});
   const contextSeqRef=useRef(0);
   const saveSeqRef=useRef(0);
 
@@ -96,7 +95,7 @@ export function useScope():[Scope,(next:Scope)=>void,{status:ScopeSaveStatus;err
       setLoadedFor(canPersist?key:null);
       try {
         const r=await api.get<any>('/api/b2b/context');
-        if(cancelled||seq!==contextSeqRef.current||saveSeqRef.current>0)return;
+        if(cancelled||seq!==contextSeqRef.current)return;
         const c=r?.context??r?.data?.context;
         if(!c)return;
         // Empty/null server fields must not erase a validated local selection.
@@ -114,54 +113,50 @@ export function useScope():[Scope,(next:Scope)=>void,{status:ScopeSaveStatus;err
     };
     void initialize();
     const onChange=()=>setScope(readSaved(key));
-    const onSaveStatus=(event:Event)=>{
-      const detail=(event as CustomEvent<{scope:Scope;status:ScopeSaveStatus;error?:string}>).detail;
-      if(!detail)return;
-      setScope(detail.scope);
-      setContextSave({status:detail.status,error:detail.error||''});
-    };
     window.addEventListener(EVT,onChange);
     window.addEventListener('storage',onChange);
-    window.addEventListener('sten-scope-save-status',onSaveStatus);
     return()=>{
       cancelled=true;
       window.removeEventListener(EVT,onChange);
       window.removeEventListener('storage',onChange);
-      window.removeEventListener('sten-scope-save-status',onSaveStatus);
     };
   },[key]);
 
   const update=(next:Scope)=>{
-    const saveSeq=++saveSeqRef.current;
-    setScope(next);
-    setLoadedFor(key);
-    setContextSave({status:'saving',error:''});
-    window.dispatchEvent(new CustomEvent('sten-scope-save-status',{detail:{scope:next,status:'saving'}}));
-    void api.put('/api/b2b/context',{
-      restaurant_id:next.restaurantId??null,
-      project_id:next.projectId??null,
-      branch_id:next.branchId??null,
-      department_id:next.departmentId??null,
-    }).then(()=>{
-      if(saveSeq!==saveSeqRef.current)return;
-      try{if(key)localStorage.setItem(key,JSON.stringify(next));}catch{/* приватный режим */}
-      setContextSave({status:'saved',error:''});
-      window.dispatchEvent(new CustomEvent('sten-scope-save-status',{detail:{scope:next,status:'saved'}}));
-      window.dispatchEvent(new Event(EVT));
-    }).catch((error:unknown)=>{
-      if(saveSeq!==saveSeqRef.current)return;
-      const message=error instanceof Error?error.message:'Не удалось сохранить рабочий контекст.';
-      setContextSave({status:'error',error:message});
-      window.dispatchEvent(new CustomEvent('sten-scope-save-status',{detail:{scope:next,status:'error',error:message}}));
-    });
+    const seq=++saveSeqRef.current;
+    void (async()=>{
+      try {
+        await api.put('/api/b2b/context',{
+          restaurant_id:next.restaurantId??null,
+          project_id:next.projectId??null,
+          branch_id:next.branchId??null,
+          department_id:next.departmentId??null,
+        });
+        if(seq!==saveSeqRef.current)return;
+        setScope(next);
+        setLoadedFor(key);
+        try{if(key)localStorage.setItem(key,JSON.stringify(next));}catch{/* приватный режим */}
+        window.dispatchEvent(new Event(EVT));
+        window.dispatchEvent(new Event('sten:scope-save-success'));
+      } catch(error) {
+        if(seq!==saveSeqRef.current)return;
+        // A failed write invalidates the selected contour locally: never keep sending a stale restaurant to AI.
+        const cleared:Scope={period:next.period};
+        setScope(cleared);
+        setLoadedFor(key);
+        try{if(key)localStorage.setItem(key,JSON.stringify(cleared));}catch{/* приватный режим */}
+        window.dispatchEvent(new Event(EVT));
+        window.dispatchEvent(new CustomEvent(SCOPE_SAVE_ERROR_EVENT,{detail:{message:error instanceof Error?error.message:'Не удалось сохранить рабочий контекст.'}}));
+      }
+    })();
   };
 
   useEffect(()=>{
-    if(!key||loadedFor!==key||contextSave.status==='saving'||contextSave.status==='error')return;
+    if(!key||loadedFor!==key)return;
     try{localStorage.setItem(key,JSON.stringify(scope));}catch{/* приватный режим */}
-  },[scopeKey(scope),key,loadedFor,contextSave.status]);
+  },[scopeKey(scope),key,loadedFor]);
 
-  return [scope,update,contextSave];
+  return [scope,update];
 }
 
 export {hasScopeId} from './scope';
