@@ -1,5 +1,5 @@
-const CACHE='sten-shell-v6';
-const CORE=['./','./index.html','./manifest.json','./favicon.svg'];
+const CACHE='sten-shell-v7';
+const CORE=['./','./index.html','./manifest.json','./favicon.svg','./icon-192.svg','./icon-512.svg'];
 const API_PREFIXES=['/api/','/ask','/fot-analytics','/reports','/auth/','/ai/'];
 const STATIC_PREFIXES=['/assets/','/icons/'];
 const STATIC_FILES=['/favicon.svg','/manifest.json','/icon-192.svg','/icon-512.svg'];
