@@ -46,5 +46,5 @@ export function normalizeProfileText(value: string): string {
 }
 
 export function isValidTelegramChatId(value: string): boolean {
-  return /^-?\\d{5,20}$/.test(value);
+  return /^-?\d{5,20}$/.test(value);
 }
