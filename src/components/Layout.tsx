@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import type { LucideIcon } from 'lucide-react';
 import {
   BarChart3, Bot, Brain, CalendarDays, Menu, Moon, PanelLeft, PanelLeftClose, FlaskConical,
   LogOut, Scale, Sun, WalletCards, X, ChevronDown, ClipboardList, Gauge, Monitor, Users, FileText,
@@ -23,7 +24,7 @@ const NAV_ICONS: Record<NavIconName, React.ElementType> = {
   terms: FileText,
 };
 
-function NavIcon({ icon, size = 17 }: { icon: React.ElementType | NavIconName; size?: number }) {
+function NavIcon({ icon, size = 17 }: { icon: LucideIcon | NavIconName; size?: number }) {
   const Icon = typeof icon === 'string' ? NAV_ICONS[icon] : icon;
   return <Icon size={size} aria-hidden="true" />;
 }
