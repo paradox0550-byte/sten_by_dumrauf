@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Check, Save } from 'lucide-react';
+import { Check, Save, RotateCcw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { api, ApiError } from '../lib/api';
 import WorkspaceSelector from '../components/WorkspaceSelector';
 import { useScope } from '../lib/useScope';
 import { useAnalyticsSettings, type AnalyticsSettings } from '../lib/useAnalyticsSettings';
+import { useAppearance } from '../features/chat-appearance/useAppearance';
+import { DENSITY_OPTIONS, THEME_OPTIONS } from '../features/chat-appearance/defaults';
+import type { AppearanceSettings, DensityId, ThemeId } from '../features/chat-appearance/types';
 import { isValidTelegramChatId, normalizeProfileText, type MessengerSettingsPayload, type MessengerSettingsResponse, type ProfileUpdatePayload, type ProfileUpdateResponse } from '../lib/contracts/profile';
 
 type Theme = 'light' | 'dark' | 'system';
@@ -23,6 +26,9 @@ type Metrics = {
 const THEME_KEY = 'sten_theme_v5';
 const FONT_SIZE_KEY = 'sten_font_size_v1';
 const MOTION_KEY = 'sten_reduce_motion_v1';
+const AI_MODE_KEY = 'sten_ai_personal_mode';
+const AI_VOICE_KEY = 'sten_ai_voice_autoplay';
+type PersonalMode = 'concise' | 'analyst' | 'coach';
 const metricDefaults: Metrics = {
   revenue: true,
   cashCard: true,
@@ -48,6 +54,9 @@ const applyAppearance = (fontSize: FontSize, reduceMotion: boolean) => {
 export default function Settings() {
   const { signOut, user, refresh } = useAuth();
   const [scope, setScope] = useScope();
+  const { settings: chatAppearance, update: updateChatAppearance, reset: resetChatAppearance } = useAppearance(user);
+  const [personalMode, setPersonalMode] = useState<PersonalMode>(() => { const value = localStorage.getItem(AI_MODE_KEY); return value === 'concise' || value === 'analyst' || value === 'coach' ? value : 'analyst'; });
+  const [voiceAutoplay, setVoiceAutoplay] = useState(() => localStorage.getItem(AI_VOICE_KEY) === 'true');
   const [theme, setTheme] = useState<Theme>(() => {
     const value = localStorage.getItem(THEME_KEY);
     return value === 'light' || value === 'dark' || value === 'system' ? value : 'dark';
@@ -110,6 +119,9 @@ export default function Settings() {
       telegramChatId: normalizeProfileText(String(user?.telegramChatId || '')),
     });
   }, [user?.firstName, user?.lastName, user?.position, user?.telegramChatId]);
+
+  useEffect(() => { localStorage.setItem(AI_MODE_KEY, personalMode); }, [personalMode]);
+  useEffect(() => { localStorage.setItem(AI_VOICE_KEY, String(voiceAutoplay)); }, [voiceAutoplay]);
 
   useEffect(() => {
     applyAppearance(fontSize, reduceMotion);
@@ -287,7 +299,8 @@ export default function Settings() {
         <a href="#settings-workspace">Организация и рестораны</a>
         <a href="#settings-analytics">Финансы и аналитика</a>
         <a href="#settings-reports">Отчёты и уведомления</a>
-        <a href="#settings-appearance">Внешний вид</a>
+        <a href="#settings-ai">STEN AI и голос</a>
+         <a href="#settings-appearance">Внешний вид</a>
         <a href="#settings-session">Вход и выход</a>
       </nav>
 
@@ -333,6 +346,32 @@ export default function Settings() {
             {profileSaving ? 'Сохраняем…' : 'Сохранить данные'}
           </button>
           {profileMessage && <div className={`pnl-message ${profileMessageKind}`} role={profileMessageKind === 'error' ? 'alert' : 'status'} aria-live={profileMessageKind === 'error' ? 'assertive' : 'polite'}>{profileMessage}</div>}
+        </section>
+
+        <section className="panel settings-ai-panel" id="settings-ai">
+          <h2>STEN AI и голос</h2>
+          <p className="muted">Все настройки общения и оформления чата собраны здесь. Панель чата остаётся свободной от дополнительных меню.</p>
+          <label className="settings-field"><span>Стиль ответов STEN AI</span>
+            <select value={personalMode} onChange={(event) => setPersonalMode(event.target.value as PersonalMode)}>
+              <option value="concise">Кратко и по делу</option><option value="analyst">Аналитик — факты, причины и риски</option><option value="coach">Наставник управляющего</option>
+            </select>
+          </label>
+          <label className="toggle-row"><span><b>Озвучивать ответы STEN</b><small>Голосовой ответ после отправки вопроса. Работает независимо от поддержки распознавания речи.</small></span>
+            <input type="checkbox" checked={voiceAutoplay} onChange={(event) => setVoiceAutoplay(event.target.checked)} /><i />
+          </label>
+          <p className="settings-help">На iPhone/iPad браузер может не поддерживать встроенное распознавание речи. Нажмите микрофон в чате и используйте диктовку клавиатуры; ответ можно прослушать голосом.</p>
+          <div className="settings-subsection"><span className="settings-label">Тема чата</span><div className="choice-grid">
+            {THEME_OPTIONS.map((option) => <button key={option.id} type="button" className={'choice ' + (chatAppearance.theme === option.id ? 'active' : '')} onClick={() => updateChatAppearance('theme', option.id as ThemeId)} aria-pressed={chatAppearance.theme === option.id}><span>{option.label}</span>{chatAppearance.theme === option.id && <Check size={16} />}</button>)}
+          </div></div>
+          <div className="settings-subsection"><span className="settings-label">Плотность диалога</span><div className="choice-grid">
+            {DENSITY_OPTIONS.map((option) => <button key={option.id} type="button" className={'choice ' + (chatAppearance.density === option.id ? 'active' : '')} onClick={() => updateChatAppearance('density', option.id)} aria-pressed={chatAppearance.density === option.id}>{option.label}{chatAppearance.density === option.id && <Check size={16} />}</button>)}
+          </div></div>
+          <div className="settings-chat-toggles">
+            {([['showAvatars','Аватары участников'],['showTime','Время сообщений'],['showSources','Источники ответов'],['showActions','Действия с сообщениями']] as Array<[keyof Pick<AppearanceSettings,'showAvatars'|'showTime'|'showSources'|'showActions'>,string]>).map(([key,label]) =>
+              <label className="toggle-row" key={key}><span><b>{label}</b></span><input type="checkbox" checked={chatAppearance[key]} onChange={(event) => updateChatAppearance(key,event.target.checked)} /><i /></label>
+            )}
+          </div>
+          <button type="button" className="secondary-button" onClick={resetChatAppearance}><RotateCcw size={15} /> Сбросить оформление чата</button>
         </section>
 
         <section className="panel" id="settings-appearance">
