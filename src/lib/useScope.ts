@@ -63,11 +63,13 @@ async function migrateLegacyScope(key:string):Promise<Scope|null> {
   } catch { return null; }
 }
 
-export function useScope():[Scope,(next:Scope)=>void] {
+export type ScopeSaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+export function useScope():[Scope,(next:Scope)=>void,{status:ScopeSaveStatus;error:string}] {
   const {user}=useAuth();
   const key=storageKey(user);
   const [scope,setScope]=useState<Scope>(()=>readSaved(key));
   const [loadedFor,setLoadedFor]=useState<string|null>(null);
+  const [contextSave,setContextSave]=useState<{status:ScopeSaveStatus;error:string}>({status:'idle',error:''});
   const contextSeqRef=useRef(0);
 
   useEffect(()=>{
@@ -123,14 +125,20 @@ export function useScope():[Scope,(next:Scope)=>void] {
   const update=(next:Scope)=>{
     setScope(next);
     setLoadedFor(key);
+    setContextSave({status:'saving',error:''});
     void api.put('/api/b2b/context',{
       restaurant_id:next.restaurantId??null,
       project_id:next.projectId??null,
       branch_id:next.branchId??null,
       department_id:next.departmentId??null,
-    }).catch(()=>{/* локальный выбор сохраняется; серверная авторизация не обходится */});
-    try{if(key)localStorage.setItem(key,JSON.stringify(next));}catch{/* приватный режим */}
-    window.dispatchEvent(new Event(EVT));
+    }).then(()=>{
+      try{if(key)localStorage.setItem(key,JSON.stringify(next));}catch{/* приватный режим */}
+      setContextSave({status:'saved',error:''});
+      window.dispatchEvent(new Event(EVT));
+    }).catch((error:unknown)=>{
+      const message=error instanceof Error?error.message:'Не удалось сохранить рабочий контекст.';
+      setContextSave({status:'error',error:message});
+    });
   };
 
   useEffect(()=>{
@@ -138,7 +146,7 @@ export function useScope():[Scope,(next:Scope)=>void] {
     try{localStorage.setItem(key,JSON.stringify(scope));}catch{/* приватный режим */}
   },[scopeKey(scope),key,loadedFor]);
 
-  return [scope,update];
+  return [scope,update,contextSave];
 }
 
 export {hasScopeId} from './scope';
