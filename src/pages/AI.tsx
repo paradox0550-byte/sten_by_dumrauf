@@ -180,7 +180,7 @@ function AIContent({user}:{user:User|null}){
    }finally{setBusy(false)}
  }
 
- askRef.current=ask;
+ useEffect(()=>{askRef.current=ask},[ask]);
 
  async function uploadFiles(list:FileList|null){
    if(!list||upload)return;
