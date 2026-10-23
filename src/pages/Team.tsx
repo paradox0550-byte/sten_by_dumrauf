@@ -83,6 +83,10 @@ export default function Team() {
       api.get<PayrollResponse>('/fot-analytics?' + query),
       api.get<Pnl>('/api/pnl?' + query),
     ]);
+    const scopeDenied = [fotResult, pnlResult].some(result => result.status === 'rejected' && result.reason instanceof ApiError && result.reason.code === 'SCOPE_ACCESS_CHECK_FAILED');
+    if (scopeDenied) {
+      setRecords([]); setPnl(null); setError('Нет доступа'); setPnlError('Нет доступа'); setScopeUnavailable(false); setLoading(false); return;
+    }
     if (fotResult.status === 'fulfilled') {
       const result = fotResult.value;
       setRecords(Array.isArray(result?.records) ? result.records.filter(row => row.period === scope.period) : []);
