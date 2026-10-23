@@ -20,6 +20,7 @@ const XLSX       = require('@e965/xlsx');
 const documentProcessor = require('./documentProcessor');
 const { convertWithMarkItDown } = require('./markitdownClient');
 const { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { normalizeProfilePayload } = require('./core/profile');
 const { buildSkillPrompt } = require('./core/skills');
 const { TOOLS, executeTool } = require('./core/tools');
 const { createMemory, listMemory, updateMemoryConfidence, deleteMemory, loadMemoryContext } = require('./core/memory');
@@ -1689,12 +1690,7 @@ app.get('/api/profile',requireAuth,async(req,res,next)=>{try{
 }catch(e){next(e)}});
 
 app.put('/api/profile',requireAuth,async(req,res,next)=>{try{
- const firstName=String(req.body?.firstName??'').trim().normalize('NFC');
- const lastName=String(req.body?.lastName??'').trim().normalize('NFC');
- const position=String(req.body?.position??'').trim().normalize('NFC');
- const telegramChatId=String(req.body?.telegramChatId??'').trim();
- if(firstName.length>80||lastName.length>80||position.length>120||telegramChatId.length>80) throw httpError(400,'Проверьте данные профиля','PROFILE_INVALID');
- if(telegramChatId && !/^-?\\d{5,20}$/u.test(telegramChatId)) throw httpError(400,'Telegram ID должен содержать только цифры, можно с минусом','TELEGRAM_ID_INVALID');
+ const { firstName, lastName, position, telegramChatId } = normalizeProfilePayload(req.body);
  const q=await queryWithRetry('UPDATE users SET first_name=$1,last_name=$2,position=$3,telegram_chat_id=$4 WHERE id=$5::uuid AND is_active=true RETURNING id,email,first_name,last_name,position,telegram_chat_id,role,organization_id',[firstName||null,lastName||null,position,telegramChatId||null,req.user.id],{});
  const u=q.rows?.[0]; if(!u) throw httpError(404,'Профиль не найден','PROFILE_NOT_FOUND');
  if(telegramChatId && UUID_RE.test(String(req.user.organizationId||''))) await queryWithRetry('INSERT INTO messenger_settings(organization_id,telegram_chat_id,updated_at,updated_by) VALUES($1::uuid,$2,now(),$3) ON CONFLICT(organization_id) DO UPDATE SET telegram_chat_id=excluded.telegram_chat_id,updated_at=now(),updated_by=excluded.updated_by',[req.user.organizationId,telegramChatId,req.user.id],{orgId:req.user.organizationId});
