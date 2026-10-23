@@ -182,14 +182,19 @@ export default function Settings() {
       setProfileMessageKind('error');
       if (error instanceof ApiError && error.code === 'TELEGRAM_ID_INVALID') {
         setProfileErrors({ telegramChatId: 'Проверьте формат Telegram ID: 5–20 цифр, отрицательный ID допустим.' });
+        setProfileMessage('');
       } else if (error instanceof ApiError && error.code === 'PROFILE_INVALID') {
+        const details = typeof error.details === 'object' && error.details !== null ? error.details as Record<string, unknown> : {};
+        const fieldErrors = typeof details.fields === 'object' && details.fields !== null ? details.fields as Record<string, unknown> : details;
         setProfileErrors({
-          firstName: 'Проверьте имя (не более 80 символов).',
-          lastName: 'Проверьте фамилию (не более 80 символов).',
-          position: 'Проверьте должность (не более 120 символов).',
+          ...(typeof fieldErrors.firstName === 'string' ? { firstName: fieldErrors.firstName } : { firstName: 'Проверьте имя (не более 80 символов).' }),
+          ...(typeof fieldErrors.lastName === 'string' ? { lastName: fieldErrors.lastName } : { lastName: 'Проверьте фамилию (не более 80 символов).' }),
+          ...(typeof fieldErrors.position === 'string' ? { position: fieldErrors.position } : { position: 'Проверьте должность (не более 120 символов).' }),
         });
+        setProfileMessage('');
+      } else {
+        setProfileMessage(error instanceof Error ? error.message : 'Не удалось сохранить профиль.');
       }
-      setProfileMessage(error instanceof Error ? error.message : 'Не удалось сохранить профиль.');
     } finally {
       setProfileSaving(false);
     }
