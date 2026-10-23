@@ -1,13 +1,12 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bot, FileText, Mic, MicOff, MoreHorizontal, Paperclip, Send, Sparkles, Trash2, UploadCloud, Eye, X, Database, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Bot, FileText, Mic, MicOff, Paperclip, Send, Sparkles, Trash2, UploadCloud, Eye, X, Database, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { api, ApiError, createMemory } from '../lib/api';
 import { useScope } from '../lib/useScope';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth, type User } from '../contexts/AuthContext';
 import { hasScopeId, scopeQuery } from '../lib/scope';
 import { AskRequestSchema, type AskRequest, type AskResponse, type AskSource } from '../lib/contracts/ask';
-import { AppearanceDrawer } from '../features/chat-appearance/AppearanceDrawer';
 import { AppearanceProvider, useAppearanceContext } from '../features/chat-appearance/AppearanceContext';
 import { ChatBackground } from '../features/chat-appearance/ChatBackground';
 import { MessageRow } from '../features/chat-appearance/MessageRow';
@@ -71,10 +70,11 @@ function AIContent({user}:{user:User|null}){
  const[listening,setListening]=useState(false);
  const[voiceMode,setVoiceMode]=useState(false);
  const[voiceState,setVoiceState]=useState<'idle'|'listening'|'thinking'|'speaking'>('idle');
- const[appearanceOpen,setAppearanceOpen]=useState(false);
+ const[voiceAutoplay,setVoiceAutoplay]=useState(()=>{try{return localStorage.getItem('sten_ai_voice_autoplay')==='true'}catch{return false}});
  const[composerFocused,setComposerFocused]=useState(false);
  useEffect(()=>{if(initialQuery)setPrompt(initialQuery)},[initialQuery]);
  useEffect(()=>{voiceModeRef.current=voiceMode},[voiceMode]);
+ useEffect(()=>{voiceAutoplayRef.current=voiceAutoplay},[voiceAutoplay]);
  useEffect(()=>()=>{try{recog.current?.abort?.()}catch{} if(typeof window!=='undefined'&&'speechSynthesis' in window)window.speechSynthesis.cancel()},[]);
 
  useEffect(()=>{window.dispatchEvent(new CustomEvent('sten:ai-status',{detail:busy?'working':'ready'}))},[busy]);
@@ -85,6 +85,7 @@ function AIContent({user}:{user:User|null}){
  const recog=useRef<any>(null);
  const speechRef=useRef<SpeechSynthesisUtterance|null>(null);
  const voiceModeRef=useRef(false);
+ const voiceAutoplayRef=useRef(voiceAutoplay);
  const finalTranscriptRef=useRef('');
  const askRef=useRef<(value?:string)=>Promise<void>>(async()=>{});
  const chatBodyRef=useRef<HTMLDivElement>(null);
@@ -167,7 +168,7 @@ function AIContent({user}:{user:User|null}){
      const p = r;
      const answer=String(p.answer??p.message??'Ответ не получен.');
      setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:answer,sources:Array.isArray(p.sources)?p.sources:[],steps:Array.isArray(p.steps)?p.steps:undefined,totalMs:typeof p.total_ms==='number'?p.total_ms:undefined,proposedMemory:Array.isArray(p.proposed_memory)?p.proposed_memory:p.proposed_memory===null?null:undefined,model:typeof p.model==='string'?p.model:undefined,toolsUsed:Array.isArray(p.tools_used)?p.tools_used.map(t=>({name:t.name,ok:t.ok,ms:t.ms})):p.tools_used===null?null:undefined,createdAt:new Date().toISOString()}]);
-     if(voiceModeRef.current)speakAnswer(answer);
+     if(voiceModeRef.current||voiceAutoplayRef.current)speakAnswer(answer);
    }catch(e){
      window.dispatchEvent(new CustomEvent('sten:ai-status',{detail:'error'}));
      const message = e instanceof ApiError && e.code === 'ORG_ACCESS_CLOSED'
@@ -254,13 +255,18 @@ function AIContent({user}:{user:User|null}){
    try{r.start()}catch{setListening(false);setVoiceState('idle');showChatToast('Не удалось запустить микрофон. Проверьте разрешения браузера.')}
  }
  function toggleVoice(){
-   if(voiceState==='speaking'){interruptVoice();return}
-   if(!SR){showChatToast('Голосовой ввод недоступен в этом браузере. Попробуйте Chrome или Edge.');return}
-   if(voiceMode){voiceModeRef.current=false;setVoiceMode(false);try{recog.current?.abort?.()}catch{}stopSpeech();setListening(false);return}
-   voiceModeRef.current=true;setVoiceMode(true);
-   if(!('speechSynthesis' in window))showChatToast('Голосовой ответ не поддерживается этим браузером.');
-   if(window.speechSynthesis?.speaking)stopSpeech();startRecognition();
- }
+    if(voiceState==='speaking'){interruptVoice();return}
+    if(voiceMode){voiceModeRef.current=false;setVoiceMode(false);try{recog.current?.abort?.()}catch{}stopSpeech();setListening(false);return}
+    if(!('speechSynthesis' in window)&&!SR){showChatToast('В этом браузере недоступны голосовой ввод и голосовой ответ.');return}
+    voiceModeRef.current=true;setVoiceMode(true);
+    if(!SR){
+      promptRef.current?.focus();
+      showChatToast('Встроенное распознавание речи недоступно. Используйте микрофон диктовки на клавиатуре — ответ STEN будет озвучен.');
+      return;
+    }
+    if(!('speechSynthesis' in window))showChatToast('Голосовой ответ не поддерживается этим браузером.');
+    if(window.speechSynthesis?.speaking)stopSpeech();startRecognition();
+  }
  function interruptVoice(){stopSpeech();try{recog.current?.abort?.()}catch{}if(voiceModeRef.current)startRecognition()}
 
  const readyCount=docs.filter(d=>d.status==='ready').length;
@@ -309,15 +315,9 @@ function AIContent({user}:{user:User|null}){
        </div>
      </div>
      <div className="sten-ai-topbar__actions">
-       <span className={'sten-ai-context-pill '+(hasScopeId(scope)?'is-selected':'')}><Database size={14}/>{hasScopeId(scope)?'Контур выбран':'Контур не выбран'}</span>
-       <button className="chat-appearance-trigger" onClick={()=>setAppearanceOpen(v=>!v)} aria-label="Настроить оформление STEN AI" aria-expanded={appearanceOpen} title="Настроить оформление"><MoreHorizontal size={18}/></button>
        <button className="secondary-button" onClick={clearChat}><span>Новый диалог</span></button>
      </div>
-   </header>
-
-   {!hasScopeId(scope)&&<div className="import-result warn">Для точного AI-контекста выберите рабочий контур в Настройках.</div>}
-
-   <div className={'ai-grid '+(docsCollapsed?'docs-collapsed':'')}>
+   </header><div className={'ai-grid '+(docsCollapsed?'docs-collapsed':'')}>
      <aside className="docs-panel">
        <div className="panel-title">
          <FileText size={17}/> Документы <span>{docs.length}</span>
@@ -348,11 +348,8 @@ function AIContent({user}:{user:User|null}){
      <section className="chat">
        <div className="chat-head" aria-label="Состав контекста диалога">
          <span className="chat-head__label">РАБОЧИЙ ДИАЛОГ</span>
-         <span className="chat-head__context"><span className="chat-head__dot"/>{hasScopeId(scope)?'Используется выбранный контур':'Финансовый контур не выбран'}</span>
          <span className="chat-head__documents"><FileText size={13}/>{readyCount} {readyCount===1?'документ готов':'документов готовы'}</span>
-          <label className="sten-ai-mode-control"><span>РЕЖИМ</span><select aria-label="Режим общения STEN AI" value={personalMode} onChange={event=>setPersonalMode(event.target.value as PersonalMode)} disabled={busy}><option value="concise">Кратко</option><option value="analyst">Аналитик</option><option value="coach">Наставник</option></select></label>
        </div>
-       {appearanceOpen&&<AppearanceDrawer onClose={()=>setAppearanceOpen(false)}/>}
 
        <div ref={chatBodyRef} className="chat-body" role="log" aria-live="polite" aria-label="История чата со STEN" onScroll={()=>{const element=chatBodyRef.current;if(element)shouldAutoScrollRef.current=element.scrollHeight-element.scrollTop-element.clientHeight<120;}}>
          <ChatBackground kind={settings.background}/>
