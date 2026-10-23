@@ -215,7 +215,7 @@ function AIContent({user}:{user:User|null}){
  function speakAnswer(answer:string){
    if(!('speechSynthesis' in window)||!answer.trim()){setVoiceState('idle');return}
    window.speechSynthesis.cancel();
-   const plain=answer.replace(/\\[([^\\]]+)\\]\\([^)]*\\)/g,'$1').replace(/https?:\\/\\/\\S+/g,'').replace(/<[^>]*>/g,' ').replace(/```[\\s\\S]*?```/g,' Код опущен. ').replace(/[\\*_#>|]/g,' ').replace(/\\s+/g,' ').trim();
+   const plain=answer.replace(/\[([^\]]+)\]\([^)]*\)/g,'$1').replace(/https?:\/\/\S+/g,'').replace(/<[^>]*>/g,' ').replace(/```[\s\S]*?```/g,' Код опущен. ').replace(/[*_#>|]/g,' ').replace(/\s+/g,' ').trim();
    if(!plain){setVoiceState('idle');return}
    const utterance=new SpeechSynthesisUtterance(plain.slice(0,12000));
    utterance.lang='ru-RU';utterance.rate=1;
