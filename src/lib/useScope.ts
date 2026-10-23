@@ -71,6 +71,7 @@ export function useScope():[Scope,(next:Scope)=>void,{status:ScopeSaveStatus;err
   const [loadedFor,setLoadedFor]=useState<string|null>(null);
   const [contextSave,setContextSave]=useState<{status:ScopeSaveStatus;error:string}>({status:'idle',error:''});
   const contextSeqRef=useRef(0);
+  const saveSeqRef=useRef(0);
 
   useEffect(()=>{
     const seq=++contextSeqRef.current;
@@ -131,6 +132,7 @@ export function useScope():[Scope,(next:Scope)=>void,{status:ScopeSaveStatus;err
   },[key]);
 
   const update=(next:Scope)=>{
+    const saveSeq=++saveSeqRef.current;
     setScope(next);
     setLoadedFor(key);
     setContextSave({status:'saving',error:''});
@@ -141,11 +143,13 @@ export function useScope():[Scope,(next:Scope)=>void,{status:ScopeSaveStatus;err
       branch_id:next.branchId??null,
       department_id:next.departmentId??null,
     }).then(()=>{
+      if(saveSeq!==saveSeqRef.current)return;
       try{if(key)localStorage.setItem(key,JSON.stringify(next));}catch{/* приватный режим */}
       setContextSave({status:'saved',error:''});
       window.dispatchEvent(new CustomEvent('sten-scope-save-status',{detail:{scope:next,status:'saved'}}));
       window.dispatchEvent(new Event(EVT));
     }).catch((error:unknown)=>{
+      if(saveSeq!==saveSeqRef.current)return;
       const message=error instanceof Error?error.message:'Не удалось сохранить рабочий контекст.';
       setContextSave({status:'error',error:message});
       window.dispatchEvent(new CustomEvent('sten-scope-save-status',{detail:{scope:next,status:'error',error:message}}));
