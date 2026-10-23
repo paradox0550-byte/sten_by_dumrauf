@@ -600,3 +600,16 @@
 .sten-ai-page .composer .voice-stop { color:var(--color-danger, #d64545); }
 @keyframes sten-voice-pulse { 50% { opacity:.45; } }
 @media (prefers-reduced-motion: reduce) { .sten-voice-status__dot.is-speaking { animation:none; } }
+
+
+/* Unified, uncluttered STEN AI header after moving preferences to Settings. */
+.sten-ai-page > .sten-ai-topbar { min-height: 54px; padding-block: 6px; }
+.sten-ai-topbar__actions { justify-content: flex-end; }
+.sten-ai-page .chat-head { justify-content: flex-start; }
+.sten-ai-page .chat-head__documents { margin-left: auto; }
+@media (max-width: 767px) {
+  .sten-ai-page > .sten-ai-topbar { min-height: 48px; }
+  .sten-ai-topbar__mark { display: none; }
+  .sten-ai-topbar__title p { display: none; }
+  .sten-ai-page .chat-head { min-height: 34px; }
+}
