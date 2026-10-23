@@ -39,19 +39,22 @@ function useOrgTree() {
     try {
       const x = await api.get<unknown>('/api/b2b/org/tree');
       if (seq !== reloadSeqRef.current) return;
-      setNodes(flatten(x));
+      const nextNodes = flatten(x);
+      setNodes(nextNodes);
       setError('');
+      return nextNodes;
     } catch (e) {
-      if (seq !== reloadSeqRef.current) return;
-      setNodes([]);
+      if (seq !== reloadSeqRef.current) return [];
+      // A transient read error must not erase a previously loaded organization tree.
       setError(e instanceof Error ? e.message : 'Не удалось загрузить дерево');
+      return [];
     } finally {
       if (seq === reloadSeqRef.current) setLoading(false);
     }
   };
 
   useEffect(() => { void reload(); }, []);
-  return { nodes, loading, error, reload, setError };
+  return { nodes, loading, error, reload, setError, setNodes };
 }
 
 export default function WorkspaceSelector({
@@ -98,17 +101,42 @@ export default function WorkspaceSelector({
       const body: Record<string, unknown> = { kind: adding, name: newName.trim() };
       const pid = parentIdFor(adding);
       if (pid) body.parent_id = pid;
-      const r = await api.post<{ unit: { id: string } }>('/api/b2b/org/units', body);
-      const created = (r as any)?.unit ?? (r as any)?.data?.unit;
-      await reload();
-      if (created && created.id) {
-        if (adding === 'project') set({ projectId: created.id, branchId: undefined, restaurantId: undefined, departmentId: undefined });
-        else if (adding === 'branch') set({ branchId: created.id, restaurantId: undefined, departmentId: undefined });
-        else if (adding === 'restaurant') set({ restaurantId: created.id, departmentId: undefined });
-        else if (adding === 'department') set({ departmentId: created.id });
+      const r = await api.post<{
+        unit?: { id?: string; name?: string; kind?: string; parent_id?: string | null };
+        data?: { unit?: { id?: string; name?: string; kind?: string; parent_id?: string | null } };
+        confirmed?: boolean;
+      }>('/api/b2b/org/units', body);
+      const created = r?.unit ?? r?.data?.unit;
+      const createdId = typeof created?.id === 'string' ? created.id : '';
+      if (!createdId) {
+        throw new Error('Сервер не вернул ID созданного объекта. Сохранение не подтверждено; обновите список перед повторной попыткой.');
       }
+
+      // Keep the confirmed server response visible immediately; a temporary tree-refresh
+      // failure must not make a successfully created restaurant disappear from the UI.
+      const kind = (created?.kind || adding) as Kind;
+      const parentId = typeof created?.parent_id === 'string' ? created.parent_id : pid;
+      const visibleNode: Node = {
+        id: createdId,
+        name: typeof created?.name === 'string' ? created.name : newName.trim(),
+        type: kind,
+        ...(parentId ? { parentId } : {}),
+      };
+      setNodes(current => [...current.filter(node => node.id !== createdId), visibleNode]);
+      if (adding === 'project') set({ projectId: createdId, branchId: undefined, restaurantId: undefined, departmentId: undefined });
+      else if (adding === 'branch') set({ branchId: createdId, restaurantId: undefined, departmentId: undefined });
+      else if (adding === 'restaurant') set({ restaurantId: createdId, departmentId: undefined });
+      else if (adding === 'department') set({ departmentId: createdId });
+
       setAdding(null);
       setNewName('');
+      const refreshed = await reload();
+      if (!refreshed.some(node => node.id === createdId)) {
+        // The POST returned a persisted ID, but readback could not verify the tree.
+        // Preserve the created item locally and report the readback limitation.
+        setNodes(current => [...current.filter(node => node.id !== createdId), visibleNode]);
+        setError('Объект создан сервером, но список не удалось подтвердить повторным чтением. Он оставлен в текущем контуре; обновите список позже.');
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось создать');
     } finally {
