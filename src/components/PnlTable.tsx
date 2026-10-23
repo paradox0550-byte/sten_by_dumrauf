@@ -28,10 +28,6 @@ function section(article: string) {
   const prefix = article.match(/^\s*([1-8])(?:\.\d+)?\b/);
   return prefix ? definitions[Number(prefix[1]) - 1] : definitions.find((x) => x.re.test(article)) || definitions[3];
 }
-function sumComplete(rows: PnlDraftRow[], key: 'plan' | 'fact') {
-  if (!rows.length || rows.some((row) => typeof row[key] !== 'number' || !Number.isFinite(row[key]))) return undefined;
-  return rows.reduce((sum, row) => sum + (row[key] as number), 0);
-}
 function money(value?: number) {
   return typeof value === 'number' && Number.isFinite(value)
     ? new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(value) + ' ₽' : '—';
@@ -60,7 +56,9 @@ export default function PnlTable(p: Props) {
       <div className="pnl-v4-grid pnl-v4-column-head"><span>Статья</span><span>План</span><span>Факт</span><span>Δ ₽ / Δ %</span><span>Доля %</span><span /></div>
       {sorted.map((g) => {
         const closed = Boolean(collapsed[g.id]);
-        const plan = sumComplete(g.rows, 'plan'), fact = sumComplete(g.rows, 'fact');
+        // Group subtotals are not reconstructed on the client; only a single source row can be shown directly.
+        const plan = g.rows.length === 1 ? g.rows[0].plan : undefined;
+        const fact = g.rows.length === 1 ? g.rows[0].fact : undefined;
         const delta = plan !== undefined && fact !== undefined ? fact - plan : undefined;
         const tone = pnlDeltaTone(g.title, delta);
         const deltaPct = plan !== undefined && fact !== undefined && plan !== 0 ? delta! / Math.abs(plan) * 100 : undefined;
