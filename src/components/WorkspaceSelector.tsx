@@ -62,7 +62,7 @@ export default function WorkspaceSelector({
 }: {
   value: Scope; onChange: (next: Scope) => void; variant?: 'full' | 'compact';
 }) {
-  const { nodes, loading, error, reload, setError } = useOrgTree();
+  const { nodes, loading, error, reload, setError, setNodes } = useOrgTree();
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState<Kind | null>(null);
   const [newName, setNewName] = useState('');
