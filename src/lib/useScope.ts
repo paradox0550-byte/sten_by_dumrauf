@@ -153,9 +153,9 @@ export function useScope():[Scope,(next:Scope)=>void,{status:ScopeSaveStatus;err
   };
 
   useEffect(()=>{
-    if(!key||loadedFor!==key)return;
+    if(!key||loadedFor!==key||contextSave.status==='saving'||contextSave.status==='error')return;
     try{localStorage.setItem(key,JSON.stringify(scope));}catch{/* приватный режим */}
-  },[scopeKey(scope),key,loadedFor]);
+  },[scopeKey(scope),key,loadedFor,contextSave.status]);
 
   return [scope,update,contextSave];
 }
