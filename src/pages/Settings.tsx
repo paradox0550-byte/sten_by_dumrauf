@@ -90,10 +90,10 @@ export default function Settings() {
 
   useEffect(() => {
     setProfile({
-      firstName: user?.firstName || '',
-      lastName: user?.lastName || '',
-      position: user?.position || '',
-      telegramChatId: user?.telegramChatId || '',
+      firstName: normalizeProfileText(user?.firstName ?? ''),
+      lastName: normalizeProfileText(user?.lastName ?? ''),
+      position: normalizeProfileText(user?.position ?? ''),
+      telegramChatId: normalizeProfileText(user?.telegramChatId ?? ''),
     });
   }, [user?.firstName, user?.lastName, user?.position, user?.telegramChatId]);
 
