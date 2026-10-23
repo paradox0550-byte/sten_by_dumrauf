@@ -36,7 +36,10 @@ export interface MessengerSettingsPayload {
     restaurant_id: string;
     department_id: string;
   };
-  metrics: Record<string, boolean>;
+  metrics: {
+    revenue: boolean; cashCard: boolean; discounts: boolean; avgCheck: boolean;
+    checks: boolean; primeCost: boolean; ebitda: boolean; deviation: boolean;
+  };
   telegram_chat_id: string | null;
   whatsapp_phone: null;
 }
