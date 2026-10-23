@@ -49,12 +49,12 @@ async function migrateLegacyScope(key:string):Promise<Scope|null> {
   try {
     if(localStorage.getItem(key))return null;
     const legacy=parseScope(localStorage.getItem(LEGACY_KEY));
-    if(!legacy)return null;
+    if(!legacy){localStorage.removeItem(LEGACY_KEY);return null;}
     const ids=selectedIds(legacy);
     if(ids.length){
       const tree=await api.get<unknown>('/api/b2b/org/tree');
       const allowed=collectOrgIds(tree);
-      if(!ids.every(id=>allowed.has(id)))return null;
+      if(!ids.every(id=>allowed.has(id))){localStorage.removeItem(LEGACY_KEY);return null;}
     }
     if(localStorage.getItem(key))return null;
     localStorage.setItem(key,JSON.stringify(legacy));
@@ -75,18 +75,22 @@ export function useScope():[Scope,(next:Scope)=>void] {
     let cancelled=false;
     const initialize=async()=>{
       let initial=readSaved(key);
+      let canPersist=true;
       if(key){
         let keyExists=false;
         try{keyExists=Boolean(localStorage.getItem(key));}catch{/* приватный режим */}
         if(!keyExists){
+          let hadLegacy=false;
+          try{hadLegacy=Boolean(localStorage.getItem(LEGACY_KEY));}catch{/* приватный режим */}
           const migrated=await migrateLegacyScope(key);
           if(migrated)initial=migrated;
           else initial=readSaved(key);
+          try{if(hadLegacy&&localStorage.getItem(LEGACY_KEY))canPersist=false;}catch{canPersist=false;}
         }
       }
       if(cancelled||seq!==contextSeqRef.current)return;
       setScope(initial);
-      setLoadedFor(key);
+      setLoadedFor(canPersist?key:null);
       try {
         const r=await api.get<any>('/api/b2b/context');
         if(cancelled||seq!==contextSeqRef.current)return;
@@ -118,6 +122,7 @@ export function useScope():[Scope,(next:Scope)=>void] {
 
   const update=(next:Scope)=>{
     setScope(next);
+    setLoadedFor(key);
     void api.put('/api/b2b/context',{
       restaurant_id:next.restaurantId??null,
       project_id:next.projectId??null,
