@@ -11,7 +11,7 @@ import{scopeQuery}from'../lib/scope';
 import{writePnlAndVerify}from'../lib/saveVerify';
 import{formatMoney,parseMoneyInput,PnlDraftRow,PnlScale}from'../lib/pnl';
 import{formatDeltaPct}from'../lib/format';
-import{aggregateFinancialRows,canonicalArticleKey,isDerivedPnlArticle}from'../lib/financialRows';
+import{canonicalArticleKey,isDerivedPnlArticle}from'../lib/financialRows';
 import{calculateSignedEbitda}from'../lib/financialAnalytics';
 import{calculatePnlMetrics}from'../lib/pnlCalculations';
 import{usePlCalculations}from'../features/pl/hooks/usePlCalculations';
@@ -21,10 +21,9 @@ import{getTemplateForPnL,USER_TEMPLATE_SOURCE,saveUserTemplate,loadUserTemplate}
 
 type ApiRow={id?:string;article?:string;label?:string;name?:string;plan?:number;plan_rub?:number;fact?:number;fact_rub?:number;source?:string;status?:string;transaction_total?:number;transaction_count?:number;values?:Record<string,unknown>};
 type ServerCalc={
-  primeCostPercent?:number|null;
-  primeCostStatus?:string;
-  overtime?:number|null;
-  otherOperatingRequiresReview?:boolean;
+  revenue?:number|null; cogs?:number|null; personnel?:number|null; labor?:number|null; opex?:number|null;
+  operatingExpenses?:number|null; ebitda?:number|null; ebitdaMargin?:number|null; netProfit?:number|null; netMargin?:number|null;
+  primeCostPercent?:number|null; primeCostStatus?:string; overtime?:number|null; otherOperatingRequiresReview?:boolean;
 };
 type PnlEnvelope={
   rows?:ApiRow[];
@@ -44,21 +43,21 @@ const pctOrEmpty=(v:number|undefined|null)=>has(v)?`${v.toFixed(1).replace('.','
 
 export default function PnL(){
  const[rows,setRows]=useState<PnlDraftRow[]>([]);const[expenseOverrides,setExpenseOverrides]=useState<LocalClassificationOverride>(()=>readLocalClassificationOverrides());const[serverCalc,setServerCalc]=useState<{fact:ServerCalc;plan:ServerCalc}|null>(null);const[scope,setScope]=useScope();const[scale,setScale]=useState<PnlScale>('RUB');const[loading,setLoading]=useState(true);const[saving,setSaving]=useState(false);const[message,setMessage]=useState('');const[messageKind,setMessageKind]=useState<'info'|'ok'|'warn'>('info');const[approval,setApproval]=useState<'draft'|'approved'>('draft');const[canApprove,setCanApprove]=useState(false);const nav=useNavigate();const[txOpen,setTxOpen]=useState(false);const[txType,setTxType]=useState<'expense'|'income'>('expense');const[txDate,setTxDate]=useState('');const[txArticle,setTxArticle]=useState('');const[txAmount,setTxAmount]=useState('');const[txComment,setTxComment]=useState('');const[txReview,setTxReview]=useState(false);const[txSaving,setTxSaving]=useState(false);const[loadUnavailable,setLoadUnavailable]=useState(false);const[secretaryOpen,setSecretaryOpen]=useState(false);const[secretaryTitle,setSecretaryTitle]=useState('');const[secretaryDate,setSecretaryDate]=useState('');const[secretaryDescription,setSecretaryDescription]=useState('');const[secretarySaving,setSecretarySaving]=useState(false);
- async function load(){setLoading(true);setLoadUnavailable(false);setMessage('');setMessageKind('info');try{const x=await api.get<unknown>('/api/pnl?'+scopeQuery(scope));const envelope=typeof x==='object'&&x!==null?x as PnlEnvelope:{};const raw=Array.isArray(envelope.rows)?envelope.rows:[];setServerCalc(envelope.summary?.calculated??null);const mapped=raw.map(fromApi);const normalized=aggregateFinancialRows(mapped);setRows(normalized.map((r,i)=>({...r,id:canonicalArticleKey(r.article)||'row-'+i})) as PnlDraftRow[]);const a=await api.get<any>('/api/pnl/approval?'+scopeQuery(scope)).catch(()=>null);if(a){setApproval(a.status==='approved'?'approved':'draft');setCanApprove(Boolean(a.canApprove))}return normalized}catch(e){setRows([]);setServerCalc(null);const status=typeof e==='object'&&e!==null&&'status'in e?(e as {status?:number}).status:undefined;setLoadUnavailable(true);setMessage(status===503?'Данные временно недоступны':(e instanceof Error?e.message:'Не удалось загрузить P&L'));setMessageKind('warn');return null}finally{setLoading(false)}}
+ async function load(){setLoading(true);setLoadUnavailable(false);setMessage('');setMessageKind('info');try{const x=await api.get<unknown>('/api/pnl?'+scopeQuery(scope));const envelope=typeof x==='object'&&x!==null?x as PnlEnvelope:{};const raw=Array.isArray(envelope.rows)?envelope.rows:[];setServerCalc(envelope.summary?.calculated??null);const mapped=raw.map(fromApi);const normalized=mapped.map((r,i)=>({...r,id:canonicalArticleKey(r.article)||r.id||'row-'+i})) as PnlDraftRow[];setRows(normalized);const a=await api.get<any>('/api/pnl/approval?'+scopeQuery(scope)).catch(()=>null);if(a){setApproval(a.status==='approved'?'approved':'draft');setCanApprove(Boolean(a.canApprove))}return normalized}catch(e){setRows([]);setServerCalc(null);const status=typeof e==='object'&&e!==null&&'status'in e?(e as {status?:number}).status:undefined;setLoadUnavailable(true);setMessage(status===503?'Данные временно недоступны':(e instanceof Error?e.message:'Не удалось загрузить P&L'));setMessageKind('warn');return null}finally{setLoading(false)}}
  useEffect(()=>{void load()},[scope.period,scope.projectId,scope.branchId,scope.restaurantId,scope.departmentId]);
  const revenue=rows.find(r=>canonicalArticleKey(r.article)==='revenue');const cogs=rows.find(r=>canonicalArticleKey(r.article)==='cogs');const payroll=rows.find(r=>canonicalArticleKey(r.article)==='payroll');const opex=rows.find(r=>canonicalArticleKey(r.article)==='opex');
- const planRevenue=revenue?.plan;
- const planCogs=cogs?.plan;
- const planPayroll=payroll?.plan;
- const planOpex=opex?.plan;
- const factRevenue=revenue?.fact;
- const factCogs=cogs?.fact;
- const factPayroll=payroll?.fact;
- const factOpex=opex?.fact;
- const ebitdaPlan=calculateSignedEbitda(planRevenue,planCogs,planPayroll,planOpex);
- const ebitdaFact=calculateSignedEbitda(factRevenue,factCogs,factPayroll,factOpex);
- const marginPlan=has(ebitdaPlan)&&has(planRevenue)&&planRevenue!==0?ebitdaPlan/planRevenue*100:undefined;
- const marginFact=has(ebitdaFact)&&has(factRevenue)&&factRevenue!==0?ebitdaFact/factRevenue*100:undefined;
+ const planRevenue=serverCalc?.plan.revenue ?? undefined;
+ const planCogs=serverCalc?.plan.cogs ?? undefined;
+ const planPayroll=serverCalc?.plan.labor ?? undefined;
+ const planOpex=serverCalc?.plan.operatingExpenses ?? serverCalc?.plan.opex ?? undefined;
+ const factRevenue=serverCalc?.fact.revenue ?? undefined;
+ const factCogs=serverCalc?.fact.cogs ?? undefined;
+ const factPayroll=serverCalc?.fact.labor ?? undefined;
+ const factOpex=serverCalc?.fact.operatingExpenses ?? serverCalc?.fact.opex ?? undefined;
+ const ebitdaPlan=serverCalc?.plan.ebitda ?? undefined;
+ const ebitdaFact=serverCalc?.fact.ebitda ?? undefined;
+ const marginPlan=serverCalc?.plan.ebitdaMargin ?? undefined;
+ const marginFact=serverCalc?.fact.ebitdaMargin ?? undefined;
  const canSave=rows.some(r=>!isDerivedPnlArticle(r.article)&&(r.plan!==undefined||r.fact!==undefined));
  function update(id:string,field:'plan'|'fact',value:string){const parsed=parseMoneyInput(value,scale);setRows(prev=>prev.map(r=>r.id===id&&!isDerivedPnlArticle(r.article)?{...r,[field]:parsed}:r));setMessage('')} function openTransaction(){setTxType('expense');setTxDate(`${scope.period}-01`);setTxArticle(rows.find(r=>r.article.trim())?.article||'');setTxAmount('');setTxComment('');setTxReview(false);setTxOpen(true)} function prepareTransaction(){const amount=parseMoneyInput(txAmount,'RUB');if(!txArticle.trim()||!amount||amount<=0){setMessage('Укажите статью и положительную сумму.');setMessageKind('warn');return}if(txDate.slice(0,7)!==scope.period){setMessage(`Дата операции должна относиться к выбранному периоду ${scope.period}.`);setMessageKind('warn');return}setTxReview(true)} async function saveTransaction(){const amount=parseMoneyInput(txAmount,'RUB');if(!amount||amount<=0||!txArticle.trim()||txDate.slice(0,7)!==scope.period)return;setTxSaving(true);try{const txBody:PnlTransactionRequest={period:scope.period,date:txDate,type:txType,article:txArticle.trim(),amount,comment:txComment.trim()||null,project_id:scope.projectId??'',branch_id:scope.branchId??'',restaurant_id:scope.restaurantId??'',department_id:scope.departmentId??''};await api.post('/api/pnl/transactions',PnlTransactionSchema.parse(txBody));setTxOpen(false);setTxReview(false);setMessage(`${txType==='expense'?'Расход':'Доход'} сохранён и подтверждён сервером. P&L обновлён.`);setMessageKind('ok');await load()}catch(e){setMessage(e instanceof Error?e.message:'Не удалось сохранить операцию.');setMessageKind('warn')}finally{setTxSaving(false)}}
  function addRow(){setRows(prev=>[...prev,{id:'draft-'+Date.now(),article:'Новая статья'}])}
