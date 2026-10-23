@@ -83,6 +83,8 @@ export default function Team() {
       api.get<PayrollResponse>('/fot-analytics?' + query),
       api.get<Pnl>('/api/pnl?' + query),
     ]);
+    const scopeDenied=[fotResult,pnlResult].some(result=>result.status==='rejected'&&result.reason instanceof ApiError&&result.reason.status===403&&result.reason.code==='SCOPE_ACCESS_CHECK_FAILED');
+    if(scopeDenied){setRecords([]);setPnl(null);setScopeUnavailable(true);setError('Нет доступа к данным выбранного ресторана. Выберите другой рабочий контур или обратитесь к администратору.');setPnlError('');setLoading(false);return;}
     if (fotResult.status === 'fulfilled') {
       const result = fotResult.value;
       setRecords(Array.isArray(result?.records) ? result.records.filter(row => row.period === scope.period) : []);
@@ -201,7 +203,7 @@ export default function Team() {
 
     <FotScheduleImport period={scope.period} historyScope={[user?.organizationId || 'no-org', user?.id || 'anonymous', scope.projectId || 'all', scope.branchId || 'all', scope.restaurantId || 'all', scope.departmentId || 'all'].join(':')} />
 
-    {(error || pnlError) && <div className="fot-alert" role="alert"><AlertTriangle size={17} /><div><b>{error ? 'Не удалось загрузить ФОТ' : 'Часть аналитики недоступна'}</b><span>{[error, pnlError].filter(Boolean).join(' ')}</span></div></div>}
+    {(error || pnlError) && <div className="fot-alert" role="alert"><AlertTriangle size={17} /><div><b>{error.includes('Нет доступа') ? 'Нет доступа' : error ? 'Не удалось загрузить ФОТ' : 'Часть аналитики недоступна'}</b><span>{[error, pnlError].filter(Boolean).join(' ')}</span></div></div>}
     {scopeUnavailable && <div className="fot-alert" role="status"><AlertTriangle size={17} /><div><b>ФОТ доступен только на уровне организации</b><span>Сервер пока не фильтрует payroll по выбранному ресторану, филиалу или подразделению. Чтобы не показать чужие данные, показатели ФОТ для этого контура скрыты.</span></div></div>}
 
     <section className="fot-kpi-grid" aria-label="Ключевые показатели ФОТ">
