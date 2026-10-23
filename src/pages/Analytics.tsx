@@ -83,6 +83,10 @@ export default function Analytics() {
       dailyRevenue: reportRevenue !== undefined && sales.daysWithReports > 0 ? reportRevenue / sales.daysWithReports : undefined,
     };
   }, [sales, metrics.r]);
+  const incompleteFinancialRows = useMemo(() => summaryRows.filter((row) =>
+    finite(row.plan) === undefined || finite(row.fact) === undefined
+  ), [summaryRows]);
+  const laborAggregation=useMemo(()=>aggregateLaborRecords(labor),[labor]); const laborRows=laborAggregation.groups;
   const laborDiagnostics = useMemo(() => {
     const pnlPayroll = metrics.l == null ? undefined : Math.abs(metrics.l);
     const sourcePayroll = laborAggregation.totalAmount;
@@ -93,10 +97,6 @@ export default function Analytics() {
       hours: laborAggregation.totalHours,
     };
   }, [metrics.l, laborAggregation]);
-  const incompleteFinancialRows = useMemo(() => summaryRows.filter((row) =>
-    finite(row.plan) === undefined || finite(row.fact) === undefined
-  ), [summaryRows]);
-  const laborAggregation=useMemo(()=>aggregateLaborRecords(labor),[labor]); const laborRows=laborAggregation.groups;
   const totalHours=laborAggregation.totalHours??0; const totalPayroll=laborAggregation.totalAmount??0;
   const revenuePerHour=metrics.r!=null&&metrics.r>=0&&laborAggregation.totalHours!=null&&laborAggregation.totalHours>0?metrics.r/laborAggregation.totalHours:undefined; const laborPerHour=laborAggregation.totalHours!=null&&laborAggregation.totalHours>0&&laborAggregation.totalAmount!=null?laborAggregation.totalAmount/laborAggregation.totalHours:undefined;
   const forecast=useMemo(()=>{if(!settings.forecast||metrics.r==null||metrics.r<=0)return undefined;const now=new Date(),[y,m]=scope.period.split('-').map(Number);if(now.getFullYear()!==y||now.getMonth()+1!==m)return undefined;const days=new Date(y,m,0).getDate();return metrics.r/now.getDate()*days},[metrics.r,scope.period,settings.forecast]);
