@@ -38,7 +38,7 @@ function useOrgTree() {
     setLoading(true);
     try {
       const x = await api.get<unknown>('/api/b2b/org/tree');
-      if (seq !== reloadSeqRef.current) return;
+      if (seq !== reloadSeqRef.current) return [];
       const nextNodes = flatten(x);
       setNodes(nextNodes);
       setError('');
