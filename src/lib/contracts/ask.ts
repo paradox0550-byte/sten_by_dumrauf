@@ -9,7 +9,7 @@ export interface AskRequest {
   question: string;
   messages?: { role: 'user' | 'assistant' | 'system' | 'tool'; content: string }[];
   include_tool_results?: boolean;
-  scope?: {
+  scope: {
     period: string;
     project_id: string | null;
     branch_id: string | null;
@@ -31,7 +31,7 @@ export const AskRequestSchema: z.ZodType<AskRequest> = z.object({
     branch_id: z.string().nullable(),
     restaurant_id: z.string().nullable(),
     department_id: z.string().nullable(),
-  }).optional(),
+  }),
 }).strict();
 
 export interface AskSource {
