@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAnalyticsSettings } from '../lib/useAnalyticsSettings';
-import { AlertTriangle, BarChart3, Database, RefreshCw, Settings2, GitBranch } from 'lucide-react';
+import { Activity, AlertTriangle, BarChart3, CheckCircle2, Database, RefreshCw, Settings2, GitBranch } from 'lucide-react';
 import { api } from '../lib/api';
 import { useScope } from '../lib/useScope';
 import { scopeQuery } from '../lib/scope';
