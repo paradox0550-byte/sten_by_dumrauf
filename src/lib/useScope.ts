@@ -137,6 +137,7 @@ export function useScope():[Scope,(next:Scope)=>void] {
         setLoadedFor(key);
         try{if(key)localStorage.setItem(key,JSON.stringify(next));}catch{/* приватный режим */}
         window.dispatchEvent(new Event(EVT));
+        window.dispatchEvent(new Event('sten:scope-save-success'));
       } catch(error) {
         if(seq!==saveSeqRef.current)return;
         // A failed write invalidates the selected contour locally: never keep sending a stale restaurant to AI.
