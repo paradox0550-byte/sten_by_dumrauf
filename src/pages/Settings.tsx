@@ -5,6 +5,8 @@ import { api } from '../lib/api';
 import WorkspaceSelector from '../components/WorkspaceSelector';
 import { useScope } from '../lib/useScope';
 import { useAnalyticsSettings, type AnalyticsSettings } from '../lib/useAnalyticsSettings';
+import { normalizeProfileText, TELEGRAM_ID_RE, validateProfilePayload, type ProfileFieldErrors, type ProfileUpdatePayload, type ProfileResponse, type MessengerSettings } from '../lib/contracts/profile';
+import { ApiError } from '../lib/api';
 
 type Theme = 'light' | 'dark' | 'system';
 type FontSize = '100' | '110' | '120';
@@ -65,6 +67,7 @@ export default function Settings() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   const [profileMessageKind, setProfileMessageKind] = useState<'ok' | 'error'>('ok');
+  const [profileErrors, setProfileErrors] = useState<ProfileFieldErrors>({});
 
   const [sendTime, setSendTime] = useState('21:00');
   const [metrics, setMetrics] = useState<Metrics>(metricDefaults);
@@ -103,7 +106,7 @@ export default function Settings() {
   useEffect(() => {
     void (async () => {
       try {
-        const response = await api.get<any>('/api/messenger/settings');
+        const response = await api.get<MessengerSettings>('/api/messenger/settings');
         const settings = response?.settings;
         if (settings) {
           setSendTime(settings.send_time || '21:00');
@@ -149,23 +152,43 @@ export default function Settings() {
   };
 
   const saveProfile = async () => {
-    setProfileSaving(true);
+    const payload: ProfileUpdatePayload = {
+      firstName: normalizeProfileText(profile.firstName),
+      lastName: normalizeProfileText(profile.lastName),
+      position: normalizeProfileText(profile.position),
+      telegramChatId: normalizeProfileText(profile.telegramChatId) || null,
+    };
+    setProfile({ ...payload, telegramChatId: payload.telegramChatId ?? '' });
+    const validationErrors = validateProfilePayload(payload);
+    setProfileErrors(validationErrors);
     setProfileMessage('');
+    if (Object.keys(validationErrors).length) return;
+    setProfileSaving(true);
     try {
-      const response = await api.put<any>('/api/profile', profile);
+      const response = await api.put<ProfileResponse>('/api/profile', payload);
       if (response?.profile) {
         setProfile({
-          firstName: response.profile.firstName || '',
-          lastName: response.profile.lastName || '',
-          position: response.profile.position || '',
-          telegramChatId: response.profile.telegramChatId || '',
+          firstName: normalizeProfileText(response.profile.firstName ?? ''),
+          lastName: normalizeProfileText(response.profile.lastName ?? ''),
+          position: normalizeProfileText(response.profile.position ?? ''),
+          telegramChatId: normalizeProfileText(response.profile.telegramChatId ?? ''),
         });
       }
       await refresh();
+      setProfileErrors({});
       setProfileMessageKind('ok');
       setProfileMessage('Профиль сохранён.');
     } catch (error) {
       setProfileMessageKind('error');
+      if (error instanceof ApiError && error.code === 'TELEGRAM_ID_INVALID') {
+        setProfileErrors({ telegramChatId: 'Проверьте формат Telegram ID: 5–20 цифр, отрицательный ID допустим.' });
+      } else if (error instanceof ApiError && error.code === 'PROFILE_INVALID') {
+        setProfileErrors({
+          firstName: 'Проверьте имя (не более 80 символов).',
+          lastName: 'Проверьте фамилию (не более 80 символов).',
+          position: 'Проверьте должность (не более 120 символов).',
+        });
+      }
       setProfileMessage(error instanceof Error ? error.message : 'Не удалось сохранить профиль.');
     } finally {
       setProfileSaving(false);
@@ -173,6 +196,14 @@ export default function Settings() {
   };
 
   const saveMessenger = async () => {
+    const telegramChatId = normalizeProfileText(profile.telegramChatId) || null;
+    if (telegramChatId !== null && !TELEGRAM_ID_RE.test(telegramChatId)) {
+      setProfileErrors((current) => ({ ...current, telegramChatId: 'Введите Telegram ID: 5–20 цифр; отрицательное значение допустимо.' }));
+      setMessengerMessageKind('error');
+      setMessengerMessage('Проверьте Telegram ID в разделе «Профиль».');
+      return;
+    }
+    setProfileErrors((current) => ({ ...current, telegramChatId: undefined }));
     setMessengerSaving(true);
     setMessengerMessage('');
     try {
@@ -187,7 +218,7 @@ export default function Settings() {
           department_id: scope.departmentId || '',
         },
         metrics,
-        telegram_chat_id: profile.telegramChatId || null,
+        telegram_chat_id: telegramChatId,
         whatsapp_phone: null,
       });
       setMessengerMessageKind('ok');
@@ -246,24 +277,30 @@ export default function Settings() {
           <p className="muted">Эти данные используются в профиле STEN и для отправки отчётов в Telegram.</p>
           <label className="settings-field">
             <span>Имя</span>
-            <input value={profile.firstName} onChange={(event) => setProfile((value) => ({ ...value, firstName: event.target.value }))} placeholder="Александр" />
+            <input aria-invalid={Boolean(profileErrors.firstName)} maxLength={80} value={profile.firstName} onChange={(event) => { setProfileErrors((errors) => ({ ...errors, firstName: undefined })); setProfile((value) => ({ ...value, firstName: event.target.value.normalize('NFC') })); }} onBlur={() => setProfile((value) => ({ ...value, firstName: normalizeProfileText(value.firstName) }))} placeholder="Александр" />
+            {profileErrors.firstName && <small className="field-error" role="alert">{profileErrors.firstName}</small>}
           </label>
           <label className="settings-field">
             <span>Фамилия</span>
-            <input value={profile.lastName} onChange={(event) => setProfile((value) => ({ ...value, lastName: event.target.value }))} placeholder="Фамилия" />
+            <input aria-invalid={Boolean(profileErrors.lastName)} maxLength={80} value={profile.lastName} onChange={(event) => { setProfileErrors((errors) => ({ ...errors, lastName: undefined })); setProfile((value) => ({ ...value, lastName: event.target.value.normalize('NFC') })); }} onBlur={() => setProfile((value) => ({ ...value, lastName: normalizeProfileText(value.lastName) }))} placeholder="Фамилия" />
+            {profileErrors.lastName && <small className="field-error" role="alert">{profileErrors.lastName}</small>}
           </label>
           <label className="settings-field">
             <span>Должность</span>
-            <input value={profile.position} onChange={(event) => setProfile((value) => ({ ...value, position: event.target.value }))} placeholder="Операционный директор" />
+            <input aria-invalid={Boolean(profileErrors.position)} maxLength={120} value={profile.position} onChange={(event) => { setProfileErrors((errors) => ({ ...errors, position: undefined })); setProfile((value) => ({ ...value, position: event.target.value.normalize('NFC') })); }} onBlur={() => setProfile((value) => ({ ...value, position: normalizeProfileText(value.position) }))} placeholder="Операционный директор" />
+            {profileErrors.position && <small className="field-error" role="alert">{profileErrors.position}</small>}
           </label>
           <label className="settings-field">
             <span>Telegram ID</span>
             <input
-              inputMode="numeric"
+              inputMode="text"
+              aria-invalid={Boolean(profileErrors.telegramChatId)}
               value={profile.telegramChatId}
-              onChange={(event) => setProfile((value) => ({ ...value, telegramChatId: event.target.value.replace(/[^\d-]/g, '') }))}
-              placeholder="Например, 123456789"
+              onChange={(event) => { setProfileErrors((errors) => ({ ...errors, telegramChatId: undefined })); setProfile((value) => ({ ...value, telegramChatId: event.target.value.normalize('NFC') })); }}
+              onBlur={() => setProfile((value) => ({ ...value, telegramChatId: normalizeProfileText(value.telegramChatId) }))}
+              placeholder="Например, -123456789"
             />
+            {profileErrors.telegramChatId && <small className="field-error" role="alert">{profileErrors.telegramChatId}</small>}
             <small className="muted">Нужен, чтобы STEN мог отправлять Вам отчёты в Telegram.</small>
           </label>
           <button className="primary-button" disabled={profileSaving} onClick={() => void saveProfile()}>
