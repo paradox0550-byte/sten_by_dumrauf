@@ -59,10 +59,10 @@ export default function Settings() {
   });
   const [reduceMotion, setReduceMotion] = useState(() => localStorage.getItem(MOTION_KEY) === 'true');
   const [profile, setProfile] = useState({
-    firstName: user?.firstName || '',
-    lastName: user?.lastName || '',
-    position: user?.position || '',
-    telegramChatId: user?.telegramChatId || '',
+    firstName: normalizeProfileText(user?.firstName ?? ''),
+    lastName: normalizeProfileText(user?.lastName ?? ''),
+    position: normalizeProfileText(user?.position ?? ''),
+    telegramChatId: normalizeProfileText(user?.telegramChatId ?? ''),
   });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
@@ -112,7 +112,7 @@ export default function Settings() {
           setSendTime(settings.send_time || '21:00');
           setMetrics({ ...metricDefaults, ...(settings.metrics || {}) });
           if (!user?.telegramChatId && settings.telegram_chat_id) {
-            setProfile((value) => ({ ...value, telegramChatId: settings.telegram_chat_id }));
+            setProfile((value) => ({ ...value, telegramChatId: normalizeProfileText(settings.telegram_chat_id) }));
           }
         }
       } catch {
@@ -285,17 +285,17 @@ export default function Settings() {
           <p className="muted">Эти данные используются в профиле STEN и для отправки отчётов в Telegram.</p>
           <label className="settings-field">
             <span>Имя</span>
-            <input aria-invalid={Boolean(profileErrors.firstName)} maxLength={80} value={profile.firstName} onChange={(event) => { setProfileErrors((errors) => ({ ...errors, firstName: undefined })); setProfile((value) => ({ ...value, firstName: event.target.value.normalize('NFC') })); }} onBlur={() => setProfile((value) => ({ ...value, firstName: normalizeProfileText(value.firstName) }))} placeholder="Александр" />
+            <input aria-invalid={Boolean(profileErrors.firstName)} maxLength={80} value={profile.firstName} onChange={(event) => { setProfileErrors((errors) => ({ ...errors, firstName: undefined })); setProfile((value) => ({ ...value, firstName: normalizeProfileText(event.target.value) })); }} onBlur={() => setProfile((value) => ({ ...value, firstName: normalizeProfileText(value.firstName) }))} placeholder="Александр" />
             {profileErrors.firstName && <small className="field-error" role="alert">{profileErrors.firstName}</small>}
           </label>
           <label className="settings-field">
             <span>Фамилия</span>
-            <input aria-invalid={Boolean(profileErrors.lastName)} maxLength={80} value={profile.lastName} onChange={(event) => { setProfileErrors((errors) => ({ ...errors, lastName: undefined })); setProfile((value) => ({ ...value, lastName: event.target.value.normalize('NFC') })); }} onBlur={() => setProfile((value) => ({ ...value, lastName: normalizeProfileText(value.lastName) }))} placeholder="Фамилия" />
+            <input aria-invalid={Boolean(profileErrors.lastName)} maxLength={80} value={profile.lastName} onChange={(event) => { setProfileErrors((errors) => ({ ...errors, lastName: undefined })); setProfile((value) => ({ ...value, lastName: normalizeProfileText(event.target.value) })); }} onBlur={() => setProfile((value) => ({ ...value, lastName: normalizeProfileText(value.lastName) }))} placeholder="Фамилия" />
             {profileErrors.lastName && <small className="field-error" role="alert">{profileErrors.lastName}</small>}
           </label>
           <label className="settings-field">
             <span>Должность</span>
-            <input aria-invalid={Boolean(profileErrors.position)} maxLength={120} value={profile.position} onChange={(event) => { setProfileErrors((errors) => ({ ...errors, position: undefined })); setProfile((value) => ({ ...value, position: event.target.value.normalize('NFC') })); }} onBlur={() => setProfile((value) => ({ ...value, position: normalizeProfileText(value.position) }))} placeholder="Операционный директор" />
+            <input aria-invalid={Boolean(profileErrors.position)} maxLength={120} value={profile.position} onChange={(event) => { setProfileErrors((errors) => ({ ...errors, position: undefined })); setProfile((value) => ({ ...value, position: normalizeProfileText(event.target.value) })); }} onBlur={() => setProfile((value) => ({ ...value, position: normalizeProfileText(value.position) }))} placeholder="Операционный директор" />
             {profileErrors.position && <small className="field-error" role="alert">{profileErrors.position}</small>}
           </label>
           <label className="settings-field">
@@ -304,7 +304,7 @@ export default function Settings() {
               inputMode="text"
               aria-invalid={Boolean(profileErrors.telegramChatId)}
               value={profile.telegramChatId}
-              onChange={(event) => { setProfileErrors((errors) => ({ ...errors, telegramChatId: undefined })); setProfile((value) => ({ ...value, telegramChatId: event.target.value.normalize('NFC') })); }}
+              onChange={(event) => { setProfileErrors((errors) => ({ ...errors, telegramChatId: undefined })); setProfile((value) => ({ ...value, telegramChatId: normalizeProfileText(event.target.value) })); }}
               onBlur={() => setProfile((value) => ({ ...value, telegramChatId: normalizeProfileText(value.telegramChatId) }))}
               placeholder="Например, -123456789"
             />
