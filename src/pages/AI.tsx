@@ -86,6 +86,7 @@ function AIContent({user}:{user:User|null}){
  const speechRef=useRef<SpeechSynthesisUtterance|null>(null);
  const voiceModeRef=useRef(false);
  const finalTranscriptRef=useRef('');
+ const askRef=useRef<(value?:string)=>Promise<void>>(async()=>{});
  const chatBodyRef=useRef<HTMLDivElement>(null);
  const shouldAutoScrollRef=useRef(true);
 
@@ -179,6 +180,8 @@ function AIContent({user}:{user:User|null}){
    }finally{setBusy(false)}
  }
 
+ askRef.current=ask;
+
  async function uploadFiles(list:FileList|null){
    if(!list||upload)return;
    setUpload(true);
@@ -230,14 +233,14 @@ function AIContent({user}:{user:User|null}){
    if(!SR){setVoiceState('idle');setListening(false);return}
    try{recog.current?.abort?.()}catch{}
    const r=new SR();r.lang='ru-RU';r.interimResults=true;r.continuous=false;finalTranscriptRef.current='';
-   const base=prompt.trim();
+   const base=voiceModeRef.current?'':prompt.trim();
    r.onstart=()=>{setListening(true);setVoiceState('listening')};
    r.onresult=(e:any)=>{
      let interim='';let finalText='';
      for(let i=e.resultIndex;i<e.results.length;i++){const item=e.results[i];if(item.isFinal)finalText+=item[0].transcript;else interim+=item[0].transcript}
      const recognized=(finalText||interim).replace(/\\s+/g,' ').trim();if(recognized)setPrompt(((base?base+' ':'')+recognized).trim());
      if(finalText.trim()&&voiceModeRef.current&&!finalTranscriptRef.current){
-       finalTranscriptRef.current=finalText.trim();const question=((base?base+' ':'')+finalText).replace(/\\s+/g,' ').trim();setPrompt('');setListening(false);setVoiceState('thinking');window.speechSynthesis?.cancel?.();void ask(question);
+       finalTranscriptRef.current=finalText.trim();const question=((base?base+' ':'')+finalText).replace(/\\s+/g,' ').trim();setPrompt('');setListening(false);setVoiceState('thinking');window.speechSynthesis?.cancel?.();void askRef.current(question);
      }
    };
    r.onerror=(event:any)=>{setListening(false);if(voiceModeRef.current){setVoiceState('idle');if(event?.error==='not-allowed')showChatToast('Разрешите доступ к микрофону в настройках браузера.');else if(event?.error!=='aborted'&&event?.error!=='no-speech')showChatToast('Не удалось распознать речь. Попробуйте ещё раз.')}};
@@ -245,6 +248,7 @@ function AIContent({user}:{user:User|null}){
    try{r.start()}catch{setListening(false);setVoiceState('idle');showChatToast('Не удалось запустить микрофон. Проверьте разрешения браузера.')}
  }
  function toggleVoice(){
+   if(voiceState==='speaking'){interruptVoice();return}
    if(!SR){showChatToast('Голосовой ввод недоступен в этом браузере. Попробуйте Chrome или Edge.');return}
    if(voiceMode){voiceModeRef.current=false;setVoiceMode(false);try{recog.current?.abort?.()}catch{}stopSpeech();setListening(false);return}
    voiceModeRef.current=true;setVoiceMode(true);
