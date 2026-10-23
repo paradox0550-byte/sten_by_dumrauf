@@ -68,6 +68,7 @@ export default function Settings() {
   const [profileMessage, setProfileMessage] = useState('');
   const [profileMessageKind, setProfileMessageKind] = useState<'ok' | 'error'>('ok');
   const [profileErrors, setProfileErrors] = useState<Partial<Record<'firstName' | 'lastName' | 'position' | 'telegramChatId', string>>>({});
+  const [scopeMessage, setScopeMessage] = useState('');
 
   const [sendTime, setSendTime] = useState('21:00');
   const [metrics, setMetrics] = useState<Metrics>(metricDefaults);
@@ -87,6 +88,20 @@ export default function Settings() {
   useEffect(() => {
     setAnalyticsDraft(analytics);
   }, [analytics]);
+
+  useEffect(() => {
+    const onFailure = (event: Event) => {
+      const detail = (event as CustomEvent<{ message?: string }>).detail;
+      setScopeMessage(detail?.message || 'Не удалось сохранить рабочий контекст. Выберите ресторан ещё раз.');
+    };
+    const onSuccess = () => setScopeMessage('');
+    window.addEventListener('sten:scope-save-error', onFailure);
+    window.addEventListener('sten:scope-save-success', onSuccess);
+    return () => {
+      window.removeEventListener('sten:scope-save-error', onFailure);
+      window.removeEventListener('sten:scope-save-success', onSuccess);
+    };
+  }, []);
 
   useEffect(() => {
     setProfile({
@@ -281,6 +296,7 @@ export default function Settings() {
           <h2>Рабочий контур</h2>
           <p className="muted">Выберите ресторан, подразделение и период для рабочих данных.</p>
           <WorkspaceSelector value={scope} onChange={setScope} />
+          {scopeMessage && <div className="pnl-message error" role="alert">{scopeMessage}</div>}
         </section>
 
         <section className="panel" id="settings-profile">
