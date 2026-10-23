@@ -41,13 +41,12 @@ export default function PnlTable(p: Props) {
     g.rows.push(row); groups.set(s.id, g);
   });
   const sorted = [...groups.values()].sort((a, b) => Number(a.id.slice(0, -2)) - Number(b.id.slice(0, -2)));
-  const revenueDeltaPct = undefined;
   if (p.loading) return <div className="pnl-v4-skeleton" aria-label="Загрузка P&L"><div className="pnl-v4-skeleton-head" />{Array.from({ length: 7 }, (_, i) => <div className="pnl-v4-skeleton-row" key={i}><i /><i /><i /><i /></div>)}</div>;
   if (p.unavailable) return <div className="pnl-v4-empty" role="alert"><strong>{p.accessDenied ? 'Нет доступа' : 'Данные временно недоступны'}</strong><span>{p.error || 'Не удалось загрузить P&L.'}</span><button type="button" className="secondary-button" onClick={p.onRetry}>Повторить</button></div>;
   if (!p.rows.length) return <div className="pnl-v4-empty"><strong>Нет данных за период</strong><span>В выбранном периоде нет подтверждённых строк P&L.</span><button type="button" className="primary-button" onClick={p.onImport}>Импортировать из Excel</button></div>;
   return <div className="pnl-v4-table-wrap">
     <div className="pnl-v4-summary-mobile">
-      <div><span>Выручка · факт</span><strong>{money(p.revenueFact)}</strong><small>План {money(p.revenuePlan)} · Δ {typeof revenueDeltaPct === 'number' ? (revenueDeltaPct > 0 ? '+' : '') + revenueDeltaPct.toFixed(1).replace('.', ',') + '%' : '—'}</small></div>
+      <div><span>Выручка · факт</span><strong>{money(p.revenueFact)}</strong><small>План {money(p.revenuePlan)} · Δ —</small></div>
       <div><span>Prime Cost</span><strong>{typeof p.primeCostPercent === 'number' ? p.primeCostPercent.toFixed(1).replace('.', ',') + '%' : '—'}</strong><small>Подтверждённые данные сервера</small></div>
       <div><span>EBITDA</span><strong>{money(p.ebitdaFact)}</strong><small>Маржа {typeof p.ebitdaMargin === 'number' ? p.ebitdaMargin.toFixed(1).replace('.', ',') + '%' : '—'}</small></div>
     </div>
