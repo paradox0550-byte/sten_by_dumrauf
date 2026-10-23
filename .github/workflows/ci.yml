@@ -67,7 +67,6 @@ jobs:
           test -f dist/icons/ic_terms.svg
 
       - name: Backend validation
-        if: ${{ github.event_name == 'workflow_dispatch' }}
         working-directory: backend
         run: |
           set -euo pipefail
@@ -78,7 +77,6 @@ jobs:
           test -f package-lock.json
 
       - name: MarkItDown validation
-        if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           set -euo pipefail
           test -f backend/markitdown/function.py
