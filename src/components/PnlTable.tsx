@@ -6,7 +6,7 @@ import PnlRow from './PnlRow';
 import PnlCardMobile from './PnlCardMobile';
 
 type Props = {
-  rows: PnlDraftRow[]; loading: boolean; unavailable: boolean; error: string; scale: import('../lib/pnl').PnlScale; primeCostPercent?: number | null; ebitdaFact?: number; ebitdaMargin?: number;
+  rows: PnlDraftRow[]; loading: boolean; unavailable: boolean; accessDenied?: boolean; error: string; scale: import('../lib/pnl').PnlScale; primeCostPercent?: number | null; ebitdaFact?: number; ebitdaMargin?: number;
   revenuePlan?: number; revenueFact?: number;
   onUpdate: (id: string, field: 'plan' | 'fact', value: string) => void;
   onArticleChange: (id: string, value: string) => void;
@@ -43,7 +43,7 @@ export default function PnlTable(p: Props) {
   const sorted = [...groups.values()].sort((a, b) => Number(a.id.slice(0, -2)) - Number(b.id.slice(0, -2)));
   const revenueDeltaPct = undefined;
   if (p.loading) return <div className="pnl-v4-skeleton" aria-label="Загрузка P&L"><div className="pnl-v4-skeleton-head" />{Array.from({ length: 7 }, (_, i) => <div className="pnl-v4-skeleton-row" key={i}><i /><i /><i /><i /></div>)}</div>;
-  if (p.unavailable) return <div className="pnl-v4-empty" role="alert"><strong>Данные временно недоступны</strong><span>{p.error || 'Не удалось загрузить P&L.'}</span><button type="button" className="secondary-button" onClick={p.onRetry}>Повторить</button></div>;
+  if (p.unavailable) return <div className="pnl-v4-empty" role="alert"><strong>{p.accessDenied ? 'Нет доступа' : 'Данные временно недоступны'}</strong><span>{p.error || 'Не удалось загрузить P&L.'}</span><button type="button" className="secondary-button" onClick={p.onRetry}>Повторить</button></div>;
   if (!p.rows.length) return <div className="pnl-v4-empty"><strong>Нет данных за период</strong><span>В выбранном периоде нет подтверждённых строк P&L.</span><button type="button" className="primary-button" onClick={p.onImport}>Импортировать из Excel</button></div>;
   return <div className="pnl-v4-table-wrap">
     <div className="pnl-v4-summary-mobile">
