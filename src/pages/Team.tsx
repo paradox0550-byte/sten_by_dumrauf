@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, BarChart3, CalendarClock, ChefHat, ClipboardList, RefreshCw, Users, Wallet } from 'lucide-react';
+import { AlertTriangle, BarChart3, CalendarClock, ChefHat, ClipboardList, Download, RefreshCw, Users, Wallet } from 'lucide-react';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { scopeQuery } from '../lib/scope';
@@ -17,6 +17,8 @@ type PayrollResponse = { records?: PayrollRecord[] };
 type DepartmentTotals = { department: string; hours: number | null; amount: number | null; rows: number; incomplete: boolean };
 type PositionPlan = { headcount: string; hoursPerPerson: string; hourlyRate: string };
 type PositionPlanMap = Record<string, PositionPlan>;
+type CustomPosition = { id: string; department: string; position: string };
+type CustomPositionMap = Record<string, CustomPosition>;
 const emptyPlan = (): PositionPlan => ({ headcount: '', hoursPerPerson: '', hourlyRate: '' });
 const planNumber = (value: string) => value.trim() === '' ? null : n(value.replace(',', '.'));
 const positionKey = (department: string, position: string) => department + '::' + position;
@@ -41,6 +43,7 @@ const DEPARTMENT_TEMPLATE = [
   { name: 'Мойка и чистота', description: 'Санитарное состояние и готовность зон', positions: ['Посудомойщик зала', 'Уборщик производственных и гостевых зон'] },
   { name: 'Склад и приёмка', description: 'Приёмка, хранение и движение запасов', positions: ['Кладовщик / товаровед', 'Приёмщик товара (может совмещаться)'] },
 ] as const;
+const CUSTOM_DEPARTMENT_OPTIONS = DEPARTMENT_TEMPLATE.map(dept => dept.name);
 
 export default function Team() {
   const [scope] = useScope();
@@ -48,6 +51,20 @@ export default function Team() {
   const planStorageKey = 'sten_fot_plan_v1:' + [user?.organizationId || 'no-org', user?.id || 'no-user', scope.period, scope.projectId || 'all-projects', scope.branchId || 'all-branches', scope.restaurantId || 'all-restaurants', scope.departmentId || 'all-departments'].join(':');
   const [positionPlan, setPositionPlan] = useState<PositionPlanMap>(() => readPositionPlan(planStorageKey));
   const [planLoadedFor, setPlanLoadedFor] = useState(planStorageKey);
+  const customStorageKey = 'sten_fot_custom_positions_v1:' + [user?.organizationId || 'no-org', user?.id || 'no-user', scope.projectId || 'all-projects', scope.branchId || 'all-branches', scope.restaurantId || 'all-restaurants', scope.departmentId || 'all-departments'].join(':');
+  const [customPositions, setCustomPositions] = useState<CustomPositionMap>(() => {
+    try { const value = localStorage.getItem(customStorageKey); return value ? JSON.parse(value) as CustomPositionMap : {}; } catch { return {}; }
+  });
+  const [customDepartment, setCustomDepartment] = useState<string>(CUSTOM_DEPARTMENT_OPTIONS[0]);
+  const [customPositionName, setCustomPositionName] = useState('');
+  const [customPositionError, setCustomPositionError] = useState('');
+  useEffect(() => {
+    try { const value = localStorage.getItem(customStorageKey); setCustomPositions(value ? JSON.parse(value) as CustomPositionMap : {}); }
+    catch { setCustomPositions({}); }
+  }, [customStorageKey]);
+  useEffect(() => {
+    try { localStorage.setItem(customStorageKey, JSON.stringify(customPositions)); } catch { /* custom roles remain in memory for this session */ }
+  }, [customStorageKey, customPositions]);
   useEffect(() => { const next = readPositionPlan(planStorageKey); setPositionPlan(next); setPlanLoadedFor(planStorageKey); }, [planStorageKey]);
   useEffect(() => { if (planLoadedFor === planStorageKey) { try { localStorage.setItem(planStorageKey, JSON.stringify(positionPlan)); } catch { /* local planning draft remains in memory */ } } }, [planStorageKey, planLoadedFor, positionPlan]);
   const [records, setRecords] = useState<PayrollRecord[]>([]);
@@ -121,15 +138,21 @@ export default function Team() {
   const laborGap = pnlLaborFact != null && pnlLaborPlan != null ? pnlLaborFact - pnlLaborPlan : null;
   const forecastLaborPercent = percent(pnlLaborPlan, revenuePlan);
   const hasPayroll = records.length > 0;
-  const planRows = useMemo(() => DEPARTMENT_TEMPLATE.flatMap(dept => dept.positions.map(position => {
-    const key = positionKey(dept.name, position);
+  const planRows = useMemo(() => [
+    ...DEPARTMENT_TEMPLATE.flatMap(dept => dept.positions.map(position => ({ department: dept.name, position }))),
+    ...Object.values(customPositions).map(item => ({ department: item.department, position: item.position })),
+  ].map(({ department, position }) => {
+    const key = positionKey(department, position);
     const input = positionPlan[key] ?? emptyPlan();
     const headcount = planNumber(input.headcount);
     const hoursPerPerson = planNumber(input.hoursPerPerson);
     const hourlyRate = planNumber(input.hourlyRate);
-    const complete = headcount != null && hoursPerPerson != null && hourlyRate != null && headcount >= 0 && hoursPerPerson >= 0 && hourlyRate >= 0;
-    return { key, department: dept.name, position, input, headcount, hoursPerPerson, hourlyRate, complete, plannedHours: complete ? headcount! * hoursPerPerson! : null, plannedCost: complete ? headcount! * hoursPerPerson! * hourlyRate! : null };
-  })), [positionPlan]);
+    const validHeadcount = headcount != null && headcount >= 0 && headcount <= 1000;
+    const validHours = hoursPerPerson != null && hoursPerPerson >= 0 && hoursPerPerson <= 744;
+    const validRate = hourlyRate != null && hourlyRate >= 0;
+    const complete = validHeadcount && validHours && validRate;
+    return { key, department, position, input, headcount, hoursPerPerson, hourlyRate, complete, plannedHours: complete ? headcount! * hoursPerPerson! : null, plannedCost: complete ? headcount! * hoursPerPerson! * hourlyRate! : null };
+  }), [positionPlan, customPositions]);
   const completePlanRows = planRows.filter(row => row.complete);
   const plannedHours = completePlanRows.length ? completePlanRows.reduce((sum, row) => sum + (row.plannedHours ?? 0), 0) : null;
   const plannedCost = completePlanRows.length ? completePlanRows.reduce((sum, row) => sum + (row.plannedCost ?? 0), 0) : null;
@@ -137,6 +160,31 @@ export default function Team() {
   const plannedHeadcount = headcountRows.length ? headcountRows.reduce((sum, row) => sum + (row.headcount ?? 0), 0) : null;
   const planComplete = completePlanRows.length === planRows.length;
   const hasScope = Boolean(scope.projectId || scope.branchId || scope.restaurantId || scope.departmentId);
+
+  function exportPositionPlan() {
+    const escapeCell = (value: string | number | null) => {
+      const text = value == null ? '' : String(value);
+      return '"' + text.replace(/"/g, '""') + '"';
+    };
+    const rows = [
+      ['Период', scope.period, 'Контур', scope.restaurantId || scope.branchId || scope.projectId || 'Организация'],
+      ['Подразделение', 'Должность', 'Ставки', 'Часов на ставку в месяц', 'Стоимость часа, ₽', 'План часов', 'Прогноз ФОТ, ₽'],
+      ...planRows.map(row => [
+        row.department, row.position, row.headcount, row.hoursPerPerson, row.hourlyRate,
+        row.plannedHours, row.plannedCost,
+      ]),
+    ];
+    const csv = '\uFEFF' + rows.map(row => row.map(value => escapeCell(value)).join(';')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'sten-shtatny-plan-' + scope.period + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
 
   return <div className="page analytics-page team-page fot-page">
     <header className="page-head fot-page-head">
@@ -173,11 +221,27 @@ export default function Team() {
     <section className="fot-section">
       <div className="fot-section-heading"><div><span className="eyebrow">ШТАТНАЯ МОДЕЛЬ</span><h2>Подразделения и должности</h2><p>Стартовый справочник структуры ресторана. Это шаблон для адаптации под формат заведения, а не фактический штат вашей компании.</p></div><button className="secondary-button" onClick={() => setShowStructure(value => !value)}>{showStructure ? 'Свернуть' : 'Показать структуру'}</button></div>
       {showStructure && <div className="fot-department-grid">{DEPARTMENT_TEMPLATE.map(dept => <article className="fot-department-card" key={dept.name}><div className="fot-department-title"><span><ChefHat size={17} /></span><div><h3>{dept.name}</h3><p>{dept.description}</p></div></div><div className="fot-position-list">{dept.positions.map(position => <div className="fot-position" key={position}><span>{position}</span><small>Штат: не задан</small></div>)}</div></article>)}</div>}
+      <div className="fot-custom-position-form">
+        <div><b>Добавить должность под ваш ресторан</b><p>Пользовательские должности сохраняются в этом браузере и доступны в планировании ниже.</p></div>
+        <label>Подразделение<select value={customDepartment} onChange={event => setCustomDepartment(event.target.value)}>{CUSTOM_DEPARTMENT_OPTIONS.map(name => <option key={name} value={name}>{name}</option>)}</select></label>
+        <label>Название должности<input value={customPositionName} maxLength={100} onChange={event => { setCustomPositionName(event.target.value); setCustomPositionError(''); }} placeholder="Например, су-шеф ночной смены" /></label>
+        <button className="secondary-button" type="button" onClick={() => {
+          const name = customPositionName.trim().replace(/\s+/g, ' ');
+          if (!name) { setCustomPositionError('Введите название должности.'); return; }
+          const duplicate = [...DEPARTMENT_TEMPLATE.flatMap(dept => dept.positions.map(position => ({ department: dept.name, position }))), ...Object.values(customPositions)].some(item => item.department === customDepartment && item.position.toLocaleLowerCase('ru-RU') === name.toLocaleLowerCase('ru-RU'));
+          if (duplicate) { setCustomPositionError('Такая должность уже есть в выбранном подразделении.'); return; }
+          const id = customDepartment + '::custom::' + name.toLocaleLowerCase('ru-RU');
+          setCustomPositions(prev => ({ ...prev, [id]: { id, department: customDepartment, position: name } }));
+          setCustomPositionName('');
+          setCustomPositionError('');
+        }}>Добавить должность</button>
+        {customPositionError && <span className="fot-custom-position-error" role="alert">{customPositionError}</span>}
+      </div>
       <div className="fot-note"><ClipboardList size={16} /><span><b>Численность, ставки и графики пока не подключены.</b> В текущем API нет справочника сотрудников/должностей, штатного расписания и сменного графика. Поэтому количество ставок и плановые часы показаны как незаданные, а не как ноль.</span></div>
     </section>
 
     <section className="fot-section">
-      <div className="fot-section-heading"><div><span className="eyebrow">ПЛАНИРОВАНИЕ ШТАТА</span><h2>Штат, часы и прогноз стоимости</h2><p>Заполните план по должностям. STEN рассчитает штатную численность, месячные часы и прогноз ФОТ только по строкам с тремя введёнными параметрами.</p></div><span className="fot-source-tag">Локальный сценарий</span></div>
+      <div className="fot-section-heading"><div><span className="eyebrow">ПЛАНИРОВАНИЕ ШТАТА</span><h2>Штат, часы и прогноз стоимости</h2><p>Заполните план по должностям. STEN рассчитает штатную численность, месячные часы и прогноз ФОТ только по строкам с тремя введёнными параметрами.</p></div><div className="fot-planner-heading-actions"><span className="fot-source-tag">Локальный сценарий</span><button type="button" className="secondary-button" onClick={exportPositionPlan}><Download size={14} /> Экспорт плана CSV</button></div></div>
       <div className="fot-planner-summary">
         <article><small>Плановая численность, ставки</small><strong>{fmt(plannedHeadcount)}</strong></article>
         <article><small>План часов за месяц</small><strong>{fmt(plannedHours)}</strong></article>
@@ -195,7 +259,7 @@ export default function Team() {
         </table>
       </div>
       {!planComplete && <p className="fot-method-note">Прогноз суммирует только полностью заполненные строки. Пустые должности исключены из сценария и не считаются нулевыми ставками.</p>}
-      <div className="fot-planner-actions"><button className="secondary-button" onClick={() => setPositionPlan({})}>Очистить план</button></div>
+      <div className="fot-planner-actions"><button className="secondary-button" onClick={() => { setPositionPlan({}); }}>Очистить план</button><button className="secondary-button" onClick={() => { setCustomPositions({}); }}>Сбросить пользовательские должности</button></div>
     </section>
 
     <section className="fot-section">
