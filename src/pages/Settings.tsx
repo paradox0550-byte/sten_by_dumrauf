@@ -278,30 +278,30 @@ export default function Settings() {
         <div>
           <span className="eyebrow">МОЙ КАБИНЕТ</span>
           <h1>Настройки</h1>
-          <p>Профиль, рабочий контур, внешний вид и отчёты — в одном месте.</p>
+          <p>Настройте аккаунт, рабочие данные, аналитику и уведомления. Изменения применяются только после сохранения, если не указано иное.</p>
         </div>
       </div>
 
       <nav className="settings-quick-jump" aria-label="Быстрый переход по настройкам">
-        <a href="#settings-workspace">Рабочий контур</a>
-        <a href="#settings-profile">Профиль</a>
+        <a href="#settings-profile">Аккаунт и профиль</a>
+        <a href="#settings-workspace">Организация и рестораны</a>
+        <a href="#settings-analytics">Финансы и аналитика</a>
+        <a href="#settings-reports">Отчёты и уведомления</a>
         <a href="#settings-appearance">Внешний вид</a>
-        <a href="#settings-reports">Отчёты</a>
-        <a href="#settings-analytics">Аналитика</a>
-        <a href="#settings-session">Сеанс</a>
+        <a href="#settings-session">Вход и выход</a>
       </nav>
 
       <div className="settings-grid">
         <section className="panel settings-workspace" id="settings-workspace">
           <h2>Рабочий контур</h2>
-          <p className="muted">Выберите ресторан, подразделение и период для рабочих данных.</p>
+          <p className="muted">Контекст влияет на финансовые отчёты и аналитику, но не нужен для общих вопросов к STEN AI. Выбор сохраняется автоматически.</p>
           <WorkspaceSelector value={scope} onChange={setScope} />
           {scopeMessage && <div className="pnl-message error" role="alert">{scopeMessage}</div>}
         </section>
 
         <section className="panel" id="settings-profile">
           <h2>Профиль</h2>
-          <p className="muted">Эти данные используются в профиле STEN и для отправки отчётов в Telegram.</p>
+          <p className="muted">Имя и должность отображаются в STEN. Telegram ID используется для адресной отправки отчётов. После изменений нажмите «Сохранить данные».</p>
           <label className="settings-field">
             <span>Имя</span>
             <input maxLength={80} value={profile.firstName} onChange={(event) => { const value = normalizeProfileText(event.target.value); setProfile((current) => ({ ...current, firstName: value })); setProfileErrors((current) => ({ ...current, firstName: undefined })); }} placeholder="Александр" />
@@ -437,8 +437,8 @@ export default function Settings() {
         </section>
 
         <section className="panel" id="settings-session">
-          <h2>Сеанс</h2>
-          <p className="muted">{user?.email || 'Ваша учётная запись'}</p>
+          <h2>Вход и выход</h2>
+          <p className="muted">Вы вошли как <b>{user?.email || 'учётная запись STEN'}</b>. Для изменения имени и должности откройте раздел «Аккаунт и профиль».</p>
           <button className="danger-button" onClick={signOut}>Выйти из STEN</button>
         </section>
       </div>
