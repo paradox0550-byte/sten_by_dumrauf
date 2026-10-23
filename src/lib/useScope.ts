@@ -75,9 +75,14 @@ export function useScope():[Scope,(next:Scope)=>void] {
     let cancelled=false;
     const initialize=async()=>{
       let initial=readSaved(key);
-      if(key&&!localStorage.getItem(key)){
-        const migrated=await migrateLegacyScope(key);
-        if(migrated)initial=migrated;
+      if(key){
+        let keyExists=false;
+        try{keyExists=Boolean(localStorage.getItem(key));}catch{/* приватный режим */}
+        if(!keyExists){
+          const migrated=await migrateLegacyScope(key);
+          if(migrated)initial=migrated;
+          else initial=readSaved(key);
+        }
       }
       if(cancelled||seq!==contextSeqRef.current)return;
       setScope(initial);
