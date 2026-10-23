@@ -10002,3 +10002,18 @@ html[data-reduce-motion='true'] svg.lucide,html[data-reduce-motion='true'] .shel
   .sten-loading .sten-logo--animated { animation: none; }
 }
 html[data-reduce-motion='true'] .sten-loading-track > span { animation: none; width: 100%; opacity: .7; }
+
+
+/* Accessible account shortcut in the workspace header. */
+.top-profile[role="button"] {
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.top-profile[role="button"]:hover {
+  border-color: var(--border-strong, var(--border-subtle));
+  background: var(--bg-surface, var(--bg-surface-subtle));
+}
+.top-profile[role="button"]:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
