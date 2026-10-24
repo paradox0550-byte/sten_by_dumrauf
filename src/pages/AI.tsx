@@ -21,6 +21,28 @@ import '../styles/chat.css';
 type Msg={id:string;role:'user'|'assistant';text:string;sources?:AskSource[];createdAt?:string;proposedMemory?:ProposedMemory[]|null;steps?:AskStep[];totalMs?:number;model?:string;toolsUsed?:Array<{name:string;ok?:boolean;ms?:number}>|null};
 type Doc={id:string;name:string;size:number;status:string;chars?:number};
 type DocPreview={id:string;name:string;preview:string;chars:number;truncated:boolean;readOnly:true};
+type MeetingDraft={title:string;date:string;time:string;location:string;description:string;awaitingConfirmation:boolean};
+const localDateKey=(date:Date)=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+function parseMeetingDetails(text:string):Partial<MeetingDraft>{
+ const value=text.trim();
+ const result:Partial<MeetingDraft>={};
+ const now=new Date();
+ if(/\bпослезавтра\b/i.test(value)){const date=new Date(now);date.setDate(date.getDate()+2);result.date=localDateKey(date)}
+ else if(/\bзавтра\b/i.test(value)){const date=new Date(now);date.setDate(date.getDate()+1);result.date=localDateKey(date)}
+ else if(/\bсегодня\b/i.test(value)){result.date=localDateKey(now)}
+ else{
+  const dateMatch=value.match(/\b(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?\b/);
+  if(dateMatch){let year=dateMatch[3]?Number(dateMatch[3]):now.getFullYear();if(year<100)year+=2000;const day=Number(dateMatch[1]),month=Number(dateMatch[2]);const date=new Date(year,month-1,day);if(date.getFullYear()===year&&date.getMonth()===month-1&&date.getDate()===day){if(!dateMatch[3]&&date<new Date(now.getFullYear(),now.getMonth(),now.getDate()))date.setFullYear(year+1);result.date=localDateKey(date)}}
+ }
+ const timeMatch=value.match(/\b(?:в\s*)?(\d{1,2})[:.](\d{2})\b/i)||value.match(/\bв\s*(\d{1,2})\s*(?:час(?:а|ов)?|ч)\b/i);
+ if(timeMatch){const hour=Number(timeMatch[1]),minute=Number(timeMatch[2]||0);if(hour>=0&&hour<=23&&minute>=0&&minute<=59)result.time=`${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}`}
+ const placeMatch=value.match(/\b(?:в|на)\s+((?:Сириус(?:е)?|Сочи|Адлере|Москве|Петербурге|ресторане|офисе|кафе|отеле|зале)(?:\s+(?:у|на|имени|[А-ЯЁA-Z][А-ЯЁа-яёA-Za-z-]*)){0,3})\b/i);
+ if(placeMatch)result.location=placeMatch[1].trim().replace(/\s+/g,' ');
+ return result;
+}
+function missingMeetingField(draft:MeetingDraft){if(!draft.date)return'дату';if(!draft.time)return'время';if(!draft.location)return'место';return'';}
+function meetingDateLabel(value:string){if(!value)return'не указана';const today=new Date();const tomorrow=new Date(today);tomorrow.setDate(today.getDate()+1);if(value===localDateKey(today))return'сегодня';if(value===localDateKey(tomorrow))return'завтра';return new Date(value+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})}
+
 const starters=[
  {eyebrow:'Финансы',title:'Разобрать P&L',description:'Выручка, расходы и причины отклонений',prompt:'Проанализируй текущий P&L и найди главные причины падения прибыли'},
  {eyebrow:'Контроль',title:'Найти отклонения',description:'Что вышло за план и требует внимания',prompt:'Что сильнее всего отклонилось от плана?'},
@@ -70,6 +92,8 @@ function AIContent({user}:{user:User|null}){
  const[contextStatus,setContextStatus]=useState<'loading'|'both'|'partial'|'unavailable'>('loading');
  const[listening,setListening]=useState(false);
  const[voiceMode,setVoiceMode]=useState(false);
+ const[meetingDraft,setMeetingDraft]=useState<MeetingDraft|null>(null);
+ const[meetingSaving,setMeetingSaving]=useState(false);
  const[voiceState,setVoiceState]=useState<'idle'|'listening'|'thinking'|'speaking'>('idle');
  const[voiceAutoplay,setVoiceAutoplay]=useState(()=>{try{return localStorage.getItem('sten_ai_voice_autoplay')==='true'}catch{return false}});
  const[composerFocused,setComposerFocused]=useState(false);
@@ -139,6 +163,51 @@ function AIContent({user}:{user:User|null}){
  };
  useEffect(()=>{void load()},[scope.period,scope.projectId,scope.branchId,scope.restaurantId,scope.departmentId]);
 
+ function appendLocalAssistant(answer:string){
+   setMessages(current=>[...current,{id:crypto.randomUUID(),role:'assistant',text:answer,createdAt:new Date().toISOString()}]);
+   if(voiceModeRef.current||voiceAutoplayRef.current)speakAnswer(answer);
+ }
+ async function confirmMeeting(draft:MeetingDraft){
+   if(meetingSaving)return;
+   const missing=missingMeetingField(draft);
+   if(missing){const answer=`Чтобы записать встречу, уточни ${missing}.`;setMeetingDraft({...draft,awaitingConfirmation:false});appendLocalAssistant(answer);return}
+   const start=new Date(`${draft.date}T${draft.time}:00`);
+   if(Number.isNaN(start.getTime())){appendLocalAssistant('Не удалось проверить дату и время встречи. Уточни их, пожалуйста.');return}
+   setMeetingSaving(true);
+   try{
+     await api.post('/api/secretary/events',{title:draft.title.trim()||'Встреча',description:draft.description.trim(),location:draft.location.trim(),start_at:start.toISOString(),event_type:'meeting',status:'planned',reminder_minutes:30});
+     setMeetingDraft(null);
+     appendLocalAssistant(`Готово, встреча «${draft.title||'Встреча'}» записана в Секретарь: ${meetingDateLabel(draft.date)} в ${draft.time}, место — ${draft.location}. Напоминание установлено за 30 минут.`);
+   }catch(e){
+     appendLocalAssistant(e instanceof Error?`Не удалось сохранить встречу в Секретаре: ${e.message}`:'Не удалось сохранить встречу в Секретаре. Попробуй ещё раз.');
+   }finally{setMeetingSaving(false)}
+ }
+ async function handleMeetingUtterance(text:string){
+   const value=text.trim();
+   const affirmative=/^(да|давай|подтверждаю|подтвердить|согласен|верно|всё верно|создавай|записывай|ок|okay|окей)[!.\s]*$/i.test(value);
+   const negative=/^(нет|не надо|отмена|отмени|не подтверждаю|не записывай|стоп)[!.\s]*$/i.test(value);
+   if(meetingDraft){
+     if(meetingDraft.awaitingConfirmation&&affirmative){await confirmMeeting(meetingDraft);return true}
+     if(negative){setMeetingDraft(null);appendLocalAssistant('Хорошо, отменил. Встреча не записана.');return true}
+     const parsed=parseMeetingDetails(value);
+     const location=parsed.location||(meetingDraft.awaitingConfirmation?'':(!parsed.date&&!parsed.time?value.replace(/^(?:место(?: встречи)?\s*[:—-]?|локация\s*[:—-]?)\s*/i,'').trim():meetingDraft.location));
+     const next:MeetingDraft={...meetingDraft,date:parsed.date||meetingDraft.date,time:parsed.time||meetingDraft.time,location:location||meetingDraft.location,awaitingConfirmation:false};
+     setMeetingDraft(next);
+     const missing=missingMeetingField(next);
+     if(missing){appendLocalAssistant(`Уточни, пожалуйста, ${missing} встречи.`);return true}
+     const ready={...next,awaitingConfirmation:true};setMeetingDraft(ready);
+     appendLocalAssistant(`Проверь детали: ${ready.title} — ${meetingDateLabel(ready.date)} в ${ready.time}, место: ${ready.location}. Записать встречу в Секретарь?`);return true;
+   }
+   const intent=/\b(запиши|запланируй|назначь|добавь|создай|организуй)\b/i.test(value)&&/\b(встреч\w*|секретар\w*)\b/i.test(value)||/\bвстречу\b/i.test(value)&&/\b(завтра|сегодня|послезавтра|\d{1,2}[.:]\d{2})\b/i.test(value);
+   if(!intent)return false;
+   const parsed=parseMeetingDetails(value);
+   const draft:MeetingDraft={title:'Встреча',date:parsed.date||'',time:parsed.time||'',location:parsed.location||'',description:'',awaitingConfirmation:false};
+   setMeetingDraft(draft);
+   const missing=missingMeetingField(draft);
+   if(missing){appendLocalAssistant(`Хорошо, подготовлю встречу в Секретаре. Уточни, пожалуйста, ${missing} встречи.`);return true}
+   const ready={...draft,awaitingConfirmation:true};setMeetingDraft(ready);
+   appendLocalAssistant(`Проверь детали: ${ready.title} — ${meetingDateLabel(ready.date)} в ${ready.time}, место: ${ready.location}. Записать встречу в Секретарь?`);return true;
+ }
  async function ask(value=prompt){
    const text=value.trim();
    if(!text||busy)return;
@@ -148,6 +217,7 @@ function AIContent({user}:{user:User|null}){
    setMessages(nextMsgs);
    setBusy(true);
    try{
+     if(await handleMeetingUtterance(text))return;
      const body: AskRequest = {
        question: text,
        messages: [
@@ -434,6 +504,16 @@ function AIContent({user}:{user:User|null}){
            </Fragment>;
          })}
          {busy&&<div className="typing" role="status" aria-live="polite" aria-label="STEN AI обрабатывает запрос"><span className="typing__label">STEN AI думает...</span><i/><i/><i/></div>}
+         {meetingDraft&&<section className="sten-meeting-confirm" aria-label="Подтверждение встречи">
+           <div className="sten-meeting-confirm__heading"><CalendarDays size={18}/><div><strong>{meetingDraft.awaitingConfirmation?'Подтверди встречу':'Уточняем детали встречи'}</strong><span>Запись в Секретарь — только после подтверждения</span></div></div>
+           <dl>
+             <div><dt>Событие</dt><dd>{meetingDraft.title||'Встреча'}</dd></div>
+             <div><dt>Дата</dt><dd>{meetingDateLabel(meetingDraft.date)}</dd></div>
+             <div><dt>Время</dt><dd>{meetingDraft.time||'Нужно уточнить'}</dd></div>
+             <div><dt>Место</dt><dd>{meetingDraft.location||'Нужно уточнить'}</dd></div>
+           </dl>
+           {meetingDraft.awaitingConfirmation?<div className="sten-meeting-confirm__actions"><button type="button" className="primary-button" disabled={meetingSaving} onClick={()=>void confirmMeeting(meetingDraft)}>{meetingSaving?'Сохраняем…':'Подтвердить и записать'}</button><button type="button" className="secondary-button" disabled={meetingSaving} onClick={()=>{setMeetingDraft(null);appendLocalAssistant('Встреча отменена и не была записана.')}}>Отменить</button></div>:<p className="sten-meeting-confirm__hint">Ответь голосом или текстом на уточнение STEN. После заполнения деталей можно будет подтвердить запись.</p>}
+         </section>}
        </div>
        {chatToast&&<div className="chat-toast" role="status" aria-live="polite">{chatToast}</div>}
 
