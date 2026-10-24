@@ -28,6 +28,7 @@ const FONT_SIZE_KEY = 'sten_font_size_v1';
 const MOTION_KEY = 'sten_reduce_motion_v1';
 const AI_MODE_KEY = 'sten_ai_personal_mode';
 const AI_VOICE_KEY = 'sten_ai_voice_autoplay';
+const AI_VOICE_GENDER_KEY = 'sten_ai_voice_gender';
 type PersonalMode = 'concise' | 'analyst' | 'coach';
 const metricDefaults: Metrics = {
   revenue: true,
@@ -57,6 +58,7 @@ export default function Settings() {
   const { settings: chatAppearance, update: updateChatAppearance, reset: resetChatAppearance } = useAppearance(user);
   const [personalMode, setPersonalMode] = useState<PersonalMode>(() => { const value = localStorage.getItem(AI_MODE_KEY); return value === 'concise' || value === 'analyst' || value === 'coach' ? value : 'analyst'; });
   const [voiceAutoplay, setVoiceAutoplay] = useState(() => localStorage.getItem(AI_VOICE_KEY) === 'true');
+  const [voiceGender, setVoiceGender] = useState<'male' | 'system'>(() => localStorage.getItem(AI_VOICE_GENDER_KEY) === 'system' ? 'system' : 'male');
   const [theme, setTheme] = useState<Theme>(() => {
     const value = localStorage.getItem(THEME_KEY);
     return value === 'light' || value === 'dark' || value === 'system' ? value : 'dark';
@@ -122,6 +124,7 @@ export default function Settings() {
 
   useEffect(() => { localStorage.setItem(AI_MODE_KEY, personalMode); }, [personalMode]);
   useEffect(() => { localStorage.setItem(AI_VOICE_KEY, String(voiceAutoplay)); }, [voiceAutoplay]);
+  useEffect(() => { localStorage.setItem(AI_VOICE_GENDER_KEY, voiceGender); }, [voiceGender]);
 
   useEffect(() => {
     applyAppearance(fontSize, reduceMotion);
@@ -370,7 +373,14 @@ export default function Settings() {
           <label className="toggle-row"><span><b>Озвучивать ответы STEN</b><small>Голосовой ответ после отправки вопроса. Работает независимо от поддержки распознавания речи.</small></span>
             <input type="checkbox" checked={voiceAutoplay} onChange={(event) => setVoiceAutoplay(event.target.checked)} /><i />
           </label>
-          <p className="settings-help">На iPhone/iPad браузер может не поддерживать встроенное распознавание речи. Нажмите микрофон в чате и используйте диктовку клавиатуры; ответ можно прослушать голосом.</p>
+          <label className="settings-field"><span>Голос STEN</span>
+            <select value={voiceGender} onChange={(event) => setVoiceGender(event.target.value === 'system' ? 'system' : 'male')}>
+              <option value="male">Мужской — по умолчанию</option>
+              <option value="system">Системный голос устройства</option>
+            </select>
+            <small className="muted">Мужской русский голос выбирается из голосов, доступных браузеру и устройству. Если он не предоставлен, STEN использует доступный русский голос.</small>
+          </label>
+          <p className="settings-help">Нажмите микрофон в чате, чтобы начать голосовой диалог. Во время ответа можно перебить STEN новым голосовым вводом. На iPhone доступность распознавания зависит от браузера; если оно недоступно, используйте диктовку клавиатуры.</p>
           <div className="settings-subsection"><span className="settings-label">Тема чата</span><div className="choice-grid">
             {THEME_OPTIONS.map((option) => <button key={option.id} type="button" className={'choice ' + (chatAppearance.theme === option.id ? 'active' : '')} onClick={() => updateChatAppearance('theme', option.id as ThemeId)} aria-pressed={chatAppearance.theme === option.id}><span>{option.label}</span>{chatAppearance.theme === option.id && <Check size={16} />}</button>)}
           </div></div>
