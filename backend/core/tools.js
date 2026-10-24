@@ -341,21 +341,26 @@ async function getDocuments(user, rawArgs, ctx) {
   const args = parseArgs(documentsSchema, rawArgs);
   const result = await ctx.queryWithRetry(
     `SELECT id, name, status, created_at, length(extracted_text) AS chars,
-            LEFT(COALESCE(extracted_text,''), 1500) AS preview
+            LEFT(COALESCE(extracted_text,''), 1500) AS preview, extraction_json
        FROM ai_documents
       WHERE organization_id=$1::uuid AND ($2='all' OR status=$2)
       ORDER BY created_at DESC LIMIT $3`,
     [user.organizationId, args.status, args.limit],
     { orgId: user.organizationId }
   );
-  const documents = (result.rows || []).map(row => ({
-    id: row.id,
-    name: row.name,
-    status: row.status,
-    chars: Number(row.chars || 0),
-    createdAt: row.created_at,
-    preview: row.preview || '',
-  }));
+  const documents = (result.rows || []).map(row => {
+    const meta = row.extraction_json && typeof row.extraction_json === 'object' ? row.extraction_json : {};
+    const chars = Number(row.chars || 0);
+    return {
+      id: row.id,
+      name: row.name,
+      status: row.status,
+      chars,
+      possibly_truncated: chars >= 100000 && meta.fullTextComplete !== true,
+      createdAt: row.created_at,
+      preview: row.preview || '',
+    };
+  });
   return {
     documents,
     returned: documents.length,
@@ -513,8 +518,22 @@ async function readDocument(user, rawArgs, ctx) {
       note: 'Найдено несколько документов. Уточни название, чтобы не прочитать не тот файл.',
     };
   }
-  const row = matches[0];
-  const text = String(row.extracted_text || '');
+  let row = matches[0];
+  let text = String(row.extracted_text || '');
+  let sourceTextTruncated = text.length >= 100000 && row.extraction_json?.fullTextComplete !== true;
+  if (sourceTextTruncated && typeof ctx.reprocessDocument === 'function') {
+    try {
+      const refreshed = await ctx.reprocessDocument(user, row.id);
+      if (typeof refreshed?.text === 'string') {
+        text = refreshed.text;
+        row = { ...row, extracted_text: text, extraction_json: refreshed.meta || row.extraction_json };
+        sourceTextTruncated = false;
+      }
+    } catch (error) {
+      // Return the available slice but make the incomplete extraction explicit.
+      sourceTextTruncated = true;
+    }
+  }
   const content = text.slice(args.start_char, args.start_char + args.max_chars);
   return {
     found: true,
@@ -525,6 +544,7 @@ async function readDocument(user, rawArgs, ctx) {
     start_char: args.start_char,
     returned_chars: content.length,
     has_more: args.start_char + content.length < text.length,
+    source_text_truncated: sourceTextTruncated,
     extraction: row.extraction_json && typeof row.extraction_json === 'object'
       ? { type: row.extraction_json.type || null, sheets: row.extraction_json.sheets || null, engine: row.extraction_json.engine || null }
       : null,
