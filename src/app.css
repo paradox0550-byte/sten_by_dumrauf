@@ -10017,3 +10017,20 @@ html[data-reduce-motion='true'] .sten-loading-track > span { animation: none; wi
   outline: 2px solid var(--color-brand);
   outline-offset: 2px;
 }
+
+
+/* STEN Settings — one home for account, workspace, AI voice and appearance. */
+.settings-quick-jump { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 18px; padding:8px; border:1px solid var(--border-subtle); border-radius:10px; background:var(--bg-surface); }
+.settings-quick-jump a { display:inline-flex; align-items:center; min-height:34px; padding:0 11px; border:1px solid transparent; border-radius:7px; color:var(--text-secondary); font-size:12px; transition:background-color .15s ease,color .15s ease,border-color .15s ease; }
+.settings-quick-jump a:hover, .settings-quick-jump a:focus-visible { border-color:var(--border-default); background:var(--bg-elevated); color:var(--text-primary); outline-offset:2px; }
+.settings-grid { align-items:start; }
+.settings-ai-panel { display:flex; flex-direction:column; gap:12px; }
+.settings-ai-panel > h2 { margin-bottom:0; }
+.settings-ai-panel .settings-subsection { margin-top:4px; }
+.settings-chat-toggles { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px 18px; }
+.settings-help { color:var(--text-muted); font-size:12px; line-height:1.55; padding:10px 12px; border-left:2px solid var(--border-strong); background:var(--bg-subtle); border-radius:0 6px 6px 0; }
+@media (max-width:767px) {
+ .settings-quick-jump { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; padding:6px; }
+ .settings-quick-jump a { justify-content:center; text-align:center; padding:6px 7px; min-height:38px; font-size:11px; }
+ .settings-chat-toggles { grid-template-columns:minmax(0,1fr); }
+}
