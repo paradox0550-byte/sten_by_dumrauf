@@ -12,8 +12,9 @@ export function calculateEBITDA(revenue: number, expenses: number[]): number {
 }
 
 /**
- * Classifies expense variance using delta = fact - plan.
- * A more-negative fact is an overrun; a less-negative fact is a saving.
+ * Classifies signed P&L impact using delta = fact - plan.
+ * Under STEN's signed model, a negative delta worsens the result and a
+ * positive delta improves it, for both revenue and negative expense rows.
  */
 export function calculateVarianceSignal(
   plan: number,
