@@ -27,19 +27,18 @@ function parseMeetingDetails(text:string):Partial<MeetingDraft>{
  const value=text.trim();
  const result:Partial<MeetingDraft>={};
  const now=new Date();
- // JS \\b is ASCII-only and fails around Russian words. Use Unicode-aware boundaries.
- const hasWord=(word:string)=>new RegExp('(?<![\\\\p{L}\\\\p{N}_])(?:'+word+')(?![\\\\p{L}\\\\p{N}_])','iu').test(value);
- if(hasWord('послезавтра')){const date=new Date(now);date.setDate(date.getDate()+2);result.date=localDateKey(date)}
- else if(hasWord('завтра')){const date=new Date(now);date.setDate(date.getDate()+1);result.date=localDateKey(date)}
- else if(hasWord('сегодня')){result.date=localDateKey(now)}
+ // JavaScript \b is ASCII-only and fails around Russian words; use Unicode-aware boundaries.
+ if(/(?<![\p{L}\p{N}_])послезавтра(?![\p{L}\p{N}_])/iu.test(value)){const date=new Date(now);date.setDate(date.getDate()+2);result.date=localDateKey(date)}
+ else if(/(?<![\p{L}\p{N}_])завтра(?![\p{L}\p{N}_])/iu.test(value)){const date=new Date(now);date.setDate(date.getDate()+1);result.date=localDateKey(date)}
+ else if(/(?<![\p{L}\p{N}_])сегодня(?![\p{L}\p{N}_])/iu.test(value)){result.date=localDateKey(now)}
  else{
-  const dateMatch=value.match(/(?<![\\p{L}\\p{N}_])(\\d{1,2})[./-](\\d{1,2})(?:[./-](\\d{2,4}))?(?![\\p{L}\\p{N}_])/u);
+  const dateMatch=value.match(/(?<![\p{L}\p{N}_])(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?(?![\p{L}\p{N}_])/u);
   if(dateMatch){let year=dateMatch[3]?Number(dateMatch[3]):now.getFullYear();if(year<100)year+=2000;const day=Number(dateMatch[1]),month=Number(dateMatch[2]);const date=new Date(year,month-1,day);if(date.getFullYear()===year&&date.getMonth()===month-1&&date.getDate()===day){if(!dateMatch[3]&&date<new Date(now.getFullYear(),now.getMonth(),now.getDate()))date.setFullYear(year+1);result.date=localDateKey(date)}}
  }
- const timeMatch=value.match(/(?<![\\p{L}\\p{N}_])(?:в\\s*)?(\\d{1,2})[:.](\\d{2})(?![\\p{L}\\p{N}_])/iu)||value.match(/(?<![\\p{L}\\p{N}_])в\\s*(\\d{1,2})\\s*(?:час(?:а|ов)?|ч)(?![\\p{L}\\p{N}_])/iu);
+ const timeMatch=value.match(/(?<![\p{L}\p{N}_])(?:в\s*)?(\d{1,2})[:.](\d{2})(?![\p{L}\p{N}_])/iu)||value.match(/(?<![\p{L}\p{N}_])в\s*(\d{1,2})\s*(?:час(?:а|ов)?|ч)(?![\p{L}\p{N}_])/iu);
  if(timeMatch){const hour=Number(timeMatch[1]),minute=Number(timeMatch[2]||0);if(hour>=0&&hour<=23&&minute>=0&&minute<=59)result.time=String(hour).padStart(2,'0')+':'+String(minute).padStart(2,'0')}
- const placeMatch=value.match(/(?<![\\p{L}\\p{N}_])(?:в|на)\\s+((?:Сириус(?:е)?|Сочи|Адлере|Москве|Петербурге|ресторане|офисе|кафе|отеле|зале)(?:\\s+(?:у|на|имени|[\\p{L}-]+)){0,3})(?![\\p{L}\\p{N}_])/iu);
- if(placeMatch)result.location=placeMatch[1].trim().replace(/\\s+/g,' ');
+ const placeMatch=value.match(/(?<![\p{L}\p{N}_])(?:в|на)\s+((?:Сириус(?:е)?|Сочи|Адлере|Москве|Петербурге|ресторане|офисе|кафе|отеле|зале)(?:\s+(?:у|на|имени|[\p{L}-]+)){0,3})(?![\p{L}\p{N}_])/iu);
+ if(placeMatch)result.location=placeMatch[1].trim().replace(/\s+/g,' ');
  return result;
 }
 function missingMeetingField(draft:MeetingDraft){if(!draft.date)return'дату';if(!draft.time)return'время';if(!draft.location)return'место';return'';}
