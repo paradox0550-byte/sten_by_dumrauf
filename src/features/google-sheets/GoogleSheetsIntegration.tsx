@@ -229,7 +229,7 @@ export default function GoogleSheetsIntegration() {
       {!spreadsheet ? (
         <label className="settings-field" style={{ marginTop: 16 }}>
           <span>Ссылка на таблицу</span>
-          <input type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="Вставьте ссылку на Google Таблицу" autoComplete="url" spellCheck={false} aria-describedby="google-sheets-help" />
+          <input type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="Вставьте ссылку на Google Таблицу" autoComplete="url" spellCheck={false} aria-describedby="google-sheets-help" style={{ width: "100%", minWidth: 0, boxSizing: "border-box", textOverflow: "ellipsis" }} />
           <small className="muted" id="google-sheets-help">Ссылка нужна только для подключения. После загрузки она будет скрыта; STEN покажет название таблицы и позволит передать данные в AI.</small>
         </label>
       ) : (
