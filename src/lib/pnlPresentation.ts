@@ -15,6 +15,6 @@ export function isPnlExpenseArticle(article: string): boolean {
 
 export function pnlDeltaTone(article: string, delta?: number | null): PnlDeltaTone {
   if (typeof delta !== 'number' || !Number.isFinite(delta) || delta === 0) return '';
-  const favorable = isPnlExpenseArticle(article) ? delta < 0 : delta > 0;
+  const favorable = delta > 0;
   return favorable ? 'is-positive' : 'is-negative';
 }
