@@ -344,9 +344,9 @@ function AIContent({user}:{user:User|null}){
    r.onresult=(e:any)=>{
      let interim='';let finalText='';
      for(let i=e.resultIndex;i<e.results.length;i++){const item=e.results[i];if(item.isFinal)finalText+=item[0].transcript;else interim+=item[0].transcript}
-     const recognized=(finalText||interim).replace(/\\s+/g,' ').trim();if(recognized)setPrompt(((base?base+' ':'')+recognized).trim());
+     const recognized=(finalText||interim).replace(/\s+/g,' ').trim();if(recognized)setPrompt(((base?base+' ':'')+recognized).trim());
      if(finalText.trim()&&voiceModeRef.current&&!finalTranscriptRef.current){
-       finalTranscriptRef.current=finalText.trim();const question=((base?base+' ':'')+finalText).replace(/\\s+/g,' ').trim();setPrompt('');setListening(false);setVoiceState('thinking');window.speechSynthesis?.cancel?.();void askRef.current(question);
+       finalTranscriptRef.current=finalText.trim();const question=((base?base+' ':'')+finalText).replace(/\s+/g,' ').trim();setPrompt('');setListening(false);setVoiceState('thinking');window.speechSynthesis?.cancel?.();void askRef.current(question);
      }
    };
    r.onerror=(event:any)=>{setListening(false);if(voiceModeRef.current){setVoiceState('idle');if(event?.error==='not-allowed'||event?.error==='service-not-allowed'){voiceModeRef.current=false;setVoiceMode(false);showChatToast('Разрешите доступ к микрофону в настройках браузера.');}else if(event?.error!=='aborted'&&event?.error!=='no-speech'){showChatToast('Не удалось распознать речь. Проверьте микрофон и попробуйте ещё раз.');if(event?.error==='audio-capture'){voiceModeRef.current=false;setVoiceMode(false);}}}};
@@ -369,7 +369,7 @@ function AIContent({user}:{user:User|null}){
        const result=event.results[i];const phrase=String(result?.[0]?.transcript||'').trim();
        if(result.isFinal&&phrase)finalText+=`${finalText?' ':''}${phrase}`;else if(phrase)interim+=`${interim?' ':''}${phrase}`;
      }
-     if(finalText){const next=`${meetingTranscriptRef.current}${meetingTranscriptRef.current&&!/\\s$/.test(meetingTranscriptRef.current)?' ':''}${finalText}`.trim();meetingTranscriptRef.current=next;setMeetingTranscript(next)}
+     if(finalText){const next=`${meetingTranscriptRef.current}${meetingTranscriptRef.current&&!/\s$/.test(meetingTranscriptRef.current)?' ':''}${finalText}`.trim();meetingTranscriptRef.current=next;setMeetingTranscript(next)}
      setMeetingNoteInterim(interim);
    };
    recognition.onerror=(event:any)=>{setMeetingNoteRecording(false);setMeetingNoteInterim('');if(event?.error==='not-allowed'||event?.error==='service-not-allowed')showChatToast('Разрешите микрофон в браузере. Если распознавание недоступно, заметку можно ввести вручную.');else if(event?.error!=='aborted'&&event?.error!=='no-speech')showChatToast('Распознавание остановилось. Сохранённый текст заметки остался на экране.');};
@@ -566,14 +566,14 @@ function AIContent({user}:{user:User|null}){
          onDrop={e=>{e.preventDefault();setDragOver(false);void uploadFiles(e.dataTransfer.files)}}>
          {dragOver&&<div className="composer-drop-hint"><UploadCloud size={16}/> Отпустите файл — STEN добавит его в документы</div>}
          <div className="sten-meeting-notes">
-           <button className="sten-meeting-notes__toggle" type="button" aria-expanded={meetingNotesOpen} onClick={()=>setMeetingNotesOpen(value=>!value)}><CalendarDays size={15}/><span>Заметки встречи</span>{meetingTranscript.trim()&&<span className="sten-meeting-notes__count">{meetingTranscript.trim().split(/\\s+/).length} слов</span>}<span className="sten-meeting-notes__chevron">{meetingNotesOpen?'Скрыть':'Открыть'}</span></button>
+           <button className="sten-meeting-notes__toggle" type="button" aria-expanded={meetingNotesOpen} onClick={()=>setMeetingNotesOpen(value=>!value)}><CalendarDays size={15}/><span>Заметки встречи</span>{meetingTranscript.trim()&&<span className="sten-meeting-notes__count">{meetingTranscript.trim().split(/\s+/).length} слов</span>}<span className="sten-meeting-notes__chevron">{meetingNotesOpen?'Скрыть':'Открыть'}</span></button>
            {meetingNotesOpen&&<div className="sten-meeting-notes__panel">
              <p>Надиктуйте или вставьте заметки встречи. Текст хранится в этом браузере отдельно для выбранного пользователя и рабочего контура. Распознавание зависит от браузера и может обрабатываться его речевым сервисом; STEN не записывает звук собеседников или системный звук.</p>
              <textarea value={meetingTranscript} onChange={event=>{meetingTranscriptRef.current=event.target.value;setMeetingTranscript(event.target.value)}} rows={4} placeholder="Например: договорились пересмотреть food cost, ответственный — управляющий, срок — пятница…" aria-label="Текст заметок встречи"/>
              {meetingNoteInterim&&<div className="sten-meeting-notes__interim" aria-live="polite">Распознано: {meetingNoteInterim}</div>}
              <div className="sten-meeting-notes__actions">
                <button type="button" className={meetingNoteRecording?'is-recording':''} onClick={()=>meetingNoteRecording?stopMeetingNoteRecording():startMeetingNoteRecording()}>{meetingNoteRecording?<MicOff size={15}/>:<Mic size={15}/>} {meetingNoteRecording?'Остановить диктовку':'Надиктовать'}</button>
-               <button type="button" disabled={!meetingTranscript.trim()||busy} onClick={()=>{setMeetingNotesOpen(false);void ask(`Разбери заметки встречи. Составь краткий протокол: ключевые решения, задачи, ответственные, сроки и вопросы без ответа. Не придумывай отсутствующие сведения.\\n\\nЗаметки:\\n${meetingTranscript.trim()}`)}}><Sparkles size={15}/> Разобрать в STEN AI</button>
+               <button type="button" disabled={!meetingTranscript.trim()||busy} onClick={()=>{setMeetingNotesOpen(false);void ask(`Разбери заметки встречи. Составь краткий протокол: ключевые решения, задачи, ответственные, сроки и вопросы без ответа. Не придумывай отсутствующие сведения.\n\nЗаметки:\n${meetingTranscript.trim()}`)}}><Sparkles size={15}/> Разобрать в STEN AI</button>
                <button type="button" className="is-secondary" disabled={!meetingTranscript.trim()} onClick={()=>{meetingTranscriptRef.current='';setMeetingTranscript('');setMeetingNoteInterim('');showChatToast('Текст заметки очищен')}}>Очистить</button>
              </div>
            </div>}
