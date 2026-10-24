@@ -1,0 +1,17 @@
+.sten-meeting-notes{width:100%;box-sizing:border-box;margin:0 0 8px;border:1px solid var(--border-subtle,rgba(127,140,155,.24));border-radius:11px;background:var(--bg-surface,transparent);color:var(--text-primary,inherit);overflow:hidden}
+.sten-meeting-notes__toggle{display:flex;align-items:center;gap:8px;width:100%;min-height:38px;padding:8px 11px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font:inherit;font-size:12px;font-weight:600}
+.sten-meeting-notes__toggle>svg{flex:0 0 auto;color:var(--text-secondary)}
+.sten-meeting-notes__count{padding:2px 6px;border-radius:999px;background:var(--bg-elevated);color:var(--text-secondary);font-size:10px;font-weight:500}
+.sten-meeting-notes__chevron{margin-left:auto;color:var(--text-muted);font-size:11px;font-weight:400}
+.sten-meeting-notes__panel{padding:0 11px 10px}
+.sten-meeting-notes__privacy{margin:0 0 8px;color:var(--text-secondary);font-size:11px;line-height:1.45}
+.sten-meeting-notes__panel textarea{box-sizing:border-box;width:100%;min-height:88px;resize:vertical;border:1px solid var(--border-subtle);border-radius:8px;padding:9px;background:var(--bg-elevated);color:var(--text-primary);font:inherit;font-size:13px;line-height:1.5}
+.sten-meeting-notes__panel textarea:focus{outline:2px solid color-mix(in srgb,var(--color-brand) 35%,transparent);outline-offset:1px}
+.sten-meeting-notes__interim{margin:6px 0 0;color:var(--text-secondary);font-size:11px;line-height:1.4}
+.sten-meeting-notes__error{margin:7px 0 0;color:var(--color-danger,#a62d2d);font-size:11px;line-height:1.4}
+.sten-meeting-notes__actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.sten-meeting-notes__actions button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:6px 9px;border:1px solid var(--border-subtle);border-radius:8px;background:transparent;color:var(--text-primary);font:inherit;font-size:11px;cursor:pointer}
+.sten-meeting-notes__actions button:disabled{opacity:.45;cursor:not-allowed}
+.sten-meeting-notes__actions .sten-meeting-notes__primary{margin-left:auto;border-color:var(--color-brand);background:var(--color-brand);color:#fff}
+@media(max-width:560px){.sten-meeting-notes__chevron{font-size:10px}.sten-meeting-notes__actions button{flex:1}.sten-meeting-notes__actions .sten-meeting-notes__primary{width:100%;margin-left:0}}
+@media(prefers-reduced-motion:reduce){.sten-meeting-notes__toggle{scroll-behavior:auto}}
