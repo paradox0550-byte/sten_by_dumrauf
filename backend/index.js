@@ -2146,7 +2146,7 @@ app.post('/ai/documents/upload', requireAuth, requireOrg, async (req, res, next)
     await queryWithRetry(
       `INSERT INTO ai_documents (id, organization_id, user_id, name, mime_type, size_bytes, storage_key, status, extracted_text, extraction_json)
        VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6,$7,'ready',$8,$9::jsonb)`,
-      [docId, req.user.organizationId, req.user.id, safeName, mime, buf.length, key, extracted.text, JSON.stringify(extracted.meta)],
+      [docId, req.user.organizationId, req.user.id, safeName, mime, buf.length, key, extracted.text, JSON.stringify({ ...extracted.meta, fullTextComplete: true, extractedChars: extracted.text.length })],
       { orgId: req.user.organizationId }
     );
     await audit(req.user, 'document.upload.processed', 'ai_documents', docId, { name: safeName, bytes: buf.length, chars: extracted.text.length });
@@ -2401,27 +2401,37 @@ app.post('/ask', requireAuth, async (req, res, next) => {
       let docsUnavailable = false;
       try {
         const docsResult = await queryWithRetry(
-          "SELECT name, extracted_text, extraction_json FROM ai_documents WHERE organization_id=$1::uuid AND status='ready' ORDER BY created_at DESC LIMIT 20",
+          "SELECT name, status, length(extracted_text) AS chars FROM ai_documents WHERE organization_id=$1::uuid ORDER BY created_at DESC LIMIT 200",
           [req.user.organizationId],
           { orgId: req.user.organizationId }
         );
         docs = docsResult.rows || [];
       } catch (docsError) {
         docsUnavailable = true;
-        log('ask document context unavailable:', docsError.message);
+        log('ask document inventory unavailable:', docsError.message);
       }
-      const docContext = docs.filter(d => d.extracted_text).map(d => `Документ: ${d.name}\n${String(d.extracted_text).slice(0, 12000)}`).join('\n\n').slice(0, 36000);
       const docsMs = Math.round(Date.now() - docsStarted);
-      const docsCount = docs.filter(d => d.extracted_text).length;
       if (docsUnavailable) {
-        messages.splice(2, 0, { role: 'system', text: 'Источник документов временно недоступен. Не утверждай, что документов нет; сообщи, что поиск по документам не удалось выполнить.' });
-        steps.push({ kind: 'docs', ok: false, label: 'Документы недоступны', detail: 'Источник документов временно недоступен', ms: docsMs });
-      } else if (docContext) {
-        messages.splice(2, 0, { role: 'system', text: 'КОНТЕКСТ ДОКУМЕНТОВ (выборка, не гарантирует полноту файла):\n' + docContext });
+        messages.splice(2, 0, { role: 'system', text: 'Каталог документов временно недоступен. Не утверждай, что документов нет; сообщи, что каталог не удалось проверить.' });
+        steps.push({ kind: 'docs', ok: false, label: 'Каталог документов недоступен', detail: 'Источник документов временно недоступен', ms: docsMs });
+      } else if (docs.length) {
+        const inventory = {
+          total_returned: docs.length,
+          may_be_truncated: docs.length === 200,
+          documents: docs.slice(0, 60).map(doc => ({
+            name: doc.name,
+            status: doc.status,
+            extracted_chars: Number(doc.chars || 0),
+          })),
+        };
+        messages.splice(2, 0, {
+          role: 'system',
+          text: 'КАТАЛОГ ДОСТУПНЫХ ДОКУМЕНТОВ (это только список, не содержимое; для ответа используй результаты поиска и read_document):\\n' + JSON.stringify(inventory).slice(0, 9000),
+        });
         steps.push({
           kind: 'docs',
-          label: `Загружено ${docsCount} ${pluralizeRu(docsCount, ['документ', 'документа', 'документов'])} в контекст`,
-          detail: `${docContext.length.toLocaleString('ru-RU')} символов текста; выборка до 20 документов`.slice(0, 120),
+          label: `Проверен каталог: ${docs.length} документов`,
+          detail: 'Для ответа выполняется отдельный поиск по извлечённому тексту',
           ms: docsMs,
         });
       }
