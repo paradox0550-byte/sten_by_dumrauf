@@ -16,8 +16,15 @@ function flatten(input: unknown, parentId?: string, out: Node[] = []): Node[] {
   const type: Kind = raw.includes('branch') ? 'branch'
     : raw.includes('restaurant') || raw.includes('unit') ? 'restaurant'
     : raw.includes('department') ? 'department' : 'project';
-  const nextParent = id || parentId;
-  if (id && name) out.push({ id, name, type, parentId });
+  // The organization API can return nested nodes or a flat list.
+  // Keep explicit parent links from both frontend and API naming conventions.
+  const explicitParent = typeof x.parentId === 'string'
+    ? x.parentId
+    : typeof x.parent_id === 'string'
+      ? x.parent_id
+      : parentId;
+  const nextParent = id || explicitParent;
+  if (id && name) out.push({ id, name, type, ...(explicitParent ? { parentId: explicitParent } : {}) });
   for (const key of ['tree', 'children', 'projects', 'branches', 'restaurants', 'departments', 'units'])
     if (x[key]) flatten(x[key], nextParent, out);
   return out;
