@@ -199,7 +199,11 @@ function AIContent({user}:{user:User|null}){
      const ready={...next,awaitingConfirmation:true};setMeetingDraft(ready);
      appendLocalAssistant(`Проверь детали: ${ready.title} — ${meetingDateLabel(ready.date)} в ${ready.time}, место: ${ready.location}. Записать встречу в Секретарь?`);return true;
    }
-   const intent=/\b(запиши|запланируй|назначь|добавь|создай|организуй)\b/i.test(value)&&/\b(встреч\w*|секретар\w*)\b/i.test(value)||/\bвстречу\b/i.test(value)&&/\b(завтра|сегодня|послезавтра|\d{1,2}[.:]\d{2})\b/i.test(value);
+   // Route calendar/meeting commands locally before /ask. Cover inflected Russian
+   // commands ("внеси", "поставь", "записать") and explicit calendar wording too.
+   const meetingAction=/\b(запиши(?:те|сь|тесь)?|запланируй(?:те)?|назначь(?:те)?|добавь(?:те)?|создай(?:те)?|организуй(?:те)?|внеси(?:те)?|поставь(?:те)?|заведи(?:те)?|записать|запланировать|назначить|добавить|создать|внести|поставить|записаться)\b/i.test(value);
+   const meetingObject=/\b(встреч\w*|секретар\w*|календар\w*|совещан\w*|созвон\w*|звон\w*|событи\w*|appointment|calendar|meeting)\b/i.test(value);
+   const intent=(meetingAction&&meetingObject)||(/\bвстреч\w*\b/i.test(value)&&/\b(завтра|сегодня|послезавтра|\d{1,2}[.:]\d{2})\b/i.test(value));
    if(!intent)return false;
    const parsed=parseMeetingDetails(value);
    const draft:MeetingDraft={title:'Встреча',date:parsed.date||'',time:parsed.time||'',location:parsed.location||'',description:'',awaitingConfirmation:false};
