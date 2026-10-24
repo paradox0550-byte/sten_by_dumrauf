@@ -35,6 +35,7 @@ const PERSONAL_MODES:{id:PersonalMode;label:string;instruction:string}[]=[
  {id:'coach',label:'Наставник',instruction:'Режим общения: НАСТАВНИК УПРАВЛЯЮЩЕГО. Объясняй логику решений, помогай развивать управленческое мышление и давай последовательный план действий с ответственными и критериями результата, если контекст это позволяет.'},
 ];
 const PERSONAL_MODE_KEY='sten_ai_personal_mode';const MAX_DOC_BYTES=15*1024*1024;const LEGACY_KEY='sten_chat_v5';
+const AI_VOICE_GENDER_KEY='sten_ai_voice_gender';
 function chatKey(user:{id?:string;organizationId?:string|null}|null){return user?.id?`sten_chat_v5:${user.organizationId||'no-org'}:${user.id}`:null;}
 function readMessages(key:string|null):Msg[]{if(!key)return[];try{const raw=localStorage.getItem(key);const parsed=raw?JSON.parse(raw):[];return Array.isArray(parsed)?parsed:[]}catch{return[]}}
 function to64(file:File){return new Promise<string>((ok,no)=>{const r=new FileReader();r.onload=()=>{const s=String(r.result);ok(s.includes(',')?s.split(',')[1]:s)};r.onerror=()=>no(r.error);r.readAsDataURL(file)})}
@@ -86,6 +87,7 @@ function AIContent({user}:{user:User|null}){
  const speechRef=useRef<SpeechSynthesisUtterance|null>(null);
  const voiceModeRef=useRef(false);
  const voiceAutoplayRef=useRef(voiceAutoplay);
+ const maleVoiceNoticeRef=useRef(false);
  const finalTranscriptRef=useRef('');
  const askRef=useRef<(value?:string)=>Promise<void>>(async()=>{});
  const chatBodyRef=useRef<HTMLDivElement>(null);
@@ -183,7 +185,7 @@ function AIContent({user}:{user:User|null}){
          ? `AI вернул ошибку. Код: ${e.code}. ID запроса: ${e.requestId||'не указан'}.`
          : e instanceof Error ? e.message : 'Не удалось получить ответ.';
      setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:message,createdAt:new Date().toISOString()}]);
-     if(voiceModeRef.current)setVoiceState('idle');
+     if(voiceModeRef.current){setVoiceState('idle');finalTranscriptRef.current='';window.setTimeout(()=>{if(voiceModeRef.current&&!speechRef.current)startRecognition()},350)}
    }finally{setBusy(false)}
  }
 
@@ -230,8 +232,15 @@ function AIContent({user}:{user:User|null}){
    if(!plain){setVoiceState('idle');return}
    const utterance=new SpeechSynthesisUtterance(plain.slice(0,12000));
    utterance.lang='ru-RU';utterance.rate=1;
-   const russian=window.speechSynthesis.getVoices().find(voice=>/^ru([-_]|$)/i.test(voice.lang));
-   if(russian)utterance.voice=russian;
+   const russianVoices=window.speechSynthesis.getVoices().filter(voice=>/^ru([-_]|$)/i.test(voice.lang));
+   const preferMale=(()=>{try{return localStorage.getItem(AI_VOICE_GENDER_KEY)!=='system'}catch{return true}})();
+   const maleNamePattern=/(\bmale\b|\bman\b|муж|александр|алексей|юрий|иван|дмитри|максим|павел|андрей|сергей|николай|михаил|борис|арт[её]м|владимир|евгений|константин|yuri|alexander|alexey|dmitri|dmitry|maxim|pavel|andrey|sergey|nikolai|mikhail|boris|vladimir|eugene)/i;
+   const russian=russianVoices.find(voice=>maleNamePattern.test(`${voice.name} ${voice.voiceURI}`));
+   if(preferMale&&russian)utterance.voice=russian;
+   else if(russianVoices[0]){
+     utterance.voice=russianVoices[0];
+     if(preferMale&&!maleVoiceNoticeRef.current){maleVoiceNoticeRef.current=true;showChatToast('Русский мужской голос не найден в голосах устройства. Используется доступный системный голос; можно проверить настройки озвучивания устройства.');}
+   }
    utterance.onstart=()=>setVoiceState('speaking');
    utterance.onerror=(event)=>{speechRef.current=null;setVoiceState('idle');if(event.error!=='canceled'&&event.error!=='interrupted')showChatToast('Браузер не смог озвучить ответ. Попробуйте кнопку «Прослушать» ещё раз.');};
    utterance.onend=()=>{speechRef.current=null;if(voiceModeRef.current)startRecognition();else setVoiceState('idle')};
@@ -251,8 +260,8 @@ function AIContent({user}:{user:User|null}){
        finalTranscriptRef.current=finalText.trim();const question=((base?base+' ':'')+finalText).replace(/\\s+/g,' ').trim();setPrompt('');setListening(false);setVoiceState('thinking');window.speechSynthesis?.cancel?.();void askRef.current(question);
      }
    };
-   r.onerror=(event:any)=>{setListening(false);if(voiceModeRef.current){setVoiceState('idle');if(event?.error==='not-allowed')showChatToast('Разрешите доступ к микрофону в настройках браузера.');else if(event?.error!=='aborted'&&event?.error!=='no-speech')showChatToast('Не удалось распознать речь. Попробуйте ещё раз.')}};
-   r.onend=()=>{setListening(false);if(!voiceModeRef.current)setVoiceState('idle')};recog.current=r;
+   r.onerror=(event:any)=>{setListening(false);if(voiceModeRef.current){setVoiceState('idle');if(event?.error==='not-allowed'||event?.error==='service-not-allowed'){voiceModeRef.current=false;setVoiceMode(false);showChatToast('Разрешите доступ к микрофону в настройках браузера.');}else if(event?.error!=='aborted'&&event?.error!=='no-speech'){showChatToast('Не удалось распознать речь. Проверьте микрофон и попробуйте ещё раз.');if(event?.error==='audio-capture'){voiceModeRef.current=false;setVoiceMode(false);}}}};
+   r.onend=()=>{setListening(false);if(!voiceModeRef.current){setVoiceState('idle');return;}if(finalTranscriptRef.current)return;window.setTimeout(()=>{if(voiceModeRef.current&&!speechRef.current)startRecognition()},350)};recog.current=r;
    try{r.start()}catch{setListening(false);setVoiceState('idle');showChatToast('Не удалось запустить микрофон. Проверьте разрешения браузера.')}
  }
  function toggleVoice(){
