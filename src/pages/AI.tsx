@@ -12,6 +12,7 @@ import { ChatBackground } from '../features/chat-appearance/ChatBackground';
 import { MessageRow } from '../features/chat-appearance/MessageRow';
 import { AskSteps, type AskStep } from '../features/ai-steps/AskSteps';
 import ProposedMemoryChips from '../components/ProposedMemoryChips';
+import MeetingNotesPanel from '../components/MeetingNotesPanel';
 import type { ProposedMemory } from '../lib/contracts/memory';
 import type { ChatMessage } from '../features/chat-appearance/types';
 import '../features/chat-appearance/themes.css';
@@ -526,6 +527,7 @@ function AIContent({user}:{user:User|null}){
        </div>
        {chatToast&&<div className="chat-toast" role="status" aria-live="polite">{chatToast}</div>}
 
+       <MeetingNotesPanel disabled={busy || upload} onSummarize={(transcript) => { void ask('Разбери расшифровку встречи. Подготовь краткое резюме, ключевые решения, список задач с ответственными и сроками, а также вопросы без ответа. Не придумывай имена, сроки или решения, которых нет в тексте.\n\nРАСШИФРОВКА:\n' + transcript); }} />
        <div className={'composer sten-composer '+(composerFocused?'is-focused ':'')+(dragOver?'is-dragover':'')}
          onDragOver={e=>{e.preventDefault();if(!upload)setDragOver(true)}}
          onDragLeave={()=>setDragOver(false)}
