@@ -27,7 +27,6 @@ const isFiniteNumber = (value: unknown): value is number => typeof value === 'nu
 const getLabor = (calc?: Calculated) => calc?.labor ?? calc?.personnel ?? null;
 const getFact = (response: PnlResponse | null) => response?.calculated?.fact ?? response?.summary?.calculated?.fact ?? response?.summary?.fact;
 const getPlan = (response: PnlResponse | null) => response?.calculated?.plan ?? response?.summary?.calculated?.plan ?? response?.summary?.plan;
-const expenseArticle = (article: string) => /cogs|food.?cost|себестоим|фот|персонал|labor|payroll|расход|затрат|opex/i.test(article);
 const moneyDeltaPercent = (plan: number | null | undefined, fact: number | null | undefined) =>
   isFiniteNumber(plan) && isFiniteNumber(fact) && plan !== 0 ? ((fact - plan) / Math.abs(plan)) * 100 : null;
 
@@ -38,9 +37,7 @@ function attentionItems(rows: PnlRow[]): DeviationItem[] {
     const delta = row.fact - row.plan;
     const deltaPct = row.plan === 0 ? null : delta / Math.abs(row.plan) * 100;
     const severity = (deltaPct !== null && Math.abs(deltaPct) > 10) || Math.abs(delta) > 100000 ? 'high' as const : (deltaPct !== null && Math.abs(deltaPct) > 5) || Math.abs(delta) > 30000 ? 'medium' as const : 'low' as const;
-    const unfavorable = expenseArticle(row.article)
-      ? calculateVarianceSignal(row.plan, row.fact) === 'overrun'
-      : delta < 0;
+    const unfavorable = calculateVarianceSignal(row.plan, row.fact) === 'overrun';
     return { article: row.article, plan: row.plan, fact: row.fact, delta, deltaPct, severity, group: unfavorable ? 'critical' as const : 'positive' as const };
   }).filter(item => item.group === 'missing' || item.delta !== 0).sort((a, b) => {
     const order = { critical: 0, missing: 1, positive: 2 };
