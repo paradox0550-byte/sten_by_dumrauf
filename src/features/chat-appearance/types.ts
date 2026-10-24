@@ -60,6 +60,7 @@ export interface MessageActionsProps {
   onToSecretary: () => void;
   onAnalyzePnl?: () => void;
   onSaveMemory?: () => void;
+  onSpeak?: () => void;
   showSaveMemory?: boolean;
   onDetails?: () => void;
 }
