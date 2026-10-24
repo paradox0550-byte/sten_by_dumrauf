@@ -77,7 +77,7 @@ function AIContent({user}:{user:User|null}){
  const initialQuery=searchParams.get('q')?.trim()||'';
  const{settings}=useAppearanceContext();
  const key=chatKey(user);
- const meetingNotesKey=`sten_meeting_notes_v1:${user?.organizationId||'no-org'}:${user?.id||'anonymous'}:${scope.restaurantId||scope.branchId||scope.projectId||scope.departmentId||'general'}`;
+ const meetingNotesKey=`sten_meeting_notes_v1:${user?.organizationId||'no-org'}:${user?.id||'anonymous'}:project=${scope.projectId||'none'}:branch=${scope.branchId||'none'}:restaurant=${scope.restaurantId||'none'}:department=${scope.departmentId||'none'}`;
  const[messages,setMessages]=useState<Msg[]>(()=>readMessages(key));
  const hydrateRef=useRef<string|null>(key);
  const[prompt,setPrompt]=useState('');
