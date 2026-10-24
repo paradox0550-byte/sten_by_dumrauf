@@ -9,12 +9,19 @@ describe('P&L presentation semantics', () => {
     expect(isPnlExpenseArticle('Коммунальные расходы')).toBe(true);
   });
 
-  it('colors savings and overruns according to article semantics', () => {
-    expect(pnlDeltaTone('ФОТ', -100)).toBe('is-positive');
-    expect(pnlDeltaTone('Аренда', 100)).toBe('is-negative');
+  it('colors savings and overruns according to unified signed semantics', () => {
+    // Расходы: delta -100 = перерасход (Факт -1100 при Плане -1000) -> ухудшение
+    expect(pnlDeltaTone('ФОТ', -100)).toBe('is-negative');
+
+    // Расходы: delta +100 = экономия (Факт -900 при Плане -1000) -> улучшение
+    expect(pnlDeltaTone('Аренда', 100)).toBe('is-positive');
+
+    // Доходы/Прибыль: delta +100 = перевыполнение -> улучшение
     expect(pnlDeltaTone('Выручка', 100)).toBe('is-positive');
-    expect(pnlDeltaTone('EBITDA', -100)).toBe('is-negative');
     expect(pnlDeltaTone('Net Profit', 100)).toBe('is-positive');
+
+    // Доходы/Прибыль: delta -100 = недополучение -> ухудшение
+    expect(pnlDeltaTone('EBITDA', -100)).toBe('is-negative');
   });
 
   it('keeps missing and neutral deltas uncolored', () => {
