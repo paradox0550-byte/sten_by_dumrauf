@@ -223,7 +223,8 @@ function AIContent({user}:{user:User|null}){
    setVoiceState('idle');
  }
  function speakAnswer(answer:string){
-   if(!('speechSynthesis' in window)||!answer.trim()){setVoiceState('idle');return}
+   if(!answer.trim()){setVoiceState('idle');return}
+   if(!('speechSynthesis' in window)||typeof SpeechSynthesisUtterance==='undefined'){setVoiceState('idle');showChatToast('Озвучивание не поддерживается этим браузером.');return}
    window.speechSynthesis.cancel();
    const plain=answer.replace(/\[([^\]]+)\]\([^)]*\)/g,'$1').replace(/https?:\/\/\S+/g,'').replace(/<[^>]*>/g,' ').replace(/```[\s\S]*?```/g,' Код опущен. ').replace(/[*_#>|]/g,' ').replace(/\s+/g,' ').trim();
    if(!plain){setVoiceState('idle');return}
@@ -232,7 +233,7 @@ function AIContent({user}:{user:User|null}){
    const russian=window.speechSynthesis.getVoices().find(voice=>/^ru([-_]|$)/i.test(voice.lang));
    if(russian)utterance.voice=russian;
    utterance.onstart=()=>setVoiceState('speaking');
-   utterance.onerror=()=>{speechRef.current=null;setVoiceState('idle')};
+   utterance.onerror=(event)=>{speechRef.current=null;setVoiceState('idle');if(event.error!=='canceled'&&event.error!=='interrupted')showChatToast('Браузер не смог озвучить ответ. Попробуйте кнопку «Прослушать» ещё раз.');};
    utterance.onend=()=>{speechRef.current=null;if(voiceModeRef.current)startRecognition();else setVoiceState('idle')};
    speechRef.current=utterance;setVoiceState('speaking');window.speechSynthesis.speak(utterance);
  }
@@ -392,6 +393,7 @@ function AIContent({user}:{user:User|null}){
                previousMessage={previousMessage}
                user={user}
                onCopy={()=>void copyMessage(m.text)}
+               onSpeak={()=>voiceState==='speaking'?stopSpeech():speakAnswer(m.text)}
                onToSecretary={()=>void createSecretaryEvent(m.text)}
                onAnalyzePnl={analyzePnl}
                showSaveMemory={m.role==='assistant' && Array.isArray(m.proposedMemory) && m.proposedMemory.length>0}
