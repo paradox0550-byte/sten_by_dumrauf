@@ -66,7 +66,7 @@ const documentSearchSchema = z.object({
 
 const documentReadSchema = z.object({
   name: z.string().trim().min(2).max(200),
-  start_char: z.number().int().min(0).max(99000).optional().default(0),
+  start_char: z.number().int().min(0).max(99000000).optional().default(0),
   max_chars: z.number().int().min(1000).max(12000).optional().default(12000),
 }).strict();
 
@@ -376,18 +376,39 @@ async function searchDocuments(user, rawArgs, ctx) {
   // Search is organization-bound. Split natural-language requests into useful
   // terms so a question such as "мотивация управляющего" still finds a workbook
   // whose cells do not contain that exact phrase.
-  const terms = [...new Set(
-    args.query.normalize('NFC').toLocaleLowerCase('ru-RU')
-      .match(/[a-zа-яё0-9]{2,}/giu) || []
-  )].slice(0, 8);
-  if (!terms.length) {
+  const stopWords = new Set([
+    'что','это','как','где','когда','мне','меня','тебе','тебя','есть','был','была','были',
+    'будет','быть','для','или','если','уже','еще','ещё','могу','может','пожалуйста','скажи',
+    'расскажи','покажи','найди','проверь','сделай','сейчас','почему','какой','какая','какие',
+    'сколько','всего','нужно','надо','можно','про','при','после','перед','между','этот','эта',
+    'эти','того','тогда','там','тут','моя','мой','мои','твоя','твой','твои','помнишь',
+    'говорил','говорила','рассматривали','обсуждали','информация'
+  ]);
+  const rawTerms = args.query.normalize('NFC').toLocaleLowerCase('ru-RU')
+    .match(/[a-zа-яё0-9]{3,}/giu) || [];
+  const suffixes = ['иями','ями','ами','ого','его','ому','ему','ыми','ими','иях','иях','иями','иями','иям','иях','ией','ией','ией','иями','ией','иях','иях','ией','ия','ии','ые','ое','ая','яя','ую','юю','ого','его','ому','ему','ыми','ими','ый','ий','ой','ей','ам','ям','ах','ях','ов','ев','ом','ем','ым','им','а','я','ы','и','у','ю','е','о'];
+  const terms = [];
+  for (const word of rawTerms) {
+    if (stopWords.has(word)) continue;
+    if (!terms.includes(word)) terms.push(word);
+    if (/[а-яё]/iu.test(word) && word.length >= 6) {
+      const suffix = suffixes.find(item => word.endsWith(item) && word.length - item.length >= 4);
+      if (suffix) {
+        const stem = word.slice(0, -suffix.length);
+        if (!terms.includes(stem)) terms.push(stem);
+      }
+    }
+    if (terms.length >= 12) break;
+  }
+  const searchTerms = terms.slice(0, 12);
+  if (!searchTerms.length) {
     throw httpError(400, 'Укажите минимум одно слово для поиска.', 'DOCUMENT_QUERY_EMPTY');
   }
 
-  const predicates = terms.map((_, index) =>
+  const predicates = searchTerms.map((_, index) =>
     `(position(lower($${index + 3}) in lower(COALESCE(extracted_text, ''))) > 0 OR position(lower($${index + 3}) in lower(name)) > 0)`
   );
-  const params = [user.organizationId, args.limit, ...terms];
+  const params = [user.organizationId, args.limit, ...searchTerms];
   const result = await ctx.queryWithRetry(
     `SELECT id, name, created_at, extracted_text, extraction_json
        FROM ai_documents
@@ -405,7 +426,7 @@ async function searchDocuments(user, rawArgs, ctx) {
     const text = String(row.extracted_text || '');
     const lower = text.toLocaleLowerCase('ru-RU');
     const hits = [];
-    for (const term of terms) {
+    for (const term of searchTerms) {
       let from = 0;
       let found = 0;
       while (found < 3) {
@@ -432,7 +453,7 @@ async function searchDocuments(user, rawArgs, ctx) {
     }
     const meta = row.extraction_json && typeof row.extraction_json === 'object' ? row.extraction_json : {};
     const sourceRows = (Array.isArray(meta.rows) ? meta.rows : [])
-      .filter(item => terms.some(term => JSON.stringify([item.label, item.article, item.sheet, item.source]).toLocaleLowerCase('ru-RU').includes(term)))
+      .filter(item => searchTerms.some(term => JSON.stringify([item.label, item.article, item.sheet, item.source]).toLocaleLowerCase('ru-RU').includes(term)))
       .slice(0, 10)
       .map(item => ({
         label: item.label || item.article || null,
@@ -456,7 +477,7 @@ async function searchDocuments(user, rawArgs, ctx) {
   });
   return {
     query: args.query,
-    terms,
+    terms: searchTerms,
     documents,
     found: documents.length,
     note: documents.length ? undefined : 'Совпадений в извлечённом тексте доступных документов не найдено.',
