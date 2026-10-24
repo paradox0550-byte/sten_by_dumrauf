@@ -14,6 +14,7 @@ export type MessageRowProps = {
   onToSecretary: () => void;
   onAnalyzePnl?: () => void;
   onSaveMemory?: () => void;
+  onSpeak?: () => void;
   showSaveMemory?: boolean;
   onDetails?: () => void;
   children?: ReactNode;
@@ -41,7 +42,7 @@ function useReducedMotion(): boolean {
   return reduced;
 }
 
-export function MessageRow({ message, previousMessage, user, onCopy, onToSecretary, onAnalyzePnl, onSaveMemory, showSaveMemory, children }: MessageRowProps) {
+export function MessageRow({ message, previousMessage, user, onCopy, onToSecretary, onAnalyzePnl, onSaveMemory, onSpeak, showSaveMemory, children }: MessageRowProps) {
   const { settings }=useAppearanceContext();
   const reducedMotion=useReducedMotion();
   const grouped=previousMessage?.role===message.role;
@@ -67,7 +68,7 @@ export function MessageRow({ message, previousMessage, user, onCopy, onToSecreta
           </div>
         )}
         {isAssistant && settings.showActions && (
-          <MessageActions onCopy={onCopy} onToSecretary={onToSecretary} onAnalyzePnl={onAnalyzePnl} onSaveMemory={onSaveMemory} showSaveMemory={showSaveMemory}/>
+          <MessageActions onCopy={onCopy} onToSecretary={onToSecretary} onAnalyzePnl={onAnalyzePnl} onSaveMemory={onSaveMemory} onSpeak={onSpeak} showSaveMemory={showSaveMemory}/>
         )}
 
       </div>

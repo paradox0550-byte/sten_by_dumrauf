@@ -613,3 +613,10 @@
   .sten-ai-topbar__title p { display: none; }
   .sten-ai-page .chat-head { min-height: 34px; }
 }
+
+
+/* Keep message speech playback visible and usable on touch screens. */
+.sten-ai-page .message-actions button { opacity: 1; }
+@media (hover: none) {
+  .sten-ai-page .message-actions { opacity: 1; }
+}

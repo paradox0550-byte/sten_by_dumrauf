@@ -10034,3 +10034,34 @@ html[data-reduce-motion='true'] .sten-loading-track > span { animation: none; wi
  .settings-quick-jump a { justify-content:center; text-align:center; padding:6px 7px; min-height:38px; font-size:11px; }
  .settings-chat-toggles { grid-template-columns:minmax(0,1fr); }
 }
+
+
+/* Settings navigation uses buttons, not URL fragments: this app is routed by HashRouter. */
+.settings-quick-jump button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+.settings-quick-jump button:hover,
+.settings-quick-jump button:focus-visible {
+  border-color: var(--border-default);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  outline-offset: 2px;
+}
+.settings-page [id^="settings-"] { scroll-margin-top: 20px; }
+@media (max-width: 767px) {
+  .settings-quick-jump button { min-height: 38px; padding: 6px 7px; font-size: 11px; }
+}
