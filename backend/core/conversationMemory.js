@@ -17,11 +17,23 @@ function normalizeScope(scope = {}) {
 }
 
 function searchTerms(value) {
-  return [...new Set(
-    String(value || '').normalize('NFC').toLocaleLowerCase('ru-RU')
-      .match(/[a-zа-яё0-9]{3,}/giu)
-      ?.filter(term => !STOP_WORDS.has(term)) || []
-  )].slice(0, 8);
+  const words = String(value || '').normalize('NFC').toLocaleLowerCase('ru-RU')
+    .match(/[a-zа-яё0-9]{3,}/giu) || [];
+  const suffixes = ['иями','ями','ами','ого','его','ому','ему','ыми','ими','иях','иям','ией','ия','ии','ые','ое','ая','яя','ую','юю','ый','ий','ой','ей','ам','ям','ах','ях','ов','ев','ом','ем','ым','им','а','я','ы','и','у','ю','е','о'];
+  const terms = [];
+  for (const word of words) {
+    if (STOP_WORDS.has(word)) continue;
+    if (!terms.includes(word)) terms.push(word);
+    if (/[а-яё]/iu.test(word) && word.length >= 6) {
+      const suffix = suffixes.find(item => word.endsWith(item) && word.length - item.length >= 4);
+      if (suffix) {
+        const stem = word.slice(0, -suffix.length);
+        if (!terms.includes(stem)) terms.push(stem);
+      }
+    }
+    if (terms.length >= 12) break;
+  }
+  return terms.slice(0, 12);
 }
 
 function scopeWhere(scope, params) {
