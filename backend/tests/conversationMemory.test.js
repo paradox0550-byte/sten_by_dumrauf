@@ -49,7 +49,7 @@ test('conversation retrieval is user-scoped and includes recent plus relevant tu
   const ctx = {
     async queryWithRetry(sql, params, options) {
       calls.push({ sql, params, options });
-      return { rows: sql.includes('AND (') ? relevant : recent };
+      return { rows: sql.includes('position(') ? relevant : recent };
     },
   };
   const result = await loadConversationContext(user, scope, 'Напомни формулу премии управляющего', ctx);
