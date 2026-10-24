@@ -5,6 +5,7 @@ import { api, ApiError } from '../lib/api';
 import { useScope } from '../lib/useScope';
 import { scopeQuery } from '../lib/scope';
 import { formatDeltaPct, formatMoneyAuto, formatPercent } from '../lib/format';
+import { calculateKPISafely, calculateVarianceSignal } from '../lib/financialCalculations';
 import MetricCard from '../components/MetricCard';
 import AttentionBlock from '../components/AttentionBlock';
 import './Dashboard.css';
@@ -37,7 +38,9 @@ function attentionItems(rows: PnlRow[]): DeviationItem[] {
     const delta = row.fact - row.plan;
     const deltaPct = row.plan === 0 ? null : delta / Math.abs(row.plan) * 100;
     const severity = (deltaPct !== null && Math.abs(deltaPct) > 10) || Math.abs(delta) > 100000 ? 'high' as const : (deltaPct !== null && Math.abs(deltaPct) > 5) || Math.abs(delta) > 30000 ? 'medium' as const : 'low' as const;
-    const unfavorable = expenseArticle(row.article) ? delta > 0 : delta < 0;
+    const unfavorable = expenseArticle(row.article)
+      ? calculateVarianceSignal(row.plan, row.fact) === 'overrun'
+      : delta < 0;
     return { article: row.article, plan: row.plan, fact: row.fact, delta, deltaPct, severity, group: unfavorable ? 'critical' as const : 'positive' as const };
   }).filter(item => item.group === 'missing' || item.delta !== 0).sort((a, b) => {
     const order = { critical: 0, missing: 1, positive: 2 };
@@ -91,18 +94,17 @@ export default function Dashboard() {
   const laborFact = getLabor(fact);
   const laborPlan = getLabor(plan);
   const laborDelta = moneyDeltaPercent(laborPlan, laborFact);
-  const foodCost = fact?.foodCostPercent ?? (
-    isFiniteNumber(fact?.cogs) && isFiniteNumber(fact?.revenue) && fact.revenue > 0
-      ? fact.cogs / fact.revenue * 100 : null
-  );
-  const cogsPercent = isFiniteNumber(fact?.cogs) && isFiniteNumber(fact?.revenue) && fact.revenue > 0 ? fact.cogs / fact.revenue * 100 : null;
-  const laborPercent = fact?.personnelPercent ?? (
-    isFiniteNumber(laborFact) && isFiniteNumber(fact?.revenue) && fact.revenue > 0
-      ? laborFact / fact.revenue * 100 : null
-  );
-  const primeCost = fact?.primeCostPercent ?? (
-    cogsPercent !== null && laborPercent !== null ? cogsPercent + laborPercent : null
-  );
+  const foodCost = isFiniteNumber(fact?.foodCostPercent)
+    ? Math.abs(fact.foodCostPercent)
+    : calculateKPISafely(fact?.cogs, fact?.revenue);
+  const cogsPercent = calculateKPISafely(fact?.cogs, fact?.revenue);
+  const laborPercent = isFiniteNumber(fact?.personnelPercent)
+    ? Math.abs(fact.personnelPercent)
+    : calculateKPISafely(laborFact, fact?.revenue);
+  const primeCost = isFiniteNumber(fact?.primeCostPercent)
+    ? Math.abs(fact.primeCostPercent)
+    : cogsPercent !== null && laborPercent !== null ? cogsPercent + laborPercent : null;
+  const formatKpiOrMissing = (value: number | null) => value === null ? 'Нет данных' : formatPercent(value);
   const ebitdaMargin = fact?.ebitdaMargin ?? (
     isFiniteNumber(fact?.ebitda) && isFiniteNumber(fact?.revenue) && fact.revenue > 0
       ? fact.ebitda / fact.revenue * 100 : null
@@ -147,7 +149,7 @@ export default function Dashboard() {
           {taskMessage && <p className="director-state" role="status">{taskMessage}</p>}
           <section className="director-metrics" aria-label="Ключевые метрики">
             <MetricCard label="ВЫРУЧКА" value={formatMoneyAuto(fact?.revenue)} detail={'План ' + formatMoneyAuto(plan?.revenue)} delta={formatDeltaPct(plan?.revenue, fact?.revenue)} deltaTone={revenueDelta === null ? 'neutral' : revenueDelta >= 0 ? 'success' : 'danger'} />
-            <MetricCard label="PRIME COST" value={formatPercent(primeCost)} detail="COGS + ФОТ" />
+            <MetricCard label="PRIME COST" value={formatKpiOrMissing(primeCost)} detail={`Food Cost ${formatKpiOrMissing(foodCost)} · Labor Cost ${formatKpiOrMissing(laborPercent)}`} />
             <MetricCard label="ФОТ" value={formatMoneyAuto(laborFact)} detail={'План ' + formatMoneyAuto(laborPlan)} delta={formatDeltaPct(laborPlan, laborFact)} deltaTone={laborDelta === null ? 'neutral' : laborDelta <= 0 ? 'success' : 'danger'} />
             <MetricCard label="EBITDA" value={formatMoneyAuto(fact?.ebitda)} detail={ebitdaMargin === null ? 'Маржа —' : 'Маржа ' + formatPercent(ebitdaMargin)} delta={formatDeltaPct(plan?.ebitda, fact?.ebitda)} deltaTone={fact?.ebitda == null || plan?.ebitda == null ? 'neutral' : fact.ebitda >= plan.ebitda ? 'success' : 'danger'} />
           </section>
