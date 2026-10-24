@@ -284,6 +284,13 @@ export default function Settings() {
     deviation: 'Отклонение от плана',
   };
 
+  const jumpToSettings = (id: string) => {
+    const target = document.getElementById(id);
+    if (!target) return;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    target.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+  };
+
   return (
     <div className="page settings-page">
       <div className="page-head">
@@ -295,13 +302,17 @@ export default function Settings() {
       </div>
 
       <nav className="settings-quick-jump" aria-label="Быстрый переход по настройкам">
-        <a href="#settings-profile">Аккаунт и профиль</a>
-        <a href="#settings-workspace">Организация и рестораны</a>
-        <a href="#settings-analytics">Финансы и аналитика</a>
-        <a href="#settings-reports">Отчёты и уведомления</a>
-        <a href="#settings-ai">STEN AI и голос</a>
-         <a href="#settings-appearance">Внешний вид</a>
-        <a href="#settings-session">Вход и выход</a>
+        {([
+          ['settings-profile', 'Аккаунт и профиль'],
+          ['settings-workspace', 'Организация и рестораны'],
+          ['settings-analytics', 'Финансы и аналитика'],
+          ['settings-reports', 'Отчёты и уведомления'],
+          ['settings-ai', 'STEN AI и голос'],
+          ['settings-appearance', 'Внешний вид'],
+          ['settings-session', 'Вход и выход'],
+        ] as const).map(([id, label]) => (
+          <button key={id} type="button" onClick={() => jumpToSettings(id)} aria-controls={id}>{label}</button>
+        ))}
       </nav>
 
       <div className="settings-grid">
