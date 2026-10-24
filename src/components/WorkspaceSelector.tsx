@@ -75,6 +75,16 @@ export default function WorkspaceSelector({
   const [newName, setNewName] = useState('');
   const [open, setOpen] = useState(false);
 
+  useEffect(() => {
+    const onScopeSaveError = (event: Event) => {
+      const detail = (event as CustomEvent<{ message?: string }>).detail;
+      setError(detail?.message || 'Не удалось сохранить рабочий контекст. Проверьте соединение и выберите контур повторно.');
+      if (variant === 'compact') setOpen(true);
+    };
+    window.addEventListener('sten:scope-save-error', onScopeSaveError);
+    return () => window.removeEventListener('sten:scope-save-error', onScopeSaveError);
+  }, [variant, setError]);
+
   const projects = useMemo(() => nodes.filter(x => x.type === 'project'), [nodes]);
   const branches = useMemo(() => nodes.filter(x => x.type === 'branch' && (!value.projectId || x.parentId === value.projectId)), [nodes, value.projectId]);
   const restaurants = useMemo(() => nodes.filter(x => x.type === 'restaurant' && (!value.branchId || x.parentId === value.branchId)), [nodes, value.branchId]);
