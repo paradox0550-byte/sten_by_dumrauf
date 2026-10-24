@@ -77,6 +77,7 @@ function AIContent({user}:{user:User|null}){
  const initialQuery=searchParams.get('q')?.trim()||'';
  const{settings}=useAppearanceContext();
  const key=chatKey(user);
+ const meetingNotesKey=`sten_meeting_notes_v1:${user?.organizationId||'no-org'}:${user?.id||'anonymous'}:${scope.restaurantId||scope.branchId||scope.projectId||scope.departmentId||'general'}`;
  const[messages,setMessages]=useState<Msg[]>(()=>readMessages(key));
  const hydrateRef=useRef<string|null>(key);
  const[prompt,setPrompt]=useState('');
@@ -95,6 +96,13 @@ function AIContent({user}:{user:User|null}){
  const[voiceMode,setVoiceMode]=useState(false);
  const[meetingDraft,setMeetingDraft]=useState<MeetingDraft|null>(null);
  const[meetingSaving,setMeetingSaving]=useState(false);
+ const[meetingNotesOpen,setMeetingNotesOpen]=useState(false);
+ const[meetingTranscript,setMeetingTranscript]=useState('');
+ const[meetingNoteInterim,setMeetingNoteInterim]=useState('');
+ const[meetingNoteRecording,setMeetingNoteRecording]=useState(false);
+ const[meetingNotesLoadedKey,setMeetingNotesLoadedKey]=useState<string|null>(null);
+ const meetingTranscriptRef=useRef('');
+ const meetingNoteRecog=useRef<any>(null);
  const meetingSaveRef=useRef(false);
  const[voiceState,setVoiceState]=useState<'idle'|'listening'|'thinking'|'speaking'>('idle');
  const[voiceAutoplay,setVoiceAutoplay]=useState(()=>{try{return localStorage.getItem('sten_ai_voice_autoplay')==='true'}catch{return false}});
@@ -102,7 +110,9 @@ function AIContent({user}:{user:User|null}){
  useEffect(()=>{if(initialQuery)setPrompt(initialQuery)},[initialQuery]);
  useEffect(()=>{voiceModeRef.current=voiceMode},[voiceMode]);
  useEffect(()=>{voiceAutoplayRef.current=voiceAutoplay},[voiceAutoplay]);
- useEffect(()=>()=>{try{recog.current?.abort?.()}catch{} if(typeof window!=='undefined'&&'speechSynthesis' in window)window.speechSynthesis.cancel()},[]);
+ useEffect(()=>{try{const saved=localStorage.getItem(meetingNotesKey)||'';meetingTranscriptRef.current=saved;setMeetingTranscript(saved);setMeetingNotesLoadedKey(meetingNotesKey)}catch{meetingTranscriptRef.current='';setMeetingTranscript('');setMeetingNotesLoadedKey(meetingNotesKey)}setMeetingNoteInterim('');setMeetingNoteRecording(false);try{meetingNoteRecog.current?.abort?.()}catch{}},[meetingNotesKey]);
+ useEffect(()=>{if(meetingNotesLoadedKey!==meetingNotesKey)return;try{localStorage.setItem(meetingNotesKey,meetingTranscript)}catch{}},[meetingTranscript,meetingNotesKey,meetingNotesLoadedKey]);
+ useEffect(()=>()=>{try{recog.current?.abort?.()}catch{}try{meetingNoteRecog.current?.abort?.()}catch{} if(typeof window!=='undefined'&&'speechSynthesis' in window)window.speechSynthesis.cancel()},[]);
 
  useEffect(()=>{window.dispatchEvent(new CustomEvent('sten:ai-status',{detail:busy?'working':'ready'}))},[busy]);
  const[chatToast,setChatToast]=useState<string|null>(null);
@@ -343,6 +353,30 @@ function AIContent({user}:{user:User|null}){
    r.onend=()=>{setListening(false);if(!voiceModeRef.current){setVoiceState('idle');return;}if(finalTranscriptRef.current)return;window.setTimeout(()=>{if(voiceModeRef.current&&!speechRef.current)startRecognition()},350)};recog.current=r;
    try{r.start()}catch{setListening(false);setVoiceState('idle');showChatToast('Не удалось запустить микрофон. Проверьте разрешения браузера.')}
  }
+ function stopMeetingNoteRecording(){
+   try{meetingNoteRecog.current?.stop?.()}catch{try{meetingNoteRecog.current?.abort?.()}catch{}}
+   meetingNoteRecog.current=null;setMeetingNoteRecording(false);setMeetingNoteInterim('');
+ }
+ function startMeetingNoteRecording(){
+   if(!SR){showChatToast('Распознавание речи недоступно в этом браузере. Можно вставить или набрать текст заметки вручную.');return}
+   if(voiceModeRef.current){voiceModeRef.current=false;setVoiceMode(false);try{recog.current?.abort?.()}catch{}stopSpeech();setListening(false)}
+   try{meetingNoteRecog.current?.abort?.()}catch{}
+   const recognition=new SR();recognition.lang='ru-RU';recognition.continuous=true;recognition.interimResults=true;
+   recognition.onstart=()=>{setMeetingNoteRecording(true);setMeetingNoteInterim('')};
+   recognition.onresult=(event:any)=>{
+     let finalText='';let interim='';
+     for(let i=event.resultIndex;i<event.results.length;i++){
+       const result=event.results[i];const phrase=String(result?.[0]?.transcript||'').trim();
+       if(result.isFinal&&phrase)finalText+=`${finalText?' ':''}${phrase}`;else if(phrase)interim+=`${interim?' ':''}${phrase}`;
+     }
+     if(finalText){const next=`${meetingTranscriptRef.current}${meetingTranscriptRef.current&&!/\\s$/.test(meetingTranscriptRef.current)?' ':''}${finalText}`.trim();meetingTranscriptRef.current=next;setMeetingTranscript(next)}
+     setMeetingNoteInterim(interim);
+   };
+   recognition.onerror=(event:any)=>{setMeetingNoteRecording(false);setMeetingNoteInterim('');if(event?.error==='not-allowed'||event?.error==='service-not-allowed')showChatToast('Разрешите микрофон в браузере. Если распознавание недоступно, заметку можно ввести вручную.');else if(event?.error!=='aborted'&&event?.error!=='no-speech')showChatToast('Распознавание остановилось. Сохранённый текст заметки остался на экране.');};
+   recognition.onend=()=>{setMeetingNoteRecording(false);setMeetingNoteInterim('')};
+   meetingNoteRecog.current=recognition;
+   try{recognition.start()}catch{setMeetingNoteRecording(false);showChatToast('Не удалось запустить микрофон. Проверьте разрешения браузера.')}
+ }
  function toggleVoice(){
     if(voiceState==='speaking'){interruptVoice();return}
     if(voiceMode){voiceModeRef.current=false;setVoiceMode(false);try{recog.current?.abort?.()}catch{}stopSpeech();setListening(false);return}
@@ -531,6 +565,19 @@ function AIContent({user}:{user:User|null}){
          onDragLeave={()=>setDragOver(false)}
          onDrop={e=>{e.preventDefault();setDragOver(false);void uploadFiles(e.dataTransfer.files)}}>
          {dragOver&&<div className="composer-drop-hint"><UploadCloud size={16}/> Отпустите файл — STEN добавит его в документы</div>}
+         <div className="sten-meeting-notes">
+           <button className="sten-meeting-notes__toggle" type="button" aria-expanded={meetingNotesOpen} onClick={()=>setMeetingNotesOpen(value=>!value)}><CalendarDays size={15}/><span>Заметки встречи</span>{meetingTranscript.trim()&&<span className="sten-meeting-notes__count">{meetingTranscript.trim().split(/\\s+/).length} слов</span>}<span className="sten-meeting-notes__chevron">{meetingNotesOpen?'Скрыть':'Открыть'}</span></button>
+           {meetingNotesOpen&&<div className="sten-meeting-notes__panel">
+             <p>Надиктуйте или вставьте заметки встречи. Текст хранится в этом браузере отдельно для выбранного пользователя и рабочего контура. Распознавание зависит от браузера и может обрабатываться его речевым сервисом; STEN не записывает звук собеседников или системный звук.</p>
+             <textarea value={meetingTranscript} onChange={event=>{meetingTranscriptRef.current=event.target.value;setMeetingTranscript(event.target.value)}} rows={4} placeholder="Например: договорились пересмотреть food cost, ответственный — управляющий, срок — пятница…" aria-label="Текст заметок встречи"/>
+             {meetingNoteInterim&&<div className="sten-meeting-notes__interim" aria-live="polite">Распознано: {meetingNoteInterim}</div>}
+             <div className="sten-meeting-notes__actions">
+               <button type="button" className={meetingNoteRecording?'is-recording':''} onClick={()=>meetingNoteRecording?stopMeetingNoteRecording():startMeetingNoteRecording()}>{meetingNoteRecording?<MicOff size={15}/>:<Mic size={15}/>} {meetingNoteRecording?'Остановить диктовку':'Надиктовать'}</button>
+               <button type="button" disabled={!meetingTranscript.trim()||busy} onClick={()=>{setMeetingNotesOpen(false);void ask(`Разбери заметки встречи. Составь краткий протокол: ключевые решения, задачи, ответственные, сроки и вопросы без ответа. Не придумывай отсутствующие сведения.\\n\\nЗаметки:\\n${meetingTranscript.trim()}`)}}><Sparkles size={15}/> Разобрать в STEN AI</button>
+               <button type="button" className="is-secondary" disabled={!meetingTranscript.trim()} onClick={()=>{meetingTranscriptRef.current='';setMeetingTranscript('');setMeetingNoteInterim('');showChatToast('Текст заметки очищен')}}>Очистить</button>
+             </div>
+           </div>}
+         </div>
          <div className="composer-box" onPointerDown={e=>{if((e.target as HTMLElement).closest("button,textarea"))return;promptRef.current?.focus()}} onClick={e=>{if((e.target as HTMLElement).closest("button"))return;promptRef.current?.focus()}}>
            <button className="icon-button composer-attach" onClick={()=>file.current?.click()} aria-label="Прикрепить документ" title="Добавить документ"><Paperclip size={18}/></button>
            <textarea ref={promptRef} value={prompt} onFocus={()=>{setComposerFocused(true);const textarea=promptRef.current;if(textarea)requestAnimationFrame(()=>textarea.scrollIntoView({behavior:'auto',block:'nearest'}))}} onBlur={()=>setComposerFocused(false)} onChange={e=>setPrompt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void ask()}}} placeholder={listening?'Говорите…':'Спросите про P&L, ФОТ или ситуацию в смене…'} rows={1} aria-label="Запрос к STEN AI"/>
