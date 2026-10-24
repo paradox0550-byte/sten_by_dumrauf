@@ -1,9 +1,12 @@
-import { BarChart3, CalendarPlus, Clipboard, Brain } from 'lucide-react';
+import { BarChart3, CalendarPlus, Clipboard, Brain, Volume2 } from 'lucide-react';
 import type { MessageActionsProps } from './types';
 
-export function MessageActions({ onCopy, onToSecretary, onAnalyzePnl, onSaveMemory, showSaveMemory }: MessageActionsProps) {
+export function MessageActions({ onCopy, onToSecretary, onAnalyzePnl, onSaveMemory, onSpeak, showSaveMemory }: MessageActionsProps) {
   return (
     <div className="message-actions" aria-label="Действия с сообщением">
+      {onSpeak && <button type="button" onClick={onSpeak} aria-label="Прослушать ответ STEN" title="Прослушать ответ">
+        <Volume2 size={14} aria-hidden="true" /><span>Прослушать</span>
+      </button>}
       <button type="button" onClick={onCopy} aria-label="Копировать текст ответа" title="Копировать">
         <Clipboard size={14} aria-hidden="true" /><span>Копировать</span>
       </button>
