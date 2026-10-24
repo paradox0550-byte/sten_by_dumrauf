@@ -94,6 +94,7 @@ function AIContent({user}:{user:User|null}){
  const[voiceMode,setVoiceMode]=useState(false);
  const[meetingDraft,setMeetingDraft]=useState<MeetingDraft|null>(null);
  const[meetingSaving,setMeetingSaving]=useState(false);
+ const meetingSaveRef=useRef(false);
  const[voiceState,setVoiceState]=useState<'idle'|'listening'|'thinking'|'speaking'>('idle');
  const[voiceAutoplay,setVoiceAutoplay]=useState(()=>{try{return localStorage.getItem('sten_ai_voice_autoplay')==='true'}catch{return false}});
  const[composerFocused,setComposerFocused]=useState(false);
@@ -168,19 +169,19 @@ function AIContent({user}:{user:User|null}){
    if(voiceModeRef.current||voiceAutoplayRef.current)speakAnswer(answer);
  }
  async function confirmMeeting(draft:MeetingDraft){
-   if(meetingSaving)return;
+   if(meetingSaveRef.current)return;
    const missing=missingMeetingField(draft);
    if(missing){const answer=`Чтобы записать встречу, уточни ${missing}.`;setMeetingDraft({...draft,awaitingConfirmation:false});appendLocalAssistant(answer);return}
    const start=new Date(`${draft.date}T${draft.time}:00`);
    if(Number.isNaN(start.getTime())){appendLocalAssistant('Не удалось проверить дату и время встречи. Уточни их, пожалуйста.');return}
-   setMeetingSaving(true);
+   meetingSaveRef.current=true;setMeetingSaving(true);
    try{
      await api.post('/api/secretary/events',{title:draft.title.trim()||'Встреча',description:draft.description.trim(),location:draft.location.trim(),start_at:start.toISOString(),event_type:'meeting',status:'planned',reminder_minutes:30});
      setMeetingDraft(null);
      appendLocalAssistant(`Готово, встреча «${draft.title||'Встреча'}» записана в Секретарь: ${meetingDateLabel(draft.date)} в ${draft.time}, место — ${draft.location}. Напоминание установлено за 30 минут.`);
    }catch(e){
      appendLocalAssistant(e instanceof Error?`Не удалось сохранить встречу в Секретаре: ${e.message}`:'Не удалось сохранить встречу в Секретаре. Попробуй ещё раз.');
-   }finally{setMeetingSaving(false)}
+   }finally{meetingSaveRef.current=false;setMeetingSaving(false)}
  }
  async function handleMeetingUtterance(text:string){
    const value=text.trim();
