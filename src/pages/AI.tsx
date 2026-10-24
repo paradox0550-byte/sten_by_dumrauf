@@ -27,17 +27,19 @@ function parseMeetingDetails(text:string):Partial<MeetingDraft>{
  const value=text.trim();
  const result:Partial<MeetingDraft>={};
  const now=new Date();
- if(/\bпослезавтра\b/i.test(value)){const date=new Date(now);date.setDate(date.getDate()+2);result.date=localDateKey(date)}
- else if(/\bзавтра\b/i.test(value)){const date=new Date(now);date.setDate(date.getDate()+1);result.date=localDateKey(date)}
- else if(/\bсегодня\b/i.test(value)){result.date=localDateKey(now)}
+ // JS \\b is ASCII-only and fails around Russian words. Use Unicode-aware boundaries.
+ const hasWord=(word:string)=>new RegExp('(?<![\\\\p{L}\\\\p{N}_])(?:'+word+')(?![\\\\p{L}\\\\p{N}_])','iu').test(value);
+ if(hasWord('послезавтра')){const date=new Date(now);date.setDate(date.getDate()+2);result.date=localDateKey(date)}
+ else if(hasWord('завтра')){const date=new Date(now);date.setDate(date.getDate()+1);result.date=localDateKey(date)}
+ else if(hasWord('сегодня')){result.date=localDateKey(now)}
  else{
-  const dateMatch=value.match(/\b(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?\b/);
+  const dateMatch=value.match(/(?<![\\p{L}\\p{N}_])(\\d{1,2})[./-](\\d{1,2})(?:[./-](\\d{2,4}))?(?![\\p{L}\\p{N}_])/u);
   if(dateMatch){let year=dateMatch[3]?Number(dateMatch[3]):now.getFullYear();if(year<100)year+=2000;const day=Number(dateMatch[1]),month=Number(dateMatch[2]);const date=new Date(year,month-1,day);if(date.getFullYear()===year&&date.getMonth()===month-1&&date.getDate()===day){if(!dateMatch[3]&&date<new Date(now.getFullYear(),now.getMonth(),now.getDate()))date.setFullYear(year+1);result.date=localDateKey(date)}}
  }
- const timeMatch=value.match(/\b(?:в\s*)?(\d{1,2})[:.](\d{2})\b/i)||value.match(/\bв\s*(\d{1,2})\s*(?:час(?:а|ов)?|ч)\b/i);
- if(timeMatch){const hour=Number(timeMatch[1]),minute=Number(timeMatch[2]||0);if(hour>=0&&hour<=23&&minute>=0&&minute<=59)result.time=`${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}`}
- const placeMatch=value.match(/\b(?:в|на)\s+((?:Сириус(?:е)?|Сочи|Адлере|Москве|Петербурге|ресторане|офисе|кафе|отеле|зале)(?:\s+(?:у|на|имени|[А-ЯЁA-Z][А-ЯЁа-яёA-Za-z-]*)){0,3})\b/i);
- if(placeMatch)result.location=placeMatch[1].trim().replace(/\s+/g,' ');
+ const timeMatch=value.match(/(?<![\\p{L}\\p{N}_])(?:в\\s*)?(\\d{1,2})[:.](\\d{2})(?![\\p{L}\\p{N}_])/iu)||value.match(/(?<![\\p{L}\\p{N}_])в\\s*(\\d{1,2})\\s*(?:час(?:а|ов)?|ч)(?![\\p{L}\\p{N}_])/iu);
+ if(timeMatch){const hour=Number(timeMatch[1]),minute=Number(timeMatch[2]||0);if(hour>=0&&hour<=23&&minute>=0&&minute<=59)result.time=String(hour).padStart(2,'0')+':'+String(minute).padStart(2,'0')}
+ const placeMatch=value.match(/(?<![\\p{L}\\p{N}_])(?:в|на)\\s+((?:Сириус(?:е)?|Сочи|Адлере|Москве|Петербурге|ресторане|офисе|кафе|отеле|зале)(?:\\s+(?:у|на|имени|[\\p{L}-]+)){0,3})(?![\\p{L}\\p{N}_])/iu);
+ if(placeMatch)result.location=placeMatch[1].trim().replace(/\\s+/g,' ');
  return result;
 }
 function missingMeetingField(draft:MeetingDraft){if(!draft.date)return'дату';if(!draft.time)return'время';if(!draft.location)return'место';return'';}
@@ -201,9 +203,11 @@ function AIContent({user}:{user:User|null}){
    }
    // Route calendar/meeting commands locally before /ask. Cover inflected Russian
    // commands ("внеси", "поставь", "записать") and explicit calendar wording too.
-   const meetingAction=/\b(запиши(?:те|сь|тесь)?|запланируй(?:те)?|назначь(?:те)?|добавь(?:те)?|создай(?:те)?|организуй(?:те)?|внеси(?:те)?|поставь(?:те)?|заведи(?:те)?|записать|запланировать|назначить|добавить|создать|внести|поставить|записаться)\b/i.test(value);
-   const meetingObject=/\b(встреч\w*|секретар\w*|календар\w*|совещан\w*|созвон\w*|звон\w*|событи\w*|appointment|calendar|meeting)\b/i.test(value);
-   const intent=(meetingAction&&meetingObject)||(/\bвстреч\w*\b/i.test(value)&&/\b(завтра|сегодня|послезавтра|\d{1,2}[.:]\d{2})\b/i.test(value));
+   const meetingAction=/(?<![\p{L}\p{N}_])(?:запиши(?:те|сь|тесь)?|запланируй(?:те)?|назначь(?:те)?|добавь(?:те)?|создай(?:те)?|организуй(?:те)?|внеси(?:те)?|поставь(?:те)?|заведи(?:те)?|записать|запланировать|назначить|добавить|создать|внести|поставить|записаться)(?![\p{L}\p{N}_])/iu.test(value);
+   const meetingObject=/(?<![\p{L}\p{N}_])(?:встреч\p{L}*|секретар\p{L}*|календар\p{L}*|совещан\p{L}*|созвон\p{L}*|звон\p{L}*|событи\p{L}*|appointment|calendar|meeting)(?![\p{L}\p{N}_])/iu.test(value);
+   const hasMeetingWord=/(?<![\p{L}\p{N}_])встреч\p{L}*(?![\p{L}\p{N}_])/iu.test(value);
+   const hasMeetingDate=/(?<![\p{L}\p{N}_])(?:завтра|сегодня|послезавтра)(?![\p{L}\p{N}_])/iu.test(value)||/(?<![\p{L}\p{N}_])\d{1,2}[.:]\d{2}(?![\p{L}\p{N}_])/u.test(value);
+   const intent=(meetingAction&&meetingObject)||(hasMeetingWord&&hasMeetingDate);
    if(!intent)return false;
    const parsed=parseMeetingDetails(value);
    const draft:MeetingDraft={title:'Встреча',date:parsed.date||'',time:parsed.time||'',location:parsed.location||'',description:'',awaitingConfirmation:false};
