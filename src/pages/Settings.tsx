@@ -3,6 +3,7 @@ import { Check, Save, RotateCcw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { api, ApiError } from '../lib/api';
 import WorkspaceSelector from '../components/WorkspaceSelector';
+import GoogleSheetsIntegration from '../features/google-sheets/GoogleSheetsIntegration';
 import { useScope } from '../lib/useScope';
 import { useAnalyticsSettings, type AnalyticsSettings } from '../lib/useAnalyticsSettings';
 import { useAppearance } from '../features/chat-appearance/useAppearance';
@@ -308,6 +309,7 @@ export default function Settings() {
         {([
           ['settings-profile', 'Аккаунт и профиль'],
           ['settings-workspace', 'Организация и рестораны'],
+          ['settings-integrations', 'Интеграции'],
           ['settings-analytics', 'Финансы и аналитика'],
           ['settings-reports', 'Отчёты и уведомления'],
           ['settings-ai', 'STEN AI и голос'],
@@ -325,6 +327,8 @@ export default function Settings() {
           <WorkspaceSelector value={scope} onChange={setScope} />
           {scopeMessage && <div className="pnl-message error" role="alert">{scopeMessage}</div>}
         </section>
+
+        <GoogleSheetsIntegration />
 
         <section className="panel" id="settings-profile">
           <h2>Профиль</h2>
