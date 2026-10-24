@@ -82,7 +82,6 @@ async function readSpreadsheet(accessToken: string, spreadsheetId: string): Prom
 
 async function readSheetValues(accessToken: string, spreadsheetId: string, sheetTitle: string): Promise<string[][]> {
   const range = `'${sheetTitle.replace(/'/g, "''")}'!A1:Z50`;
-  const params = new URLSearchParams({ range, majorDimension: 'ROWS', valueRenderOption: 'FORMATTED_VALUE' });
   const response = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE`,
     { headers: { Authorization: `Bearer ${accessToken}` } },
