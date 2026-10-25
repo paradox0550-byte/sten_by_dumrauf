@@ -41,7 +41,7 @@ export default function Analytics() {
     writeAnalyticsActionStates(scope, next);
   };
   const updateActionState = (key: string, status: 'recommended' | 'accepted' | 'confirmed', note: string) => {
-    saveActionStates({ ...actionStates, [key]: { status, note } });
+    saveActionStates({ ...actionStates, [key]: { ...(actionStates[key] ?? { note: '' }), status, note } });
   };
  const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [accessDenied, setAccessDenied] = useState(false); const [laborError, setLaborError] = useState(''); const [pnlUpdatedAt, setPnlUpdatedAt] = useState<string>(''); const [laborUpdatedAt, setLaborUpdatedAt] = useState<string>('');
   async function load(){setLoading(true);setError('');setLaborError('');setSalesError('');const q=scopeQuery(scope);const [pnlResult,fotResult,salesResult]=await Promise.allSettled([api.get<any>('/api/pnl?'+q),api.get<any>('/fot-analytics?'+q),api.get<any>('/reports?'+q)]);const scopeDenied=[pnlResult,fotResult,salesResult].some(result=>result.status==='rejected'&&result.reason instanceof ApiError&&result.reason.status===403&&result.reason.code==='SCOPE_ACCESS_CHECK_FAILED');if(scopeDenied){setRows([]);setCalculated(null);setLabor([]);setDailyReports([]);setAccessDenied(true);setError('Нет доступа к данным выбранного ресторана. Выберите другой рабочий контур или обратитесь к администратору.');setLaborError('Нет доступа');setSalesError('Нет доступа');setLoading(false);return;}if(pnlResult.status==='fulfilled'){const pnl=pnlResult.value;setRows(Array.isArray(pnl?.rows)?pnl.rows:[]);setCalculated((pnl?.calculated??pnl?.summary?.calculated??null) as PnlCalculated);setPnlUpdatedAt(new Date().toISOString())}else{setRows([]);setCalculated(null);setError(pnlResult.reason instanceof Error?pnlResult.reason.message:'Не удалось загрузить P&L.')}if(fotResult.status==='fulfilled'){const fot=fotResult.value;setLabor(Array.isArray(fot?.records)?fot.records.filter((x:Labor)=>x.period===scope.period):[]);setLaborUpdatedAt(new Date().toISOString())}else{setLabor([]);setLaborError(fotResult.reason instanceof Error?fotResult.reason.message:'Не удалось загрузить аналитику ФОТ.')}if(salesResult.status==='fulfilled'){const data=salesResult.value;setDailyReports(Array.isArray(data?.reports)?data.reports:[])}else{setDailyReports([]);setSalesError(salesResult.reason instanceof Error?salesResult.reason.message:'Не удалось загрузить отчёты смен.')}setLoading(false)}
@@ -192,7 +192,7 @@ export default function Analytics() {
 
       <section className="panel analytics-report-section">
         <div className="panel-title"><CheckCircle2 size={16}/> Контроль управленческих действий</div>
-        <p className="dashboard-note">Статус и заметка сохраняются локально в этом браузере отдельно для выбранного периода и рабочего контура. Они не отправляются в API и не синхронизируются между устройствами; отметка «Подтверждено пользователем» не является независимой проверкой результата.</p>
+        <p className="dashboard-note">Статус, ответственный, срок и заметка сохраняются локально в этом браузере отдельно для выбранного периода и рабочего контура. Они не отправляются в API и не синхронизируются между устройствами; отметка «Результат отмечен пользователем» не является независимой проверкой результата.</p>
         {priorityChecks.length ? <div className="analytics-report-table">
           <div className="analytics-report-head"><span>Рекомендация</span><span>Статус</span><span>Решение / доказательство</span><span>Действие</span></div>
           {priorityChecks.map((item) => {
@@ -201,6 +201,8 @@ export default function Analytics() {
             return <div key={item.article}>
               <b>{item.article}<small>{item.check}</small></b>
               <span>{action.status === 'recommended' ? 'Рекомендовано' : action.status === 'accepted' ? 'Принято в работу' : 'Подтверждено пользователем'}</span>
+              <label><span>Ответственный</span><input value={action.responsible ?? ''} maxLength={120} onChange={(e) => saveActionStates({ ...actionStates, [key]: { ...action, responsible: e.target.value.slice(0, 120) } })} placeholder="Кто выполнит проверку" /></label>
+              <label><span>Срок</span><input type="date" value={action.dueDate ?? ''} onChange={(e) => saveActionStates({ ...actionStates, [key]: { ...action, dueDate: e.target.value } })} /></label>
               <label><span>Решение / источник подтверждения</span><textarea value={action.note} maxLength={1000} onChange={(e) => saveActionStates({ ...actionStates, [key]: { ...action, note: e.target.value } })} placeholder="Что решили, какой документ проверили, что подтвердилось" /></label>
               <span>
                 <button className="secondary-button" onClick={() => updateActionState(key, 'accepted', actionStates[key]?.note ?? action.note)}>Принять в работу</button>
