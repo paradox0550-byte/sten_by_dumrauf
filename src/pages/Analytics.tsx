@@ -41,15 +41,15 @@ export default function Analytics() {
     setActionStatesByScope((current) => ({ ...current, [actionStorageKey]: next }));
     writeAnalyticsActionStates(scope, next);
   };
-  const updateActionState = (key: string, status: 'recommended' | 'accepted' | 'confirmed', note: string, currentImpact: number) => {
+  const updateActionState = (key: string, status: 'recommended' | 'accepted' | 'confirmed', note: string, currentImpact: number | undefined) => {
     const previous = actionStates[key] ?? { status: 'recommended' as const, note: '' };
     if (status === 'recommended') {
-      const { initialImpact: _initialImpact, resultAmount: _resultAmount, ...resetAction } = previous;
+      const resetAction = { ...previous, initialImpact: undefined, resultAmount: undefined };
       saveActionStates({ ...actionStates, [key]: { ...resetAction, status, note } });
       return;
     }
-    const initialImpact = previous.initialImpact ?? Math.abs(currentImpact);
-    saveActionStates({ ...actionStates, [key]: { ...previous, status, note, initialImpact } });
+    const initialImpact = previous.initialImpact ?? (currentImpact === undefined ? undefined : Math.abs(currentImpact));
+    saveActionStates({ ...actionStates, [key]: { ...previous, status, note, ...(initialImpact !== undefined ? { initialImpact } : {}) } });
   };
  const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [accessDenied, setAccessDenied] = useState(false); const [laborError, setLaborError] = useState(''); const [pnlUpdatedAt, setPnlUpdatedAt] = useState<string>(''); const [laborUpdatedAt, setLaborUpdatedAt] = useState<string>('');
   async function load(){setLoading(true);setError('');setLaborError('');setSalesError('');const q=scopeQuery(scope);const [pnlResult,fotResult,salesResult]=await Promise.allSettled([api.get<any>('/api/pnl?'+q),api.get<any>('/fot-analytics?'+q),api.get<any>('/reports?'+q)]);const scopeDenied=[pnlResult,fotResult,salesResult].some(result=>result.status==='rejected'&&result.reason instanceof ApiError&&result.reason.status===403&&result.reason.code==='SCOPE_ACCESS_CHECK_FAILED');if(scopeDenied){setRows([]);setCalculated(null);setLabor([]);setDailyReports([]);setAccessDenied(true);setError('Нет доступа к данным выбранного ресторана. Выберите другой рабочий контур или обратитесь к администратору.');setLaborError('Нет доступа');setSalesError('Нет доступа');setLoading(false);return;}if(pnlResult.status==='fulfilled'){const pnl=pnlResult.value;setRows(Array.isArray(pnl?.rows)?pnl.rows:[]);setCalculated((pnl?.calculated??pnl?.summary?.calculated??null) as PnlCalculated);setPnlUpdatedAt(new Date().toISOString())}else{setRows([]);setCalculated(null);setError(pnlResult.reason instanceof Error?pnlResult.reason.message:'Не удалось загрузить P&L.')}if(fotResult.status==='fulfilled'){const fot=fotResult.value;setLabor(Array.isArray(fot?.records)?fot.records.filter((x:Labor)=>x.period===scope.period):[]);setLaborUpdatedAt(new Date().toISOString())}else{setLabor([]);setLaborError(fotResult.reason instanceof Error?fotResult.reason.message:'Не удалось загрузить аналитику ФОТ.')}if(salesResult.status==='fulfilled'){const data=salesResult.value;setDailyReports(Array.isArray(data?.reports)?data.reports:[])}else{setDailyReports([]);setSalesError(salesResult.reason instanceof Error?salesResult.reason.message:'Не удалось загрузить отчёты смен.')}setLoading(false)}
