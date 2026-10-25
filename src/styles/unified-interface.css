@@ -96,9 +96,19 @@ button, input, select, textarea { font-family: inherit; }
 .primary-button:hover:not(:disabled) { background: var(--color-brand-hover) !important; border-color: var(--color-brand-hover) !important; }
 .secondary-button { color: var(--text-primary) !important; background: var(--bg-surface) !important; border-color: var(--border-default) !important; }
 .secondary-button:hover:not(:disabled) { background: var(--bg-surface-subtle) !important; }
-:where(input, select, textarea) { min-height: 40px; border-radius: 8px !important; border-color: var(--border-default) !important; color: var(--text-primary) !important; }
-:where(input, select, textarea)::placeholder { color: var(--text-muted) !important; opacity: 1; }
-:where(input, select, textarea):focus { border-color: var(--color-brand) !important; }
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select, textarea) {
+  min-height: 40px;
+  border-radius: 8px;
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select, textarea)::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select, textarea):focus {
+  border-color: var(--color-brand);
+}
 table { width: 100%; border-collapse: separate; border-spacing: 0; }
 th { color: var(--text-secondary) !important; font-weight: 650; }
 td, th { border-color: var(--border-subtle) !important; }
