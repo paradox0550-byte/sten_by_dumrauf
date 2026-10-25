@@ -192,7 +192,7 @@ export default function Analytics() {
 
       <section className="panel analytics-report-section">
         <div className="panel-title"><CheckCircle2 size={16}/> Контроль управленческих действий</div>
-        <p className="dashboard-note">Статус отражает решение пользователя, а не автоматическое доказательство. В этой версии статусы хранятся только в текущем сеансе страницы и не отправляются в API.</p>
+        <p className="dashboard-note">Статус и заметка сохраняются локально в этом браузере отдельно для выбранного периода и рабочего контура. Они не отправляются в API и не синхронизируются между устройствами; отметка «Подтверждено пользователем» не является независимой проверкой результата.</p>
         {priorityChecks.length ? <div className="analytics-report-table">
           <div className="analytics-report-head"><span>Рекомендация</span><span>Статус</span><span>Решение / доказательство</span><span>Действие</span></div>
           {priorityChecks.map((item) => {
