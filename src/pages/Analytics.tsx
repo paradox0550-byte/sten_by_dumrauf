@@ -175,7 +175,7 @@ export default function Analytics() {
           <div className="analytics-report-head"><span>Статья</span><span>Влияние</span><span>Что проверить</span><span>Основание</span></div>
           {priorityChecks.map((item) => <div key={item.article}>
             <b>{item.article}</b>
-            <strong className="negative">{money(Math.abs(item.impact))} ₽<small>неблагоприятное отклонение</small></strong>
+            <strong className="negative">{money(item.impact === undefined ? undefined : Math.abs(item.impact))} ₽<small>неблагоприятное отклонение</small></strong>
             <span>{item.check}</span>
             <small>{item.evidence}<br />Источник: P&amp;L, факт {money(item.fact)} ₽ · план {money(item.plan)} ₽. Расчёт: {item.type === 'revenue' ? 'факт − план' : 'план − факт'}. Это размер отклонения от плана, а не доказанные потери или подтверждённая экономия.</small>
           </div>)}
