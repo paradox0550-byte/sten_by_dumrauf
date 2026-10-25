@@ -42,12 +42,14 @@ describe('analytics action storage', () => {
     expect(writeAnalyticsActionStates(scope, {}, null)).toBe(false);
     expect(readAnalyticsActionStates(scope, null)).toEqual({});
   });
-  it('persists owner and due date and rejects malformed dates', () => {
+  it('persists owner, due date, baseline deviation and user-reported result', () => {
     const storage = memoryStorage();
-    const states = { cogs: { status: 'accepted' as const, note: 'Сверить списания', responsible: 'Управляющий', dueDate: '2026-10-28' } };
+    const states = { cogs: { status: 'confirmed' as const, note: 'Сверен акт закупки', responsible: 'Управляющий', dueDate: '2026-10-28', initialImpact: 125000, resultAmount: 40000 } };
     writeAnalyticsActionStates(scope, states, storage);
     expect(readAnalyticsActionStates(scope, storage)).toEqual(states);
-    storage.setItem(analyticsActionStorageKey(scope), JSON.stringify({ invalid: { status: 'accepted', note: 'Проверка', responsible: 'x'.repeat(140), dueDate: '28.10.2026' } }));
+    storage.setItem(analyticsActionStorageKey(scope), JSON.stringify({
+      invalid: { status: 'accepted', note: 'Проверка', responsible: 'x'.repeat(140), dueDate: '28.10.2026', initialImpact: -5, resultAmount: '100' },
+    }));
     expect(readAnalyticsActionStates(scope, storage)).toEqual({ invalid: { status: 'accepted', note: 'Проверка', responsible: 'x'.repeat(120) } });
   });
 
