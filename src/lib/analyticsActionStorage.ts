@@ -7,6 +7,10 @@ export type AnalyticsAction = {
   note: string;
   responsible?: string;
   dueDate?: string;
+  /** Snapshot of the adverse plan/fact deviation when the action is accepted. */
+  initialImpact?: number;
+  /** User-entered realized effect; not independently verified by STEN. */
+  resultAmount?: number;
 };
 export type AnalyticsActionStates = Record<string, AnalyticsAction>;
 
@@ -34,7 +38,9 @@ export function readAnalyticsActionStates(
       ) {
         const responsible = typeof candidate.responsible === 'string' ? candidate.responsible.slice(0, 120) : undefined;
         const dueDate = typeof candidate.dueDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(candidate.dueDate) ? candidate.dueDate : undefined;
-        result[key] = { status: candidate.status, note: candidate.note.slice(0, 1000), ...(responsible ? { responsible } : {}), ...(dueDate ? { dueDate } : {}) };
+        const initialImpact = typeof candidate.initialImpact === 'number' && Number.isFinite(candidate.initialImpact) && candidate.initialImpact >= 0 ? candidate.initialImpact : undefined;
+        const resultAmount = typeof candidate.resultAmount === 'number' && Number.isFinite(candidate.resultAmount) && candidate.resultAmount >= 0 ? candidate.resultAmount : undefined;
+        result[key] = { status: candidate.status, note: candidate.note.slice(0, 1000), ...(responsible ? { responsible } : {}), ...(dueDate ? { dueDate } : {}), ...(initialImpact !== undefined ? { initialImpact } : {}), ...(resultAmount !== undefined ? { resultAmount } : {}) };
       }
     }
     return result;
