@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyticsActionStorageKey, readAnalyticsActionStates, writeAnalyticsActionStates } from './analyticsActionStorage';
+import { analyticsActionStorageKey, isAnalyticsActionOverdue, readAnalyticsActionStates, writeAnalyticsActionStates } from './analyticsActionStorage';
 
 const scope = { period: '2026-10', projectId: 'p1', restaurantId: 'r1' };
 function memoryStorage() {
@@ -49,6 +49,16 @@ describe('analytics action storage', () => {
     expect(readAnalyticsActionStates(scope, storage)).toEqual(states);
     storage.setItem(analyticsActionStorageKey(scope), JSON.stringify({ invalid: { status: 'accepted', note: 'Проверка', responsible: 'x'.repeat(140), dueDate: '28.10.2026' } }));
     expect(readAnalyticsActionStates(scope, storage)).toEqual({ invalid: { status: 'accepted', note: 'Проверка', responsible: 'x'.repeat(120) } });
+  });
+
+  it('marks only accepted actions with a past due date as overdue', () => {
+    const today = '2026-10-25';
+    expect(isAnalyticsActionOverdue({ status: 'accepted', dueDate: '2026-10-24' }, today)).toBe(true);
+    expect(isAnalyticsActionOverdue({ status: 'accepted', dueDate: today }, today)).toBe(false);
+    expect(isAnalyticsActionOverdue({ status: 'accepted', dueDate: '2026-10-26' }, today)).toBe(false);
+    expect(isAnalyticsActionOverdue({ status: 'accepted' }, today)).toBe(false);
+    expect(isAnalyticsActionOverdue({ status: 'recommended', dueDate: '2026-10-24' }, today)).toBe(false);
+    expect(isAnalyticsActionOverdue({ status: 'confirmed', dueDate: '2026-10-24' }, today)).toBe(false);
   });
 
 });
