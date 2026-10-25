@@ -1,14 +1,15 @@
-import{useEffect,useMemo,useState}from'react';
+import{useEffect,useMemo,useRef,useState}from'react';
 import{RefreshCw,WalletCards,AlertTriangle}from'lucide-react';
 import{api}from'../lib/api';
 import{scopeQuery}from'../lib/scope';
 import{useScope}from'../lib/useScope';
+import{createRequestSequence}from'../lib/requestSequence';
 import{formatMoney,formatPercent}from'../lib/format';
 import{calculateFinance}from'../lib/financeCalculator';import{buildFinanceInput}from'../lib/financesInput';
 type Row={article:string;plan?:number|null;fact?:number|null;source?:string};
 export default function Finances(){
- const[scope]=useScope();const[rows,setRows]=useState<Row[]>([]);const[loading,setLoading]=useState(true);const[error,setError]=useState('');
- const load=()=>{setLoading(true);setError('');api.get<any>('/api/pnl?'+scopeQuery(scope)).then(r=>{const d=r?.rows?r:r?.data??r;setRows(Array.isArray(d.rows)?d.rows:[])}).catch(e=>{setRows([]);setError(e instanceof Error?e.message:'Финансовые данные недоступны')}).finally(()=>setLoading(false))};
+ const[scope]=useScope();const[rows,setRows]=useState<Row[]>([]);const[loading,setLoading]=useState(true);const[error,setError]=useState('');const loadSeqRef=useRef(createRequestSequence());
+ const load=()=>{const requestId=loadSeqRef.current.begin();setLoading(true);setError('');api.get<any>('/api/pnl?'+scopeQuery(scope)).then(r=>{if(!loadSeqRef.current.isCurrent(requestId))return;const d=r?.rows?r:r?.data??r;setRows(Array.isArray(d.rows)?d.rows:[])}).catch(e=>{if(!loadSeqRef.current.isCurrent(requestId))return;setRows([]);setError(e instanceof Error?e.message:'Финансовые данные недоступны')}).finally(()=>{if(loadSeqRef.current.isCurrent(requestId))setLoading(false)})};
  useEffect(load,[scope.period,scope.projectId,scope.branchId,scope.restaurantId,scope.departmentId]);
  const fact=useMemo(()=>calculateFinance(buildFinanceInput(rows,true)),[rows]);const plan=useMemo(()=>calculateFinance(buildFinanceInput(rows,false)),[rows]);
  const chain=[['Выручка',fact.revenue],['− Себестоимость',fact.cogs],['= Валовая прибыль',fact.grossProfit],['− ФОТ',fact.payroll],['− OPEX',fact.opex],['= EBITDA',fact.ebitda],['− Амортизация / проценты / налоги / прочее',fact.depreciation!==undefined&&fact.interest!==undefined&&fact.tax!==undefined&&fact.other!==undefined?fact.depreciation+fact.interest+fact.tax+fact.other:undefined],['= Чистая прибыль',fact.netProfit]] as [string,number|undefined][];
