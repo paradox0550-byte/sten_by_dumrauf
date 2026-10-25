@@ -5,6 +5,8 @@ export type AnalyticsActionStatus = 'recommended' | 'accepted' | 'confirmed';
 export type AnalyticsAction = {
   status: AnalyticsActionStatus;
   note: string;
+  responsible?: string;
+  dueDate?: string;
 };
 export type AnalyticsActionStates = Record<string, AnalyticsAction>;
 
@@ -30,7 +32,9 @@ export function readAnalyticsActionStates(
         (candidate.status === 'recommended' || candidate.status === 'accepted' || candidate.status === 'confirmed') &&
         typeof candidate.note === 'string'
       ) {
-        result[key] = { status: candidate.status, note: candidate.note.slice(0, 1000) };
+        const responsible = typeof candidate.responsible === 'string' ? candidate.responsible.slice(0, 120) : undefined;
+        const dueDate = typeof candidate.dueDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(candidate.dueDate) ? candidate.dueDate : undefined;
+        result[key] = { status: candidate.status, note: candidate.note.slice(0, 1000), ...(responsible ? { responsible } : {}), ...(dueDate ? { dueDate } : {}) };
       }
     }
     return result;
