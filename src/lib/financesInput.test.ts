@@ -28,6 +28,34 @@ describe('buildFinanceInput', () => {
     expect(calculateFinance(input).ebitda).toBe(40_000);
   });
 
+  it('prefers canonical totals over similarly named detail rows regardless of row order', () => {
+    const input = buildFinanceInput([
+      { article: 'Прочие операционные', fact: -1_200 },
+      { article: 'Расходы на персонал (не ФОТ)', fact: -4_000 },
+      { article: 'Аренда', fact: -15_000 },
+      { article: 'ФОТ (оклад + премии + отпуск)', fact: -24_000 },
+      { article: 'OPEX (без ФОТ)', fact: -18_000 },
+      { article: 'Себестоимость итого', fact: -32_000 },
+      { article: 'Выручка итого', fact: 100_000 },
+      { article: 'Прочее', fact: -700 },
+    ], true);
+
+    expect(input.revenue).toBe(100_000);
+    expect(input.cogs).toBe(32_000);
+    expect(input.payroll).toBe(24_000);
+    expect(input.opex).toBe(18_000);
+    expect(input.other).toBe(700);
+  });
+
+  it('does not mistake rent or an OPEX detail row for aggregate OPEX', () => {
+    const input = buildFinanceInput([
+      { article: 'Аренда', fact: -15_000 },
+      { article: 'Прочие операционные', fact: -1_200 },
+    ], true);
+
+    expect(input.opex).toBeUndefined();
+  });
+
   it('does not replace missing or non-finite values with zero', () => {
     const input = buildFinanceInput([
       { article: 'Выручка', fact: 100_000 },
