@@ -98,7 +98,8 @@ export default function Analytics() {
     };
   }, [sales, metrics.r]);
   const incompleteFinancialRows = useMemo(() => summaryRows.filter((row) =>
-    finite(row.plan) === undefined || finite(row.fact) === undefined  ), [summaryRows]);
+    finite(row.plan) === undefined || finite(row.fact) === undefined
+  ), [summaryRows]);
   const laborAggregation=useMemo(()=>aggregateLaborRecords(labor),[labor]); const laborRows=laborAggregation.groups;
   const laborDiagnostics = useMemo(() => {
     const pnlPayroll = metrics.l == null ? undefined : Math.abs(metrics.l);
@@ -197,8 +198,8 @@ export default function Analytics() {
         <div className="panel-title"><CheckCircle2 size={16}/> Контроль управленческих действий</div>
         <p className="dashboard-note">Статус, ответственный, срок и заметка сохраняются локально в этом браузере отдельно для выбранного периода и рабочего контура. Они не отправляются в API и не синхронизируются между устройствами; отметка «Результат отмечен пользователем» не является независимой проверкой результата.</p>
         {priorityChecks.length ? <div className="analytics-report-table">
-          <div className="analytics-report-head"><span>Рекомендация</span><span>Статус</span><span>Решение / доказательство</span><span>Действие</span></div>          {priorityChecks.map((item) => {
-            const key = item.article.toLowerCase();
+          <div className="analytics-report-head"><span>Рекомендация</span><span>Статус</span><span>Решение / доказательство</span><span>Действие</span></div>
+          {priorityChecks.map((item) => {            const key = item.article.toLowerCase();
             const action = actionStates[key] || { status: 'recommended' as const, note: '' };
             return <div key={item.article}>
               <b>{item.article}<small>{item.check}</small></b>
