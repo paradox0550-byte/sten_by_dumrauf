@@ -42,4 +42,13 @@ describe('analytics action storage', () => {
     expect(writeAnalyticsActionStates(scope, {}, null)).toBe(false);
     expect(readAnalyticsActionStates(scope, null)).toEqual({});
   });
+  it('persists owner and due date and rejects malformed dates', () => {
+    const storage = memoryStorage();
+    const states = { cogs: { status: 'accepted' as const, note: 'Сверить списания', responsible: 'Управляющий', dueDate: '2026-10-28' } };
+    writeAnalyticsActionStates(scope, states, storage);
+    expect(readAnalyticsActionStates(scope, storage)).toEqual(states);
+    storage.setItem(analyticsActionStorageKey(scope), JSON.stringify({ invalid: { status: 'accepted', note: 'Проверка', responsible: 'x'.repeat(140), dueDate: '28.10.2026' } }));
+    expect(readAnalyticsActionStates(scope, storage)).toEqual({ invalid: { status: 'accepted', note: 'Проверка', responsible: 'x'.repeat(120) } });
+  });
+
 });
