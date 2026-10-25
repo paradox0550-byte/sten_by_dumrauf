@@ -609,7 +609,6 @@
 .sten-ai-page .chat-head__documents { margin-left: auto; }
 @media (max-width: 767px) {
   .sten-ai-page > .sten-ai-topbar { min-height: 48px; }
-  .sten-ai-topbar__mark { display: none; }
   .sten-ai-topbar__title p { display: none; }
   .sten-ai-page .chat-head { min-height: 34px; }
 }
