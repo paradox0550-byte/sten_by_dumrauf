@@ -97,8 +97,7 @@ export default function Analytics() {
       dailyRevenue: reportRevenue !== undefined && sales.daysWithReports > 0 ? reportRevenue / sales.daysWithReports : undefined,
     };
   }, [sales, metrics.r]);
-  const incompleteFinancialRows = useMemo(() => summaryRows.filter((row) =>
-    finite(row.plan) === undefined || finite(row.fact) === undefined
+  const incompleteFinancialRows = useMemo(() => summaryRows.filter((row) =>    finite(row.plan) === undefined || finite(row.fact) === undefined
   ), [summaryRows]);
   const laborAggregation=useMemo(()=>aggregateLaborRecords(labor),[labor]); const laborRows=laborAggregation.groups;
   const laborDiagnostics = useMemo(() => {
@@ -147,7 +146,10 @@ export default function Analytics() {
         {priorityChecks.length ? <div className="analytics-report-table">
           <div className="analytics-report-head"><span>Статья</span><span>Влияние</span><span>Что проверить</span><span>Основание</span></div>
           {priorityChecks.map((item) => <div key={item.article}>
-            <b>{item.article}</b><strong className="negative">{money(item.impact)} ₽</strong><span>{item.check}</span><small>{item.evidence}</small>
+            <b>{item.article}</b>
+            <strong className="negative">{money(Math.abs(item.impact))} ₽<small>неблагоприятное отклонение</small></strong>
+            <span>{item.check}</span>
+            <small>{item.evidence}<br />Источник: P&amp;L, факт {money(item.fact)} ₽ · план {money(item.plan)} ₽. Расчёт: {item.type === 'revenue' ? 'факт − план' : 'план − факт'}. Это размер отклонения от плана, а не доказанные потери или подтверждённая экономия.</small>
           </div>)}
         </div> : <div className="empty">Нет подтверждённых неблагоприятных отклонений с доступными планом и фактом. Неполные данные не трактуются как нулевое отклонение.</div>}
       </section>
@@ -197,8 +199,7 @@ export default function Analytics() {
         {priorityChecks.length ? <div className="analytics-report-table">
           <div className="analytics-report-head"><span>Рекомендация</span><span>Статус</span><span>Решение / доказательство</span><span>Действие</span></div>
           {priorityChecks.map((item) => {
-            const key = item.article.toLowerCase();
-            const action = actionStates[key] || { status: 'recommended' as const, note: '' };
+            const key = item.article.toLowerCase();            const action = actionStates[key] || { status: 'recommended' as const, note: '' };
             return <div key={item.article}>
               <b>{item.article}<small>{item.check}</small></b>
               <span>{action.status === 'recommended' ? 'Рекомендовано' : action.status === 'accepted' ? <>Принято в работу{isAnalyticsActionOverdue(action, localDateKey()) && <small className="negative">Просрочено</small>}</> : 'Подтверждено пользователем'}</span>
