@@ -6,6 +6,7 @@ import { useScope } from '../lib/useScope';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth, type User } from '../contexts/AuthContext';
 import { hasScopeId, scopeQuery } from '../lib/scope';
+import { buildAiChatKey } from '../lib/aiChatKey';
 import { AskRequestSchema, type AskRequest, type AskResponse, type AskSource } from '../lib/contracts/ask';
 import { AppearanceProvider, useAppearanceContext } from '../features/chat-appearance/AppearanceContext';
 import { ChatBackground } from '../features/chat-appearance/ChatBackground';
@@ -60,7 +61,6 @@ const PERSONAL_MODES:{id:PersonalMode;label:string;instruction:string}[]=[
 ];
 const PERSONAL_MODE_KEY='sten_ai_personal_mode';const MAX_DOC_BYTES=15*1024*1024;const LEGACY_KEY='sten_chat_v5';
 const AI_VOICE_GENDER_KEY='sten_ai_voice_gender';
-function chatKey(user:{id?:string;organizationId?:string|null}|null){return user?.id?`sten_chat_v5:${user.organizationId||'no-org'}:${user.id}`:null;}
 function readMessages(key:string|null):Msg[]{if(!key)return[];try{const raw=localStorage.getItem(key);const parsed=raw?JSON.parse(raw):[];return Array.isArray(parsed)?parsed:[]}catch{return[]}}
 function to64(file:File){return new Promise<string>((ok,no)=>{const r=new FileReader();r.onload=()=>{const s=String(r.result);ok(s.includes(',')?s.split(',')[1]:s)};r.onerror=()=>no(r.error);r.readAsDataURL(file)})}
 
@@ -77,13 +77,14 @@ function AIContent({user}:{user:User|null}){
  const[searchParams,setSearchParams]=useSearchParams();
  const initialQuery=searchParams.get('q')?.trim()||'';
  const{settings}=useAppearanceContext();
- const key=chatKey(user);
+ const key=buildAiChatKey(user,scope);
  const meetingNotesKey=`sten_meeting_notes_v1:${user?.organizationId||'no-org'}:${user?.id||'anonymous'}:project=${scope.projectId||'none'}:branch=${scope.branchId||'none'}:restaurant=${scope.restaurantId||'none'}:department=${scope.departmentId||'none'}`;
  const[messages,setMessages]=useState<Msg[]>(()=>readMessages(key));
  const hydrateRef=useRef<string|null>(key);
  const[prompt,setPrompt]=useState('');
  const[docs,setDocs]=useState<Doc[]>([]);
  const loadSeqRef=useRef(0);
+ const askSeqRef=useRef(0);
  const[busy,setBusy]=useState(false);
   const[personalMode,setPersonalMode]=useState<PersonalMode>(()=>{try{const value=localStorage.getItem(PERSONAL_MODE_KEY);return PERSONAL_MODES.some(mode=>mode.id===value)?value as PersonalMode:'analyst'}catch{return 'analyst'}});
   useEffect(()=>{try{localStorage.setItem(PERSONAL_MODE_KEY,personalMode)}catch{}},[personalMode]);
@@ -177,6 +178,7 @@ function AIContent({user}:{user:User|null}){
    setContextAt(status==='unavailable'?'':new Date().toISOString());
  };
  useEffect(()=>{void load()},[scope.period,scope.projectId,scope.branchId,scope.restaurantId,scope.departmentId]);
+ useEffect(()=>{askSeqRef.current+=1;setBusy(false)},[scope.period,scope.projectId,scope.branchId,scope.restaurantId,scope.departmentId]);
 
  function appendLocalAssistant(answer:string){
    setMessages(current=>[...current,{id:crypto.randomUUID(),role:'assistant',text:answer,createdAt:new Date().toISOString()}]);
@@ -232,6 +234,7 @@ function AIContent({user}:{user:User|null}){
  async function ask(value=prompt){
    const text=value.trim();
    if(!text||busy)return;
+   const requestId=++askSeqRef.current;
    setPrompt('');
    const nextMsgs=[...messages,{id:crypto.randomUUID(),role:'user' as const,text,createdAt:new Date().toISOString()}];
    shouldAutoScrollRef.current=true;
@@ -259,11 +262,13 @@ function AIContent({user}:{user:User|null}){
        },
      };
      const r = await api.post<AskResponse & { steps?: AskStep[]; total_ms?: number }>('/ask', AskRequestSchema.parse(body));
+     if(requestId!==askSeqRef.current)return;
      const p = r;
      const answer=String(p.answer??p.message??'Ответ не получен.');
      setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:answer,sources:Array.isArray(p.sources)?p.sources:[],steps:Array.isArray(p.steps)?p.steps:undefined,totalMs:typeof p.total_ms==='number'?p.total_ms:undefined,proposedMemory:Array.isArray(p.proposed_memory)?p.proposed_memory:p.proposed_memory===null?null:undefined,model:typeof p.model==='string'?p.model:undefined,toolsUsed:Array.isArray(p.tools_used)?p.tools_used.map(t=>({name:t.name,ok:t.ok,ms:t.ms})):p.tools_used===null?null:undefined,createdAt:new Date().toISOString()}]);
      if(voiceModeRef.current||voiceAutoplayRef.current)speakAnswer(answer);
    }catch(e){
+     if(requestId!==askSeqRef.current)return;
      window.dispatchEvent(new CustomEvent('sten:ai-status',{detail:'error'}));
      const message = e instanceof ApiError && e.code === 'ORG_ACCESS_CLOSED'
        ? 'Доступ к организации закрыт. Проверьте статус подписки или обратитесь к администратору.'
@@ -278,7 +283,7 @@ function AIContent({user}:{user:User|null}){
          : e instanceof Error ? e.message : 'Не удалось получить ответ.';
      setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:message,createdAt:new Date().toISOString()}]);
      if(voiceModeRef.current){setVoiceState('idle');finalTranscriptRef.current='';window.setTimeout(()=>{if(voiceModeRef.current&&!speechRef.current)startRecognition()},350)}
-   }finally{setBusy(false)}
+   }finally{if(requestId===askSeqRef.current)setBusy(false)}
  }
 
  useEffect(()=>{askRef.current=ask},[ask]);
