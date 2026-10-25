@@ -4,16 +4,13 @@ import{api}from'../lib/api';
 import{scopeQuery}from'../lib/scope';
 import{useScope}from'../lib/useScope';
 import{formatMoney,formatPercent}from'../lib/format';
-import{calculateFinance,FinanceInput}from'../lib/financeCalculator';
+import{calculateFinance}from'../lib/financeCalculator';import{buildFinanceInput}from'../lib/financesInput';
 type Row={article:string;plan?:number|null;fact?:number|null;source?:string};
-const find=(rows:Row[],keys:string[])=>rows.find(r=>keys.some(k=>String(r.article||'').toLocaleLowerCase('ru-RU').includes(k)));
-const num=(v:number|null|undefined)=>typeof v==='number'&&Number.isFinite(v)?v:undefined;
-function input(rows:Row[],fact:boolean):FinanceInput{const get=(keys:string[])=>num(find(rows,keys)?.[fact?'fact':'plan']);return{revenue:get(['выруч','revenue']),cogs:get(['себесто','cogs','фудкост']),payroll:get(['фот','зарплат','персон','personnel']),opex:get(['opex','операцион','аренд']),depreciation:get(['амортиза','depreciation']),interest:get(['процент','interest']),tax:get(['налог','tax']),other:get(['проч','other'])}}
 export default function Finances(){
  const[scope]=useScope();const[rows,setRows]=useState<Row[]>([]);const[loading,setLoading]=useState(true);const[error,setError]=useState('');
  const load=()=>{setLoading(true);setError('');api.get<any>('/api/pnl?'+scopeQuery(scope)).then(r=>{const d=r?.rows?r:r?.data??r;setRows(Array.isArray(d.rows)?d.rows:[])}).catch(e=>{setRows([]);setError(e instanceof Error?e.message:'Финансовые данные недоступны')}).finally(()=>setLoading(false))};
  useEffect(load,[scope.period,scope.projectId,scope.branchId,scope.restaurantId,scope.departmentId]);
- const fact=useMemo(()=>calculateFinance(input(rows,true)),[rows]);const plan=useMemo(()=>calculateFinance(input(rows,false)),[rows]);
+ const fact=useMemo(()=>calculateFinance(buildFinanceInput(rows,true)),[rows]);const plan=useMemo(()=>calculateFinance(buildFinanceInput(rows,false)),[rows]);
  const chain=[['Выручка',fact.revenue],['− Себестоимость',fact.cogs],['= Валовая прибыль',fact.grossProfit],['− ФОТ',fact.payroll],['− OPEX',fact.opex],['= EBITDA',fact.ebitda],['− Амортизация / проценты / налоги / прочее',fact.depreciation!==undefined&&fact.interest!==undefined&&fact.tax!==undefined&&fact.other!==undefined?fact.depreciation+fact.interest+fact.tax+fact.other:undefined],['= Чистая прибыль',fact.netProfit]] as [string,number|undefined][];
  const gaps=[fact.cogs==null?'Себестоимость / COGS':null,fact.payroll==null?'ФОТ':null,fact.opex==null?'OPEX':null,fact.depreciation==null?'Амортизация':null,fact.interest==null?'Проценты':null,fact.tax==null?'Налоги':null].filter(Boolean) as string[];
  const delta=(a:number|undefined,b:number|undefined)=>a!==undefined&&b!==undefined?b-a:undefined;
