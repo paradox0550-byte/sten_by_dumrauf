@@ -1,3 +1,4 @@
+/* Canonical message rows, avatars, and message actions. Workspace layout is in src/styles/chat.css. */
  .sten-ai-page .message-row {
   display: flex;
   align-items: flex-start;

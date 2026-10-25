@@ -1,4 +1,4 @@
-/* STEN AI workspace layout. Scoped to this page; theme tokens stay canonical. */
+/* Canonical STEN AI workspace layout, composer, and markdown. Palette/appearance controls: features/chat-appearance/themes.css. Message/avatar layout: features/chat-appearance/avatars.css. */
 .sten-ai-page { display: flex; flex-direction: column; height: calc(100dvh - 138px); min-height: 0; max-width: none; overflow: hidden; }
 .sten-ai-page > .sten-ai-topbar { flex: 0 0 56px; min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: var(--space-lg, 24px); padding: 0 var(--space-lg, 24px); margin: 0 0 var(--space-md, 16px); user-select: none; -webkit-user-select: none; }
 .sten-ai-topbar__title, .sten-ai-topbar__actions { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -609,7 +609,6 @@
 .sten-ai-page .chat-head__documents { margin-left: auto; }
 @media (max-width: 767px) {
   .sten-ai-page > .sten-ai-topbar { min-height: 48px; }
-  .sten-ai-topbar__mark { display: none; }
   .sten-ai-topbar__title p { display: none; }
   .sten-ai-page .chat-head { min-height: 34px; }
 }

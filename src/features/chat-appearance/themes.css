@@ -1,13 +1,13 @@
-/* STEN AI Chat Appearance v1 — scoped to the STEN AI surface only. */
+/* Canonical chat palette and appearance controls. Workspace layout: src/styles/chat.css. Message/avatar layout: avatars.css. */
 
 .sten-ai-page {
-  --chat-accent: #5B7CFA;
+  --chat-accent: var(--color-brand, #126b67);
 }
 
 .sten-ai-page .chat {
   --chat-bg: #0B0F1A;
   --chat-panel: #0F141D;
-  --chat-bubble-user: color-mix(in srgb, #5B7CFA 12%, #0F141D);
+  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126b67) 12%, #0F141D);
   --chat-bubble-ai: #101722;
   --chat-text: #F5F7FA;
   --chat-muted: #9AA6B8;
@@ -25,7 +25,7 @@
 .sten-ai-page.theme-midnight .chat {
   --chat-bg: #05070D;
   --chat-panel: #0A0E16;
-  --chat-bubble-user: color-mix(in srgb, #3A57D6 15%, #0E131F);
+  --chat-bubble-user: color-mix(in srgb, var(--color-brand-strong, #0f5d59) 15%, #0E131F);
   --chat-bubble-ai: #0E131F;
   --chat-text: #F5F7FA;
   --chat-muted: #8995A8;
@@ -38,7 +38,7 @@
 .sten-ai-page.theme-slate .chat {
   --chat-bg: #12171F;
   --chat-panel: #171D26;
-  --chat-bubble-user: color-mix(in srgb, #4A6CF7 12%, #171D26);
+  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126b67) 12%, #171D26);
   --chat-bubble-ai: #1A2029;
   --chat-text: #F2F5F8;
   --chat-muted: #A0A9B8;
@@ -51,7 +51,7 @@
 .sten-ai-page.theme-paper .chat {
   --chat-bg: #F7F8FA;
   --chat-panel: #FFFFFF;
-  --chat-bubble-user: color-mix(in srgb, #5B7CFA 10%, #FFFFFF);
+  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126b67) 10%, #FFFFFF);
   --chat-bubble-ai: #FFFFFF;
   --chat-text: #141820;
   --chat-muted: #667085;
@@ -65,11 +65,11 @@
 .sten-ai-page.theme-sten .chat {
   --chat-bg: #0A0E17;
   --chat-panel: #0F1521;
-  --chat-bubble-user: color-mix(in srgb, #5B7CFA 18%, #0F1521);
+  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126b67) 18%, #0F1521);
   --chat-bubble-ai: #111927;
   --chat-text: #F5F7FA;
   --chat-muted: #98A4B7;
-  --chat-border: rgba(91, 124, 250, 0.16);
+  --chat-border: rgba(18, 107, 103, 0.16);
   --chat-drawer: #111927;
   --chat-input: #0C121D;
   --chat-on-accent: #0B0D10;
@@ -78,7 +78,7 @@
 .sten-ai-page.theme-system .chat {
   --chat-bg: #F7F8FA;
   --chat-panel: #FFFFFF;
-  --chat-bubble-user: color-mix(in srgb, #5B7CFA 10%, #FFFFFF);
+  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126b67) 10%, #FFFFFF);
   --chat-bubble-ai: #FFFFFF;
   --chat-text: #141820;
   --chat-muted: #667085;
@@ -93,7 +93,7 @@
   .sten-ai-page.theme-system .chat {
     --chat-bg: #0B0F1A;
     --chat-panel: #0F141D;
-    --chat-bubble-user: color-mix(in srgb, #5B7CFA 12%, #0F141D);
+    --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126b67) 12%, #0F141D);
     --chat-bubble-ai: #101722;
     --chat-text: #F5F7FA;
     --chat-muted: #9AA6B8;
@@ -1339,199 +1339,7 @@
   }
 }
 
-/* STEN AI workspace layout: internal history scroll and a persistent composer. */
-.sten-ai-page {
-  display: flex;
-  flex-direction: column;
-  height: calc(100dvh - 138px);
-  min-height: 0;
-  max-width: none;
-  overflow: hidden;
-}
-
-.sten-ai-page > .page-head {
-  flex: 0 0 auto;
-  min-width: 0;
-  margin-bottom: 14px;
-}
-
-.sten-ai-page .ai-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
-  align-items: stretch;
-  gap: 14px;
-  flex: 1 1 auto;
-  width: 100%;
-  min-width: 0;
-  min-height: 0;
-  height: 1px;
-}
-
-.sten-ai-page .chat {
-  grid-column: 1;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-  max-height: 100%;
-  overflow: hidden;
-}
-
-.sten-ai-page .docs-panel {
-  grid-column: 2;
-  min-width: 0;
-  min-height: 0;
-  max-height: 100%;
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-
-.sten-ai-page .chat-head {
-  flex: 0 0 auto;
-}
-
-.sten-ai-page .chat-body {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-  -webkit-overflow-scrolling: touch;
-}
-
-.sten-ai-page .chat-body > .welcome {
-  width: min(100%, 900px);
-}
-
-.sten-ai-page .chat-body article.message,
-.sten-ai-page .chat-body .message-content,
-.sten-ai-page .chat-body .message-bubble,
-.sten-ai-page .chat-body pre,
-.sten-ai-page .chat-body table {
-  min-width: 0;
-  max-width: 100%;
-  overflow-wrap: anywhere;
-}
-
-.sten-ai-page .composer {
-  position: relative;
-  z-index: 3;
-  flex: 0 0 auto;
-  min-width: 0;
-  padding-bottom: max(12px, env(safe-area-inset-bottom));
-}
-
-.sten-ai-page .composer-box {
-  width: 100%;
-  min-width: 0;
-}
-
-.sten-ai-page .composer-box textarea {
-  min-width: 0;
-  max-height: 120px;
-  overflow-y: auto;
-  resize: none;
-}
-
-.sten-ai-page .composer-footer {
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-}
-
-@media (min-width: 768px) and (max-width: 1279px) {
-  .sten-ai-page {
-    height: calc(100dvh - 138px);
-  }
-
-  .sten-ai-page .ai-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .sten-ai-page .docs-panel {
-    display: none;
-  }
-
-  .sten-ai-page .chat-body {
-    padding-inline: clamp(16px, 3vw, 32px);
-  }
-}
-
-@media (max-width: 767px) {
-  .sten-ai-page {
-    height: calc(100dvh - 154px);
-  }
-
-  .sten-ai-page > .page-head {
-    align-items: flex-start;
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-
-  .sten-ai-page > .page-head p {
-    display: none;
-  }
-
-  .sten-ai-page > .page-head h1 {
-    font-size: 26px;
-  }
-
-  .sten-ai-page > .page-head .secondary-button {
-    min-height: 36px;
-    padding: 7px 10px;
-    white-space: nowrap;
-  }
-
-  .sten-ai-page .ai-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-  }
-
-  .sten-ai-page .docs-panel {
-    display: none;
-  }
-
-  .sten-ai-page .chat {
-    grid-column: 1;
-    border-radius: var(--ui-radius-md);
-  }
-
-  .sten-ai-page .chat-head {
-    min-height: 48px;
-    padding: 9px 12px;
-  }
-
-  .sten-ai-page .chat-body {
-    padding: 12px;
-  }
-
-  .sten-ai-page .composer {
-    padding: 10px 10px max(10px, env(safe-area-inset-bottom));
-  }
-
-  .sten-ai-page .composer-footer {
-    font-size: 10px;
-  }
-}
-
-@media (max-height: 620px) {
-  .sten-ai-page {
-    height: calc(100dvh - 118px);
-  }
-
-  .sten-ai-page > .page-head {
-    margin-bottom: 8px;
-  }
-
-  .sten-ai-page > .page-head p {
-    display: none;
-  }
-}
+/* Workspace layout and responsive sizing are owned by src/styles/chat.css. */
 
 /* Simplified appearance controls: two density choices and readable helper copy. */
 .chat-appearance-drawer .chat-density-list {
