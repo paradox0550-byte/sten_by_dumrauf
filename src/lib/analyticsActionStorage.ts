@@ -42,7 +42,7 @@ export function readAnalyticsActionStates(
         const responsible = typeof candidate.responsible === 'string' ? candidate.responsible.slice(0, 120) : undefined;
         const dueDate = typeof candidate.dueDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(candidate.dueDate) ? candidate.dueDate : undefined;
         const initialImpact = typeof candidate.initialImpact === 'number' && Number.isFinite(candidate.initialImpact) && candidate.initialImpact >= 0 ? candidate.initialImpact : undefined;
-        const initialImpactPeriod = typeof candidate.initialImpactPeriod === 'string' && /^\\d{4}-\\d{2}$/.test(candidate.initialImpactPeriod) ? candidate.initialImpactPeriod : undefined;
+        const initialImpactPeriod = typeof candidate.initialImpactPeriod === 'string' && /^\d{4}-\d{2}$/.test(candidate.initialImpactPeriod) ? candidate.initialImpactPeriod : undefined;
         const initialImpactArticle = typeof candidate.initialImpactArticle === 'string' ? candidate.initialImpactArticle.slice(0, 200) : undefined;
         const resultAmount = typeof candidate.resultAmount === 'number' && Number.isFinite(candidate.resultAmount) && candidate.resultAmount >= 0 ? candidate.resultAmount : undefined;
         result[key] = { status: candidate.status, note: candidate.note.slice(0, 1000), ...(responsible ? { responsible } : {}), ...(dueDate ? { dueDate } : {}), ...(initialImpact !== undefined ? { initialImpact } : {}), ...(initialImpactPeriod ? { initialImpactPeriod } : {}), ...(initialImpactArticle ? { initialImpactArticle } : {}), ...(resultAmount !== undefined ? { resultAmount } : {}) };
