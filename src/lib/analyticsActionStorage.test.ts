@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyticsActionStorageKey, isAnalyticsActionOverdue, readAnalyticsActionStates, writeAnalyticsActionStates } from './analyticsActionStorage';
+import { analyticsActionStorageKey, isAnalyticsActionOverdue, readAnalyticsActionStates, writeAnalyticsActionStates, reconcileAnalyticsActionImpact } from './analyticsActionStorage';
 
 const scope = { period: '2026-10', projectId: 'p1', restaurantId: 'r1' };
 function memoryStorage() {
@@ -63,4 +63,26 @@ describe('analytics action storage', () => {
     expect(isAnalyticsActionOverdue({ status: 'confirmed', dueDate: '2026-10-24' }, today)).toBe(false);
   });
 
+});
+
+
+describe('management action P&L reconciliation', () => {
+  it('marks a lower adverse deviation as improved without claiming causality', () => {
+    expect(reconcileAnalyticsActionImpact(100000, -60000, true)).toEqual({ status: 'improved', currentExposure: 60000, change: 40000 });
+  });
+  it('treats a neutral or favorable comparable article as zero adverse exposure', () => {
+    expect(reconcileAnalyticsActionImpact(100000, 0, true)).toEqual({ status: 'improved', currentExposure: 0, change: 100000 });
+    expect(reconcileAnalyticsActionImpact(100000, 15000, true).currentExposure).toBe(0);
+  });
+  it('marks a larger adverse deviation as worsened', () => {
+    expect(reconcileAnalyticsActionImpact(100000, -120000, true)).toEqual({ status: 'worsened', currentExposure: 120000, change: -20000 });
+  });
+  it('uses a one-ruble tolerance for rounding noise', () => {
+    expect(reconcileAnalyticsActionImpact(100000, -100000.5, true).status).toBe('unchanged');
+  });
+  it('does not infer zero when P&L or baseline is unavailable', () => {
+    expect(reconcileAnalyticsActionImpact(100000, undefined, false)).toEqual({ status: 'insufficient_data' });
+    expect(reconcileAnalyticsActionImpact(undefined, 0, true)).toEqual({ status: 'insufficient_data' });
+    expect(reconcileAnalyticsActionImpact(100000, 0, false)).toEqual({ status: 'insufficient_data' });
+  });
 });
