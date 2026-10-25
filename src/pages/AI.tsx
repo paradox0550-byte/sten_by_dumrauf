@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bot, CalendarDays, FileText, Mic, MicOff, Paperclip, Send, Sparkles, Trash2, UploadCloud, Eye, X, Database, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { StenLogo } from '../components/brand/StenLogo';
 import { api, ApiError, createMemory } from '../lib/api';
 import { useScope } from '../lib/useScope';
 import { useSearchParams } from 'react-router-dom';
@@ -415,7 +416,7 @@ function AIContent({user}:{user:User|null}){
  return <div className={pageClass}>
    <header className="sten-ai-topbar">
      <div className="sten-ai-topbar__brand">
-       <span className="sten-ai-topbar__mark" aria-hidden="true"><Sparkles size={19}/></span>
+       <span className="sten-ai-topbar__mark" aria-hidden="true"><StenLogo variant="mark" size={28} /></span>
        <div className="sten-ai-topbar__title">
          <div className="sten-ai-topbar__name"><h1>STEN AI</h1><span className="sten-ai-topbar__status" aria-label={busy?'STEN AI формирует ответ':'STEN AI готов к анализу'} title={busy?'Формирует ответ':'Готов к анализу'}/></div>
          <p>Аналитический партнёр руководителя</p>
