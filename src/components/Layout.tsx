@@ -43,7 +43,14 @@ const applyTheme = (theme: Theme) => {
     ?.setAttribute('content', resolved === 'dark' ? '#0B1015' : '#F3F5F7');
 };
 
-const viewNavigate=(nav:ReturnType<typeof useNavigate>,to:string)=>{if(typeof document!=='undefined'&&'startViewTransition' in document){(document as any).startViewTransition(()=>nav(to));}else{nav(to);}};
+const viewNavigate = (nav: ReturnType<typeof useNavigate>, to: string) => {
+  if (typeof document !== 'undefined' && 'startViewTransition' in document) {
+    (document as Document & { startViewTransition?: (callback: () => void) => void }).startViewTransition?.(() => nav(to));
+  } else {
+    nav(to);
+  }
+};
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     const value = localStorage.getItem(THEME_KEY);
@@ -63,15 +70,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [scope, setScope] = useScope();
   const location = useLocation();
   const navigate = useNavigate();
+
   const financePaths = ['/pnl', '/pnl/import', '/budget', '/analytics', '/finances'];
-  const operationsPaths = ['/ops', '/plan', '/staff', '/documents'];
-  const toolsPaths = ['/ai-quality', '/memory', '/settings', '/legal', '/admin/organizations'];
+  const operationsPaths = ['/ops', '/plan', '/staff'];
+  const knowledgePaths = ['/documents', '/memory'];
+  const toolsPaths = ['/ai-quality', '/legal', '/admin/organizations'];
   const matchesPath = (paths: string[]) => paths.some(path => location.pathname === path || location.pathname.startsWith(`${path}/`));
+
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => ({
     finance: matchesPath(financePaths),
     operations: matchesPath(operationsPaths),
+    knowledge: matchesPath(knowledgePaths),
     tools: matchesPath(toolsPaths),
   }));
+
   const toggleGroup = (group: string) => {
     if (sidebarCollapsed) {
       setSidebarCollapsed(false);
@@ -80,9 +92,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }
     setExpandedGroups(current => ({ ...current, [group]: !current[group] }));
   };
+
   useEffect(() => {
     if (matchesPath(financePaths)) setExpandedGroups(current => ({ ...current, finance: true }));
     if (matchesPath(operationsPaths)) setExpandedGroups(current => ({ ...current, operations: true }));
+    if (matchesPath(knowledgePaths)) setExpandedGroups(current => ({ ...current, knowledge: true }));
     if (matchesPath(toolsPaths)) setExpandedGroups(current => ({ ...current, tools: true }));
   }, [location.pathname]);
 
@@ -94,14 +108,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     media.addEventListener('change', syncSystemTheme);
     return () => media.removeEventListener('change', syncSystemTheme);
   }, [theme]);
+
   useEffect(() => {
     document.body.classList.toggle('sidebar-collapsed', sidebarCollapsed);
     localStorage.setItem(SIDEBAR_KEY, sidebarCollapsed ? '1' : '0');
   }, [sidebarCollapsed]);
+
   useEffect(() => {
     localStorage.setItem(SCALE_KEY, scale);
     window.dispatchEvent(new CustomEvent('sten-scale-change', { detail: scale }));
   }, [scale]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setMobileMenu(false);
@@ -114,14 +131,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     ['/dashboard', 'Обзор', 'overview'],
     ['/sten', 'STEN AI', Bot],
     ['/ai-quality', 'Лаборатория AI', FlaskConical],
-    ['/ops', 'Оперативный контроль', 'report'],
+    ['/ops', 'Отчёт смены', 'report'],
     ['/plan', 'План руководителя', CalendarDays],
     ['/pnl', 'P&L', 'pnl'],
     ['/budget', 'Бюджет', BarChart3],
     ['/analytics', 'Аналитика', BarChart3],
-    ['/staff', 'Персонал и производительность', 'staff'], 
+    ['/staff', 'Команда и ФОТ', 'staff'],
     ['/documents', 'Документы', 'terms'],
-    ['/finances', 'Финансы', WalletCards],
+    ['/finances', 'Финансовые операции', WalletCards],
     ['/memory', 'Память STEN', Brain],
     ['/settings', 'Настройки', Gauge],
     ['/legal', 'Правовая информация', Scale],
@@ -162,13 +179,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <button className="mobile-close" onClick={() => setMobileMenu(false)} aria-label="Закрыть меню"><X size={18} /></button>
           </div>
 
-          <nav className="sten-primary-nav" aria-label="Навигация контура">
-            <div className="nav-section-label">Рабочее пространство</div>
-            <NavLink to="/dashboard" onClick={() => setMobileMenu(false)}>
+          <nav className="sten-primary-nav" aria-label="Навигация STEN">
+            <div className="nav-section-label">Главное</div>
+            <NavLink to="/dashboard" end onClick={() => setMobileMenu(false)}>
               <NavIcon icon="overview" size={17} />
               <span>Обзор</span>
             </NavLink>
-            <NavLink to="/sten" end onClick={() => setMobileMenu(false)}>
+            <NavLink to="/sten" onClick={() => setMobileMenu(false)}>
               <Bot size={17} aria-hidden="true" />
               <span>STEN AI</span>
             </NavLink>
@@ -182,37 +199,49 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               {([
                 ['/pnl', 'P&L'],
                 ['/budget', 'Бюджет'],
-                ['/analytics', 'Аналитика'],
                 ['/finances', 'Финансовые операции'],
+                ['/analytics', 'Аналитика'],
               ] as const).map(([to, label]) => <NavLink key={to} to={to} onClick={() => setMobileMenu(false)}><span>{label}</span></NavLink>)}
             </div>}
 
-            <button className={`nav-group-toggle ${matchesPath(operationsPaths) ? 'is-current' : ''}`} type="button" aria-label="Операции" title={sidebarCollapsed ? 'Операции' : undefined} aria-expanded={!!expandedGroups.operations} onClick={() => toggleGroup('operations')}>
+            <button className={`nav-group-toggle ${matchesPath(operationsPaths) ? 'is-current' : ''}`} type="button" aria-label="Операционное управление" title={sidebarCollapsed ? 'Операции' : undefined} aria-expanded={!!expandedGroups.operations} onClick={() => toggleGroup('operations')}>
               <ClipboardList size={17} aria-hidden="true" />
               <span>Операции</span>
               <ChevronDown className="nav-group-chevron" size={15} aria-hidden="true" />
             </button>
-            {expandedGroups.operations && <div className="nav-group-children" aria-label="Операции">
+            {expandedGroups.operations && <div className="nav-group-children" aria-label="Операционное управление">
               {([
-                ['/ops', 'Оперативный контроль'],
+                ['/ops', 'Отчёт смены'],
                 ['/plan', 'План руководителя'],
-                ['/staff', 'Персонал и производительность'], 
-                ['/documents', 'Документы'],
+                ['/staff', 'Команда и ФОТ'],
               ] as const).map(([to, label]) => <NavLink key={to} to={to} onClick={() => setMobileMenu(false)}><span>{label}</span></NavLink>)}
             </div>}
 
-            <div className="nav-section-label nav-system-label">Настройки и инструменты</div>
-            <button className={`nav-group-toggle ${matchesPath(toolsPaths) ? 'is-current' : ''}`} type="button" aria-label="Инструменты" title={sidebarCollapsed ? 'Инструменты' : undefined} aria-expanded={!!expandedGroups.tools} onClick={() => toggleGroup('tools')}>
-              <Gauge size={17} aria-hidden="true" />
-              <span>Инструменты</span>
+            <button className={`nav-group-toggle ${matchesPath(knowledgePaths) ? 'is-current' : ''}`} type="button" aria-label="Знания" title={sidebarCollapsed ? 'Знания' : undefined} aria-expanded={!!expandedGroups.knowledge} onClick={() => toggleGroup('knowledge')}>
+              <Brain size={17} aria-hidden="true" />
+              <span>Знания</span>
               <ChevronDown className="nav-group-chevron" size={15} aria-hidden="true" />
             </button>
-            {expandedGroups.tools && <div className="nav-group-children" aria-label="Настройки и инструменты">
-              <NavLink to="/ai-quality" onClick={() => setMobileMenu(false)}><FlaskConical size={16} aria-hidden="true" /><span>Лаборатория AI</span></NavLink>
+            {expandedGroups.knowledge && <div className="nav-group-children" aria-label="Знания">
+              <NavLink to="/documents" onClick={() => setMobileMenu(false)}><FileText size={16} aria-hidden="true" /><span>Документы</span></NavLink>
               <NavLink to="/memory" onClick={() => setMobileMenu(false)}><Brain size={16} aria-hidden="true" /><span>Память STEN</span></NavLink>
-              <NavLink to="/settings" onClick={() => setMobileMenu(false)}><span>Настройки</span></NavLink>
+            </div>}
+
+            <div className="nav-section-label nav-system-label">Система</div>
+            <NavLink to="/settings" onClick={() => setMobileMenu(false)}>
+              <Gauge size={17} aria-hidden="true" />
+              <span>Настройки</span>
+            </NavLink>
+
+            <button className={`nav-group-toggle ${matchesPath(toolsPaths) ? 'is-current' : ''}`} type="button" aria-label="Дополнительно" title={sidebarCollapsed ? 'Дополнительно' : undefined} aria-expanded={!!expandedGroups.tools} onClick={() => toggleGroup('tools')}>
+              <Scale size={17} aria-hidden="true" />
+              <span>Дополнительно</span>
+              <ChevronDown className="nav-group-chevron" size={15} aria-hidden="true" />
+            </button>
+            {expandedGroups.tools && <div className="nav-group-children" aria-label="Дополнительно">
+              <NavLink to="/ai-quality" onClick={() => setMobileMenu(false)}><FlaskConical size={16} aria-hidden="true" /><span>Лаборатория AI</span></NavLink>
               <NavLink to="/legal" onClick={() => setMobileMenu(false)}><Scale size={16} aria-hidden="true" /><span>Правовая информация</span></NavLink>
-              {user?.role === 'super_admin' && <NavLink to="/admin/organizations" onClick={() => setMobileMenu(false)}><span>Организации</span></NavLink>}
+              {user?.role === 'super_admin' && <NavLink to="/admin/organizations" onClick={() => setMobileMenu(false)}><Gauge size={16} aria-hidden="true" /><span>Организации</span></NavLink>}
             </div>}
           </nav>
         </div>
@@ -235,7 +264,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <button className="icon-button mobile-menu" onClick={() => setMobileMenu(v => !v)} aria-label="Меню">
             {mobileMenu ? <X size={18} /> : <Menu size={18} />}
           </button>
-          <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(v => !v)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed ? "Развернуть навигацию" : "Свернуть навигацию"} title={sidebarCollapsed ? "Развернуть навигацию" : "Свернуть навигацию"}>
+          <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(v => !v)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed ? 'Развернуть навигацию' : 'Свернуть навигацию'} title={sidebarCollapsed ? 'Развернуть навигацию' : 'Свернуть навигацию'}>
             {sidebarCollapsed ? <PanelLeft size={17} /> : <PanelLeftClose size={17} />}
           </button>
 
@@ -244,46 +273,27 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span className="period-chip">{periodLabel} · с начала месяца</span>
           </div>
 
-
-
           <div className="top-workspace">
             <WorkspaceSelector value={scope} onChange={setScope} variant="compact" />
           </div>
 
           {matchesPath(['/pnl', '/ops', '/budget', '/analytics', '/finances']) && <div className="global-scale" role="group" aria-label="Масштаб финансовых значений">
             {([['RUB', '₽'], ['THOUSAND', 'тыс. ₽'], ['MILLION', 'млн ₽']] as const).map(([value, label]) => (
-              <button
-                key={value}
-                className={scale === value ? 'active' : ''}
-                onClick={() => setScale(value)}
-              >{label}</button>
+              <button key={value} className={scale === value ? 'active' : ''} onClick={() => setScale(value)}>{label}</button>
             ))}
           </div>}
 
           <div className="top-actions">
-            <button
-              className="icon-button"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark')}
-              aria-label={theme === 'dark' ? 'Тема: тёмная. Переключить на светлую' : theme === 'light' ? 'Тема: светлая. Переключить на системную' : 'Тема: системная. Переключить на тёмную'}
-              title={theme === 'dark' ? 'Тёмная тема' : theme === 'light' ? 'Светлая тема' : 'Системная тема'}
-            >
+            <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark')} aria-label={theme === 'dark' ? 'Тема: тёмная. Переключить на светлую' : theme === 'light' ? 'Тема: светлая. Переключить на системную' : 'Тема: системная. Переключить на тёмную'} title={theme === 'dark' ? 'Тёмная тема' : theme === 'light' ? 'Светлая тема' : 'Системная тема'}>
               {theme === 'dark' ? <Sun size={17} /> : theme === 'light' ? <Moon size={17} /> : <Monitor size={17} />}
             </button>
           </div>
-          <div
-            className="top-profile"
-            title={user?.email || 'Открыть настройки аккаунта'}
-            role="button"
-            tabIndex={0}
-            aria-label="Открыть настройки аккаунта"
-            onClick={() => navigate('/settings#settings-profile')}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                navigate('/settings#settings-profile');
-              }
-            }}
-          >
+          <div className="top-profile" title={user?.email || 'Открыть настройки аккаунта'} role="button" tabIndex={0} aria-label="Открыть настройки аккаунта" onClick={() => navigate('/settings#settings-profile')} onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              navigate('/settings#settings-profile');
+            }
+          }}>
             <div className="avatar">{name.slice(0, 1)}</div>
             <div className="top-profile-info">
               <b>{name}</b>
@@ -297,13 +307,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <nav className="mobile-bottom-nav" aria-label="Основная навигация">
         {mobileItems.map(([to, label, Icon]) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/dashboard'}
-            className={({ isActive }) => isActive || (to === '/pnl' && matchesPath(financePaths)) || (to === '/ops' && matchesPath(operationsPaths)) ? 'active' : ''}
-            onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; e.preventDefault(); viewNavigate(navigate, to); }}
-          >
+          <NavLink key={to} to={to} end={to === '/dashboard'} className={({ isActive }) => isActive || (to === '/pnl' && matchesPath(financePaths)) || (to === '/ops' && matchesPath(operationsPaths)) ? 'active' : ''} onClick={(event) => {
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+            event.preventDefault();
+            viewNavigate(navigate, to);
+          }}>
             <NavIcon icon={Icon} size={18} />
             <span>{label}</span>
           </NavLink>
