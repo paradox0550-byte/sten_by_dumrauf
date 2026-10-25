@@ -6,7 +6,7 @@ import { useScope } from '../lib/useScope';
 import { scopeQuery } from '../lib/scope';
 import { aggregateLaborRecords, finiteNumber } from '../lib/financialAnalytics';
 import { aggregateDailySalesReports, type DailySalesReport } from '../lib/dailySalesAnalytics';
-import { analyticsActionStorageKey, readAnalyticsActionStates, writeAnalyticsActionStates, type AnalyticsActionStates } from '../lib/analyticsActionStorage';
+import { analyticsActionStorageKey, isAnalyticsActionOverdue, readAnalyticsActionStates, writeAnalyticsActionStates, type AnalyticsActionStates } from '../lib/analyticsActionStorage';
 
 type Row = { article?: string; plan?: number | null; fact?: number | null; source?: string };
 type CalculatedPnl = { revenue?: number | null; cogs?: number | null; personnel?: number | null; labor?: number | null; opex?: number | null; operatingExpenses?: number | null; ebitda?: number | null; netProfit?: number | null; foodCostPercent?: number | null; personnelPercent?: number | null; opexPercent?: number | null; ebitdaMargin?: number | null; netMargin?: number | null; primeCostPercent?: number | null };
@@ -17,6 +17,7 @@ const money = (v: number | undefined) => finite(v) == null ? 'Нет данны�
 const pct = (v: number | undefined) => finite(v) == null ? 'Нет данных' : v!.toFixed(1).replace('.', ',') + ' %';
 const delta = (v: number | undefined) => finite(v) == null ? '—' : (v! > 0 ? '+' : '') + new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(v!);
 const pick = (rows: Row[], terms: string[]) => rows.find(row => terms.some(term => String(row.article || '').toLowerCase().replace(/ё/g, 'е').includes(term)));
+const localDateKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 const classifyFinancialRow = (article: string): 'revenue' | 'expense' | 'unknown' => {
   const value = String(article || '').toLowerCase().replace(/ё/g, 'е');
@@ -200,7 +201,7 @@ export default function Analytics() {
             const action = actionStates[key] || { status: 'recommended' as const, note: '' };
             return <div key={item.article}>
               <b>{item.article}<small>{item.check}</small></b>
-              <span>{action.status === 'recommended' ? 'Рекомендовано' : action.status === 'accepted' ? 'Принято в работу' : 'Подтверждено пользователем'}</span>
+              <span>{action.status === 'recommended' ? 'Рекомендовано' : action.status === 'accepted' ? <>Принято в работу{isAnalyticsActionOverdue(action, localDateKey()) && <small className="negative">Просрочено</small>}</> : 'Подтверждено пользователем'}</span>
               <label><span>Ответственный</span><input value={action.responsible ?? ''} maxLength={120} onChange={(e) => saveActionStates({ ...actionStates, [key]: { ...action, responsible: e.target.value.slice(0, 120) } })} placeholder="Кто выполнит проверку" /></label>
               <label><span>Срок</span><input type="date" value={action.dueDate ?? ''} onChange={(e) => saveActionStates({ ...actionStates, [key]: { ...action, dueDate: e.target.value } })} /></label>
               <label><span>Решение / источник подтверждения</span><textarea value={action.note} maxLength={1000} onChange={(e) => saveActionStates({ ...actionStates, [key]: { ...action, note: e.target.value } })} placeholder="Что решили, какой документ проверили, что подтвердилось" /></label>
