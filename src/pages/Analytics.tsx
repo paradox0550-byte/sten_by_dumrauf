@@ -6,6 +6,7 @@ import { useScope } from '../lib/useScope';
 import { scopeQuery } from '../lib/scope';
 import { aggregateLaborRecords, finiteNumber } from '../lib/financialAnalytics';
 import { aggregateDailySalesReports, type DailySalesReport } from '../lib/dailySalesAnalytics';
+import { analyticsActionStorageKey, isAnalyticsActionOverdue, readAnalyticsActionStates, writeAnalyticsActionStates, reconcileAnalyticsActionImpact, type AnalyticsActionStates } from '../lib/analyticsActionStorage';
 
 type Row = { article?: string; plan?: number | null; fact?: number | null; source?: string };
 type CalculatedPnl = { revenue?: number | null; cogs?: number | null; personnel?: number | null; labor?: number | null; opex?: number | null; operatingExpenses?: number | null; ebitda?: number | null; netProfit?: number | null; foodCostPercent?: number | null; personnelPercent?: number | null; opexPercent?: number | null; ebitdaMargin?: number | null; netMargin?: number | null; primeCostPercent?: number | null };
@@ -16,6 +17,7 @@ const money = (v: number | undefined) => finite(v) == null ? 'Нет данны�
 const pct = (v: number | undefined) => finite(v) == null ? 'Нет данных' : v!.toFixed(1).replace('.', ',') + ' %';
 const delta = (v: number | undefined) => finite(v) == null ? '—' : (v! > 0 ? '+' : '') + new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(v!);
 const pick = (rows: Row[], terms: string[]) => rows.find(row => terms.some(term => String(row.article || '').toLowerCase().replace(/ё/g, 'е').includes(term)));
+const localDateKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 const classifyFinancialRow = (article: string): 'revenue' | 'expense' | 'unknown' => {
   const value = String(article || '').toLowerCase().replace(/ё/g, 'е');
@@ -27,9 +29,28 @@ const classifyFinancialRow = (article: string): 'revenue' | 'expense' | 'unknown
 export default function Analytics() {
   const [scope] = useScope(); const [rows, setRows] = useState<Row[]>([]); const [calculated, setCalculated] = useState<PnlCalculated>(null); const [labor, setLabor] = useState<Labor[]>([]); const [dailyReports, setDailyReports] = useState<DailySalesReport[]>([]); const [salesError, setSalesError] = useState('');
   const { settings } = useAnalyticsSettings();
-  const [actionStates, setActionStates] = useState<Record<string, { status: 'recommended' | 'accepted' | 'confirmed'; note: string }>>({});
-  const updateActionState = (key: string, status: 'recommended' | 'accepted' | 'confirmed', note: string) => {
-    setActionStates((current) => ({ ...current, [key]: { status, note } }));
+  const actionStorageKey = analyticsActionStorageKey(scope);
+  const [actionStatesByScope, setActionStatesByScope] = useState<Record<string, AnalyticsActionStates>>(() => ({ [actionStorageKey]: readAnalyticsActionStates(scope) }));
+  const actionStates = actionStatesByScope[actionStorageKey] ?? {};
+  useEffect(() => {
+    if (actionStatesByScope[actionStorageKey] === undefined) {
+      setActionStatesByScope((current) => ({ ...current, [actionStorageKey]: readAnalyticsActionStates(scope) }));
+    }
+  }, [actionStorageKey, scope, actionStatesByScope]);
+  const saveActionStates = (next: AnalyticsActionStates) => {
+    setActionStatesByScope((current) => ({ ...current, [actionStorageKey]: next }));
+    writeAnalyticsActionStates(scope, next);
+  };
+  const updateActionState = (key: string, status: 'recommended' | 'accepted' | 'confirmed', note: string, currentImpact: number | undefined) => {
+    const previous = actionStates[key] ?? { status: 'recommended' as const, note: '' };
+    if (status === 'recommended') {
+      const resetAction = { ...previous, initialImpact: undefined, initialImpactPeriod: undefined, initialImpactArticle: undefined, resultAmount: undefined };
+      saveActionStates({ ...actionStates, [key]: { ...resetAction, status, note } });
+      return;
+    }
+    const captureBaseline = previous.initialImpact === undefined && currentImpact !== undefined;
+    const initialImpact = previous.initialImpact ?? (currentImpact === undefined ? undefined : Math.abs(currentImpact));
+    saveActionStates({ ...actionStates, [key]: { ...previous, status, note, ...(initialImpact !== undefined ? { initialImpact } : {}), ...(captureBaseline ? { initialImpactPeriod: scope.period, initialImpactArticle: key } : {}) } });
   };
  const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [accessDenied, setAccessDenied] = useState(false); const [laborError, setLaborError] = useState(''); const [pnlUpdatedAt, setPnlUpdatedAt] = useState<string>(''); const [laborUpdatedAt, setLaborUpdatedAt] = useState<string>('');
   async function load(){setLoading(true);setError('');setLaborError('');setSalesError('');const q=scopeQuery(scope);const [pnlResult,fotResult,salesResult]=await Promise.allSettled([api.get<any>('/api/pnl?'+q),api.get<any>('/fot-analytics?'+q),api.get<any>('/reports?'+q)]);const scopeDenied=[pnlResult,fotResult,salesResult].some(result=>result.status==='rejected'&&result.reason instanceof ApiError&&result.reason.status===403&&result.reason.code==='SCOPE_ACCESS_CHECK_FAILED');if(scopeDenied){setRows([]);setCalculated(null);setLabor([]);setDailyReports([]);setAccessDenied(true);setError('Нет доступа к данным выбранного ресторана. Выберите другой рабочий контур или обратитесь к администратору.');setLaborError('Нет доступа');setSalesError('Нет доступа');setLoading(false);return;}if(pnlResult.status==='fulfilled'){const pnl=pnlResult.value;setRows(Array.isArray(pnl?.rows)?pnl.rows:[]);setCalculated((pnl?.calculated??pnl?.summary?.calculated??null) as PnlCalculated);setPnlUpdatedAt(new Date().toISOString())}else{setRows([]);setCalculated(null);setError(pnlResult.reason instanceof Error?pnlResult.reason.message:'Не удалось загрузить P&L.')}if(fotResult.status==='fulfilled'){const fot=fotResult.value;setLabor(Array.isArray(fot?.records)?fot.records.filter((x:Labor)=>x.period===scope.period):[]);setLaborUpdatedAt(new Date().toISOString())}else{setLabor([]);setLaborError(fotResult.reason instanceof Error?fotResult.reason.message:'Не удалось загрузить аналитику ФОТ.')}if(salesResult.status==='fulfilled'){const data=salesResult.value;setDailyReports(Array.isArray(data?.reports)?data.reports:[])}else{setDailyReports([]);setSalesError(salesResult.reason instanceof Error?salesResult.reason.message:'Не удалось загрузить отчёты смен.')}setLoading(false)}
@@ -71,6 +92,25 @@ export default function Analytics() {
       }
       return { ...item, check, evidence };
     }), [incomeExpenseControl]);
+
+  const managementActionItems = useMemo(() => {
+    const items = new Map<string, { article: string; plan: number | undefined; fact: number | undefined; impact: number | undefined; check: string; evidence: string }>();
+    priorityChecks.forEach((item) => items.set(item.article.toLowerCase(), item));
+    Object.keys(actionStates).forEach((key) => {
+      if (items.has(key)) return;
+      const row = summaryRows.find((candidate) => String(candidate.article || '').toLowerCase() === key);
+      if (!row) {
+        items.set(key, { article: key, plan: undefined, fact: undefined, impact: undefined, check: 'Проверьте сопоставимость статьи и полноту данных P&L.', evidence: 'Статья не найдена в текущем наборе данных.' });
+        return;
+      }
+      const plan = finite(row.plan), fact = finite(row.fact);
+      const type = classifyFinancialRow(String(row.article || ''));
+      const difference = plan !== undefined && fact !== undefined ? fact - plan : undefined;
+      const impact = difference === undefined ? undefined : type === 'revenue' ? difference : type === 'expense' ? -difference : undefined;
+      items.set(key, { article: String(row.article || key), plan, fact, impact, check: 'Сверьте статью, период и первичные документы до оценки результата.', evidence: 'Сопоставление возможно только по этой статье в выбранном периоде.' });
+    });
+    return [...items.values()];
+  }, [priorityChecks, actionStates, summaryRows]);
 
   const salesDiagnostics = useMemo(() => {
     const reportRevenue = sales.fields.revenue.total;
@@ -134,7 +174,10 @@ export default function Analytics() {
         {priorityChecks.length ? <div className="analytics-report-table">
           <div className="analytics-report-head"><span>Статья</span><span>Влияние</span><span>Что проверить</span><span>Основание</span></div>
           {priorityChecks.map((item) => <div key={item.article}>
-            <b>{item.article}</b><strong className="negative">{money(item.impact)} ₽</strong><span>{item.check}</span><small>{item.evidence}</small>
+            <b>{item.article}</b>
+            <strong className="negative">{money(item.impact === undefined ? undefined : Math.abs(item.impact))} ₽<small>неблагоприятное отклонение</small></strong>
+            <span>{item.check}</span>
+            <small>{item.evidence}<br />Источник: P&amp;L, факт {money(item.fact)} ₽ · план {money(item.plan)} ₽. Расчёт: {item.type === 'revenue' ? 'факт − план' : 'план − факт'}. Это размер отклонения от плана, а не доказанные потери или подтверждённая экономия.</small>
           </div>)}
         </div> : <div className="empty">Нет подтверждённых неблагоприятных отклонений с доступными планом и фактом. Неполные данные не трактуются как нулевое отклонение.</div>}
       </section>
@@ -180,20 +223,29 @@ export default function Analytics() {
 
       <section className="panel analytics-report-section">
         <div className="panel-title"><CheckCircle2 size={16}/> Контроль управленческих действий</div>
-        <p className="dashboard-note">Статус отражает решение пользователя, а не автоматическое доказательство. В этой версии статусы хранятся только в текущем сеансе страницы и не отправляются в API.</p>
-        {priorityChecks.length ? <div className="analytics-report-table">
-          <div className="analytics-report-head"><span>Рекомендация</span><span>Статус</span><span>Решение / доказательство</span><span>Действие</span></div>
-          {priorityChecks.map((item) => {
+        <p className="dashboard-note">Статус, ответственный, срок, исходное отклонение при принятии и введённый эффект сохраняются локально в этом браузере отдельно для выбранного периода и рабочего контура. Для отметки результата нужны заметка/источник и сумма эффекта (0 ₽ допустимо). Данные не отправляются в API и не синхронизируются между устройствами. Сверка сравнивает снимок отклонения только при точном совпадении периода и названия статьи P&amp;L; старые записи без метаданных не считаются сопоставимыми. Это не доказывает, что изменение вызвано действием.</p>
+        {managementActionItems.length ? <div className="analytics-report-table">
+          <div className="analytics-report-head"><span>Рекомендация</span><span>Статус и сверка P&amp;L</span><span>Решение / доказательство</span><span>Действие</span></div>
+          {managementActionItems.map((item) => {
             const key = item.article.toLowerCase();
             const action = actionStates[key] || { status: 'recommended' as const, note: '' };
+            const rowComparable = item.plan !== undefined && item.fact !== undefined && item.impact !== undefined;
+            const reconciliation = reconcileAnalyticsActionImpact(action.initialImpact, item.impact, rowComparable, action.initialImpactPeriod, scope.period, action.initialImpactArticle, item.article);
+            const reconciliationLabel = reconciliation.status === 'improved' ? 'Отклонение уменьшилось' : reconciliation.status === 'worsened' ? 'Отклонение выросло' : reconciliation.status === 'unchanged' ? 'Существенного изменения нет' : 'Недостаточно данных для сверки';
             return <div key={item.article}>
               <b>{item.article}<small>{item.check}</small></b>
-              <span>{action.status === 'recommended' ? 'Рекомендовано' : action.status === 'accepted' ? 'Принято в работу' : 'Подтверждено пользователем'}</span>
-              <label><span>Решение / источник подтверждения</span><textarea value={action.note} maxLength={1000} onChange={(e) => setActionStates((prev) => ({ ...prev, [key]: { ...action, note: e.target.value } }))} placeholder="Что решили, какой документ проверили, что подтвердилось" /></label>
+              <span>{action.status === 'recommended' ? 'Рекомендовано' : action.status === 'accepted' ? <>Принято в работу{isAnalyticsActionOverdue(action, localDateKey()) && <small className="negative">Просрочено</small>}</> : 'Результат отмечен пользователем'}</span>
+              <label><span>Ответственный</span><input value={action.responsible ?? ''} maxLength={120} onChange={(e) => saveActionStates({ ...actionStates, [key]: { ...action, responsible: e.target.value.slice(0, 120) } })} placeholder="Кто выполнит проверку" /></label>
+              <label><span>Срок</span><input type="date" value={action.dueDate ?? ''} onChange={(e) => saveActionStates({ ...actionStates, [key]: { ...action, dueDate: e.target.value } })} /></label>
+              <label><span>Решение / источник подтверждения</span><textarea value={action.note} maxLength={1000} onChange={(e) => saveActionStates({ ...actionStates, [key]: { ...action, status: action.status === 'confirmed' ? 'accepted' : action.status, note: e.target.value } })} placeholder="Например: проверен акт, исправлена закупочная цена, дата и ссылка на документ" /></label>
+              <label><span>Фактический эффект действия, ₽</span><input type="number" min="0" step="1" disabled={action.status === 'recommended'} value={action.resultAmount ?? ''} onChange={(e) => { const raw = e.target.value; const amount = raw === '' ? undefined : Number(raw); saveActionStates({ ...actionStates, [key]: { ...action, status: action.status === 'confirmed' ? 'accepted' : action.status, resultAmount: amount !== undefined && Number.isFinite(amount) && amount >= 0 ? amount : undefined } }); }} placeholder="Укажите после проверки" /></label>
+              {action.initialImpact !== undefined && <small>Исходное неблагоприятное отклонение при принятии: {money(action.initialImpact)} ₽.</small>}
+              {action.status !== 'recommended' && <small>Сверка статьи «{item.article}» за {scope.period}: {reconciliationLabel}{reconciliation.currentExposure !== undefined ? ' · текущее неблагоприятное отклонение: ' + money(reconciliation.currentExposure) + ' ₽' : ''}{reconciliation.change !== undefined ? ' · изменение отклонения: ' + (reconciliation.change > 0 ? '+' : '') + money(reconciliation.change) + ' ₽' : ''}. Это сравнение P&amp;L, а не доказательство причинной связи с действием.</small>}
+              {action.status === 'confirmed' && action.resultAmount !== undefined && <small>Эффект, отмеченный пользователем: {money(action.resultAmount)} ₽. Это не независимая проверка и не автоматическая сверка с P&amp;L.</small>}
               <span>
-                <button className="secondary-button" onClick={() => updateActionState(key, 'accepted', actionStates[key]?.note ?? action.note)}>Принять в работу</button>
-                <button className="secondary-button" disabled={!(actionStates[key]?.note ?? action.note).trim()} onClick={() => updateActionState(key, 'confirmed', actionStates[key]?.note ?? action.note)}>Подтвердить результат</button>
-                <button className="secondary-button" onClick={() => updateActionState(key, 'recommended', actionStates[key]?.note ?? action.note)}>Сбросить</button>
+                <button className="secondary-button" disabled={action.status !== 'recommended'} onClick={() => updateActionState(key, 'accepted', action.note, item.impact)}>Принять в работу</button>
+                <button className="secondary-button" disabled={action.status !== 'accepted' || !action.note.trim() || action.resultAmount === undefined || !Number.isFinite(action.resultAmount) || action.resultAmount < 0} onClick={() => updateActionState(key, 'confirmed', action.note, item.impact)}>Отметить результат</button>
+                <button className="secondary-button" onClick={() => updateActionState(key, 'recommended', action.note, item.impact)}>Сбросить</button>
               </span>
             </div>;
           })}
