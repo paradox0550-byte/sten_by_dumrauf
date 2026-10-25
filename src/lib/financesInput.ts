@@ -26,7 +26,7 @@ const includesAny = (rows: FinanceRow[], keys: string[], exclude: string[] = [])
     const article = articleText(row);
     return keys.some((key) => article.includes(key)) &&
       !exclude.some((key) => article.includes(key));
-};
+  });
 
 const finite = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
