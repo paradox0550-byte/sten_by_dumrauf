@@ -81,7 +81,7 @@ async function readSpreadsheet(accessToken: string, spreadsheetId: string): Prom
 }
 
 async function readSheetValues(accessToken: string, spreadsheetId: string, sheetTitle: string): Promise<string[][]> {
-  const range = `'${sheetTitle.replace(/'/g, "''")}'!A1:Z50`;
+  const range = `'${sheetTitle.replace(/'/g, "''")}'!A1:AZ500`;
   const response = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE`,
     { headers: { Authorization: `Bearer ${accessToken}` } },
@@ -114,7 +114,7 @@ export default function GoogleSheetsIntegration() {
     const rows = await readSheetValues(accessToken, info.spreadsheetId, sheet.properties.title);
     setSelectedSheetId(sheetId);
     setValues(rows);
-    setNotice(rows.length ? `Загружено строк: ${rows.length}. Показаны первые 50 строк и 26 столбцов.` : 'В выбранном листе нет заполненных ячеек в диапазоне A1:Z50.');
+    setNotice(rows.length ? `Загружено строк: ${rows.length}. Показаны первые 50 строк и 26 столбцов.` : 'В выбранном листе нет заполненных ячеек в диапазоне A1:AZ500.');
   };
 
   const connectAndRead = async () => {
@@ -175,6 +175,38 @@ export default function GoogleSheetsIntegration() {
     }
   };
 
+  const sendToStenAI = () => {
+    if (!spreadsheet || !selectedSheet || values.length === 0) return;
+    const quote = (value: string) => {
+      const normalized = value.replace(/\r?\n/g, ' ').trim();
+      return /[",;]/.test(normalized) ? '"' + normalized.replace(/"/g, '""') + '"' : normalized;
+    };
+    const rows = values.map((row) => row.map(quote).join(';'));
+    let tableText = '';
+    for (const row of rows) {
+      const next = tableText ? tableText + '\n' + row : row;
+      if (next.length > 14000) break;
+      tableText = next;
+    }
+    const includedRows = tableText ? tableText.split('\n').length : 0;
+    const omittedRows = Math.max(0, values.length - includedRows);
+    const context = [
+      'Проанализируй данные из Google Таблицы как управленческий аналитик ресторана.',
+      'Источник: Google Таблицы. Документ: ' + (spreadsheet.properties?.title || 'Без названия') + '. Лист: ' + selectedSheet.properties.title + '.',
+      'Не выдумывай отсутствующие значения. Сначала определи заголовки, период, единицы измерения и смысл колонок. Если структуру нельзя надёжно определить — задай уточняющий вопрос. Разделяй факты, расчёты и гипотезы.',
+      omittedRows > 0 ? 'Контекст ограничен размером; пропущено строк в конце: ' + omittedRows + '.' : '',
+      'ДАННЫЕ ТАБЛИЦЫ (разделитель ;):',
+      tableText,
+      'Кратко опиши содержание таблицы, затем предложи ключевые проверки и выводы, которые действительно можно сделать из этих данных.'
+    ].filter(Boolean).join('\n\n');
+    try {
+      sessionStorage.setItem('sten_google_sheet_context_v1', context);
+      window.location.assign('/ai?sheetContext=1');
+    } catch {
+      setError('Не удалось подготовить данные для STEN AI. Возможно, таблица слишком большая для памяти браузера.');
+    }
+  };
+
   const disconnect = () => {
     setToken('');
     setSpreadsheet(null);
@@ -194,19 +226,21 @@ export default function GoogleSheetsIntegration() {
         </div>
       </div>
 
-      <label className="settings-field" style={{ marginTop: 16 }}>
-        <span>Ссылка на таблицу</span>
-        <input
-          type="url"
-          value={url}
-          onChange={(event) => setUrl(event.target.value)}
-          placeholder="https://docs.google.com/spreadsheets/d/…"
-          autoComplete="url"
-          spellCheck={false}
-          aria-describedby="google-sheets-help"
-        />
-        <small className="muted" id="google-sheets-help">Откройте таблицу в Google и скопируйте ссылку. У вашего аккаунта должен быть доступ к ней.</small>
-      </label>
+      {!spreadsheet ? (
+        <label className="settings-field" style={{ marginTop: 16 }}>
+          <span>Ссылка на таблицу</span>
+          <input type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="Вставьте ссылку на Google Таблицу" autoComplete="url" spellCheck={false} aria-describedby="google-sheets-help" style={{ width: "100%", minWidth: 0, boxSizing: "border-box", textOverflow: "ellipsis" }} />
+          <small className="muted" id="google-sheets-help">Ссылка нужна только для подключения. После загрузки она будет скрыта; STEN покажет название таблицы и позволит передать данные в AI.</small>
+        </label>
+      ) : (
+        <div style={{ marginTop: 14, padding: '12px 14px', border: '1px solid var(--sten-border-subtle, #d7dde2)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, minWidth: 0 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{spreadsheet.properties?.title || 'Google Таблица'}</div>
+            <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>Подключена · только чтение</div>
+          </div>
+          <button type="button" className="secondary-button" disabled={busy} onClick={() => { setSpreadsheet(null); setSelectedSheetId(null); setValues([]); setNotice(''); setError(''); }}>Изменить ссылку</button>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
         <button className="primary-button" type="button" disabled={busy} onClick={() => void connectAndRead()}>
@@ -220,29 +254,19 @@ export default function GoogleSheetsIntegration() {
       {notice && <div className="pnl-message ok" role="status" style={{ marginTop: 12 }}>{notice}</div>}
 
       {spreadsheet && (
-        <div style={{ marginTop: 16 }}>
-          <div style={{ fontWeight: 600 }}>{spreadsheet.properties?.title || 'Google Таблица'}</div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>Режим: только чтение · Токен действует только в памяти текущей страницы</div>
+        <div style={{ marginTop: 14 }}>
           <label className="settings-field">
-            <span>Лист</span>
+            <span>Лист для анализа</span>
             <select value={selectedSheetId ?? ''} onChange={(event) => void changeSheet(event.target.value)} disabled={busy}>
               {spreadsheet.sheets?.map((sheet) => <option key={sheet.properties.sheetId} value={sheet.properties.sheetId}>{sheet.properties.title}</option>)}
             </select>
           </label>
           {values.length > 0 && (
-            <div style={{ overflowX: 'auto', maxWidth: '100%', border: '1px solid var(--sten-border-subtle, #d7dde2)', borderRadius: 8 }}>
-              <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13 }}>
-                <tbody>
-                  {values.map((row, rowIndex) => (
-                    <tr key={rowIndex}>
-                      {row.map((cell, cellIndex) => {
-                        const Tag = rowIndex === 0 ? 'th' : 'td';
-                        return <Tag key={cellIndex} style={{ padding: '8px 10px', textAlign: 'left', verticalAlign: 'top', borderBottom: '1px solid var(--sten-border-subtle, #d7dde2)', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxWidth: 280 }}>{cell || '—'}</Tag>;
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={{ marginTop: 12, padding: '14px 16px', borderRadius: 10, background: 'var(--sten-surface-muted, rgba(127, 140, 150, .08))' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}><FileSpreadsheet size={17} aria-hidden="true" /> Данные готовы для STEN AI</div>
+              <p className="muted" style={{ margin: '6px 0 12px', fontSize: 13 }}>Загружено {values.length} строк. Предпросмотр таблицы скрыт, чтобы не перегружать настройки.</p>
+              <button type="button" className="primary-button" disabled={busy} onClick={sendToStenAI}><FileSpreadsheet size={16} aria-hidden="true" /> Анализировать в STEN AI</button>
+              <p className="muted" style={{ margin: '8px 0 0', fontSize: 12 }}>Данные попадут в черновик вопроса и отправятся в STEN AI только после нажатия «Отправить» в чате.</p>
             </div>
           )}
         </div>

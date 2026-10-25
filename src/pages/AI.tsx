@@ -102,6 +102,17 @@ function AIContent({user}:{user:User|null}){
  const[voiceAutoplay,setVoiceAutoplay]=useState(()=>{try{return localStorage.getItem('sten_ai_voice_autoplay')==='true'}catch{return false}});
  const[composerFocused,setComposerFocused]=useState(false);
  useEffect(()=>{if(initialQuery)setPrompt(initialQuery)},[initialQuery]);
+ useEffect(()=>{
+   if(searchParams.get('sheetContext')!=='1')return;
+   try{
+     const context=sessionStorage.getItem('sten_google_sheet_context_v1');
+     if(context){
+       setPrompt(context);
+       sessionStorage.removeItem('sten_google_sheet_context_v1');
+     }
+   }catch{}
+   setSearchParams(params=>{const next=new URLSearchParams(params);next.delete('sheetContext');return next},{replace:true});
+ },[searchParams,setSearchParams]);
  useEffect(()=>{voiceModeRef.current=voiceMode},[voiceMode]);
  useEffect(()=>{voiceAutoplayRef.current=voiceAutoplay},[voiceAutoplay]);
  useEffect(()=>()=>{try{recog.current?.abort?.()}catch{} if(typeof window!=='undefined'&&'speechSynthesis' in window)window.speechSynthesis.cancel()},[]);
