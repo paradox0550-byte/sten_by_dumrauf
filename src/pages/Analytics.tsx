@@ -6,7 +6,7 @@ import { useScope } from '../lib/useScope';
 import { scopeQuery } from '../lib/scope';
 import { aggregateLaborRecords, finiteNumber } from '../lib/financialAnalytics';
 import { aggregateDailySalesReports, type DailySalesReport } from '../lib/dailySalesAnalytics';
-import { analyticsActionStorageKey, isAnalyticsActionOverdue, readAnalyticsActionStates, writeAnalyticsActionStates, type AnalyticsActionStates } from '../lib/analyticsActionStorage';
+import { analyticsActionStorageKey, isAnalyticsActionOverdue, readAnalyticsActionStates, writeAnalyticsActionStates, reconcileAnalyticsActionImpact, type AnalyticsActionStates } from '../lib/analyticsActionStorage';
 
 type Row = { article?: string; plan?: number | null; fact?: number | null; source?: string };
 type CalculatedPnl = { revenue?: number | null; cogs?: number | null; personnel?: number | null; labor?: number | null; opex?: number | null; operatingExpenses?: number | null; ebitda?: number | null; netProfit?: number | null; foodCostPercent?: number | null; personnelPercent?: number | null; opexPercent?: number | null; ebitdaMargin?: number | null; netMargin?: number | null; primeCostPercent?: number | null };
@@ -91,6 +91,25 @@ export default function Analytics() {
       }
       return { ...item, check, evidence };
     }), [incomeExpenseControl]);
+
+  const managementActionItems = useMemo(() => {
+    const items = new Map<string, { article: string; plan: number | undefined; fact: number | undefined; impact: number | undefined; check: string; evidence: string }>();
+    priorityChecks.forEach((item) => items.set(item.article.toLowerCase(), item));
+    Object.keys(actionStates).forEach((key) => {
+      if (items.has(key)) return;
+      const row = summaryRows.find((candidate) => String(candidate.article || '').toLowerCase() === key);
+      if (!row) {
+        items.set(key, { article: key, plan: undefined, fact: undefined, impact: undefined, check: 'Проверьте сопоставимость статьи и полноту данных P&L.', evidence: 'Статья не найдена в текущем наборе данных.' });
+        return;
+      }
+      const plan = finite(row.plan), fact = finite(row.fact);
+      const type = classifyFinancialRow(String(row.article || ''));
+      const difference = plan !== undefined && fact !== undefined ? fact - plan : undefined;
+      const impact = difference === undefined ? undefined : type === 'revenue' ? difference : type === 'expense' ? -difference : undefined;
+      items.set(key, { article: String(row.article || key), plan, fact, impact, check: 'Сверьте статью, период и первичные документы до оценки результата.', evidence: 'Сопоставление возможно только по этой статье в выбранном периоде.' });
+    });
+    return [...items.values()];
+  }, [priorityChecks, actionStates, summaryRows]);
 
   const salesDiagnostics = useMemo(() => {
     const reportRevenue = sales.fields.revenue.total;
@@ -203,12 +222,15 @@ export default function Analytics() {
 
       <section className="panel analytics-report-section">
         <div className="panel-title"><CheckCircle2 size={16}/> Контроль управленческих действий</div>
-        <p className="dashboard-note">Статус, ответственный, срок, исходное отклонение при принятии и введённый эффект сохраняются локально в этом браузере отдельно для выбранного периода и рабочего контура. Для отметки результата нужны заметка/источник и сумма эффекта (0 ₽ допустимо). Данные не отправляются в API и не синхронизируются между устройствами; сумма эффекта — отметка пользователя, а не независимая проверка или автоматическая сверка с P&L.</p>
-        {priorityChecks.length ? <div className="analytics-report-table">
-          <div className="analytics-report-head"><span>Рекомендация</span><span>Статус</span><span>Решение / доказательство</span><span>Действие</span></div>
-          {priorityChecks.map((item) => {
+        <p className="dashboard-note">Статус, ответственный, срок, исходное отклонение при принятии и введённый эффект сохраняются локально в этом браузере отдельно для выбранного периода и рабочего контура. Для отметки результата нужны заметка/источник и сумма эффекта (0 ₽ допустимо). Данные не отправляются в API и не синхронизируются между устройствами. Сверка сравнивает исходное и текущее отклонение той же статьи в том же периоде; она не доказывает, что изменение вызвано действием.</p>
+        {managementActionItems.length ? <div className="analytics-report-table">
+          <div className="analytics-report-head"><span>Рекомендация</span><span>Статус и сверка P&amp;L</span><span>Решение / доказательство</span><span>Действие</span></div>
+          {managementActionItems.map((item) => {
             const key = item.article.toLowerCase();
             const action = actionStates[key] || { status: 'recommended' as const, note: '' };
+            const rowComparable = item.plan !== undefined && item.fact !== undefined && item.impact !== undefined;
+            const reconciliation = reconcileAnalyticsActionImpact(action.initialImpact, item.impact, rowComparable);
+            const reconciliationLabel = reconciliation.status === 'improved' ? 'Отклонение уменьшилось' : reconciliation.status === 'worsened' ? 'Отклонение выросло' : reconciliation.status === 'unchanged' ? 'Существенного изменения нет' : 'Недостаточно данных для сверки';
             return <div key={item.article}>
               <b>{item.article}<small>{item.check}</small></b>
               <span>{action.status === 'recommended' ? 'Рекомендовано' : action.status === 'accepted' ? <>Принято в работу{isAnalyticsActionOverdue(action, localDateKey()) && <small className="negative">Просрочено</small>}</> : 'Результат отмечен пользователем'}</span>
@@ -217,6 +239,7 @@ export default function Analytics() {
               <label><span>Решение / источник подтверждения</span><textarea value={action.note} maxLength={1000} onChange={(e) => saveActionStates({ ...actionStates, [key]: { ...action, note: e.target.value } })} placeholder="Например: проверен акт, исправлена закупочная цена, дата и ссылка на документ" /></label>
               <label><span>Фактический эффект действия, ₽</span><input type="number" min="0" step="1" disabled={action.status === 'recommended'} value={action.resultAmount ?? ''} onChange={(e) => { const raw = e.target.value; const amount = raw === '' ? undefined : Number(raw); saveActionStates({ ...actionStates, [key]: { ...action, resultAmount: amount !== undefined && Number.isFinite(amount) && amount >= 0 ? amount : undefined } }); }} placeholder="Укажите после проверки" /></label>
               {action.initialImpact !== undefined && <small>Исходное неблагоприятное отклонение при принятии: {money(action.initialImpact)} ₽.</small>}
+              {action.status !== 'recommended' && <small>Сверка той же статьи за {scope.period}: {reconciliationLabel}{reconciliation.currentExposure !== undefined ? ' · текущее неблагоприятное отклонение: ' + money(reconciliation.currentExposure) + ' ₽' : ''}{reconciliation.change !== undefined ? ' · изменение отклонения: ' + (reconciliation.change > 0 ? '+' : '') + money(reconciliation.change) + ' ₽' : ''}. Это сравнение P&amp;L, а не доказательство причинной связи с действием.</small>}
               {action.status === 'confirmed' && action.resultAmount !== undefined && <small>Эффект, отмеченный пользователем: {money(action.resultAmount)} ₽. Это не независимая проверка и не автоматическая сверка с P&amp;L.</small>}
               <span>
                 <button className="secondary-button" onClick={() => updateActionState(key, 'accepted', action.note, item.impact)}>Принять в работу</button>
