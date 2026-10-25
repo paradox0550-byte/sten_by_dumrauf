@@ -115,12 +115,15 @@ td, th { border-color: var(--border-subtle) !important; }
 :where(.numeric, .financial-value, .metric-card strong, .pnl-row strong, .budget-grid .num, .prime-card strong, .flash-prime strong) { font-variant-numeric: tabular-nums; }
 
 /* Floating UI must not compete with page content or mobile navigation */
+.mobile-bottom-nav { z-index: 55 !important; }
 .backdrop { z-index: 60 !important; }
 .sidebar { z-index: 70 !important; }
 .topbar { z-index: 30; }
-.mobile-bottom-nav { z-index: 55 !important; }
-:where(.modal-backdrop, .modal-overlay, .dialog-backdrop, .drawer-backdrop) { z-index: 100 !important; }
-:where(.modal, .modal-card, .dialog, [role="dialog"]) { max-width: min(100%, 760px); }
+.sten-floating-ai { z-index: 90; }
+.sten-system-status { z-index: 110; }
+.cookie-banner { z-index: 120; max-width: min(900px, calc(100vw - 24px)); }
+:where(.modal-backdrop, .modal-overlay, .dialog-backdrop, .drawer-backdrop) { z-index: 140 !important; }
+:where(.modal, .modal-card, .dialog, .modal-dialog) { max-width: min(100%, 760px); }
 .mobile-bottom-nav a { min-height: 56px; }
 .mobile-bottom-nav a span { font-size: 10px !important; }
 
@@ -150,6 +153,7 @@ td, th { border-color: var(--border-subtle) !important; }
   :where(.two-col, .pnl-prime-control) { grid-template-columns: minmax(0, 1fr) !important; }
   :where(.table-wrap, .table-scroll, .pnl-table-wrap, .budget-table-wrap) { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
   .mobile-bottom-nav { padding-bottom: env(safe-area-inset-bottom); background: var(--bg-surface) !important; border-top: 1px solid var(--border-subtle) !important; box-shadow: 0 -6px 24px rgba(0,0,0,.06) !important; }
+  .cookie-banner { left: 12px; right: 12px; bottom: calc(68px + env(safe-area-inset-bottom)); width: auto; max-width: none; padding: 12px; }
 }
 @media (max-width: 420px) {
   .content { padding-inline: 12px !important; }
