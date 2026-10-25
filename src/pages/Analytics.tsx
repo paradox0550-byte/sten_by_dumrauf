@@ -6,6 +6,7 @@ import { useScope } from '../lib/useScope';
 import { scopeQuery } from '../lib/scope';
 import { aggregateLaborRecords, finiteNumber } from '../lib/financialAnalytics';
 import { aggregateDailySalesReports, type DailySalesReport } from '../lib/dailySalesAnalytics';
+import { analyticsActionStorageKey, readAnalyticsActionStates, writeAnalyticsActionStates, type AnalyticsActionStates } from '../lib/analyticsActionStorage';
 
 type Row = { article?: string; plan?: number | null; fact?: number | null; source?: string };
 type CalculatedPnl = { revenue?: number | null; cogs?: number | null; personnel?: number | null; labor?: number | null; opex?: number | null; operatingExpenses?: number | null; ebitda?: number | null; netProfit?: number | null; foodCostPercent?: number | null; personnelPercent?: number | null; opexPercent?: number | null; ebitdaMargin?: number | null; netMargin?: number | null; primeCostPercent?: number | null };
@@ -27,9 +28,20 @@ const classifyFinancialRow = (article: string): 'revenue' | 'expense' | 'unknown
 export default function Analytics() {
   const [scope] = useScope(); const [rows, setRows] = useState<Row[]>([]); const [calculated, setCalculated] = useState<PnlCalculated>(null); const [labor, setLabor] = useState<Labor[]>([]); const [dailyReports, setDailyReports] = useState<DailySalesReport[]>([]); const [salesError, setSalesError] = useState('');
   const { settings } = useAnalyticsSettings();
-  const [actionStates, setActionStates] = useState<Record<string, { status: 'recommended' | 'accepted' | 'confirmed'; note: string }>>({});
+  const actionStorageKey = analyticsActionStorageKey(scope);
+  const [actionStatesByScope, setActionStatesByScope] = useState<Record<string, AnalyticsActionStates>>(() => ({ [actionStorageKey]: readAnalyticsActionStates(scope) }));
+  const actionStates = actionStatesByScope[actionStorageKey] ?? {};
+  useEffect(() => {
+    if (actionStatesByScope[actionStorageKey] === undefined) {
+      setActionStatesByScope((current) => ({ ...current, [actionStorageKey]: readAnalyticsActionStates(scope) }));
+    }
+  }, [actionStorageKey, scope, actionStatesByScope]);
+  const saveActionStates = (next: AnalyticsActionStates) => {
+    setActionStatesByScope((current) => ({ ...current, [actionStorageKey]: next }));
+    writeAnalyticsActionStates(scope, next);
+  };
   const updateActionState = (key: string, status: 'recommended' | 'accepted' | 'confirmed', note: string) => {
-    setActionStates((current) => ({ ...current, [key]: { status, note } }));
+    saveActionStates({ ...actionStates, [key]: { status, note } });
   };
  const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [accessDenied, setAccessDenied] = useState(false); const [laborError, setLaborError] = useState(''); const [pnlUpdatedAt, setPnlUpdatedAt] = useState<string>(''); const [laborUpdatedAt, setLaborUpdatedAt] = useState<string>('');
   async function load(){setLoading(true);setError('');setLaborError('');setSalesError('');const q=scopeQuery(scope);const [pnlResult,fotResult,salesResult]=await Promise.allSettled([api.get<any>('/api/pnl?'+q),api.get<any>('/fot-analytics?'+q),api.get<any>('/reports?'+q)]);const scopeDenied=[pnlResult,fotResult,salesResult].some(result=>result.status==='rejected'&&result.reason instanceof ApiError&&result.reason.status===403&&result.reason.code==='SCOPE_ACCESS_CHECK_FAILED');if(scopeDenied){setRows([]);setCalculated(null);setLabor([]);setDailyReports([]);setAccessDenied(true);setError('Нет доступа к данным выбранного ресторана. Выберите другой рабочий контур или обратитесь к администратору.');setLaborError('Нет доступа');setSalesError('Нет доступа');setLoading(false);return;}if(pnlResult.status==='fulfilled'){const pnl=pnlResult.value;setRows(Array.isArray(pnl?.rows)?pnl.rows:[]);setCalculated((pnl?.calculated??pnl?.summary?.calculated??null) as PnlCalculated);setPnlUpdatedAt(new Date().toISOString())}else{setRows([]);setCalculated(null);setError(pnlResult.reason instanceof Error?pnlResult.reason.message:'Не удалось загрузить P&L.')}if(fotResult.status==='fulfilled'){const fot=fotResult.value;setLabor(Array.isArray(fot?.records)?fot.records.filter((x:Labor)=>x.period===scope.period):[]);setLaborUpdatedAt(new Date().toISOString())}else{setLabor([]);setLaborError(fotResult.reason instanceof Error?fotResult.reason.message:'Не удалось загрузить аналитику ФОТ.')}if(salesResult.status==='fulfilled'){const data=salesResult.value;setDailyReports(Array.isArray(data?.reports)?data.reports:[])}else{setDailyReports([]);setSalesError(salesResult.reason instanceof Error?salesResult.reason.message:'Не удалось загрузить отчёты смен.')}setLoading(false)}
@@ -189,7 +201,7 @@ export default function Analytics() {
             return <div key={item.article}>
               <b>{item.article}<small>{item.check}</small></b>
               <span>{action.status === 'recommended' ? 'Рекомендовано' : action.status === 'accepted' ? 'Принято в работу' : 'Подтверждено пользователем'}</span>
-              <label><span>Решение / источник подтверждения</span><textarea value={action.note} maxLength={1000} onChange={(e) => setActionStates((prev) => ({ ...prev, [key]: { ...action, note: e.target.value } }))} placeholder="Что решили, какой документ проверили, что подтвердилось" /></label>
+              <label><span>Решение / источник подтверждения</span><textarea value={action.note} maxLength={1000} onChange={(e) => saveActionStates({ ...actionStates, [key]: { ...action, note: e.target.value } })} placeholder="Что решили, какой документ проверили, что подтвердилось" /></label>
               <span>
                 <button className="secondary-button" onClick={() => updateActionState(key, 'accepted', actionStates[key]?.note ?? action.note)}>Принять в работу</button>
                 <button className="secondary-button" disabled={!(actionStates[key]?.note ?? action.note).trim()} onClick={() => updateActionState(key, 'confirmed', actionStates[key]?.note ?? action.note)}>Подтвердить результат</button>
