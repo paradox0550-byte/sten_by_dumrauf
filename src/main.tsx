@@ -5,6 +5,7 @@ import App from './App';
 import { StenLogo } from './components/brand/StenLogo';
 import './styles/tokens.css';
 import './app.css';
+import './styles/unified-interface.css';
 
 const THEME_KEY = 'sten_theme_v5';
 const FONT_SIZE_KEY = 'sten_font_size_v1';

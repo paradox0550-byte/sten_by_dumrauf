@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
   BarChart3, Bot, Brain, CalendarDays, Menu, Moon, PanelLeft, PanelLeftClose, FlaskConical,
-  LogOut, Scale, Sun, WalletCards, X, ChevronDown, ClipboardList, Gauge, Monitor, Users, FileText,
+  LogOut, Scale, Sun, WalletCards, X, ChevronDown, ClipboardList, Gauge, Monitor, Users, FileText, Settings2, Building2,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import WorkspaceSelector from './WorkspaceSelector';
@@ -19,7 +19,7 @@ const NAV_ICONS: Record<NavIconName, React.ElementType> = {
   overview: Gauge,
   pnl: BarChart3,
   report: ClipboardList,
-  settings: Gauge,
+  settings: Settings2,
   staff: Users,
   terms: FileText,
 };
@@ -229,7 +229,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
             <div className="nav-section-label nav-system-label">Система</div>
             <NavLink to="/settings" onClick={() => setMobileMenu(false)}>
-              <Gauge size={17} aria-hidden="true" />
+              <Settings2 size={17} aria-hidden="true" />
               <span>Настройки</span>
             </NavLink>
 
@@ -241,7 +241,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {expandedGroups.tools && <div className="nav-group-children" aria-label="Дополнительно">
               <NavLink to="/ai-quality" onClick={() => setMobileMenu(false)}><FlaskConical size={16} aria-hidden="true" /><span>Лаборатория AI</span></NavLink>
               <NavLink to="/legal" onClick={() => setMobileMenu(false)}><Scale size={16} aria-hidden="true" /><span>Правовая информация</span></NavLink>
-              {user?.role === 'super_admin' && <NavLink to="/admin/organizations" onClick={() => setMobileMenu(false)}><Gauge size={16} aria-hidden="true" /><span>Организации</span></NavLink>}
+              {user?.role === 'super_admin' && <NavLink to="/admin/organizations" onClick={() => setMobileMenu(false)}><Building2 size={16} aria-hidden="true" /><span>Организации</span></NavLink>}
             </div>}
           </nav>
         </div>
