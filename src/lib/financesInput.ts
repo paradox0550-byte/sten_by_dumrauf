@@ -8,7 +8,7 @@ export type FinanceRow = {
 };
 
 const articleText = (row: FinanceRow) =>
-  String(row.article || '').trim().toLocaleLowerCase('ru-RU').replace(/\\s+/g, ' ');
+  String(row.article || '').trim().toLocaleLowerCase('ru-RU').replace(/\s+/g, ' ');
 
 const exactOrStartsWith = (rows: FinanceRow[], labels: string[]) => {
   for (const label of labels) {
