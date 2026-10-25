@@ -68,3 +68,17 @@ export function isAnalyticsActionOverdue(
 ): boolean {
   return action.status === 'accepted' && Boolean(action.dueDate) && action.dueDate! < today;
 }
+
+
+export type AnalyticsActionReconciliationStatus = 'insufficient_data' | 'improved' | 'unchanged' | 'worsened';
+export type AnalyticsActionReconciliation = { status: AnalyticsActionReconciliationStatus; currentExposure?: number; change?: number };
+
+/** Compare baseline and latest adverse deviation for the same article, period and scope. This does not prove causality. */
+export function reconcileAnalyticsActionImpact(initialImpact: number | undefined, currentImpact: number | undefined, hasComparableData: boolean): AnalyticsActionReconciliation {
+  if (!hasComparableData || initialImpact === undefined || !Number.isFinite(initialImpact) || initialImpact < 0 || currentImpact === undefined || !Number.isFinite(currentImpact)) return { status: 'insufficient_data' };
+  const currentExposure = Math.max(0, -currentImpact);
+  const change = initialImpact - currentExposure;
+  const tolerance = 1;
+  const status = change > tolerance ? 'improved' : change < -tolerance ? 'worsened' : 'unchanged';
+  return { status, currentExposure, change };
+}
