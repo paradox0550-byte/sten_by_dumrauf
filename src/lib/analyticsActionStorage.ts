@@ -56,3 +56,9 @@ export function writeAnalyticsActionStates(
     return false;
   }
 }
+export function isAnalyticsActionOverdue(
+  action: Pick<AnalyticsAction, 'status' | 'dueDate'>,
+  today: string,
+): boolean {
+  return action.status === 'accepted' && Boolean(action.dueDate) && action.dueDate! < today;
+}
