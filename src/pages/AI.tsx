@@ -6,6 +6,7 @@ import { useScope } from '../lib/useScope';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth, type User } from '../contexts/AuthContext';
 import { hasScopeId, scopeQuery } from '../lib/scope';
+import { buildAiChatKey } from '../lib/aiChatKey';
 import { AskRequestSchema, type AskRequest, type AskResponse, type AskSource } from '../lib/contracts/ask';
 import { AppearanceProvider, useAppearanceContext } from '../features/chat-appearance/AppearanceContext';
 import { ChatBackground } from '../features/chat-appearance/ChatBackground';
@@ -60,7 +61,6 @@ const PERSONAL_MODES:{id:PersonalMode;label:string;instruction:string}[]=[
 ];
 const PERSONAL_MODE_KEY='sten_ai_personal_mode';const MAX_DOC_BYTES=15*1024*1024;const LEGACY_KEY='sten_chat_v5';
 const AI_VOICE_GENDER_KEY='sten_ai_voice_gender';
-function chatKey(user:{id?:string;organizationId?:string|null}|null){return user?.id?`sten_chat_v5:${user.organizationId||'no-org'}:${user.id}`:null;}
 function readMessages(key:string|null):Msg[]{if(!key)return[];try{const raw=localStorage.getItem(key);const parsed=raw?JSON.parse(raw):[];return Array.isArray(parsed)?parsed:[]}catch{return[]}}
 function to64(file:File){return new Promise<string>((ok,no)=>{const r=new FileReader();r.onload=()=>{const s=String(r.result);ok(s.includes(',')?s.split(',')[1]:s)};r.onerror=()=>no(r.error);r.readAsDataURL(file)})}
 
@@ -77,7 +77,7 @@ function AIContent({user}:{user:User|null}){
  const[searchParams,setSearchParams]=useSearchParams();
  const initialQuery=searchParams.get('q')?.trim()||'';
  const{settings}=useAppearanceContext();
- const key=chatKey(user);
+ const key=buildAiChatKey(user,scope);
  const meetingNotesKey=`sten_meeting_notes_v1:${user?.organizationId||'no-org'}:${user?.id||'anonymous'}:project=${scope.projectId||'none'}:branch=${scope.branchId||'none'}:restaurant=${scope.restaurantId||'none'}:department=${scope.departmentId||'none'}`;
  const[messages,setMessages]=useState<Msg[]>(()=>readMessages(key));
  const hydrateRef=useRef<string|null>(key);
