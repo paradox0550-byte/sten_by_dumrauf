@@ -43,10 +43,13 @@ export default function Analytics() {
   };
   const updateActionState = (key: string, status: 'recommended' | 'accepted' | 'confirmed', note: string, currentImpact: number) => {
     const previous = actionStates[key] ?? { status: 'recommended' as const, note: '' };
-    const initialImpact = status === 'accepted'
-      ? (previous.initialImpact ?? Math.abs(currentImpact))
-      : (previous.initialImpact ?? (status === 'confirmed' ? Math.abs(currentImpact) : undefined));
-    saveActionStates({ ...actionStates, [key]: { ...previous, status, note, ...(initialImpact !== undefined ? { initialImpact } : {}) } });
+    if (status === 'recommended') {
+      const { initialImpact: _initialImpact, resultAmount: _resultAmount, ...resetAction } = previous;
+      saveActionStates({ ...actionStates, [key]: { ...resetAction, status, note } });
+      return;
+    }
+    const initialImpact = previous.initialImpact ?? Math.abs(currentImpact);
+    saveActionStates({ ...actionStates, [key]: { ...previous, status, note, initialImpact } });
   };
  const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [accessDenied, setAccessDenied] = useState(false); const [laborError, setLaborError] = useState(''); const [pnlUpdatedAt, setPnlUpdatedAt] = useState<string>(''); const [laborUpdatedAt, setLaborUpdatedAt] = useState<string>('');
   async function load(){setLoading(true);setError('');setLaborError('');setSalesError('');const q=scopeQuery(scope);const [pnlResult,fotResult,salesResult]=await Promise.allSettled([api.get<any>('/api/pnl?'+q),api.get<any>('/fot-analytics?'+q),api.get<any>('/reports?'+q)]);const scopeDenied=[pnlResult,fotResult,salesResult].some(result=>result.status==='rejected'&&result.reason instanceof ApiError&&result.reason.status===403&&result.reason.code==='SCOPE_ACCESS_CHECK_FAILED');if(scopeDenied){setRows([]);setCalculated(null);setLabor([]);setDailyReports([]);setAccessDenied(true);setError('Нет доступа к данным выбранного ресторана. Выберите другой рабочий контур или обратитесь к администратору.');setLaborError('Нет доступа');setSalesError('Нет доступа');setLoading(false);return;}if(pnlResult.status==='fulfilled'){const pnl=pnlResult.value;setRows(Array.isArray(pnl?.rows)?pnl.rows:[]);setCalculated((pnl?.calculated??pnl?.summary?.calculated??null) as PnlCalculated);setPnlUpdatedAt(new Date().toISOString())}else{setRows([]);setCalculated(null);setError(pnlResult.reason instanceof Error?pnlResult.reason.message:'Не удалось загрузить P&L.')}if(fotResult.status==='fulfilled'){const fot=fotResult.value;setLabor(Array.isArray(fot?.records)?fot.records.filter((x:Labor)=>x.period===scope.period):[]);setLaborUpdatedAt(new Date().toISOString())}else{setLabor([]);setLaborError(fotResult.reason instanceof Error?fotResult.reason.message:'Не удалось загрузить аналитику ФОТ.')}if(salesResult.status==='fulfilled'){const data=salesResult.value;setDailyReports(Array.isArray(data?.reports)?data.reports:[])}else{setDailyReports([]);setSalesError(salesResult.reason instanceof Error?salesResult.reason.message:'Не удалось загрузить отчёты смен.')}setLoading(false)}
@@ -212,12 +215,12 @@ export default function Analytics() {
               <label><span>Ответственный</span><input value={action.responsible ?? ''} maxLength={120} onChange={(e) => saveActionStates({ ...actionStates, [key]: { ...action, responsible: e.target.value.slice(0, 120) } })} placeholder="Кто выполнит проверку" /></label>
               <label><span>Срок</span><input type="date" value={action.dueDate ?? ''} onChange={(e) => saveActionStates({ ...actionStates, [key]: { ...action, dueDate: e.target.value } })} /></label>
               <label><span>Решение / источник подтверждения</span><textarea value={action.note} maxLength={1000} onChange={(e) => saveActionStates({ ...actionStates, [key]: { ...action, note: e.target.value } })} placeholder="Например: проверен акт, исправлена закупочная цена, дата и ссылка на документ" /></label>
-              <label><span>Фактический эффект действия, ₽</span><input type="number" min="0" step="1" value={action.resultAmount ?? ''} onChange={(e) => { const raw = e.target.value; const amount = raw === '' ? undefined : Number(raw); saveActionStates({ ...actionStates, [key]: { ...action, resultAmount: amount !== undefined && Number.isFinite(amount) && amount >= 0 ? amount : undefined } }); }} placeholder="Укажите после проверки" /></label>
+              <label><span>Фактический эффект действия, ₽</span><input type="number" min="0" step="1" disabled={action.status === 'recommended'} value={action.resultAmount ?? ''} onChange={(e) => { const raw = e.target.value; const amount = raw === '' ? undefined : Number(raw); saveActionStates({ ...actionStates, [key]: { ...action, resultAmount: amount !== undefined && Number.isFinite(amount) && amount >= 0 ? amount : undefined } }); }} placeholder="Укажите после проверки" /></label>
               {action.initialImpact !== undefined && <small>Исходное неблагоприятное отклонение при принятии: {money(action.initialImpact)} ₽.</small>}
               {action.status === 'confirmed' && action.resultAmount !== undefined && <small>Эффект, отмеченный пользователем: {money(action.resultAmount)} ₽. Это не независимая проверка и не автоматическая сверка с P&amp;L.</small>}
               <span>
                 <button className="secondary-button" onClick={() => updateActionState(key, 'accepted', action.note, item.impact)}>Принять в работу</button>
-                <button className="secondary-button" disabled={!action.note.trim() || action.resultAmount === undefined || !Number.isFinite(action.resultAmount) || action.resultAmount < 0} onClick={() => updateActionState(key, 'confirmed', action.note, item.impact)}>Отметить результат</button>
+                <button className="secondary-button" disabled={action.status === 'recommended' || !action.note.trim() || action.resultAmount === undefined || !Number.isFinite(action.resultAmount) || action.resultAmount < 0} onClick={() => updateActionState(key, 'confirmed', action.note, item.impact)}>Отметить результат</button>
                 <button className="secondary-button" onClick={() => updateActionState(key, 'recommended', action.note, item.impact)}>Сбросить</button>
               </span>
             </div>;
