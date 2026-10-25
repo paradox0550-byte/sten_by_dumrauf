@@ -206,7 +206,7 @@ export default function Analytics() {
               <label><span>Решение / источник подтверждения</span><textarea value={action.note} maxLength={1000} onChange={(e) => saveActionStates({ ...actionStates, [key]: { ...action, note: e.target.value } })} placeholder="Что решили, какой документ проверили, что подтвердилось" /></label>
               <span>
                 <button className="secondary-button" onClick={() => updateActionState(key, 'accepted', actionStates[key]?.note ?? action.note)}>Принять в работу</button>
-                <button className="secondary-button" disabled={!(actionStates[key]?.note ?? action.note).trim()} onClick={() => updateActionState(key, 'confirmed', actionStates[key]?.note ?? action.note)}>Подтвердить результат</button>
+                <button className="secondary-button" disabled={!(actionStates[key]?.note ?? action.note).trim()} onClick={() => updateActionState(key, 'confirmed', actionStates[key]?.note ?? action.note)}>Отметить результат</button>
                 <button className="secondary-button" onClick={() => updateActionState(key, 'recommended', actionStates[key]?.note ?? action.note)}>Сбросить</button>
               </span>
             </div>;
