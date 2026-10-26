@@ -47,7 +47,7 @@ export function normalizeAskSteps(input: unknown): AskStep[] {
     return [{
       kind: 'tool',
       label: label || 'Этап обработки',
-      name: name || 'Неизвестный этап',
+      name: name || label || 'Неизвестный этап',
       detail: detail || 'Тип этапа не распознан; остальная работа STEN продолжается.',
       ...(ms !== undefined ? { ms } : {}),
       ...(ok !== undefined ? { ok } : {}),
