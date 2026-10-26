@@ -114,7 +114,7 @@ export default function GoogleSheetsIntegration() {
     const rows = await readSheetValues(accessToken, info.spreadsheetId, sheet.properties.title);
     setSelectedSheetId(sheetId);
     setValues(rows);
-    setNotice(rows.length ? `Загружено строк: ${rows.length}. Показаны первые 50 строк и 26 столбцов.` : 'В выбранном листе нет заполненных ячеек в диапазоне A1:AZ500.');
+    setNotice(rows.length ? `Загружено строк: ${rows.length}. Данные готовы к анализу в STEN AI.` : 'В выбранном листе нет заполненных ячеек в диапазоне A1:AZ500.');
   };
 
   const connectAndRead = async () => {
@@ -185,19 +185,19 @@ export default function GoogleSheetsIntegration() {
     let tableText = '';
     for (const row of rows) {
       const next = tableText ? tableText + '\n' + row : row;
-      if (next.length > 14000) break;
+      if (next.length > 5000) break;
       tableText = next;
     }
     const includedRows = tableText ? tableText.split('\n').length : 0;
     const omittedRows = Math.max(0, values.length - includedRows);
     const context = [
-      'Проанализируй данные из Google Таблицы как управленческий аналитик ресторана.',
+      'ЗАДАЧА: автоматически проанализируй приложенные реальные данные Google Таблицы как управленческий аналитик ресторана. Не проси пользователя повторно отправить таблицу.',
       'Источник: Google Таблицы. Документ: ' + (spreadsheet.properties?.title || 'Без названия') + '. Лист: ' + selectedSheet.properties.title + '.',
       'Не выдумывай отсутствующие значения. Сначала определи заголовки, период, единицы измерения и смысл колонок. Если структуру нельзя надёжно определить — задай уточняющий вопрос. Разделяй факты, расчёты и гипотезы.',
       omittedRows > 0 ? 'Контекст ограничен размером; пропущено строк в конце: ' + omittedRows + '.' : '',
       'ДАННЫЕ ТАБЛИЦЫ (разделитель ;):',
       tableText,
-      'Кратко опиши содержание таблицы, затем предложи ключевые проверки и выводы, которые действительно можно сделать из этих данных.'
+      'Кратко опиши структуру и период таблицы. Рассчитай только показатели, для которых достаточно исходных значений.slice(0, 7600); назови отклонения, возможные причины и следующие проверки. Неизвестные значения обозначь как «нет данных».'
     ].filter(Boolean).join('\n\n');
     try {
       sessionStorage.setItem('sten_google_sheet_context_v1', context);
