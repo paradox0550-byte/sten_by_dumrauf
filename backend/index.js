@@ -13,12 +13,7 @@ const XLSX       = require('@e965/xlsx');
 const documentProcessor = require('./documentProcessor');
 const { convertWithMarkItDown } = require('./markitdownClient');
 const { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
-const {
-buildSkillPrompt,
-normalizeSkillConfig,
-SKILL_KEYS_READ_BY_PROMPT,
-SKILLS_VERSION,
-} = require('./core/skills');
+const { buildSkillPrompt } = require('./core/skills');
 const { TOOLS, executeTool } = require('./core/tools');
 const { createMemory, listMemory, updateMemoryConfidence, deleteMemory, loadMemoryContext } = require('./core/memory');
 const { loadConversationContext, startConversationTurn, finishConversationTurn, failConversationTurn } = require('./core/conversationMemory');
