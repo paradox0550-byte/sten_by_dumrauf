@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from '../../lib/api';
 import { FileSpreadsheet, Link2, LoaderCircle, RefreshCw, Unplug } from 'lucide-react';
 
 type GoogleSheet = {
@@ -104,6 +105,24 @@ export default function GoogleSheetsIntegration() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void api.get<{ connection: { settings?: Record<string, unknown> } | null }>('/api/integrations/google/sheets')
+      .then((result) => {
+        if (!active || !result.connection?.settings) return;
+        const saved = result.connection.settings;
+        if (typeof saved.spreadsheetUrl === 'string') setUrl(saved.spreadsheetUrl);
+        if (typeof saved.selectedSheetId === 'number') setSelectedSheetId(saved.selectedSheetId);
+        setNotice('Настройки таблицы восстановлены из аккаунта STEN. Для чтения данных потребуется авторизация Google.');
+      })
+      .catch((failure) => {
+        if (active) setError(failure instanceof Error ? failure.message : 'Не удалось загрузить настройки интеграции.');
+      })
+      .finally(() => { if (active) setSettingsLoaded(true); });
+    return () => { active = false; };
+  }, []);
 
   const selectedSheet = spreadsheet?.sheets?.find((sheet) => sheet.properties.sheetId === selectedSheetId);
   const spreadsheetId = getSpreadsheetId(url);
@@ -150,7 +169,17 @@ export default function GoogleSheetsIntegration() {
       setToken(accessToken);
       setSpreadsheet(info);
       setUrl((current) => current.trim());
-      await loadSelectedSheet(accessToken, info, info.sheets[0].properties.sheetId);
+      const preferredSheetId = info.sheets.some((sheet) => sheet.properties.sheetId === selectedSheetId)
+        ? selectedSheetId as number
+        : info.sheets[0].properties.sheetId;
+      await loadSelectedSheet(accessToken, info, preferredSheetId);
+      await api.put('/api/integrations/google/sheets', { settings: {
+        spreadsheetUrl: url.trim(),
+        spreadsheetId: info.spreadsheetId,
+        selectedSheetId: preferredSheetId,
+        selectedSheetTitle: info.sheets.find((sheet) => sheet.properties.sheetId === preferredSheetId)?.properties.title || '',
+      } });
+      setNotice('Настройки таблицы сохранены в аккаунте STEN. ' + (values.length ? '' : 'Данные загружены и готовы к анализу.'));
       setError('');
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Не удалось подключить таблицу.');
@@ -167,6 +196,12 @@ export default function GoogleSheetsIntegration() {
     setNotice('');
     try {
       await loadSelectedSheet(token, spreadsheet, sheetId);
+      await api.put('/api/integrations/google/sheets', { settings: {
+        spreadsheetUrl: url.trim(),
+        spreadsheetId: spreadsheet.spreadsheetId,
+        selectedSheetId: sheetId,
+        selectedSheetTitle: spreadsheet.sheets?.find((sheet) => sheet.properties.sheetId === sheetId)?.properties.title || '',
+      } });
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Не удалось прочитать лист.');
       setValues([]);
@@ -207,13 +242,23 @@ export default function GoogleSheetsIntegration() {
     }
   };
 
-  const disconnect = () => {
+  const disconnect = async () => {
+    setBusy(true);
+    try {
+      await api.delete('/api/integrations/google/sheets');
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Не удалось отключить интеграцию в аккаунте.');
+      setBusy(false);
+      return;
+    }
     setToken('');
     setSpreadsheet(null);
     setSelectedSheetId(null);
     setValues([]);
     setError('');
-    setNotice('Подключение отключено. Токен удалён из памяти этой страницы.');
+    setUrl('');
+    setNotice('Настройки таблицы удалены из аккаунта STEN. Токен Google удалён из памяти этой страницы.');
+    setBusy(false);
   };
 
   return (
@@ -243,7 +288,7 @@ export default function GoogleSheetsIntegration() {
       )}
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-        <button className="primary-button" type="button" disabled={busy} onClick={() => void connectAndRead()}>
+        <button className="primary-button" type="button" disabled={busy || !settingsLoaded} onClick={() => void connectAndRead()}>
           {busy ? <LoaderCircle size={16} className="spin" aria-hidden="true" /> : token ? <RefreshCw size={16} aria-hidden="true" /> : <Link2 size={16} aria-hidden="true" />}
           {busy ? 'Загружаем…' : token ? 'Обновить данные' : 'Подключить и прочитать'}
         </button>
@@ -271,7 +316,7 @@ export default function GoogleSheetsIntegration() {
           )}
         </div>
       )}
-      <p className="muted" style={{ fontSize: 12, marginTop: 14 }}>Без фоновой синхронизации. Отключение очищает токен из памяти STEN, но для полного отзыва разрешения откройте настройки доступа к аккаунту Google.</p>
+      <p className="muted" style={{ fontSize: 12, marginTop: 14 }}>Ссылка и выбранный лист сохраняются в аккаунте STEN и восстанавливаются на других устройствах. Доступ к данным Google требует повторной авторизации после окончания действия токена. Без фоновой синхронизации. Отключение очищает токен из памяти STEN, но для полного отзыва разрешения откройте настройки доступа к аккаунту Google.</p>
     </section>
   );
 }
