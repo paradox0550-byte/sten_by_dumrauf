@@ -292,7 +292,7 @@ export default function GoogleSheetsIntegration() {
           {busy ? <LoaderCircle size={16} className="spin" aria-hidden="true" /> : token ? <RefreshCw size={16} aria-hidden="true" /> : <Link2 size={16} aria-hidden="true" />}
           {busy ? 'Загружаем…' : token ? 'Обновить данные' : 'Подключить и прочитать'}
         </button>
-        {token && <button className="secondary-button" type="button" disabled={busy} onClick={disconnect}><Unplug size={16} /> Отключить</button>}
+        {(token || (settingsLoaded && url.trim())) && <button className="secondary-button" type="button" disabled={busy} onClick={() => void disconnect()}><Unplug size={16} /> Отключить</button>}
       </div>
 
       {error && <div className="pnl-message error" role="alert" style={{ marginTop: 12 }}>{error}</div>}
