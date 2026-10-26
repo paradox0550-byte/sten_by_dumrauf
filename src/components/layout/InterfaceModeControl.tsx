@@ -120,7 +120,7 @@ export default function InterfaceModeControl() {
       {showInstallHelp && (
         <div className="sten-install-help" role="status" aria-live="polite">
           <b>Добавить STEN на экран Домой</b>
-          <span>В Safari нажмите «Поделиться», затем выберите «На экран Домой».</span>
+          <span>В меню браузера выберите «Поделиться» или «Добавить на экран Домой» и следуйте подсказкам.</span>
           <button type="button" onClick={() => setShowInstallHelp(false)} aria-label="Закрыть инструкцию">Понятно</button>
         </div>
       )}
