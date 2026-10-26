@@ -222,7 +222,7 @@ export default function GoogleSheetsIntegration() {
         <FileSpreadsheet size={21} aria-hidden="true" />
         <div>
           <h2 style={{ marginBottom: 4 }}>Google Таблицы</h2>
-          <p className="muted" style={{ margin: 0 }}>Подключение для чтения. Данные не записываются и не передаются в API STEN.</p>
+          <p className="muted" style={{ margin: 0 }}>Подключение только для чтения. Таблица не изменяется. После нажатия «Передать в STEN AI» выбранные данные отправляются в STEN для анализа; передаются только строки в пределах указанного лимита.</p>
         </div>
       </div>
 
