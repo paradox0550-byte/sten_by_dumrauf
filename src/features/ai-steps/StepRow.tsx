@@ -1,5 +1,5 @@
 import { Brain, FileText, Sparkles, Wrench } from 'lucide-react';
-import type { AskStep } from './AskSteps';
+import type { AskStep, AskStepKind } from './AskSteps';
 
 const icons = {
   docs: FileText,
@@ -12,38 +12,47 @@ export interface StepRowProps {
   step: AskStep;
 }
 
-function stepLabel(step: AskStep): string {
-  switch (step.kind) {
-    case 'memory': return 'Память';
-    case 'docs': return 'Документы';
+function stepLabel(step: AskStep, kind: AskStepKind): string {
+  switch (kind) {
+    case 'memory': return step.label || 'Память';
+    case 'docs': return step.label || 'Документы';
     case 'tool': return step.name || step.label || 'Инструмент';
-    case 'llm': return `LLM: ${step.name === 'plan' ? 'план' : 'ответ'}`;
+    case 'llm': return step.label || `LLM: ${step.name === 'plan' ? 'план' : 'ответ'}`;
+    default: return step.label || 'Этап обработки';
   }
 }
 
 export function StepRow({ step }: StepRowProps) {
-  const Icon = icons[step.kind];
-  const hasStatus = step.ok !== undefined;
+  // Keep this component defensive too: it may be rendered independently of
+  // AskSteps, and API payloads can drift from the compile-time TypeScript type.
+  const rawKind = (step as { kind?: unknown } | null)?.kind;
+  const isKnownKind = typeof rawKind === 'string' && Object.prototype.hasOwnProperty.call(icons, rawKind);
+  const kind: AskStepKind = isKnownKind ? rawKind as AskStepKind : 'tool';
+  const Icon = icons[kind] ?? Sparkles;
+  const label = stepLabel(step, kind);
+  const hasStatus = typeof step.ok === 'boolean';
   const statusClass = step.ok ? 'step-row__dot--ok' : 'step-row__dot--danger';
   const statusLabel = step.ok ? 'успешно' : 'ошибка';
-  const unsupportedScope = step.detail?.includes('FOT_SCOPE_NOT_IMPLEMENTED') ?? false;
+  const detail = typeof step.detail === 'string' ? step.detail : undefined;
+  const duration = typeof step.ms === 'number' && Number.isFinite(step.ms) && step.ms >= 0 ? step.ms : undefined;
+  const unsupportedScope = detail?.includes('FOT_SCOPE_NOT_IMPLEMENTED') ?? false;
 
   return (
-    <div className={`step-row step-row--${step.kind}`}>
+    <div className={`step-row step-row--${kind}`}>
       <div className="step-row__icon-wrap">
         {hasStatus && (
           <span className={`step-row__dot ${statusClass}`} role="img" aria-label={statusLabel} title={statusLabel} />
         )}
-        <Icon className="step-row__icon" size={14} aria-hidden="true" data-testid={`step-icon-${step.kind}`} />
+        <Icon className="step-row__icon" size={14} aria-hidden="true" data-testid={`step-icon-${kind}`} />
       </div>
       <div className="step-row__body">
         <div className="step-row__label">
-          {stepLabel(step)}
+          {label}
           {unsupportedScope && <span className="step-row__badge">не реализовано</span>}
         </div>
-        {step.detail && <div className="step-row__detail">{step.detail}</div>}
+        {detail && <div className="step-row__detail">{detail}</div>}
       </div>
-      <span className="step-row__ms">{step.ms === undefined ? '' : formatStepDuration(step.ms)}</span>
+      <span className="step-row__ms">{duration === undefined ? '' : formatStepDuration(duration)}</span>
     </div>
   );
 }
