@@ -48,7 +48,16 @@ else systemThemeQuery.addListener(syncSystemTheme);
 class ErrorBoundary extends React.Component<React.PropsWithChildren, { error: Error | null }> {
   state = { error: null as Error | null };
   static getDerivedStateFromError(error: Error) { return { error }; }
-  componentDidCatch(error: Error) { console.error('[STEN]', error); }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    // Keep the original error and React component stack together for production diagnosis.
+    console.error('[STEN] UI render failure', {
+      message: error.message,
+      stack: error.stack,
+      componentStack: info.componentStack,
+      pathname: window.location.pathname,
+      search: window.location.search,
+    });
+  }
   render() {
     if (this.state.error) {
       return (
