@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { AskSteps, formatDuration, getStepsBodyClassName, pluralizeRu, type AskStep } from './AskSteps';
+import { AskSteps, formatDuration, getStepsBodyClassName, normalizeAskSteps, pluralizeRu, type AskStep } from './AskSteps';
 import { StepRow } from './StepRow';
 
 const steps: AskStep[] = [
@@ -63,6 +63,42 @@ describe('AskSteps processing timeline', () => {
     expect(formatDuration(12180)).toBe('12,2 с');
     expect(formatDuration(65400)).toBe('1 мин 5 с');
     expect(formatDuration(undefined)).toBe('—');
+  });
+
+
+  it('normalizes unknown server step kinds instead of passing undefined icons to React', () => {
+    const unsafeSteps = [
+      { kind: 'future_step', label: 'Новый этап', detail: 'Проверка совместимости', ms: 25, ok: true },
+      null,
+      { kind: 'tool', name: 'get_pnl', ms: Number.NaN },
+    ];
+    const normalized = normalizeAskSteps(unsafeSteps);
+    expect(normalized).toHaveLength(2);
+    expect(normalized[0]).toMatchObject({
+      kind: 'tool',
+      label: 'Новый этап',
+      name: 'Неизвестный этап',
+      detail: 'Проверка совместимости',
+      ms: 25,
+      ok: true,
+    });
+    expect(normalized[1].ms).toBeUndefined();
+    expect(markup(createElement(AskSteps, { steps: unsafeSteps as unknown as AskStep[] }))).toContain('step-icon-tool');
+    expect(markup(createElement(AskSteps, { steps: unsafeSteps as unknown as AskStep[] }))).toContain('Новый этап');
+  });
+
+  it('renders a safe fallback icon when StepRow receives an unknown kind directly', () => {
+    const html = markup(createElement(StepRow, {
+      step: { kind: 'future_step', label: 'Новый этап' } as unknown as AskStep,
+    }));
+    expect(html).toContain('data-testid="step-icon-tool"');
+    expect(html).toContain('Новый этап');
+  });
+
+  it('ignores non-object step entries and invalid top-level payloads', () => {
+    expect(normalizeAskSteps(null)).toEqual([]);
+    expect(normalizeAskSteps({ steps: [] })).toEqual([]);
+    expect(normalizeAskSteps([null, undefined, 'bad', 42, []])).toEqual([]);
   });
 
   it('renders the docs icon', () => {
