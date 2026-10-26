@@ -1,5 +1,5 @@
 import { Brain, FileText, Sparkles, Wrench } from 'lucide-react';
-import type { AskStep } from './AskSteps';
+import { normalizeAskStep, type AskStep } from './AskSteps';
 
 const icons = {
   docs: FileText,
@@ -22,33 +22,36 @@ function stepLabel(step: AskStep): string {
 }
 
 export function StepRow({ step }: StepRowProps) {
-  const Icon = icons[step.kind];
-  const hasStatus = step.ok !== undefined;
-  const statusClass = step.ok ? 'step-row__dot--ok' : 'step-row__dot--danger';
-  const statusLabel = step.ok ? 'успешно' : 'ошибка';
-  const unsupportedScope = step.detail?.includes('FOT_SCOPE_NOT_IMPLEMENTED') ?? false;
+  // Keep this component safe even when rendered directly with an unexpected API value.
+  const safeStep = normalizeAskStep(step) ?? { kind: 'tool' as const, label: 'Этап обработки' };
+  const Icon = icons[safeStep.kind];
+  const hasStatus = safeStep.ok !== undefined;
+  const statusClass = safeStep.ok ? 'step-row__dot--ok' : 'step-row__dot--danger';
+  const statusLabel = safeStep.ok ? 'успешно' : 'ошибка';
+  const unsupportedScope = safeStep.detail?.includes('FOT_SCOPE_NOT_IMPLEMENTED') ?? false;
 
   return (
-    <div className={`step-row step-row--${step.kind}`}>
+    <div className={`step-row step-row--${safeStep.kind}`}>
       <div className="step-row__icon-wrap">
         {hasStatus && (
           <span className={`step-row__dot ${statusClass}`} role="img" aria-label={statusLabel} title={statusLabel} />
         )}
-        <Icon className="step-row__icon" size={14} aria-hidden="true" data-testid={`step-icon-${step.kind}`} />
+        <Icon className="step-row__icon" size={14} aria-hidden="true" data-testid={`step-icon-${safeStep.kind}`} />
       </div>
       <div className="step-row__body">
         <div className="step-row__label">
-          {stepLabel(step)}
+          {stepLabel(safeStep)}
           {unsupportedScope && <span className="step-row__badge">не реализовано</span>}
         </div>
-        {step.detail && <div className="step-row__detail">{step.detail}</div>}
+        {safeStep.detail && <div className="step-row__detail">{safeStep.detail}</div>}
       </div>
-      <span className="step-row__ms">{step.ms === undefined ? '' : formatStepDuration(step.ms)}</span>
+      <span className="step-row__ms">{safeStep.ms === undefined ? '' : formatStepDuration(safeStep.ms)}</span>
     </div>
   );
 }
 
 function formatStepDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return '—';
   if (ms < 1000) return `${Math.round(ms)} мс`;
   if (ms < 60000) return `${new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(ms / 1000)} с`;
   return `${Math.floor(ms / 60000)} мин ${Math.round((ms % 60000) / 1000)} с`;
