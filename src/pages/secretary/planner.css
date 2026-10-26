@@ -1,0 +1,107 @@
+.sten-plan-workspace,.sten-habits-workspace{display:grid;gap:16px;min-width:0;color:var(--text-primary,var(--text,#17212b))}
+.sten-plan-week-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;min-width:0}
+.sten-plan-week-heading h2{margin:6px 0 4px;font-size:clamp(20px,2vw,26px);font-weight:650;letter-spacing:-.025em}
+.sten-plan-week-heading p,.sten-plan-card-heading p{margin:0;color:var(--text-secondary,var(--muted,#65717d));font-size:13px;line-height:1.5}
+.sten-plan-kicker{display:flex;align-items:center;gap:7px;color:var(--color-brand,#126b67);font-size:11px;font-weight:700;letter-spacing:.08em}
+.sten-plan-week-controls{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.sten-plan-week-controls button{min-height:38px}
+.sten-plan-summary{display:grid;grid-template-columns:minmax(220px,1.5fr) repeat(3,minmax(90px,.7fr));gap:12px;padding:16px;border:1px solid var(--border-subtle,var(--line,#dce2e7));border-radius:14px;background:var(--bg-surface,var(--surface,#fff))}
+.sten-plan-summary-main{display:flex;align-items:center;gap:12px;min-width:0}
+.sten-plan-summary-main>div{display:grid;gap:3px}
+.sten-plan-summary-main span,.sten-plan-stat span,.sten-plan-best-day span,.sten-plan-open-tasks>span{font-size:12px;color:var(--text-secondary,var(--muted,#65717d))}
+.sten-plan-summary-main strong{font-size:23px;font-weight:700;letter-spacing:-.03em}
+.sten-plan-summary-main small{font-size:11px;color:var(--text-secondary,var(--muted,#65717d))}
+.sten-plan-stat{display:flex;flex-direction:column;justify-content:center;gap:8px;padding-left:14px;border-left:1px solid var(--border-subtle,var(--line,#dce2e7))}
+.sten-plan-stat strong{font-size:24px;font-weight:650;font-variant-numeric:tabular-nums}
+.sten-plan-donut{display:block;width:48px;height:48px;flex:0 0 auto;overflow:visible}
+.sten-plan-donut-track{fill:none;stroke:var(--border-subtle,#e4e9ed);stroke-width:5}
+.sten-plan-donut-value{fill:none;stroke:var(--color-brand,#126b67);stroke-width:5;stroke-linecap:round;transform:rotate(-90deg);transform-origin:22px 22px;transition:stroke-dashoffset .28s ease}
+.sten-plan-donut text{fill:var(--text-primary,#17212b);font-size:9px;font-weight:700}
+.sten-plan-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;min-width:0}
+.sten-plan-day{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;padding:12px 6px;border:1px solid var(--border-subtle,var(--line,#dce2e7));border-radius:12px;background:var(--bg-surface,var(--surface,#fff));color:var(--text-primary,#17212b);cursor:pointer;transition:border-color .18s,background-color .18s,transform .18s}
+.sten-plan-day:hover{border-color:var(--color-brand,#126b67)}
+.sten-plan-day.is-selected{border-color:var(--color-brand,#126b67);background:color-mix(in srgb,var(--color-brand,#126b67) 7%,var(--bg-surface,#fff))}
+.sten-plan-day-name{font-size:11px;color:var(--text-secondary,var(--muted,#65717d));text-transform:uppercase}
+.sten-plan-day>strong{font-size:20px;line-height:1.1}
+.sten-plan-day .sten-plan-donut{width:44px;height:44px}
+.sten-plan-day small{font-size:11px;color:var(--text-secondary,var(--muted,#65717d));font-variant-numeric:tabular-nums}
+.sten-plan-columns{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:14px;align-items:start;min-width:0}
+.sten-plan-card{display:grid;gap:14px;min-width:0;padding:16px;border:1px solid var(--border-subtle,var(--line,#dce2e7));border-radius:14px;background:var(--bg-surface,var(--surface,#fff))}
+.sten-plan-card-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
+.sten-plan-card-heading h3{display:flex;align-items:center;gap:8px;margin:0 0 4px;font-size:15px;font-weight:650;letter-spacing:-.01em}
+.sten-plan-count{display:grid;place-items:center;min-width:28px;height:28px;padding:0 7px;border-radius:8px;background:var(--bg-subtle,#f1f4f5);font-size:12px;font-weight:650}
+.sten-plan-add{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,.55fr) auto;gap:8px;min-width:0}
+.sten-plan-add input,.sten-plan-goal input,.sten-plan-notes,.sten-habit-state-inputs select,.sten-habit-add input{width:100%;min-width:0;border:1px solid var(--border-subtle,var(--line,#dce2e7));border-radius:9px;background:var(--bg-surface,#fff);color:var(--text-primary,#17212b);font:inherit;font-size:13px;outline:none}
+.sten-plan-add input,.sten-plan-goal input,.sten-habit-state-inputs select,.sten-habit-add input{min-height:40px;padding:8px 10px}
+.sten-plan-add input:focus,.sten-plan-goal input:focus,.sten-plan-notes:focus,.sten-habit-state-inputs select:focus,.sten-habit-add input:focus{border-color:var(--color-brand,#126b67);box-shadow:0 0 0 3px color-mix(in srgb,var(--color-brand,#126b67) 12%,transparent)}
+.sten-plan-add button{min-height:40px;justify-content:center;white-space:nowrap}
+.sten-plan-task-list{display:grid;gap:2px;list-style:none;padding:0;margin:0}
+.sten-plan-task-list li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 2px;border-bottom:1px solid var(--border-subtle,var(--line,#e4e9ed));min-width:0}
+.sten-plan-task-list li:last-child{border-bottom:0}
+.sten-plan-task-list label{display:flex;align-items:flex-start;gap:10px;min-width:0;flex:1;font-size:13px;line-height:1.5;cursor:pointer}
+.sten-plan-task-list label input,.sten-habit-table input[type=checkbox]{width:17px;height:17px;flex:0 0 auto;accent-color:var(--color-brand,#126b67);cursor:pointer}
+.sten-plan-task-list label span{overflow-wrap:anywhere}
+.sten-plan-task-list li.is-done label span{text-decoration:line-through;color:var(--text-secondary,var(--muted,#65717d))}
+.sten-plan-icon-button{display:grid;place-items:center;flex:0 0 auto;width:34px;height:34px;border:0;border-radius:8px;background:transparent;color:var(--text-secondary,var(--muted,#65717d));cursor:pointer}
+.sten-plan-icon-button:hover{background:var(--bg-subtle,#f1f4f5);color:var(--color-danger,#a62d2d)}
+.sten-plan-icon-button:disabled{opacity:.45;cursor:wait}
+.sten-plan-empty{padding:20px 12px;text-align:center;color:var(--text-secondary,var(--muted,#65717d));font-size:13px;line-height:1.6}
+.sten-plan-goal{display:flex;align-items:center;gap:10px;min-width:0}
+.sten-plan-goal>span{display:grid;place-items:center;flex:0 0 auto;width:28px;height:28px;border-radius:8px;background:var(--bg-subtle,#f1f4f5);font-size:12px;font-weight:700}
+.sten-plan-local-note{font-size:11px;line-height:1.5;color:var(--text-secondary,var(--muted,#65717d))}
+.sten-plan-analytics-grid{display:grid;grid-template-columns:minmax(140px,.8fr) minmax(130px,.8fr) minmax(0,1.4fr);gap:18px;align-items:start}
+.sten-plan-analytics-donut{display:flex;align-items:center;gap:10px}
+.sten-plan-analytics-donut>div{display:grid;gap:3px}
+.sten-plan-analytics-donut strong,.sten-plan-best-day strong{font-size:15px;overflow-wrap:anywhere}
+.sten-plan-analytics-donut span{font-size:11px;color:var(--text-secondary,var(--muted,#65717d))}
+.sten-plan-best-day{display:grid;gap:8px;padding-left:14px;border-left:1px solid var(--border-subtle,var(--line,#dce2e7))}
+.sten-plan-open-tasks{min-width:0}
+.sten-plan-open-tasks ul{list-style:none;padding:0;margin:8px 0 0;display:grid;gap:8px}
+.sten-plan-open-tasks li{display:grid;gap:3px;min-width:0}
+.sten-plan-open-tasks li span{font-size:12px;overflow-wrap:anywhere}
+.sten-plan-open-tasks li small,.sten-plan-open-tasks p{font-size:11px;color:var(--text-secondary,var(--muted,#65717d));margin:0}
+.sten-plan-notes{resize:vertical;min-height:92px;padding:11px;line-height:1.55}
+.sten-plan-error{padding:11px 13px;border:1px solid color-mix(in srgb,#a62d2d 25%,transparent);border-radius:9px;background:color-mix(in srgb,#a62d2d 6%,transparent);color:var(--color-danger,#a62d2d);font-size:13px}
+.sten-habit-add{grid-template-columns:minmax(0,1fr) auto}
+.sten-habit-table-scroll{max-width:100%;overflow:auto;border:1px solid var(--border-subtle,var(--line,#dce2e7));border-radius:10px;overscroll-behavior-inline:contain}
+.sten-habit-table{border-collapse:separate;border-spacing:0;min-width:max-content;width:100%;font-size:12px}
+.sten-habit-table th,.sten-habit-table td{padding:7px 8px;border-right:1px solid var(--border-subtle,var(--line,#e4e9ed));border-bottom:1px solid var(--border-subtle,var(--line,#e4e9ed));text-align:center}
+.sten-habit-table thead th{position:sticky;top:0;background:var(--bg-subtle,#f4f6f7);font-weight:650}
+.sten-habit-table th:first-child{position:sticky;left:0;z-index:2;min-width:165px;text-align:left;background:var(--bg-surface,#fff)}
+.sten-habit-table thead th:first-child{z-index:4;background:var(--bg-subtle,#f4f6f7)}
+.sten-habit-table tbody th{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.sten-habit-table tbody th span{max-width:130px;overflow-wrap:anywhere}
+.sten-habit-table .is-today{background:color-mix(in srgb,var(--color-brand,#126b67) 9%,var(--bg-surface,#fff))}
+.sten-habit-table tr:last-child th,.sten-habit-table tr:last-child td{border-bottom:0}
+.sten-habit-bars{display:flex;align-items:stretch;gap:4px;height:132px;min-width:0;padding-top:6px}
+.sten-habit-bar-item{display:flex;flex:1;min-width:0;flex-direction:column;align-items:center;gap:6px}
+.sten-habit-bar-track{display:flex;align-items:flex-end;flex:1;width:100%;max-width:20px;overflow:hidden;border-radius:5px;background:var(--bg-subtle,#f1f4f5)}
+.sten-habit-bar-track>div{width:100%;min-height:0;border-radius:5px 5px 0 0;background:var(--color-brand,#126b67);transition:height .2s ease}
+.sten-habit-bar-item small{font-size:10px;color:var(--text-secondary,var(--muted,#65717d))}
+.sten-habit-ranking{display:grid;gap:0;padding:0;margin:0;list-style:none;counter-reset:habit}
+.sten-habit-ranking li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--border-subtle,var(--line,#e4e9ed));font-size:12px;counter-increment:habit}
+.sten-habit-ranking li:last-child{border-bottom:0}
+.sten-habit-ranking li span{overflow-wrap:anywhere}
+.sten-habit-ranking li strong{font-variant-numeric:tabular-nums;color:var(--color-brand,#126b67)}
+.sten-habit-state-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sten-habit-state-inputs label{display:grid;gap:6px;font-size:12px;color:var(--text-secondary,var(--muted,#65717d))}
+.sten-habit-line-chart svg{display:block;width:100%;height:140px;overflow:visible}
+.sten-habit-line-chart svg line{stroke:var(--border-subtle,#e4e9ed);stroke-width:.5;stroke-dasharray:2 2}
+.sten-habit-line-chart polyline{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.sten-habit-line-chart .mood-line{stroke:var(--color-brand,#126b67)}
+.sten-habit-line-chart .motivation-line{stroke:var(--color-warning,#b7791f);stroke-dasharray:3 2}
+.sten-habit-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11px;color:var(--text-secondary,var(--muted,#65717d))}
+.sten-habit-legend span{display:flex;align-items:center;gap:6px}
+.sten-habit-legend i{display:inline-block;width:8px;height:8px;border-radius:50%}
+.sten-habit-legend .mood-dot{background:var(--color-brand,#126b67)}
+.sten-habit-legend .motivation-dot{background:var(--color-warning,#b7791f)}
+.sten-habit-footnote{display:flex;align-items:flex-start;gap:7px;margin:0;color:var(--text-secondary,var(--muted,#65717d));font-size:11px;line-height:1.5}
+@media(max-width:1100px){.sten-plan-columns{grid-template-columns:minmax(0,1fr)}.sten-plan-analytics-grid{grid-template-columns:1fr 1fr}.sten-plan-open-tasks{grid-column:1/-1}}
+@media(max-width:700px){.sten-plan-workspace,.sten-habits-workspace{gap:12px}.sten-plan-week-heading{align-items:flex-start;flex-direction:column}.sten-plan-week-controls{width:100%;justify-content:flex-start}.sten-plan-week-controls button{min-height:42px}.sten-plan-summary{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px}.sten-plan-summary-main{grid-column:1/-1;padding-bottom:10px;border-bottom:1px solid var(--border-subtle,var(--line,#dce2e7))}.sten-plan-stat{padding-left:8px;gap:5px}.sten-plan-stat:first-of-type{padding-left:0;border-left:0}.sten-plan-stat span{font-size:11px}.sten-plan-stat strong{font-size:21px}.sten-plan-days{display:flex;overflow-x:auto;padding:2px 1px 6px;scroll-snap-type:x mandatory;overscroll-behavior-inline:contain}.sten-plan-day{flex:0 0 78px;scroll-snap-align:start;padding:10px 5px}.sten-plan-card{padding:13px;gap:12px}.sten-plan-add{grid-template-columns:minmax(0,1fr) minmax(115px,.7fr)}.sten-plan-add button{grid-column:1/-1;width:100%}.sten-habit-add{grid-template-columns:minmax(0,1fr)}.sten-habit-add button{grid-column:auto}.sten-plan-analytics-grid{grid-template-columns:1fr 1fr;gap:14px}.sten-plan-open-tasks{grid-column:1/-1}.sten-plan-best-day{padding-left:10px}.sten-habit-state-inputs{grid-template-columns:1fr}.sten-habit-table th:first-child{min-width:145px}.sten-habit-bars{gap:2px}.sten-habit-bar-track{max-width:12px}}
+@media(max-width:380px){.sten-plan-summary{padding:10px;gap:7px}.sten-plan-stat strong{font-size:18px}.sten-plan-stat span{font-size:10px}.sten-plan-analytics-grid{grid-template-columns:1fr}.sten-plan-best-day{padding:0;border:0}.sten-plan-add{grid-template-columns:minmax(0,1fr)}.sten-plan-add input[type=date]{width:100%}}
+@media(prefers-reduced-motion:reduce){.sten-plan-donut-value,.sten-plan-day,.sten-habit-bar-track>div{transition:none}}
+
+.sten-secretary-tabs{display:flex;align-items:center;gap:5px;padding:4px;border:1px solid var(--border-subtle,var(--line,#dce2e7));border-radius:11px;background:var(--bg-subtle,#f1f4f5);width:fit-content;max-width:100%;overflow-x:auto}
+.sten-secretary-tabs button{flex:0 0 auto;min-height:38px;padding:8px 13px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--text-secondary,var(--muted,#65717d));font:inherit;font-size:13px;font-weight:550;cursor:pointer;white-space:nowrap}
+.sten-secretary-tabs button.is-active{border-color:var(--border-subtle,var(--line,#dce2e7));background:var(--bg-surface,var(--surface,#fff));color:var(--text-primary,#17212b);box-shadow:0 1px 2px #17212b0a}
+@media(max-width:700px){.sten-secretary-tabs{width:100%;display:grid;grid-template-columns:1fr 1fr;overflow:visible}.sten-secretary-tabs button{white-space:normal;padding:9px 7px;font-size:12px}.sten-secretary-tabs button:last-child{grid-column:1/-1}}
