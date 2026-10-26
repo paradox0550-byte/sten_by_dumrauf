@@ -214,8 +214,22 @@ td, th { border-color: var(--border-subtle) !important; }
 html[data-sten-interface="desktop"] .mobile-bottom-nav { display: none !important; }
 html[data-sten-interface="mobile"] .sidebar,
 html[data-sten-interface="mobile"] .backdrop { display: none !important; }
+html[data-sten-interface="mobile"] .sidebar.is-open {
+  display: flex !important;
+  position: fixed !important;
+  inset: 0 auto 0 0 !important;
+  width: min(300px, 86vw) !important;
+  transform: translateX(0) !important;
+  z-index: 70 !important;
+}
+html[data-sten-interface="mobile"] .backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 60 !important;
+  background: rgba(0, 0, 0, .35) !important;
+}
 html[data-sten-interface="mobile"] .main { width: 100% !important; margin-left: 0 !important; }
-html[data-sten-interface="mobile"] .mobile-menu,
+html[data-sten-interface="mobile"] .mobile-menu { display: grid !important; }
 html[data-sten-interface="mobile"] .sidebar-toggle { display: none !important; }
 html[data-sten-interface="mobile"] .content {
   width: 100%;
