@@ -164,3 +164,110 @@ td, th { border-color: var(--border-subtle) !important; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* STEN interface mode: same data and routes, different navigation density. */
+.sten-interface-controls {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.sten-interface-controls .icon-button {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+}
+.sten-mode-toggle[aria-pressed="true"] {
+  color: var(--color-brand-strong) !important;
+  border-color: color-mix(in srgb, var(--color-brand) 38%, var(--border-default)) !important;
+  background: color-mix(in srgb, var(--color-brand) 8%, var(--bg-surface)) !important;
+}
+.sten-install-help {
+  position: absolute;
+  z-index: 160;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  gap: 8px;
+  width: min(290px, calc(100vw - 24px));
+  padding: 14px;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+  white-space: normal;
+}
+.sten-install-help b { font-size: 13px; }
+.sten-install-help span { color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+.sten-install-help button {
+  min-height: 44px;
+  justify-self: start;
+  padding: 0 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--bg-surface-subtle);
+  color: var(--text-primary);
+}
+html[data-sten-interface="desktop"] .mobile-bottom-nav { display: none !important; }
+html[data-sten-interface="mobile"] .sidebar,
+html[data-sten-interface="mobile"] .backdrop { display: none !important; }
+html[data-sten-interface="mobile"] .main { width: 100% !important; margin-left: 0 !important; }
+html[data-sten-interface="mobile"] .mobile-menu,
+html[data-sten-interface="mobile"] .sidebar-toggle { display: none !important; }
+html[data-sten-interface="mobile"] .content {
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+  padding-bottom: calc(92px + env(safe-area-inset-bottom)) !important;
+}
+html[data-sten-interface="mobile"] .mobile-bottom-nav {
+  display: flex !important;
+  position: fixed !important;
+  inset: auto 0 0 !important;
+  z-index: 55 !important;
+  justify-content: space-around;
+  align-items: stretch;
+  width: 100%;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  background: var(--bg-surface) !important;
+  border-top: 1px solid var(--border-subtle) !important;
+}
+html[data-sten-interface="mobile"] .mobile-bottom-nav a {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  min-height: 52px;
+  border-radius: 8px;
+}
+html[data-sten-interface="mobile"] .page-head {
+  align-items: flex-start;
+  flex-direction: column;
+}
+html[data-sten-interface="mobile"] :where(.two-col, .pnl-prime-control) {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+html[data-sten-interface="mobile"] :where(.table-wrap, .table-scroll, .pnl-table-wrap, .budget-table-wrap) {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+@media (max-width: 767px) {
+  .sten-interface-controls { gap: 2px; }
+  .sten-interface-controls .icon-button { width: 36px; min-width: 36px; height: 40px; min-height: 40px; }
+  html[data-sten-interface="desktop"] .mobile-bottom-nav { display: none !important; }
+}
+@media (min-width: 768px) {
+  html[data-sten-interface="mobile"] .topbar { padding-inline: 18px !important; }
+  html[data-sten-interface="mobile"] .content { padding-inline: 18px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sten-mode-toggle, .sten-install-help { transition: none !important; animation: none !important; }
+}
+
