@@ -106,13 +106,13 @@ export function HabitTracker() {
   const [habitName,setHabitName]=useState('');
   const [stateDate,setStateDate]=useState(keyOf(new Date()));
   const [error,setError]=useState('');
-  const month=useMemo(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth()+monthOffset,1);},[month,monthOffset]);
+  const month=useMemo(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth()+monthOffset,1);},[monthOffset]);
   const dayCount=new Date(month.getFullYear(),month.getMonth()+1,0).getDate();
   const today=keyOf(new Date());
   const keys=Array.from({length:dayCount},(_,i)=>keyOf(new Date(month.getFullYear(),month.getMonth(),i+1,12)));
   const monthName=month.toLocaleDateString('ru-RU',{month:'long',year:'numeric'});
   useEffect(()=>{save(HABITS_KEY,state);},[state]);
-  useEffect(()=>{const d=new Date();setStateDate(monthOffset===0?keyOf(d):keyOf(new Date(month.getFullYear(),month.getMonth(),1,12)));},[monthOffset]);
+  useEffect(()=>{const d=new Date();setStateDate(monthOffset===0?keyOf(d):keyOf(new Date(month.getFullYear(),month.getMonth(),1,12)));},[month,monthOffset]);
   const slots=state.habits.reduce((sum,h)=>sum+keys.filter(k=>k<=today&&(!h.createdAt||k>=h.createdAt)).length,0);
   const total=state.habits.reduce((sum,h)=>sum+keys.filter(k=>k<=today&&(!h.createdAt||k>=h.createdAt)&&(state.records[k]?.done||[]).includes(h.id)).length,0);
   const overall=slots?total/slots*100:0;
