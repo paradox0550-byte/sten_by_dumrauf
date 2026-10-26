@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { api } from '../../lib/api';
 import { CalendarDays, ChevronLeft, ChevronRight, HeartPulse, Plus, StickyNote, Target, Trash2, TrendingUp } from 'lucide-react';
 import './planner.css';
@@ -47,7 +47,7 @@ export function WeeklyPlanner() {
   const progress=tasks.length?finished/tasks.length*100:0;
   const selectedTasks=tasks.filter(e=>keyOf(new Date(e.start_at))===selected);
   const openTasks=tasks.filter(e=>!done(e.status));
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);setError('');
     try {
       const from=new Date(start);from.setHours(0,0,0,0);
@@ -56,12 +56,12 @@ export function WeeklyPlanner() {
       setEvents(Array.isArray(result?.events)?result.events:[]);
     } catch(e) { setEvents([]);setError(e instanceof Error?e.message:'Не удалось загрузить задачи.'); }
     finally { setLoading(false); }
-  }
-  useEffect(()=>{void load();},[wk]);
+  }, [start]);
+  useEffect(()=>{void load();},[load]);
   useEffect(()=>{save(GOALS_KEY,goalsByWeek);},[goalsByWeek]);
   useEffect(()=>{save(NOTES_KEY,notesByWeek);},[notesByWeek]);
-  useEffect(()=>{if(!days.some(d=>keyOf(d)===selected)){setSelected(keyOf(days[0]));setTaskDate(keyOf(days[0]));}},[wk]);
-  async function addTask(e:React.FormEvent) {
+  useEffect(()=>{if(!days.some(d=>keyOf(d)===selected)){setSelected(keyOf(days[0]));setTaskDate(keyOf(days[0]));}},[days,selected]);
+  async function addTask(e:FormEvent) {
     e.preventDefault();if(!title.trim()||saving)return;
     setSaving(true);setError('');
     try {
@@ -120,7 +120,7 @@ export function HabitTracker() {
   const weekDone=state.habits.reduce((sum,h)=>sum+weekKeys.filter(k=>(state.records[k]?.done||[]).includes(h.id)).length,0);
   const stats=state.habits.map(h=>{const count=keys.filter(k=>(state.records[k]?.done||[]).includes(h.id)).length;const elapsed=keys.filter(k=>k<=today).length;return {...h,count,rate:elapsed?count/elapsed*100:0};}).sort((a,b)=>b.rate-a.rate);
   const daily=keys.map(k=>{const active=state.habits.filter(()=>k<=today);const count=active.filter(h=>(state.records[k]?.done||[]).includes(h.id)).length;return {key:k,day:fromKey(k).getDate(),rate:active.length?count/active.length*100:0};});
-  function updateRecord(k:string,patch:Partial<RecordDay>){setState(current=>({...current,records:{...current.records,[k]:{done:current.records[k]?.done||[],...current.records[k],...patch}}}));}
+  function updateRecord(k:string,patch:Partial<RecordDay>){setState(current=>({...current,records:{...current.records,[k]:{done:current.records[k]?.done||[],...(current.records[k]||{}),...patch}}}));}
   function addHabit(e:React.FormEvent){e.preventDefault();const name=habitName.trim();if(!name)return;if(state.habits.some(h=>h.name.toLowerCase()===name.toLowerCase())){setError('Такая привычка уже есть.');return;}setState(current=>({...current,habits:[...current.habits,{id:window.crypto?.randomUUID?.()||String(Date.now()),name}]}));setHabitName('');setError('');}
   function toggle(k:string,id:string){const list=state.records[k]?.done||[];updateRecord(k,{done:list.includes(id)?list.filter(v=>v!==id):[...list,id]});}
   function removeHabit(id:string){if(!window.confirm('Удалить привычку и все её отметки?'))return;setState(current=>({habits:current.habits.filter(h=>h.id!==id),records:Object.fromEntries(Object.entries(current.records).map(([k,r])=>[k,{...r,done:r.done.filter(v=>v!==id)}]))}));}
