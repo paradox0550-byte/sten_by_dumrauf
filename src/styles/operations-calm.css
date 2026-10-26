@@ -1,0 +1,302 @@
+/* STEN · Calm operations interface
+   Scoped presentation corrections for My Day, Manager Plan and Secretary.
+   No routing, API contracts or business calculations live here. */
+.flash-page,
+.secretary-page {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+.flash-page .page-head,
+.secretary-page .page-head {
+  align-items: flex-start;
+  margin: 0;
+  gap: 16px;
+}
+.flash-page .page-head > div:first-child,
+.secretary-page .page-head > div:first-child { min-width: 0; }
+.flash-page .page-head h1,
+.secretary-page .page-head h1 {
+  margin: 4px 0 7px;
+  font-size: clamp(23px, 2vw, 28px) !important;
+  line-height: 1.22;
+  letter-spacing: -.035em;
+}
+.flash-page .page-head p,
+.secretary-page .page-head p {
+  max-width: 68ch;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.flash-page .head-actions,
+.secretary-page .head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.flash-page .operational-control-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+  align-items: end;
+  gap: 14px 18px;
+  margin: 0;
+  padding: 16px;
+}
+.flash-page .operational-scope-context { padding: 0; }
+.flash-page .operational-control-date { min-width: 0; margin: 0; }
+.flash-page .operational-day-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.flash-page .operational-control-import { min-width: 0; }
+.flash-page .operational-control-import summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 9px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.flash-page .operational-control-import[open] {
+  flex: 1 1 100%;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+.flash-page .operational-day-overview {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  margin: 0;
+  padding: clamp(14px, 1.5vw, 20px);
+}
+.flash-page .operational-overview-heading { align-items: center; }
+.flash-page .operational-overview-heading .eyebrow { line-height: 1.4; }
+.flash-page .operational-overview-heading h2 {
+  margin: 5px 0 0;
+  font-size: 17px;
+  line-height: 1.35;
+  font-weight: 650;
+}
+.flash-page .operational-overview-metrics { gap: 10px; }
+.flash-page .operational-overview-metric {
+  gap: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--bg-surface);
+}
+.flash-page .operational-overview-metric span {
+  min-height: 2.5em;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.flash-page .operational-overview-metric strong {
+  font-size: clamp(15px, 1.3vw, 18px);
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+.flash-page .operational-overview-metric small {
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.flash-page .operational-attention { padding-top: 14px; }
+.flash-page .operational-attention li { overflow-wrap: anywhere; }
+.flash-page .operational-day-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.flash-page .operational-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.flash-page .operational-section-heading h2 {
+  margin: 5px 0 0;
+  font-size: 17px;
+  line-height: 1.35;
+}
+.flash-page .operational-day-date {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.flash-page .operational-day-summary,
+.flash-page .operational-transaction-panel { min-width: 0; }
+.flash-page .operational-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.flash-page .operational-summary-head > div { display: grid; gap: 3px; }
+.flash-page .operational-summary-head span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.flash-page .metric-grid { gap: 10px; }
+.flash-page .metric-card { min-width: 0; }
+.flash-page .metric-card span { overflow-wrap: anywhere; }
+.flash-page .metric-card strong { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.secretary-page .sten-secretary-tabs {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+}
+.secretary-page .secretary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  min-width: 0;
+}
+.secretary-page .secretary-grid > .panel,
+.secretary-page .secretary-timeline {
+  min-width: 0;
+  margin: 0;
+}
+.secretary-page .panel-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 15px;
+  line-height: 1.35;
+}
+.secretary-page .secretary-event {
+  display: grid;
+  grid-template-columns: minmax(70px, 84px) minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.secretary-page .secretary-event:last-child { border-bottom: 0; }
+.secretary-page .secretary-main { display: grid; gap: 4px; min-width: 0; }
+.secretary-page .secretary-main strong,
+.secretary-page .secretary-note strong { overflow-wrap: anywhere; }
+.secretary-page .secretary-main > span,
+.secretary-page .secretary-note > span {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.secretary-page .secretary-main small,
+.secretary-page .secretary-date small,
+.secretary-page .secretary-note small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.secretary-page .secretary-date { display: grid; gap: 4px; }
+.secretary-page .secretary-date b { font-size: 12px; }
+.secretary-page .secretary-note {
+  display: grid;
+  gap: 6px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.secretary-page .secretary-note:last-child { border-bottom: 0; }
+.secretary-page .secretary-day {
+  display: grid;
+  grid-template-columns: minmax(90px, 140px) minmax(0, 1fr);
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.secretary-page .secretary-day:last-child { border-bottom: 0; }
+.secretary-page .secretary-day-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 650;
+}
+.secretary-page .secretary-day-events { min-width: 0; }
+.secretary-page .secretary-day-events .secretary-event { grid-template-columns: minmax(70px, 84px) minmax(0, 1fr); }
+.secretary-page .sten-plan-workspace,
+.secretary-page .sten-habits-workspace { gap: 16px; }
+.secretary-page .sten-plan-week-heading h2 { font-size: 20px; }
+.secretary-page .sten-plan-summary,
+.secretary-page .sten-plan-card { box-shadow: none; }
+.secretary-page .modal-backdrop { padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+.secretary-page .modal-card {
+  width: min(100%, 520px);
+  max-height: min(88dvh, 760px);
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+}
+.secretary-page .modal-card > label { display: grid; gap: 6px; margin: 14px 0; color: var(--text-secondary); font-size: 12px; }
+.secretary-page .modal-card .scope-input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 42px; }
+.flash-page :where(input, select, textarea),
+.secretary-page :where(input, select, textarea) { max-width: 100%; }
+.flash-page :where(.primary-button, .secondary-button, .danger-button),
+.secretary-page :where(.primary-button, .secondary-button, .danger-button) {
+  min-height: 40px;
+  gap: 7px;
+  white-space: normal;
+}
+.flash-page :where(.panel, .operational-day-summary, .operational-transaction-panel),
+.secretary-page :where(.panel, .sten-plan-card) { overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  .flash-page .operational-overview-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .secretary-page .secretary-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .flash-page, .secretary-page { gap: 14px; }
+  .flash-page .page-head, .secretary-page .page-head { flex-direction: column; align-items: stretch; gap: 12px; }
+  .flash-page .head-actions, .secretary-page .head-actions { width: 100%; }
+  .flash-page .head-actions > button, .secretary-page .head-actions > button { flex: 1 1 auto; }
+  .flash-page .operational-control-toolbar { grid-template-columns: minmax(0, 1fr); padding: 13px; }
+  .flash-page .operational-day-actions { grid-column: auto; }
+  .flash-page .operational-day-actions > button { flex: 1 1 120px; justify-content: center; }
+  .flash-page .operational-control-import { flex: 1 1 100%; }
+  .flash-page .operational-control-import summary { width: fit-content; max-width: 100%; }
+  .flash-page .operational-overview-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .flash-page .operational-overview-metric { padding: 10px; }
+  .flash-page .operational-overview-metric span { min-height: 0; }
+  .flash-page .operational-overview-heading { align-items: flex-start; }
+  .flash-page .operational-section-heading { align-items: flex-start; }
+  .flash-page .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .secretary-page .sten-secretary-tabs { width: 100%; }
+  .secretary-page .sten-plan-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .secretary-page .sten-plan-summary-main { grid-column: 1 / -1; }
+  .secretary-page .sten-plan-add { grid-template-columns: minmax(0, 1fr); }
+  .secretary-page .sten-plan-add button { grid-column: auto; width: 100%; }
+  .secretary-page .secretary-event { grid-template-columns: 68px minmax(0, 1fr); gap: 9px; }
+  .secretary-page .secretary-event > button,
+  .secretary-page .secretary-event > span { grid-column: 2; justify-self: start; }
+  .secretary-page .secretary-day { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .secretary-page .secretary-day-events .secretary-event { grid-template-columns: 68px minmax(0, 1fr); }
+  .secretary-page .modal-card { padding: 22px 16px; }
+}
+@media (max-width: 380px) {
+  .flash-page .operational-overview-metrics,
+  .flash-page .metric-grid { grid-template-columns: minmax(0, 1fr); }
+  .secretary-page .sten-secretary-tabs { grid-template-columns: minmax(0, 1fr); }
+  .secretary-page .sten-secretary-tabs button:last-child { grid-column: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .secretary-page *, .flash-page * { scroll-behavior: auto !important; transition-duration: 0ms !important; animation-duration: 0ms !important; }
+}
