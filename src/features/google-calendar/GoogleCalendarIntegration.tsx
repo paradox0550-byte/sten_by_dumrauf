@@ -151,7 +151,7 @@ export default function GoogleCalendarIntegration() {
 
       for (const event of internalEvents) {
         // Google-originated events carry their Google ID marker; do not export them back as new STEN events.
-        if (event.description && /\\[STEN-GCAL:[^\\]]+\\]/.test(event.description)) { skipped++; continue; }
+        if (event.description?.includes('[STEN-GCAL:') && event.description.includes(']')) { skipped++; continue; }
         if (!event.id || !event.title || !event.start_at) { skipped++; continue; }
         const start = new Date(event.start_at);
         if (!Number.isFinite(start.getTime())) { skipped++; continue; }
