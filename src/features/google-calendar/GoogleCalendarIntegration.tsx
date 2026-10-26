@@ -12,25 +12,6 @@ type GoogleCalendarEvent = {
   extendedProperties?: { private?: Record<string, string> };
 };
 type GoogleCalendarList = { items?: GoogleCalendarEvent[]; error?: { message?: string } };
-type TokenResponse = { access_token?: string; error?: string; error_description?: string };
-type CalendarTokenClient = { requestAccessToken: (options?: { prompt?: string }) => void };
-declare global {
-  interface Window {
-    google?: {
-      accounts?: {
-        oauth2?: {
-          initTokenClient: (options: {
-            client_id: string;
-            scope: string;
-            callback: (response: TokenResponse) => void;
-            error_callback?: (error: { message?: string }) => void;
-          }) => CalendarTokenClient;
-        };
-      };
-    };
-  }
-}
-
 const GOOGLE_SCRIPT = 'https://accounts.google.com/gsi/client';
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
