@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BellRing, CalendarDays, CheckCircle2, CloudDownload, CloudUpload, Link2, LoaderCircle, RefreshCw, Unplug } from 'lucide-react';
+import { BellRing, CalendarDays, CheckCircle2, Link2, LoaderCircle, RefreshCw, Unplug } from 'lucide-react';
 import { api } from '../../lib/api';
 
 type GoogleCalendarEvent = {
@@ -144,7 +144,6 @@ export default function GoogleCalendarIntegration() {
       let updated = 0;
       let skipped = 0;
       const googleByStenId = new Map<string, GoogleCalendarEvent>();
-      const googleIds = new Set(googleEvents.map((event) => event.id));
       for (const event of googleEvents) {
         const stenId = event.extendedProperties?.private?.stenEventId;
         if (stenId) googleByStenId.set(stenId, event);
@@ -171,7 +170,6 @@ export default function GoogleCalendarIntegration() {
           updated++;
         } else {
           const created = await googleRequest<GoogleCalendarEvent>(accessToken, CALENDAR_API, { method: 'POST', body: JSON.stringify(body) });
-          if (created.id) googleIds.add(created.id);
           exported++;
         }
       }
