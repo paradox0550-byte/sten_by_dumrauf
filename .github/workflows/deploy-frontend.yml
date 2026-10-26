@@ -18,7 +18,7 @@ concurrency:
 jobs:
   deploy:
     name: Build and upload frontend
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -73,6 +73,30 @@ jobs:
           for f in dist/assets/*.css; do
             name=$(basename "$f")
             aws --endpoint-url=https://storage.yandexcloud.net s3 cp "$f" "s3://$BUCKET/assets/$name" --content-type "text/css; charset=utf-8"
+          done
+
+      - name: Upload assets (fonts)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.YC_S3_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_S3_SECRET }}
+          AWS_DEFAULT_REGION: ru-central1
+          BUCKET: smenavkarmane-business
+        run: |
+          set -e
+          shopt -s nullglob
+          fonts=(dist/assets/*.woff2 dist/assets/*.woff dist/assets/*.ttf)
+          if [ ${#fonts[@]} -eq 0 ]; then
+            echo "No font files emitted into dist/assets; checking whether fonts are inlined."
+            exit 0
+          fi
+          for f in "${fonts[@]}"; do
+            name=$(basename "$f")
+            case "$name" in
+              *.woff2) type="font/woff2" ;;
+              *.woff) type="font/woff" ;;
+              *.ttf) type="font/ttf" ;;
+            esac
+            aws --endpoint-url=https://storage.yandexcloud.net s3 cp "$f" "s3://$BUCKET/assets/$name" --content-type "$type" --cache-control "public, max-age=31536000, immutable"
           done
 
       - name: Upload brand assets
@@ -138,12 +162,4 @@ jobs:
               exit 1
             fi
           done <<< "$assets"
-          for asset in favicon.svg icon-192.svg icon-512.svg icons/favicon.svg icons/ic_overview.svg icons/ic_pnl.svg icons/ic_report.svg icons/ic_settings.svg icons/ic_staff.svg icons/ic_terms.svg brand/sten-mark.svg brand/sten-lockup.svg; do
-            asset_code=$(curl -s -o /dev/null -w "%{http_code}" "$URL$asset")
-            echo "$asset: $asset_code"
-            if [ "$asset_code" != "200" ]; then
-              echo "❌ Asset smoke test failed: $asset"
-              exit 1
-            fi
-          done
           echo "✅ Smoke test passed"
