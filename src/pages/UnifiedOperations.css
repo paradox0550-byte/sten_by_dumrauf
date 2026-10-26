@@ -1,0 +1,20 @@
+.sten-operations{--ops-accent:var(--sten-accent,#126b67);min-width:0;color:var(--text-primary,var(--text,#17212b))}
+.sten-operations__header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin:0 0 20px}
+.sten-operations__heading{min-width:0}
+.sten-operations__eyebrow{display:block;margin-bottom:7px;color:var(--ops-accent);font-size:11px;font-weight:750;letter-spacing:.12em}
+.sten-operations__heading h1{margin:0;font-size:clamp(22px,2.2vw,29px);line-height:1.2;font-weight:720;letter-spacing:-.035em}
+.sten-operations__heading p{margin:8px 0 0;color:var(--text-secondary,#687581);font-size:14px;line-height:1.55}
+.sten-operations__status{display:inline-flex;align-items:center;gap:8px;flex-shrink:0;padding:8px 11px;border:1px solid var(--sten-border-subtle,var(--border-color,#dce2e6));border-radius:999px;color:var(--text-secondary,#687581);font-size:12px;background:var(--surface,#fff)}
+.sten-operations__status span{width:7px;height:7px;border-radius:50%;background:var(--ops-accent)}
+.sten-operations__nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 20px}
+.sten-operations__nav button{display:flex;align-items:center;gap:12px;min-width:0;text-align:left;padding:14px 15px;border:1px solid var(--sten-border-subtle,var(--border-color,#dce2e6));border-radius:14px;background:var(--surface,#fff);color:inherit;cursor:pointer;transition:border-color 180ms ease,background 180ms ease,box-shadow 180ms ease}
+.sten-operations__nav button>svg:first-child{flex-shrink:0;color:var(--ops-accent)}
+.sten-operations__nav button span{display:grid;gap:4px;min-width:0;flex:1}
+.sten-operations__nav button b{font-size:14px;font-weight:700}
+.sten-operations__nav button small{font-size:12px;color:var(--text-secondary,#687581);line-height:1.35}
+.sten-operations__nav button .sten-operations__arrow{opacity:0;color:var(--ops-accent);transition:opacity 180ms ease}
+.sten-operations__nav button:hover .sten-operations__arrow,.sten-operations__nav button.is-active .sten-operations__arrow{opacity:1}
+.sten-operations__nav button.is-active{border-color:var(--ops-accent);background:color-mix(in srgb,var(--ops-accent) 5%,var(--surface,#fff));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ops-accent) 10%,transparent)}
+.sten-operations__content{min-width:0}
+@media(max-width:640px){.sten-operations__header{display:block}.sten-operations__status{margin-top:13px}.sten-operations__nav{grid-template-columns:minmax(0,1fr);gap:8px}.sten-operations__nav button{padding:12px}.sten-operations__heading p{font-size:13px}}
+@media(prefers-reduced-motion:reduce){.sten-operations__nav button,.sten-operations__nav button .sten-operations__arrow{transition:none}}
