@@ -42,11 +42,6 @@ export default function InterfaceModeControl() {
 
   useEffect(() => {
     document.documentElement.dataset.stenInterface = mode;
-    try {
-      localStorage.setItem(MODE_KEY, mode);
-    } catch {
-      // The current session still works when persistent storage is unavailable.
-    }
   }, [mode]);
 
   useEffect(() => {
@@ -68,7 +63,13 @@ export default function InterfaceModeControl() {
   }, []);
 
   const toggleMode = () => {
-    setMode(current => current === 'desktop' ? 'mobile' : 'desktop');
+    const nextMode = mode === 'desktop' ? 'mobile' : 'desktop';
+    setMode(nextMode);
+    try {
+      localStorage.setItem(MODE_KEY, nextMode);
+    } catch {
+      // The current session still works when persistent storage is unavailable.
+    }
     setShowInstallHelp(false);
   };
 
@@ -76,9 +77,13 @@ export default function InterfaceModeControl() {
     if (installPrompt) {
       const promptEvent = installPrompt;
       setInstallPrompt(null);
-      await promptEvent.prompt();
-      const choice = await promptEvent.userChoice;
-      if (choice.outcome === 'accepted') setInstalled(true);
+      try {
+        await promptEvent.prompt();
+        const choice = await promptEvent.userChoice;
+        if (choice.outcome === 'accepted') setInstalled(true);
+      } catch {
+        // Installation is optional and must never block the STEN workspace.
+      }
       return;
     }
     if (isAppleMobile()) setShowInstallHelp(value => !value);
