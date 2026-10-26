@@ -10,6 +10,7 @@ import WorkspaceSelector from './WorkspaceSelector';
 import { useScope } from '../lib/useScope';
 import LegalFooter from './LegalFooter';
 import { StenLogo } from './brand/StenLogo';
+import InterfaceModeControl from './layout/InterfaceModeControl';
 
 type Theme = 'light' | 'dark' | 'system';
 type Scale = 'RUB' | 'THOUSAND' | 'MILLION';
@@ -284,6 +285,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>}
 
           <div className="top-actions">
+            <InterfaceModeControl />
             <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark')} aria-label={theme === 'dark' ? 'Тема: тёмная. Переключить на светлую' : theme === 'light' ? 'Тема: светлая. Переключить на системную' : 'Тема: системная. Переключить на тёмную'} title={theme === 'dark' ? 'Тёмная тема' : theme === 'light' ? 'Светлая тема' : 'Системная тема'}>
               {theme === 'dark' ? <Sun size={17} /> : theme === 'light' ? <Moon size={17} /> : <Monitor size={17} />}
             </button>
