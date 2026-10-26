@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { Download, Monitor, Smartphone, Share } from 'lucide-react';
 
 type InterfaceMode = 'desktop' | 'mobile';
@@ -40,7 +40,7 @@ export default function InterfaceModeControl() {
   const [installed, setInstalled] = useState(isInstalled);
   const [showInstallHelp, setShowInstallHelp] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.documentElement.dataset.stenInterface = mode;
   }, [mode]);
 
