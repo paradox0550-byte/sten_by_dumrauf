@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { api, ApiError } from '../lib/api';
 import WorkspaceSelector from '../components/WorkspaceSelector';
 import GoogleSheetsIntegration from '../features/google-sheets/GoogleSheetsIntegration';
+import GoogleCalendarIntegration from '../features/google-calendar/GoogleCalendarIntegration';
 import { useScope } from '../lib/useScope';
 import { useAnalyticsSettings, type AnalyticsSettings } from '../lib/useAnalyticsSettings';
 import { useAppearance } from '../features/chat-appearance/useAppearance';
@@ -329,6 +330,7 @@ export default function Settings() {
         </section>
 
         <GoogleSheetsIntegration />
+        <GoogleCalendarIntegration />
 
         <section className="panel" id="settings-profile">
           <h2>Профиль</h2>
