@@ -83,6 +83,7 @@ function AIContent({user}:{user:User|null}){
  const[messages,setMessages]=useState<Msg[]>(()=>readMessages(key));
  const hydrateRef=useRef<string|null>(key);
  const[prompt,setPrompt]=useState('');
+ const[pendingSheetContext,setPendingSheetContext]=useState('');
  const[docs,setDocs]=useState<Doc[]>([]);
  const loadSeqRef=useRef(0);
  const askSeqRef=useRef(0);
@@ -108,13 +109,19 @@ function AIContent({user}:{user:User|null}){
    if(searchParams.get('sheetContext')!=='1')return;
    try{
      const context=sessionStorage.getItem('sten_google_sheet_context_v1');
-     if(context){
-       setPrompt(context);
+     if(context?.trim()){
        sessionStorage.removeItem('sten_google_sheet_context_v1');
+       setPendingSheetContext(context);
      }
    }catch{}
    setSearchParams(params=>{const next=new URLSearchParams(params);next.delete('sheetContext');return next},{replace:true});
  },[searchParams,setSearchParams]);
+ useEffect(()=>{
+   if(!pendingSheetContext.trim()||busy)return;
+   const context=pendingSheetContext;
+   setPendingSheetContext('');
+   void askRef.current(context);
+ },[pendingSheetContext,busy]);
  useEffect(()=>{voiceModeRef.current=voiceMode},[voiceMode]);
  useEffect(()=>{voiceAutoplayRef.current=voiceAutoplay},[voiceAutoplay]);
  useEffect(()=>()=>{try{recog.current?.abort?.()}catch{} if(typeof window!=='undefined'&&'speechSynthesis' in window)window.speechSynthesis.cancel()},[]);
