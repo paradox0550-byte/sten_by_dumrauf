@@ -77,7 +77,7 @@ describe('AskSteps processing timeline', () => {
     expect(normalized[0]).toMatchObject({
       kind: 'tool',
       label: 'Новый этап',
-      name: 'Неизвестный этап',
+      name: 'Новый этап',
       detail: 'Проверка совместимости',
       ms: 25,
       ok: true,
