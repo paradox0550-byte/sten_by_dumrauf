@@ -260,7 +260,7 @@ export default function GoogleCalendarIntegration() {
           {busy ? 'Синхронизируем…' : token ? 'Синхронизировать сейчас' : 'Подключить и синхронизировать'}
         </button>
         <button className="secondary-button" type="button" disabled={busy} onClick={() => void testBrowserNotification()}><BellRing size={16} /> Проверить уведомление браузера</button>
-        {token && <button className="secondary-button" type="button" disabled={busy} onClick={disconnect}><Unplug size={16} /> Отключить</button>}
+        {(token || connectedEmail) && <button className="secondary-button" type="button" disabled={busy} onClick={() => void disconnect()}><Unplug size={16} /> Отключить</button>}
       </div>
       {error && <div className="pnl-message error" role="alert" style={{ marginTop: 12 }}>{error}</div>}
       {notice && <div className="pnl-message ok" role="status" style={{ marginTop: 12 }}>{notice}</div>}
