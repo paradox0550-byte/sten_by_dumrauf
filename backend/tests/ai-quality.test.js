@@ -242,3 +242,25 @@ test('cross-department tasks preserve functional ownership and initiator follow-
   assert.match(prompt, /«рекомендовано» не равно «принято к исполнению»/u);
   assert.match(prompt, /не заявляй, что задача создана, назначена или сохранена/u);
 });
+
+
+test('management situations select integrated situational leadership guidance', () => {
+  const question = 'Как управлять сотрудником, который сопротивляется новой задаче?';
+  const skills = selectSkills(question);
+  assert.ok(skills.some(skill => skill.name === 'accountability'));
+  const prompt = buildSkillPrompt(question);
+  assert.match(prompt, /РЕЗУЛЬТАТ ВОЗНИКАЕТ ИЗ СОЧЕТАНИЯ УСЛОВИЙ/u);
+  assert.match(prompt, /ВЫБИРАЙ СТИЛЬ УПРАВЛЕНИЯ ПО СИТУАЦИИ/u);
+  assert.match(prompt, /Инструктаж \/ высокая директивность/u);
+  assert.match(prompt, /Совместное решение \/ коучинг/u);
+  assert.match(prompt, /Делегирование/u);
+  assert.match(prompt, /Цель, Реальность, Возможности/u);
+  assert.match(prompt, /УПРАВЛЯЙ СОПРОТИВЛЕНИЕМ ЧЕРЕЗ ДИАГНОСТИКУ/u);
+  assert.match(prompt, /Не подменяй управленческое решение набором цифр/u);
+});
+
+test('management skill avoids importing personal case names from source material', () => {
+  const prompt = buildSkillPrompt('Построй систему операционного управления');
+  assert.doesNotMatch(prompt, /Красная поляна/u);
+  assert.doesNotMatch(prompt, /названия организаций, персональные кейсы/u);
+});
