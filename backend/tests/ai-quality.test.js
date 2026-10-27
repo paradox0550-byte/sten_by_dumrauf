@@ -237,10 +237,10 @@ test('cross-department tasks preserve functional ownership and initiator follow-
   const skills = selectSkills(question);
   assert.ok(skills.some(skill => skill.name === 'accountability'));
   const prompt = buildSkillPrompt(question);
-  assert.match(prompt, /НАЗНАЧАЙ ПО РОЛИ, А НЕ ПО УДОБСТВУ/u);
-  assert.match(prompt, /ИНИЦИАТОР НЕ ТЕРЯЕТ КОНТРОЛЬ/u);
-  assert.match(prompt, /«рекомендовано» не равно «принято к исполнению»/u);
-  assert.match(prompt, /не заявляй, что задача создана, назначена или сохранена/u);
+  assert.match(prompt, /ОРГАНИЗУЙ МЕЖФУНКЦИОНАЛЬНУЮ ОТВЕТСТВЕННОСТЬ/u);
+  assert.match(prompt, /Инициатор отвечает за понятную постановку/u);
+  assert.match(prompt, /Отделяй рекомендацию от принятого решения/u);
+  assert.match(prompt, /Не утверждай, что задача создана, назначена, согласована или закрыта/u);
 });
 
 
