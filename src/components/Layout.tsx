@@ -55,7 +55,7 @@ const viewNavigate = (nav: ReturnType<typeof useNavigate>, to: string) => {
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     const value = localStorage.getItem(THEME_KEY);
-    return value === 'light' || value === 'dark' || value === 'system' ? value : 'light';
+    return value === 'light' || value === 'dark' || value === 'system' ? value : 'dark';
   });
   const [scale, setScale] = useState<Scale>(() => {
     const value = localStorage.getItem(SCALE_KEY);
@@ -73,7 +73,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
 
   const financePaths = ['/pnl', '/pnl/import', '/budget', '/analytics', '/finances'];
-  const operationsPaths = ['/ops', '/plan', '/staff'];
+  const operationsPaths = ['/ops', '/plan'];
+  const teamPaths = ['/staff'];
   const knowledgePaths = ['/documents', '/memory'];
   const toolsPaths = ['/ai-quality', '/legal', '/admin/organizations'];
   const matchesPath = (paths: string[]) => paths.some(path => location.pathname === path || location.pathname.startsWith(`${path}/`));
@@ -81,6 +82,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => ({
     finance: matchesPath(financePaths),
     operations: matchesPath(operationsPaths),
+    team: matchesPath(teamPaths),
     knowledge: matchesPath(knowledgePaths),
     tools: matchesPath(toolsPaths),
   }));
@@ -97,6 +99,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (matchesPath(financePaths)) setExpandedGroups(current => ({ ...current, finance: true }));
     if (matchesPath(operationsPaths)) setExpandedGroups(current => ({ ...current, operations: true }));
+    if (matchesPath(teamPaths)) setExpandedGroups(current => ({ ...current, team: true }));
     if (matchesPath(knowledgePaths)) setExpandedGroups(current => ({ ...current, knowledge: true }));
     if (matchesPath(toolsPaths)) setExpandedGroups(current => ({ ...current, tools: true }));
   }, [location.pathname]);
@@ -129,7 +132,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }, []);
 
   const items = useMemo(() => [
-    ['/dashboard', 'Обзор', 'overview'],
+    ['/dashboard', 'Главная', 'overview'],
     ['/sten', 'STEN AI', Bot],
     ['/ai-quality', 'Лаборатория AI', FlaskConical],
     ['/ops', 'Отчёт смены', 'report'],
@@ -181,10 +184,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav className="sten-primary-nav" aria-label="Навигация STEN">
-            <div className="nav-section-label">Главное</div>
+            <div className="nav-section-label">Рабочее пространство</div>
             <NavLink to="/dashboard" end onClick={() => setMobileMenu(false)}>
               <NavIcon icon="overview" size={17} />
-              <span>Обзор</span>
+              <span>Главная</span>
             </NavLink>
             <NavLink to="/sten" onClick={() => setMobileMenu(false)}>
               <Bot size={17} aria-hidden="true" />
@@ -205,17 +208,25 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               ] as const).map(([to, label]) => <NavLink key={to} to={to} onClick={() => setMobileMenu(false)}><span>{label}</span></NavLink>)}
             </div>}
 
-            <button className={`nav-group-toggle ${matchesPath(operationsPaths) ? 'is-current' : ''}`} type="button" aria-label="Операционное управление" title={sidebarCollapsed ? 'Операции' : undefined} aria-expanded={!!expandedGroups.operations} onClick={() => toggleGroup('operations')}>
+            <button className={`nav-group-toggle ${matchesPath(operationsPaths) ? 'is-current' : ''}`} type="button" aria-label="Мой день" title={sidebarCollapsed ? 'Мой день' : undefined} aria-expanded={!!expandedGroups.operations} onClick={() => toggleGroup('operations')}>
               <ClipboardList size={17} aria-hidden="true" />
-              <span>Операции</span>
+              <span>Мой день</span>
               <ChevronDown className="nav-group-chevron" size={15} aria-hidden="true" />
             </button>
-            {expandedGroups.operations && <div className="nav-group-children" aria-label="Операционное управление">
+            {expandedGroups.operations && <div className="nav-group-children" aria-label="Мой день">
               {([
                 ['/ops', 'Отчёт смены'],
                 ['/plan', 'План руководителя'],
-                ['/staff', 'Команда и ФОТ'],
               ] as const).map(([to, label]) => <NavLink key={to} to={to} onClick={() => setMobileMenu(false)}><span>{label}</span></NavLink>)}
+            </div>}
+
+            <button className={"nav-group-toggle " + (matchesPath(teamPaths) ? 'is-current' : '')} type="button" aria-label="Команда и ФОТ" title={sidebarCollapsed ? 'Команда и ФОТ' : undefined} aria-expanded={!!expandedGroups.team} onClick={() => toggleGroup('team')}>
+              <Users size={17} aria-hidden="true" />
+              <span>Команда и ФОТ</span>
+              <ChevronDown className="nav-group-chevron" size={15} aria-hidden="true" />
+            </button>
+            {expandedGroups.team && <div className="nav-group-children" aria-label="Команда и ФОТ">
+              <NavLink to="/staff" onClick={() => setMobileMenu(false)}><Users size={16} aria-hidden="true" /><span>Команда и ФОТ</span></NavLink>
             </div>}
 
             <button className={`nav-group-toggle ${matchesPath(knowledgePaths) ? 'is-current' : ''}`} type="button" aria-label="Знания" title={sidebarCollapsed ? 'Знания' : undefined} aria-expanded={!!expandedGroups.knowledge} onClick={() => toggleGroup('knowledge')}>
@@ -228,7 +239,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <NavLink to="/memory" onClick={() => setMobileMenu(false)}><Brain size={16} aria-hidden="true" /><span>Память STEN</span></NavLink>
             </div>}
 
-            <div className="nav-section-label nav-system-label">Система</div>
+            <div className="nav-section-label nav-system-label">Профиль и управление</div>
             <NavLink to="/settings" onClick={() => setMobileMenu(false)}>
               <Settings2 size={17} aria-hidden="true" />
               <span>Настройки</span>
