@@ -92,7 +92,6 @@ body { overflow-x: clip; }
   }
   .page table { max-width: none; }
   .sidebar {
-    height: 100dvh;
     height: 100vh;
     height: 100dvh;
     padding-top: max(12px, env(safe-area-inset-top));
@@ -105,7 +104,7 @@ body { overflow-x: clip; }
     min-height: 60px;
     padding-left: max(8px, env(safe-area-inset-left));
     padding-right: max(8px, env(safe-area-inset-right));
-    padding-bottom: max(6px, env(safe-area-inset-bottom));
+    padding-bottom: calc(6px + env(safe-area-inset-bottom));
   }
   .mobile-bottom-nav a { min-height: 48px; }
   .mobile-bottom-nav a span { line-height: 1.2; }
