@@ -91,7 +91,8 @@ const guides: Record<string, Guide> = {
 export default function InlineGuide() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const guide = guides[pathname];
+  const guidePath = pathname === '/' ? '/dashboard' : pathname === '/ai' ? '/sten' : pathname;
+  const guide = guides[guidePath];
   const [dismissed, setDismissed] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
