@@ -27,7 +27,7 @@ function searchUrl(provider: string, query: string) {
 export default function TrendMonitor() {
   const [market, setMarket] = useState<Market>('both');
   const [topicId, setTopicId] = useState(TOPICS[0].id);
-  const [provider, setProvider] = useState('yandex');
+  const [provider, setProvider] = useState('google');
   const [period, setPeriod] = useState('90');
   const [customQuery, setCustomQuery] = useState('');
   const [monitoringEnabled, setMonitoringEnabled] = useState(false);
