@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
-  BarChart3, Bot, Brain, CalendarDays, Menu, Moon, PanelLeft, PanelLeftClose, FlaskConical,
+  Activity, BarChart3, Bot, Brain, CalendarDays, Menu, Moon, PanelLeft, PanelLeftClose, FlaskConical,
   LogOut, Scale, Sun, WalletCards, X, ChevronDown, ClipboardList, Gauge, Monitor, Users, FileText, Settings2, Building2,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -74,6 +74,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const financePaths = ['/pnl', '/pnl/import', '/budget', '/analytics', '/finances'];
   const operationsPaths = ['/ops', '/plan', '/staff'];
+  const intelligencePaths = ['/trends'];
   const knowledgePaths = ['/documents', '/memory'];
   const toolsPaths = ['/ai-quality', '/legal', '/admin/organizations'];
   const matchesPath = (paths: string[]) => paths.some(path => location.pathname === path || location.pathname.startsWith(`${path}/`));
@@ -83,6 +84,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     operations: matchesPath(operationsPaths),
     knowledge: matchesPath(knowledgePaths),
     tools: matchesPath(toolsPaths),
+    intelligence: matchesPath(intelligencePaths),
   }));
 
   const toggleGroup = (group: string) => {
@@ -99,6 +101,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     if (matchesPath(operationsPaths)) setExpandedGroups(current => ({ ...current, operations: true }));
     if (matchesPath(knowledgePaths)) setExpandedGroups(current => ({ ...current, knowledge: true }));
     if (matchesPath(toolsPaths)) setExpandedGroups(current => ({ ...current, tools: true }));
+    if (matchesPath(intelligencePaths)) setExpandedGroups(current => ({ ...current, intelligence: true }));
   }, [location.pathname]);
 
   useEffect(() => {
@@ -131,6 +134,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const items = useMemo(() => [
     ['/dashboard', 'Обзор', 'overview'],
     ['/sten', 'STEN AI', Bot],
+    ['/trends', 'Мониторинг трендов', Activity],
     ['/ai-quality', 'Лаборатория AI', FlaskConical],
     ['/ops', 'Отчёт смены', 'report'],
     ['/plan', 'План руководителя', CalendarDays],
@@ -189,6 +193,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <NavLink to="/sten" onClick={() => setMobileMenu(false)}>
               <Bot size={17} aria-hidden="true" />
               <span>STEN AI</span>
+            </NavLink>
+            <NavLink to="/trends" onClick={() => setMobileMenu(false)}>
+              <Activity size={17} aria-hidden="true" />
+              <span>Мониторинг трендов</span>
             </NavLink>
 
             <button className={`nav-group-toggle ${matchesPath(financePaths) ? 'is-current' : ''}`} type="button" aria-label="Финансы" title={sidebarCollapsed ? 'Финансы' : undefined} aria-expanded={!!expandedGroups.finance} onClick={() => toggleGroup('finance')}>
