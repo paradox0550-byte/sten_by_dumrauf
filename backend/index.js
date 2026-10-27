@@ -128,7 +128,7 @@ if (_pool) return _pool;
 if (!ENV.DB_HOST) { log('db: no DB_HOST, pool disabled'); return null; }
 _pool = new Pool({
 host: ENV.DB_HOST, port: ENV.DB_PORT, database: ENV.DB_NAME, user: ENV.DB_USER, password: ENV.DB_PASSWORD,
-ssl: resolveDbSsl(), max: 10, idleTimeoutMillis: 30000, connectionTimeoutMillis: 15000,
+ssl: resolveDbSsl(), max: Math.max(1, Math.min(10, Number.parseInt(process.env.DB_POOL_MAX || '2', 10) || 2)), idleTimeoutMillis: 30000, connectionTimeoutMillis: 15000,
 statement_timeout: 25000, query_timeout: 25000, keepAlive: true, statement_cache_size: 0,
 application_name: 'sten-api',
 });
@@ -143,12 +143,21 @@ const p = db(); if (!p) throw new Error('DB not configured'); return p.query(tex
 async function safeQuery(text, params = [], fallback = []) {
 try { const r = await query(text, params); return r.rows ?? fallback; }
 catch (e) {
-log('safeQuery error:', e.message);
-if (ENV.NODE_ENV === 'production' && e.code !== '42P01') {
-console.error('[sten] safeQuery fail:', e.code, e.message, '| sql:', String(text).slice(0, 200));
-}
+console.error('[sten] safeQuery fail:', e.code || 'UNKNOWN', e.message, '| sql:', String(text).slice(0, 200));
 return fallback;
 }
+}
+
+// Use for reads that determine authorization, persistence confirmation, or destructive actions.
+// Unlike safeQuery, this helper never converts a database failure into an empty result.
+async function strictQuery(text, params = []) {
+  try {
+    const r = await query(text, params);
+    return r.rows ?? [];
+  } catch (e) {
+    console.error('[sten] strictQuery fail:', e.code || 'UNKNOWN', e.message, '| sql:', String(text).slice(0, 200));
+    throw e;
+  }
 }
 
 function isTransientDbError(e) {
@@ -1679,7 +1688,7 @@ try {
 const s = scopeFromQuery(req.query);
 await assertScopeAccess(req.user, s);
 if (!YM_RE.test(s.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
-const rows = await safeQuery(
+const rows = await strictQuery(
 `SELECT rows::text FROM pnl_entries WHERE organization_id = $1::uuid AND period = $2
 AND ($3::text = '' OR project_id = $3) AND ($4::text = '' OR branch_id = $4)
 AND ($5::text = '' OR restaurant_id = $5) AND ($6::text = '' OR department_id = $6)`,
@@ -1687,7 +1696,7 @@ AND ($5::text = '' OR restaurant_id = $5) AND ($6::text = '' OR department_id = 
 const all = [];
 for (const r of rows) { try { const parsed = JSON.parse(r.rows); if (Array.isArray(parsed)) all.push(...parsed); } catch { /* ignore */ } }
 let aggregated = aggregateRows(all);
-const txRows = await safeQuery(
+const txRows = await strictQuery(
 `SELECT article, SUM(amount) AS total, COUNT(*)::int AS count FROM pnl_transactions
 WHERE organization_id=$1::uuid AND period=$2
 AND ($3::text='' OR project_id=$3) AND ($4::text='' OR branch_id=$4)
@@ -1718,7 +1727,13 @@ ok(res, { period: s.period, scope: s, rows: aggregated, summary, calculated: sum
 app.post('/api/pnl', requireAuth, requireOrg, async (req, res, next) => {
 try {
 const body = parseOr400(PnlWriteSchema, req.body ?? {});
-if (body.restaurant_id) await assertRestaurantAccess(req.user, body.restaurant_id);
+await assertScopeAccess(req.user, {
+  period: body.period,
+  project_id: body.project_id || '',
+  branch_id: body.branch_id || '',
+  restaurant_id: body.restaurant_id || '',
+  department_id: body.department_id || '',
+});
 const cleanRows = body.rows.map(r => ({
 id: r.id || null,
 article: String(r.article).normalize('NFC').trim(),
@@ -1762,9 +1777,10 @@ try {
 if (!APPROVER_ROLES.has(String(req.user.role || '').toLowerCase())) throw httpError(403, 'У Вас нет права утверждать план.', 'FORBIDDEN_APPROVAL');
 const s = parseOr400(PnlApproveSchema, req.body ?? {});
 if (s.restaurant_id) await assertRestaurantAccess(req.user, s.restaurant_id);
-const exists = await safeQuery(
+await assertScopeAccess(req.user, s);
+const exists = await strictQuery(
 `SELECT 1 FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1`,
-[req.user.organizationId, s.period, s.project_id, s.branch_id, s.restaurant_id, s.department_id], []);
+[req.user.organizationId, s.period, s.project_id, s.branch_id, s.restaurant_id, s.department_id]);
 if (!exists?.length) throw httpError(409, 'Нельзя утвердить план: P&L для выбранной области не сохранён.', 'PNL_NOT_FOUND');
 await queryWithRetry(
 `INSERT INTO pnl_approvals (organization_id,period,project_id,branch_id,restaurant_id,department_id,status,approved_by,approved_at)
