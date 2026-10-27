@@ -1,0 +1,93 @@
+.sten-inline-guide {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 32px;
+  gap: 12px;
+  align-items: start;
+  margin: 20px 0 4px;
+  padding: 16px 18px;
+  border: 1px solid var(--border-subtle, #d8e0e5);
+  border-radius: 14px;
+  background: var(--bg-surface, #fff);
+  color: var(--text-primary, #17212b);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(23,33,43,.05));
+}
+.sten-inline-guide-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--bg-success, rgba(18,107,103,.09));
+  color: var(--color-brand, #126b67);
+}
+.sten-inline-guide-copy { min-width: 0; }
+.sten-inline-guide-eyebrow {
+  display: block;
+  margin: 1px 0 5px;
+  color: var(--text-secondary, #52616e);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .09em;
+}
+.sten-inline-guide h2 {
+  margin: 0 0 5px;
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 650;
+}
+.sten-inline-guide p {
+  margin: 0;
+  max-width: 820px;
+  color: var(--text-secondary, #52616e);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.sten-inline-guide ol {
+  margin: 12px 0 0;
+  padding-left: 20px;
+  color: var(--text-secondary, #52616e);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.sten-inline-guide-actions { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 11px; }
+.sten-inline-guide-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 5px 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-brand, #126b67);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.sten-inline-guide-actions .sten-inline-guide-primary {
+  padding: 6px 10px;
+  border: 1px solid var(--border-subtle, #d8e0e5);
+  border-radius: 8px;
+}
+.sten-inline-guide-close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary, #52616e);
+  cursor: pointer;
+}
+.sten-inline-guide button:focus-visible { outline: 2px solid var(--color-brand, #126b67); outline-offset: 3px; }
+@media (max-width: 640px) {
+  .sten-inline-guide { grid-template-columns: 30px minmax(0,1fr) 28px; gap: 9px; margin: 14px 0; padding: 13px; border-radius: 12px; }
+  .sten-inline-guide-icon { width: 30px; height: 30px; }
+  .sten-inline-guide p { font-size: 12px; }
+  .sten-inline-guide-actions { gap: 6px 12px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sten-inline-guide { animation: sten-guide-enter 180ms ease-out both; }
+  @keyframes sten-guide-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+}

@@ -1,11 +1,11 @@
 import React from 'react';
 import Layout from '../Layout';
+import InlineGuide from '../InlineGuide';
 
 /**
- * Canonical STEN v5.0.2 application shell.
- * Layout contains the live navigation/context implementation; this stable
- * entry point keeps the architecture aligned with the Executive Cockpit spec.
+ * Canonical application shell. Contextual onboarding lives inside the existing
+ * content flow, so it never opens a blocking modal or reloads the page.
  */
 export default function AppShell({ children }: { children: React.ReactNode }) {
-  return <Layout>{children}</Layout>;
+  return <Layout>{children}<InlineGuide /></Layout>;
 }
