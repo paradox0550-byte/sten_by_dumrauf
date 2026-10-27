@@ -74,7 +74,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const financePaths = ['/pnl', '/pnl/import', '/budget', '/analytics', '/finances'];
   const operationsPaths = ['/ops', '/plan'];
-  const teamPaths = ['/staff'];
   const knowledgePaths = ['/documents', '/memory'];
   const toolsPaths = ['/ai-quality', '/legal', '/admin/organizations'];
   const matchesPath = (paths: string[]) => paths.some(path => location.pathname === path || location.pathname.startsWith(`${path}/`));
