@@ -230,3 +230,39 @@ test('restaurant occupational safety requests route to risk assessment guidance'
   assert.match(prompt, /иерархии/u);
   assert.match(prompt, /опасность → риск → мера/u);
 });
+
+
+test('cross-department tasks preserve functional ownership and initiator follow-through', () => {
+  const question = 'Кто отвечает за межфункциональную задачу и контроль исполнения?';
+  const skills = selectSkills(question);
+  assert.ok(skills.some(skill => skill.name === 'accountability'));
+  const prompt = buildSkillPrompt(question);
+  assert.match(prompt, /ОРГАНИЗУЙ МЕЖФУНКЦИОНАЛЬНУЮ ОТВЕТСТВЕННОСТЬ/u);
+  assert.match(prompt, /Инициатор отвечает за понятную постановку/u);
+  assert.match(prompt, /Отделяй рекомендацию от принятого решения/u);
+  assert.match(prompt, /Не утверждай, что задача создана, назначена, согласована или закрыта/u);
+});
+
+
+test('management situations select integrated situational leadership guidance', () => {
+  const question = 'Как управлять сотрудником, который сопротивляется новой задаче?';
+  const skills = selectSkills(question);
+  assert.ok(skills.some(skill => skill.name === 'accountability'));
+  const prompt = buildSkillPrompt(question);
+  assert.match(prompt, /Результат возникает из сочетания условий/u);
+  assert.match(prompt, /ВЫБИРАЙ СТИЛЬ УПРАВЛЕНИЯ ПО СИТУАЦИИ/u);
+  assert.match(prompt, /Инструктаж \/ высокая директивность/u);
+  assert.match(prompt, /Совместное решение \/ коучинг/u);
+  assert.match(prompt, /Делегирование/u);
+  assert.match(prompt, /Цель:/u);
+  assert.match(prompt, /Реальность:/u);
+  assert.match(prompt, /Возможности:/u);
+  assert.match(prompt, /УПРАВЛЯЙ СОПРОТИВЛЕНИЕМ ЧЕРЕЗ ДИАГНОСТИКУ/u);
+  assert.match(prompt, /Не подменяй управленческое решение набором цифр/u);
+});
+
+test('management skill avoids importing personal case names from source material', () => {
+  const prompt = buildSkillPrompt('Построй систему операционного управления');
+  assert.doesNotMatch(prompt, /Красная поляна/u);
+  assert.doesNotMatch(prompt, /названия организаций, персональные кейсы/u);
+});
