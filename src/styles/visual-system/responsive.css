@@ -1,0 +1,31 @@
+/* Adaptive composition: safe areas, readable density, and touch targets */
+@media (min-width: 1440px) {
+  .content { padding-left: clamp(28px, 3vw, 52px) !important; padding-right: clamp(28px, 3vw, 52px) !important; }
+}
+@media (max-width: 900px) {
+  .content { padding: 20px 16px calc(92px + env(safe-area-inset-bottom)) !important; }
+  .page-head { margin-bottom: 18px !important; }
+  .page h1, .page-head h1 { font-size: clamp(24px, 6vw, 30px) !important; }
+  .topbar { gap: 8px !important; }
+  .top-context .period-chip { display: none; }
+  .top-profile-info { display: none; }
+  .sten-ai-page .ai-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .sten-ai-page .docs-panel { max-height: none; }
+  .sten-ai-page .docs-collapsed .docs-panel { display: none; }
+  .sten-ai-welcome__hero { padding-top: 24px; }
+  .sten-ai-welcome__hero h2 { font-size: clamp(30px, 8vw, 44px) !important; }
+  .sten-ai-welcome__section-head { align-items: flex-start; gap: 8px; flex-direction: column; }
+  .sten-ai-page .starter-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .sten-ai-page .sten-ai-starter { min-height: 112px; }
+  .sten-ai-page .composer { position: sticky; bottom: calc(62px + env(safe-area-inset-bottom)); }
+  .mobile-bottom-nav { padding-bottom: env(safe-area-inset-bottom) !important; }
+  .mobile-bottom-nav a { min-height: 54px; }
+}
+@media (max-width: 420px) {
+  .content { padding-left: 12px !important; padding-right: 12px !important; }
+  .sten-ai-topbar__brand { gap: 8px !important; }
+  .sten-ai-topbar__title p { font-size: 11px !important; }
+  .sten-ai-topbar__actions .secondary-button { min-height: 36px; padding-inline: 10px; }
+  .sten-ai-page .chat-head { gap: 8px; flex-wrap: wrap; }
+  .sten-ai-page .composer-footer { font-size: 10px; }
+}
