@@ -249,12 +249,12 @@ test('management situations select integrated situational leadership guidance', 
   const skills = selectSkills(question);
   assert.ok(skills.some(skill => skill.name === 'accountability'));
   const prompt = buildSkillPrompt(question);
-  assert.match(prompt, /РЕЗУЛЬТАТ ВОЗНИКАЕТ ИЗ СОЧЕТАНИЯ УСЛОВИЙ/u);
+  assert.match(prompt, /Результат возникает из сочетания условий/u);
   assert.match(prompt, /ВЫБИРАЙ СТИЛЬ УПРАВЛЕНИЯ ПО СИТУАЦИИ/u);
   assert.match(prompt, /Инструктаж \/ высокая директивность/u);
   assert.match(prompt, /Совместное решение \/ коучинг/u);
   assert.match(prompt, /Делегирование/u);
-  assert.match(prompt, /Цель, Реальность, Возможности/u);
+  assert.match(prompt, /Цель:/u);\n  assert.match(prompt, /Реальность:/u);\n  assert.match(prompt, /Возможности:/u);
   assert.match(prompt, /УПРАВЛЯЙ СОПРОТИВЛЕНИЕМ ЧЕРЕЗ ДИАГНОСТИКУ/u);
   assert.match(prompt, /Не подменяй управленческое решение набором цифр/u);
 });
