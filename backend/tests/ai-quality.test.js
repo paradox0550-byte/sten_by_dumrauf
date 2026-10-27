@@ -230,3 +230,15 @@ test('restaurant occupational safety requests route to risk assessment guidance'
   assert.match(prompt, /иерархии/u);
   assert.match(prompt, /опасность → риск → мера/u);
 });
+
+
+test('cross-department tasks preserve functional ownership and initiator follow-through', () => {
+  const question = 'Кто отвечает за межфункциональную задачу и контроль исполнения?';
+  const skills = selectSkills(question);
+  assert.ok(skills.some(skill => skill.name === 'accountability'));
+  const prompt = buildSkillPrompt(question);
+  assert.match(prompt, /НАЗНАЧАЙ ПО РОЛИ, А НЕ ПО УДОБСТВУ/u);
+  assert.match(prompt, /ИНИЦИАТОР НЕ ТЕРЯЕТ КОНТРОЛЬ/u);
+  assert.match(prompt, /«рекомендовано» не равно «принято к исполнению»/u);
+  assert.match(prompt, /не заявляй, что задача создана, назначена или сохранена/u);
+});
