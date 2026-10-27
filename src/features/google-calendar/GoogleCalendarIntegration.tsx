@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BellRing, CalendarDays, CheckCircle2, Link2, LoaderCircle, RefreshCw, Unplug } from 'lucide-react';
 import { api } from '../../lib/api';
 
@@ -71,6 +71,24 @@ export default function GoogleCalendarIntegration() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [lastSync, setLastSync] = useState('');
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void api.get<{ connection: { settings?: Record<string, unknown>; lastSyncAt?: string | null } | null }>('/api/integrations/google/calendar')
+      .then((result) => {
+        if (!active || !result.connection) return;
+        const saved = result.connection;
+        if (typeof saved.settings?.connectedEmail === 'string') setConnectedEmail(saved.settings.connectedEmail);
+        if (typeof saved.lastSyncAt === 'string') setLastSync(new Date(saved.lastSyncAt).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }));
+        setNotice('Настройки календаря восстановлены из аккаунта STEN. Для синхронизации потребуется авторизация Google.');
+      })
+      .catch((failure) => {
+        if (active) setError(failure instanceof Error ? failure.message : 'Не удалось загрузить настройки календаря.');
+      })
+      .finally(() => { if (active) setSettingsLoaded(true); });
+    return () => { active = false; };
+  }, []);
 
   const authorize = async (): Promise<string> => {
     if (token) return token;
@@ -174,9 +192,16 @@ export default function GoogleCalendarIntegration() {
         });
         imported++;
       }
-      const timestamp = new Date().toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' });
+      const nowIso = new Date().toISOString();
+      const calendarLabel = 'Google Calendar · основной календарь';
+      await api.put('/api/integrations/google/calendar', { settings: {
+        connectedEmail: calendarLabel,
+        syncWindowDays: SYNC_WINDOW_DAYS,
+      } });
+      await api.patch('/api/integrations/google/calendar/sync-status', { lastSyncAt: nowIso });
+      const timestamp = new Date(nowIso).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' });
       setLastSync(timestamp);
-      setConnectedEmail('Google Calendar · основной календарь');
+      setConnectedEmail(calendarLabel);
       setNotice(`Синхронизация завершена: из Google в STEN — ${imported}, из STEN в Google — ${exported}, обновлено — ${updated}, пропущено — ${skipped}. Период: ближайшие ${SYNC_WINDOW_DAYS} дней.`);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Не удалось синхронизировать календарь.');
@@ -202,11 +227,21 @@ export default function GoogleCalendarIntegration() {
     setNotice('Тестовое уведомление браузера отправлено. Это не подтверждает доставку будущих напоминаний Google Calendar.');
   };
 
-  const disconnect = () => {
+  const disconnect = async () => {
+    setBusy(true);
+    try {
+      await api.delete('/api/integrations/google/calendar');
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Не удалось отключить календарь в аккаунте.');
+      setBusy(false);
+      return;
+    }
     setToken('');
     setConnectedEmail('');
     setError('');
-    setNotice('Подключение отключено: токен удалён из памяти страницы. Для полного отзыва доступа используйте настройки аккаунта Google.');
+    setLastSync('');
+    setNotice('Настройки календаря удалены из аккаунта STEN. Токен удалён из памяти страницы; для полного отзыва доступа используйте настройки аккаунта Google.');
+    setBusy(false);
   };
 
   return (
@@ -215,17 +250,17 @@ export default function GoogleCalendarIntegration() {
         <CalendarDays size={21} aria-hidden="true" />
         <div>
           <h2 style={{ marginBottom: 4 }}>Google Календарь</h2>
-          <p className="muted" style={{ margin: 0 }}>Ручная двусторонняя синхронизация событий на ближайшие 90 дней. События STEN создаются или обновляются в основном календаре Google; новые события Google добавляются в «Секретарь». Фоновой синхронизации нет.</p>
+          <p className="muted" style={{ margin: 0 }}>Двусторонняя синхронизация событий на ближайшие 90 дней по команде пользователя. Настройки сохраняются в аккаунте STEN. События STEN создаются или обновляются в основном календаре Google; новые события Google добавляются в «Секретарь». Фоновой синхронизации пока нет.</p>
         </div>
       </div>
       {connectedEmail && <p className="muted" style={{ margin: '12px 0 0' }}><CheckCircle2 size={14} style={{ display: 'inline', verticalAlign: 'text-bottom' }} /> {connectedEmail}{lastSync ? ` · Последняя синхронизация: ${lastSync}` : ''}</p>}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
-        <button className="primary-button" type="button" disabled={busy} onClick={() => void sync()}>
+        <button className="primary-button" type="button" disabled={busy || !settingsLoaded} onClick={() => void sync()}>
           {busy ? <LoaderCircle size={16} className="spin" aria-hidden="true" /> : token ? <RefreshCw size={16} aria-hidden="true" /> : <Link2 size={16} aria-hidden="true" />}
           {busy ? 'Синхронизируем…' : token ? 'Синхронизировать сейчас' : 'Подключить и синхронизировать'}
         </button>
         <button className="secondary-button" type="button" disabled={busy} onClick={() => void testBrowserNotification()}><BellRing size={16} /> Проверить уведомление браузера</button>
-        {token && <button className="secondary-button" type="button" disabled={busy} onClick={disconnect}><Unplug size={16} /> Отключить</button>}
+        {(token || connectedEmail) && <button className="secondary-button" type="button" disabled={busy} onClick={() => void disconnect()}><Unplug size={16} /> Отключить</button>}
       </div>
       {error && <div className="pnl-message error" role="alert" style={{ marginTop: 12 }}>{error}</div>}
       {notice && <div className="pnl-message ok" role="status" style={{ marginTop: 12 }}>{notice}</div>}

@@ -216,6 +216,18 @@ await query(`CREATE INDEX IF NOT EXISTS idx_ai_conversation_user_created
   ON ai_conversation_turns(organization_id, user_id, created_at DESC);`);
 await query(`CREATE TABLE IF NOT EXISTS pnl_reports (id UUID PRIMARY KEY, organization_id UUID NOT NULL, project_id TEXT NOT NULL DEFAULT 'default', name TEXT NOT NULL, period_start TEXT NOT NULL, period_end TEXT NOT NULL, currency TEXT NOT NULL DEFAULT 'RUB', lines JSONB NOT NULL DEFAULT '[]'::jsonb, source TEXT NOT NULL DEFAULT 'manual', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by TEXT);`);
 await query(`CREATE INDEX IF NOT EXISTS idx_pnl_reports_org ON pnl_reports(organization_id, project_id);`);
+await query(`CREATE TABLE IF NOT EXISTS user_google_integrations (
+  organization_id UUID NOT NULL,
+  user_id TEXT NOT NULL,
+  provider TEXT NOT NULL CHECK (provider IN ('calendar','sheets')),
+  settings_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  connected_at TIMESTAMPTZ,
+  last_sync_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (organization_id, user_id, provider)
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_user_google_integrations_org_user
+  ON user_google_integrations(organization_id, user_id);`);
 await query(`CREATE TABLE IF NOT EXISTS secretary_notes (id UUID PRIMARY KEY, organization_id UUID NOT NULL, user_id TEXT, title TEXT, content TEXT, source TEXT DEFAULT 'manual', audio_url TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
 await query(`CREATE TABLE IF NOT EXISTS secretary_events (id UUID PRIMARY KEY, organization_id UUID NOT NULL, user_id TEXT, title TEXT NOT NULL, description TEXT, event_type TEXT NOT NULL DEFAULT 'meeting', start_at TIMESTAMPTZ NOT NULL, end_at TIMESTAMPTZ, status TEXT NOT NULL DEFAULT 'planned', reminder_minutes INTEGER, location TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
 await query(`CREATE INDEX IF NOT EXISTS idx_secretary_events_org_time ON secretary_events(organization_id, start_at);`);
@@ -2040,6 +2052,114 @@ await queryWithRetry(
 await audit(req.user, 'report.delete', 'daily_reports', req.params.date, {});
 ok(res, { deleted: true, date: req.params.date });
 } catch (e) { next(e); }
+});
+
+/* ---- account-scoped Google integration settings (OAuth tokens are never stored here) ---- */
+const GoogleIntegrationProviderSchema = z.enum(['calendar', 'sheets']);
+const GoogleIntegrationSettingsSchema = z.object({
+  settings: z.record(z.string(), z.unknown()).default({}),
+}).strict();
+
+function sanitizeGoogleIntegrationSettings(provider, raw) {
+  const input = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const out = {};
+  const allowed = provider === 'sheets'
+    ? ['spreadsheetUrl', 'spreadsheetId', 'selectedSheetId', 'selectedSheetTitle', 'connectedEmail']
+    : ['connectedEmail', 'syncWindowDays'];
+  for (const key of allowed) {
+    if (input[key] === undefined || input[key] === null) continue;
+    if (key === 'selectedSheetId' || key === 'syncWindowDays') {
+      const n = Number(input[key]);
+      if (!Number.isSafeInteger(n) || n < 0 || (key === 'syncWindowDays' && n > 366)) {
+        throw httpError(400, `Некорректное поле интеграции: ${key}`, 'GOOGLE_SETTINGS_INVALID');
+      }
+      out[key] = n;
+      continue;
+    }
+    const value = String(input[key]).trim();
+    if (value.length > 2048) throw httpError(400, 'Слишком длинное значение настройки Google', 'GOOGLE_SETTINGS_INVALID');
+    if (key === 'spreadsheetUrl' && value && !/^https:\/\/docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]+/u.test(value)) {
+      throw httpError(400, 'Укажите корректную ссылку Google Sheets', 'GOOGLE_SHEET_URL_INVALID');
+    }
+    out[key] = value;
+  }
+  return out;
+}
+
+app.get('/api/integrations/google/:provider', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const provider = parseOr400(GoogleIntegrationProviderSchema, req.params.provider);
+    const rows = await safeQuery(
+      `SELECT settings_json, connected_at, last_sync_at, updated_at
+       FROM user_google_integrations
+       WHERE organization_id=$1::uuid AND user_id=$2 AND provider=$3`,
+      [req.user.organizationId, String(req.user.id), provider], null);
+    if (!rows) throw httpError(503, 'Настройки интеграции временно недоступны', 'DB_UNAVAILABLE');
+    ok(res, { provider, connection: rows[0] ? {
+      settings: rows[0].settings_json || {},
+      connectedAt: rows[0].connected_at,
+      lastSyncAt: rows[0].last_sync_at,
+      updatedAt: rows[0].updated_at,
+      configured: true,
+    } : null });
+  } catch (e) { next(e); }
+});
+
+app.put('/api/integrations/google/:provider', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const provider = parseOr400(GoogleIntegrationProviderSchema, req.params.provider);
+    const body = parseOr400(GoogleIntegrationSettingsSchema, req.body ?? {});
+    const settings = sanitizeGoogleIntegrationSettings(provider, body.settings);
+    const q = await queryWithRetry(
+      `INSERT INTO user_google_integrations
+       (organization_id,user_id,provider,settings_json,connected_at,updated_at)
+       VALUES($1::uuid,$2,$3,$4::jsonb,now(),now())
+       ON CONFLICT(organization_id,user_id,provider)
+       DO UPDATE SET settings_json=excluded.settings_json,connected_at=now(),updated_at=now()
+       RETURNING settings_json,connected_at,last_sync_at,updated_at`,
+      [req.user.organizationId, String(req.user.id), provider, JSON.stringify(settings)],
+      { orgId: req.user.organizationId });
+    if (!q?.rows?.[0]) throw httpError(500, 'Настройки Google не сохранены', 'SAVE_NOT_CONFIRMED');
+    await audit(req.user, 'google.integration.saved', 'user_google_integrations', provider, { provider, settingsKeys: Object.keys(settings) });
+    ok(res, { provider, connection: {
+      settings: q.rows[0].settings_json || {},
+      connectedAt: q.rows[0].connected_at,
+      lastSyncAt: q.rows[0].last_sync_at,
+      updatedAt: q.rows[0].updated_at,
+      configured: true,
+    }, confirmed: true });
+  } catch (e) { next(e); }
+});
+
+app.patch('/api/integrations/google/:provider/sync-status', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const provider = parseOr400(GoogleIntegrationProviderSchema, req.params.provider);
+    const syncedAt = req.body?.lastSyncAt;
+    if (typeof syncedAt !== 'string' || !Number.isFinite(Date.parse(syncedAt))) {
+      throw httpError(400, 'Некорректное время синхронизации', 'GOOGLE_SYNC_STATUS_INVALID');
+    }
+    const q = await queryWithRetry(
+      `UPDATE user_google_integrations SET last_sync_at=$4::timestamptz,updated_at=now()
+       WHERE organization_id=$1::uuid AND user_id=$2 AND provider=$3
+       RETURNING last_sync_at,updated_at`,
+      [req.user.organizationId, String(req.user.id), provider, new Date(syncedAt).toISOString()],
+      { orgId: req.user.organizationId });
+    if (!q?.rows?.[0]) throw httpError(404, 'Сначала сохраните подключение Google', 'GOOGLE_INTEGRATION_NOT_FOUND');
+    ok(res, { provider, lastSyncAt: q.rows[0].last_sync_at, confirmed: true });
+  } catch (e) { next(e); }
+});
+
+app.delete('/api/integrations/google/:provider', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const provider = parseOr400(GoogleIntegrationProviderSchema, req.params.provider);
+    const q = await queryWithRetry(
+      `DELETE FROM user_google_integrations
+       WHERE organization_id=$1::uuid AND user_id=$2 AND provider=$3 RETURNING provider`,
+      [req.user.organizationId, String(req.user.id), provider],
+      { orgId: req.user.organizationId });
+    await audit(req.user, 'google.integration.disconnected', 'user_google_integrations', provider, { provider, existed: Boolean(q?.rows?.[0]) });
+    ok(res, { provider, disconnected: true, confirmed: true });
+  } catch (e) { next(e); }
 });
 
 /* ---- secretary ---- */
