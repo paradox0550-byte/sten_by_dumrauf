@@ -41,7 +41,7 @@ const applyTheme = (theme: Theme) => {
   document.documentElement.setAttribute('data-theme', resolved);
   document.documentElement.style.colorScheme = resolved;
   document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-    ?.setAttribute('content', resolved === 'dark' ? '#0B1015' : '#F3F5F7');
+    ?.setAttribute('content', resolved === 'dark' ? '#0C1216' : '#F5F3ED');
 };
 
 const viewNavigate = (nav: ReturnType<typeof useNavigate>, to: string) => {
@@ -82,7 +82,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => ({
     finance: matchesPath(financePaths),
     operations: matchesPath(operationsPaths),
-    team: matchesPath(teamPaths),
     knowledge: matchesPath(knowledgePaths),
     tools: matchesPath(toolsPaths),
   }));
@@ -99,7 +98,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (matchesPath(financePaths)) setExpandedGroups(current => ({ ...current, finance: true }));
     if (matchesPath(operationsPaths)) setExpandedGroups(current => ({ ...current, operations: true }));
-    if (matchesPath(teamPaths)) setExpandedGroups(current => ({ ...current, team: true }));
     if (matchesPath(knowledgePaths)) setExpandedGroups(current => ({ ...current, knowledge: true }));
     if (matchesPath(toolsPaths)) setExpandedGroups(current => ({ ...current, tools: true }));
   }, [location.pathname]);
@@ -220,14 +218,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               ] as const).map(([to, label]) => <NavLink key={to} to={to} onClick={() => setMobileMenu(false)}><span>{label}</span></NavLink>)}
             </div>}
 
-            <button className={"nav-group-toggle " + (matchesPath(teamPaths) ? 'is-current' : '')} type="button" aria-label="Команда и ФОТ" title={sidebarCollapsed ? 'Команда и ФОТ' : undefined} aria-expanded={!!expandedGroups.team} onClick={() => toggleGroup('team')}>
+            <NavLink to="/staff" onClick={() => setMobileMenu(false)} className={({ isActive }) => isActive ? 'active' : ''}>
               <Users size={17} aria-hidden="true" />
               <span>Команда и ФОТ</span>
-              <ChevronDown className="nav-group-chevron" size={15} aria-hidden="true" />
-            </button>
-            {expandedGroups.team && <div className="nav-group-children" aria-label="Команда и ФОТ">
-              <NavLink to="/staff" onClick={() => setMobileMenu(false)}><Users size={16} aria-hidden="true" /><span>Команда и ФОТ</span></NavLink>
-            </div>}
+            </NavLink>
 
             <button className={`nav-group-toggle ${matchesPath(knowledgePaths) ? 'is-current' : ''}`} type="button" aria-label="Знания" title={sidebarCollapsed ? 'Знания' : undefined} aria-expanded={!!expandedGroups.knowledge} onClick={() => toggleGroup('knowledge')}>
               <Brain size={17} aria-hidden="true" />
