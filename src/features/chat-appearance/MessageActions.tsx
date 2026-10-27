@@ -5,19 +5,19 @@ export function MessageActions({ onCopy, onToSecretary, onAnalyzePnl, onSaveMemo
   return (
     <div className="message-actions" aria-label="Действия с сообщением">
       {onSpeak && <button type="button" onClick={onSpeak} aria-label="Прослушать ответ STEN" title="Прослушать ответ">
-        <Volume2 size={14} aria-hidden="true" /><span>Прослушать</span>
+        <Volume2 size={16} aria-hidden="true" />
       </button>}
       <button type="button" onClick={onCopy} aria-label="Копировать текст ответа" title="Копировать">
-        <Clipboard size={14} aria-hidden="true" /><span>Копировать</span>
+        <Clipboard size={16} aria-hidden="true" />
       </button>
       <button type="button" onClick={onToSecretary} aria-label="Создать событие в Секретаре" title="В Секретарь">
-        <CalendarPlus size={14} aria-hidden="true" /><span>В Секретарь</span>
+        <CalendarPlus size={16} aria-hidden="true" />
       </button>
       <button type="button" onClick={() => onAnalyzePnl?.()} aria-label="Разобрать P&L" title="Разобрать P&L">
-        <BarChart3 size={14} aria-hidden="true" /><span>Разобрать P&amp;L</span>
+        <BarChart3 size={16} aria-hidden="true" />
       </button>
       {showSaveMemory && onSaveMemory && <button type="button" onClick={onSaveMemory} aria-label="Сохранить предложение в память" title="Сохранить в память">
-        <Brain size={14} aria-hidden="true" /><span>В память</span>
+        <Brain size={16} aria-hidden="true" />
       </button>}
     </div>
   );
