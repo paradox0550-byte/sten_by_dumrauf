@@ -4,7 +4,7 @@
 
 - Adds a protected `/trends` page and navigation entry.
 - Provides a Russian-language research workspace for six categories: guest behavior, menu and beverages, value/economics, experience/service, technology/productivity, and workforce.
-- Provides Russian and English search query suggestions and opens a selected query in Google or Yandex.
+- Provides Russian and English search query suggestions and opens a selected query in Google by default, with Yandex as an optional alternative.
 - Shows the evidence checklist: source independence, dynamics, persistence, market confirmation, geography, and applicability.
 - Explicitly tells the user that scheduled collection is not connected; it does not fabricate trend cards, scores, results, or background refreshes.
 
