@@ -254,7 +254,9 @@ test('management situations select integrated situational leadership guidance', 
   assert.match(prompt, /Инструктаж \/ высокая директивность/u);
   assert.match(prompt, /Совместное решение \/ коучинг/u);
   assert.match(prompt, /Делегирование/u);
-  assert.match(prompt, /Цель:/u);\n  assert.match(prompt, /Реальность:/u);\n  assert.match(prompt, /Возможности:/u);
+  assert.match(prompt, /Цель:/u);
+  assert.match(prompt, /Реальность:/u);
+  assert.match(prompt, /Возможности:/u);
   assert.match(prompt, /УПРАВЛЯЙ СОПРОТИВЛЕНИЕМ ЧЕРЕЗ ДИАГНОСТИКУ/u);
   assert.match(prompt, /Не подменяй управленческое решение набором цифр/u);
 });
