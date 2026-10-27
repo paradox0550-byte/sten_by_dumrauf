@@ -518,13 +518,16 @@ function AIContent({user}:{user:User|null}){
                )}
              </MessageRow>
              {m.role === 'assistant' && m.toolsUsed && m.toolsUsed.length > 0 && (
-               <div className="sten-ai-tools" aria-label="Использованные инструменты">
-                 {m.model && <span>Модель · {m.model}</span>}
-                 <span>Инструменты</span>
-                 {m.toolsUsed.map((tool,index)=><span className="sten-ai-tools__item" key={tool.name+'-'+index}>
-                   <b>{tool.name}</b>{tool.ok===false?' · ошибка':''}{typeof tool.ms==='number'?' · '+(tool.ms<1000?Math.round(tool.ms)+' ms':(tool.ms/1000).toLocaleString('ru-RU',{minimumFractionDigits:1,maximumFractionDigits:1})+' с'):''}
-                 </span>)}
-               </div>
+               <details className="sten-ai-tools" aria-label="Технические детали ответа">
+                 <summary>Технические детали</summary>
+                 <div className="sten-ai-tools__details">
+                   {m.model && <span>Модель: {m.model}</span>}
+                   <span>Использованные инструменты</span>
+                   {m.toolsUsed.map((tool,index)=><span className="sten-ai-tools__item" key={tool.name+'-'+index}>
+                     <b>{tool.name}</b>{tool.ok===false?' · ошибка':''}{typeof tool.ms==='number'?' · '+(tool.ms<1000?Math.round(tool.ms)+' мс':(tool.ms/1000).toLocaleString('ru-RU',{minimumFractionDigits:1,maximumFractionDigits:1})+' с'):''}
+                   </span>)}
+                 </div>
+               </details>
              )}
              {m.role === 'assistant' && m.proposedMemory && m.proposedMemory.length > 0 && (
                <ProposedMemoryChips
