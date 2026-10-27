@@ -1,0 +1,158 @@
+/* STEN · Mobile experience
+   Narrow-screen corrections for iOS Safari and Android Chrome.
+   Presentation only: no routing, data, API, or business logic.
+*/
+
+/* Prevent child grids and long financial values from forcing the page wider than the viewport. */
+html, body, #root { min-width: 320px; width: 100%; }
+body { overflow-x: clip; }
+.shell, .executive-shell, .main, .content, .page, .page > *,
+.panel, .metric-card, .pnl-kpi, .budget-kpi, .chat, .docs-panel {
+  min-width: 0;
+}
+.page img, .page svg, .page canvas, .page video { max-width: 100%; }
+.page :where(h1, h2, h3, p, span, strong, small, label) { overflow-wrap: anywhere; }
+
+/* Tablet: retain the full workspace while allowing the shell and filters to contract. */
+@media (min-width: 768px) and (max-width: 1100px) {
+  .content { padding-inline: clamp(14px, 2vw, 22px); }
+  .page-head { flex-wrap: wrap; }
+  .scope-bar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .prime-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 14px; }
+  .prime-card > :last-child { grid-column: 1 / -1; text-align: left; }
+  .two-col { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Phone: touch-sized controls, safe areas, keyboard-friendly forms, and no page-level side scroll. */
+@media (max-width: 767px) {
+  html, body { min-height: 100%; }
+  body { -webkit-text-size-adjust: 100%; }
+  .shell, .executive-shell { min-height: 100dvh; }
+  .main { min-height: 100dvh; }
+  .topbar {
+    padding-top: max(7px, env(safe-area-inset-top)) !important;
+    padding-left: max(12px, env(safe-area-inset-left)) !important;
+    padding-right: max(12px, env(safe-area-inset-right)) !important;
+  }
+  .top-context { flex: 1 1 72px; min-width: 0; }
+  .crumb { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .top-workspace { flex: 0 1 auto; min-width: 0; }
+  .top-actions { flex: 0 0 auto; }
+  .top-actions .icon-button,
+  .mobile-menu,
+  .mobile-close { min-width: 44px; min-height: 44px; }
+  .content {
+    box-sizing: border-box;
+    min-width: 0;
+    padding-left: max(12px, env(safe-area-inset-left)) !important;
+    padding-right: max(12px, env(safe-area-inset-right)) !important;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom)) !important;
+  }
+  .page { gap: 10px; }
+  .page-head { min-width: 0; }
+  .page-head .head-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .page-head .head-actions > * { flex: 1 1 auto; min-width: 0; }
+  .head-actions button, .head-actions a,
+  .page :where(.primary-button, .secondary-button, .danger-button) { min-height: 44px; }
+  .page :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), select, textarea) {
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .page textarea { max-height: min(32dvh, 220px); }
+  .scope-bar {
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    min-width: 0;
+  }
+  .scope-bar label { min-width: 0; }
+  .scope-bar select, .scope-input { min-width: 0; width: 100%; }
+  .prime-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding: 14px;
+  }
+  .prime-card em { text-align: left; }
+  .flash-prime { padding: 16px; }
+  .flash-prime strong { font-size: clamp(25px, 8vw, 36px); overflow-wrap: anywhere; }
+  .pnl-row { grid-template-columns: minmax(0, 1fr) minmax(78px, auto); gap: 8px; }
+  .pnl-row > :last-child { grid-column: 2; }
+  .pnl-edit-row { min-width: 780px; }
+  .pnl-kpi > div { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .table-wrap, .table-scroll, .pnl-table-wrap, .budget-table-wrap,
+  .financial-table-wrap, .pnl-edit-table, .sten-markdown__table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+  .page table { max-width: none; }
+  .sidebar {
+    height: 100vh;
+    height: 100dvh;
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .mobile-bottom-nav {
+    min-height: 60px;
+    padding-left: max(8px, env(safe-area-inset-left));
+    padding-right: max(8px, env(safe-area-inset-right));
+    padding-bottom: calc(6px + env(safe-area-inset-bottom));
+  }
+  .mobile-bottom-nav a { min-height: 48px; }
+  .mobile-bottom-nav a span { line-height: 1.2; }
+  :where(.modal-backdrop, .modal-overlay, .dialog-backdrop, .drawer-backdrop) {
+    box-sizing: border-box;
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+      max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  :where(.modal, .modal-card, .dialog, .modal-dialog) {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sten-ai-page {
+    height: calc(100dvh - 176px - env(safe-area-inset-bottom));
+    min-height: 260px;
+  }
+  .sten-ai-page .composer-box textarea {
+    font-size: 16px;
+    max-height: min(24dvh, 140px);
+  }
+  .sten-ai-page .chat-body { scroll-padding-bottom: 24px; }
+}
+
+/* Extra-narrow phones: preserve legibility without forcing every KPI into a tall single column. */
+@media (max-width: 390px) {
+  .content { padding-left: 10px !important; padding-right: 10px !important; }
+  :where(.metric-grid, .budget-kpis, .pnl-kpis, .flash-page .metric-grid) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 7px;
+  }
+  .metric-card, .pnl-kpi, .budget-kpi { padding: 10px; }
+  .metric-card strong { font-size: clamp(14px, 4.4vw, 18px); overflow-wrap: anywhere; }
+  .top-workspace { max-width: 34vw; }
+  .sten-ai-topbar__title h1 { font-size: 17px; }
+}
+
+/* Respect the user's reduced-motion preference without disabling functional scrolling. */
+@media (prefers-reduced-motion: reduce) {
+  .mobile-bottom-nav, .sidebar, .modal, .modal-card {
+    scroll-behavior: auto;
+    transition-duration: 0.01ms !important;
+  }
+}

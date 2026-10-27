@@ -7,6 +7,7 @@ import './styles/tokens.css';
 import './app.css';
 import './styles/unified-interface.css';
 import './styles/operations-calm.css';
+import './styles/mobile-experience.css';
 
 const THEME_KEY = 'sten_theme_v5';
 const FONT_SIZE_KEY = 'sten_font_size_v1';
