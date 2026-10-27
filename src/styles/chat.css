@@ -300,14 +300,29 @@
 .sten-ai-page .chat-body .message-row:hover .message-actions,
 .sten-ai-page .chat-body .message-row:focus-within .message-actions { opacity:1; }
 .sten-ai-page .chat-body .message-actions button {
-  min-height:28px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:36px;
+  min-height:36px;
   height:auto;
-  padding:5px 8px;
+  padding:8px;
   border:1px solid transparent;
-  border-radius:6px;
+  border-radius:8px;
   color:var(--text-muted);
-  font-size:10px;
+  line-height:1;
   white-space:nowrap;
+}
+.sten-ai-page .chat-body .message-actions button svg {
+  width:16px;
+  height:16px;
+  flex:0 0 auto;
+}
+@media (hover:none) {
+  .sten-ai-page .chat-body .message-actions button {
+    min-width:44px;
+    min-height:44px;
+  }
 }
 .sten-ai-page .chat-body .message-actions button:hover {
   border-color:var(--border-subtle);
@@ -348,7 +363,7 @@
   .sten-ai-page .chat-body .message-row--user .message-content { max-width:88%; }
   .sten-ai-page .chat-body .message-bubble { padding:11px 12px; font-size:13px; }
   .sten-ai-page .chat-body .message-actions { opacity:1; gap:2px; }
-  .sten-ai-page .chat-body .message-actions button { padding:5px 6px; font-size:10px; }
+  .sten-ai-page .chat-body .message-actions button { min-width:36px; min-height:36px; padding:8px; }
   .sten-ai-page .chat-body .sten-markdown table { min-width:360px; }
   .sten-ai-page .chat-body .sten-ai-tools { padding-left:0; }
   .sten-ai-page .chat-body .typing { padding-left:0; }
