@@ -8,6 +8,7 @@ import './app.css';
 import './styles/unified-interface.css';
 import './styles/operations-calm.css';
 import './styles/mobile-experience.css';
+import './styles/sten-visual-system.css';
 import './styles/visual-system/index.css';
 
 const THEME_KEY = 'sten_theme_v5';
