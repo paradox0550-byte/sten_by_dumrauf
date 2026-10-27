@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, BookOpen, X } from 'lucide-react';
+import './InlineGuide.css';
 
 type Guide = { eyebrow: string; title: string; body: string; steps: string[]; action?: { label: string; to: string } };
 
