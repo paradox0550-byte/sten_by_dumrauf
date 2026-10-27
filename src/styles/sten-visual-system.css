@@ -1,0 +1,300 @@
+/* STEN · Signature Visual System
+   A unified, high-contrast visual layer for the existing product.
+   Presentation only: no routing, data, API contracts, or business calculations. */
+
+:root {
+  --sten-ink: #111b22;
+  --sten-ink-raised: #17252d;
+  --sten-ink-soft: #21343d;
+  --sten-jade: #087f70;
+  --sten-jade-bright: #10a58d;
+  --sten-jade-deep: #075e55;
+  --sten-lime: #d9f36a;
+  --sten-coral: #ff775f;
+  --sten-paper: #f5f3ed;
+  --sten-white: #fffefa;
+  --sten-line: #d8ded8;
+  --sten-text: #17242a;
+  --sten-muted: #52636a;
+  --sten-radius-sm: 8px;
+  --sten-radius-md: 12px;
+  --sten-radius-lg: 18px;
+  --sten-radius-xl: 24px;
+  --sten-motion-fast: 140ms;
+  --sten-motion: 220ms;
+  --bg-base: var(--sten-paper);
+  --bg-app: var(--sten-paper);
+  --bg-surface: var(--sten-white);
+  --bg-surface-subtle: #e9eee8;
+  --bg-elevated: #fffefa;
+  --bg-inset: #e9eee8;
+  --text-primary: var(--sten-text);
+  --text-secondary: #40535a;
+  --text-muted: #52636a;
+  --text-disabled: #77868a;
+  --color-brand: var(--sten-jade);
+  --color-brand-hover: var(--sten-jade-deep);
+  --color-brand-strong: var(--sten-jade-deep);
+  --color-brand-glow: rgb(8 127 112 / 16%);
+  --color-accent: var(--sten-jade);
+  --color-success: #18734c;
+  --color-warning: #9b5b00;
+  --color-danger: #c13d37;
+  --border-subtle: var(--sten-line);
+  --border-default: #bdc9c2;
+  --border-strong: #82958b;
+  --shadow-sm: 0 2px 5px rgb(17 27 34 / 5%);
+  --shadow-md: 0 8px 22px rgb(17 27 34 / 8%);
+  --shadow-lg: 0 22px 55px rgb(17 27 34 / 16%);
+  --ui-radius-sm: var(--sten-radius-sm);
+  --ui-radius-md: var(--sten-radius-md);
+  --ui-radius-lg: var(--sten-radius-lg);
+  --ui-control-h: 42px;
+  --ui-section-gap: 20px;
+  --ui-page-gap: 18px;
+  --sten-content-width: 1560px;
+}
+
+html[data-theme='dark'], [data-theme='dark'] {
+  --bg-base: #0c1216;
+  --bg-app: #0c1216;
+  --bg-surface: #151f25;
+  --bg-surface-subtle: #202e34;
+  --bg-elevated: #26373c;
+  --bg-inset: #0a1013;
+  --text-primary: #f5f7f2;
+  --text-secondary: #d0dbd5;
+  --text-muted: #a7b8b0;
+  --text-disabled: #82958c;
+  --color-brand: #32d2b0;
+  --color-brand-hover: #64e5c8;
+  --color-brand-strong: #71ebd0;
+  --color-brand-glow: rgb(50 210 176 / 17%);
+  --color-success: #62dfa0;
+  --color-warning: #ffd06e;
+  --color-danger: #ff8176;
+  --border-subtle: #2c3b40;
+  --border-default: #405258;
+  --border-strong: #627a7d;
+  --shadow-sm: 0 2px 6px rgb(0 0 0 / 18%);
+  --shadow-md: 0 10px 28px rgb(0 0 0 / 24%);
+  --shadow-lg: 0 24px 60px rgb(0 0 0 / 40%);
+}
+
+html[data-theme='light'], [data-theme='light'] {
+  color-scheme: light;
+  --bg-base: var(--sten-paper);
+  --bg-app: var(--sten-paper);
+  --bg-surface: var(--sten-white);
+  --bg-surface-subtle: #e9eee8;
+  --bg-elevated: #fffefa;
+  --bg-inset: #e9eee8;
+  --text-primary: var(--sten-text);
+  --text-secondary: #40535a;
+  --text-muted: #52636a;
+  --text-disabled: #77868a;
+  --color-brand: var(--sten-jade);
+  --color-brand-hover: var(--sten-jade-deep);
+  --color-brand-strong: var(--sten-jade-deep);
+  --color-brand-glow: rgb(8 127 112 / 16%);
+  --color-success: #18734c;
+  --color-warning: #9b5b00;
+  --color-danger: #c13d37;
+  --border-subtle: var(--sten-line);
+  --border-default: #bdc9c2;
+  --border-strong: #82958b;
+  --shadow-sm: 0 2px 5px rgb(17 27 34 / 5%);
+  --shadow-md: 0 8px 22px rgb(17 27 34 / 8%);
+  --shadow-lg: 0 22px 55px rgb(17 27 34 / 16%);
+}
+
+/* App frame: a confident dark navigation rail anchors the warmer workspace. */
+html, body, #root { min-height: 100%; }
+body {
+  background: var(--bg-base) !important;
+  color: var(--text-primary) !important;
+  letter-spacing: -.008em;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+.shell, .executive-shell { background: var(--bg-base) !important; }
+.sidebar {
+  color: #eaf2ed !important;
+  background: var(--sten-ink) !important;
+  border-right: 1px solid #2a3b40 !important;
+}
+.sidebar .brand { border-bottom-color: #2b3d41 !important; }
+.sidebar .brand-mark {
+  color: var(--sten-lime) !important;
+  background: #203b3a !important;
+  border-color: #315550 !important;
+}
+.sidebar .brand-copy b { color: #f7faf4 !important; letter-spacing: .12em !important; }
+.sidebar .brand-copy small { color: #9eb4ad !important; }
+.sten-primary-nav .nav-section-label {
+  color: #8da69d !important;
+  letter-spacing: .14em !important;
+  font-size: 10px !important;
+}
+.sten-primary-nav a, .sten-primary-nav .nav-group-toggle {
+  color: #c3d2cb !important;
+  border-radius: 9px !important;
+  border-color: transparent !important;
+  font-weight: 550 !important;
+  transition: background var(--sten-motion) ease, color var(--sten-motion) ease, transform var(--sten-motion) ease;
+}
+.sten-primary-nav a:hover, .sten-primary-nav .nav-group-toggle:hover {
+  color: #fff !important;
+  background: #203137 !important;
+  border-color: #2c4648 !important;
+}
+.sten-primary-nav a.active, .sten-primary-nav .nav-group-toggle.is-current {
+  color: #f7fff8 !important;
+  background: linear-gradient(100deg, #14594f, #176f61) !important;
+  border-color: #268c78 !important;
+  box-shadow: inset 3px 0 0 var(--sten-lime) !important;
+}
+.sten-primary-nav a.active svg, .sten-primary-nav .nav-group-toggle.is-current svg { color: var(--sten-lime) !important; }
+.sten-primary-nav .nav-group-children { border-left-color: #35504e !important; }
+.sidebar-bottom { border-top-color: #2b3d41 !important; }
+.sidebar-profile-copy b, .sidebar .sidebar-profile-copy small { color: #eaf2ed !important; }
+.sidebar .sidebar-profile-copy small { color: #9eb4ad !important; }
+
+.main { background: var(--bg-base) !important; }
+.topbar {
+  background: color-mix(in srgb, var(--bg-surface) 94%, transparent) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  box-shadow: 0 3px 14px rgb(17 27 34 / 3%) !important;
+  backdrop-filter: blur(14px) !important;
+}
+.crumb { font-size: 12px !important; font-weight: 750 !important; letter-spacing: .055em !important; }
+.period-chip { color: var(--text-muted) !important; }
+.icon-button, .sidebar-toggle {
+  border-radius: 10px !important;
+  border-color: var(--border-default) !important;
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  transition: transform var(--sten-motion-fast) ease, border-color var(--sten-motion-fast) ease, background var(--sten-motion-fast) ease !important;
+}
+.icon-button:hover, .sidebar-toggle:hover { border-color: var(--color-brand) !important; transform: translateY(-1px); }
+
+.content { padding-top: clamp(22px, 2.4vw, 36px) !important; }
+.content > .page { max-width: 1480px !important; }
+.page-head { margin-bottom: 24px !important; }
+.page h1, .page-head h1 {
+  font-size: clamp(25px, 2.15vw, 34px) !important;
+  line-height: 1.12 !important;
+  letter-spacing: -.045em !important;
+  font-weight: 760 !important;
+}
+.page h2, .page h3, .panel-title { letter-spacing: -.025em; font-weight: 700 !important; }
+.page .eyebrow, .page .section-eyebrow, .sten-state-eyebrow {
+  color: var(--color-brand-strong) !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: .14em !important;
+  text-transform: uppercase;
+}
+.page p, .page .muted, .muted, .field-hint, .helper-text { color: var(--text-secondary); }
+
+/* Surfaces gain hierarchy from contrast, edge definition and rhythm—not a pile of cards. */
+:where(.panel, .metric-card, .pnl-kpi, .budget-kpi, .analytics-summary, .analytics-gap-section, .director-attention, .director-prime, .director-metric, .flash-prime, .prime-card, .operational-day-summary, .operational-insight-panel, .operational-transaction-panel, .settings-card, .docs-panel, .memory-card, .insight-card, .deviations-widget__card) {
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: var(--sten-radius-lg) !important;
+  background: var(--bg-surface) !important;
+  background-image: none !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition: border-color var(--sten-motion) ease, box-shadow var(--sten-motion) ease, transform var(--sten-motion) ease;
+}
+:where(.metric-card, .pnl-kpi, .budget-kpi, .director-metric, .prime-card) { padding: 18px !important; }
+:where(.panel, .metric-card, .pnl-kpi, .budget-kpi):hover { border-color: color-mix(in srgb, var(--color-brand) 35%, var(--border-subtle)) !important; }
+.metric-card strong, .pnl-kpi strong, .budget-kpi strong, .prime-card strong {
+  letter-spacing: -.045em;
+  font-weight: 760 !important;
+}
+:where(.metric-card, .pnl-kpi, .budget-kpi) > span,
+:where(.metric-card, .pnl-kpi, .budget-kpi) .label {
+  color: var(--text-secondary) !important;
+  font-weight: 600;
+}
+:where(.primary-button, .secondary-button, .danger-button, .quick-entry-save, .workspace-btn, .choice) {
+  min-height: 42px;
+  border-radius: 10px !important;
+  font-weight: 700 !important;
+  transition: transform var(--sten-motion-fast) ease, box-shadow var(--sten-motion-fast) ease, background var(--sten-motion-fast) ease !important;
+}
+.primary-button {
+  color: #fff !important;
+  background: var(--color-brand) !important;
+  border-color: var(--color-brand) !important;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-brand) 22%, transparent) !important;
+}
+.primary-button:hover:not(:disabled) { background: var(--color-brand-hover) !important; transform: translateY(-1px); }
+.primary-button:active:not(:disabled) { transform: translateY(0); }
+.secondary-button { color: var(--text-primary) !important; background: var(--bg-surface) !important; border-color: var(--border-default) !important; }
+.secondary-button:hover:not(:disabled) { background: var(--bg-surface-subtle) !important; }
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select, textarea) {
+  border-radius: 10px !important;
+  border-color: var(--border-default);
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+}
+:where(input, select, textarea):focus-visible { box-shadow: 0 0 0 3px var(--color-brand-glow) !important; }
+th { color: var(--text-secondary) !important; font-weight: 750 !important; }
+td, th { border-color: var(--border-subtle) !important; }
+table tbody tr:hover td { background: color-mix(in srgb, var(--color-brand) 4%, var(--bg-surface)); }
+
+/* STEN AI: workspace first, diagnostics and process details second. */
+.sten-ai-page .chat-body,
+.sten-ai-page .chat-messages,
+.sten-ai-page .messages-list { background: var(--bg-inset) !important; }
+.sten-ai-page .chat-body { border: 1px solid var(--border-subtle); border-radius: var(--sten-radius-lg); }
+.sten-ai-page .message-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 5px !important; }
+.sten-ai-page .chat-body .message-actions button {
+  display: inline-grid !important;
+  place-items: center !important;
+  width: 38px !important;
+  min-width: 38px !important;
+  min-height: 38px !important;
+  padding: 0 !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 10px !important;
+  background: var(--bg-surface) !important;
+  color: var(--text-secondary) !important;
+}
+.sten-ai-page .chat-body .message-actions button:hover {
+  color: var(--color-brand-strong) !important;
+  background: var(--bg-surface-subtle) !important;
+  border-color: var(--color-brand) !important;
+}
+.sten-ai-page .chat-body .message-actions button svg { width: 16px; height: 16px; }
+.sten-ai-page :where(.chat-composer, .chat-input-area, .chat-footer) {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-subtle) !important;
+}
+.sten-ai-page :where(.chat-composer textarea, .chat-input-area textarea) { background: var(--bg-surface) !important; }
+
+/* Mobile: keep navigation and composer intentional, not stacked into a tiny desktop. */
+.mobile-bottom-nav {
+  background: var(--sten-ink) !important;
+  border-top: 1px solid #2a3b40 !important;
+  box-shadow: 0 -10px 28px rgb(8 18 22 / 14%) !important;
+}
+.mobile-bottom-nav a { color: #aebfb8 !important; border-radius: 12px !important; }
+.mobile-bottom-nav a.active, .mobile-bottom-nav a[aria-current='page'] {
+  color: var(--sten-lime) !important;
+  background: #203b3a !important;
+}
+.mobile-bottom-nav a.active svg, .mobile-bottom-nav a[aria-current='page'] svg { color: var(--sten-lime) !important; }
+@media (max-width: 767px) {
+  .content { padding-top: 18px !important; }
+  .page-head { margin-bottom: 18px !important; }
+  .page h1, .page-head h1 { font-size: clamp(24px, 6vw, 29px) !important; }
+  :where(.metric-card, .pnl-kpi, .budget-kpi, .director-metric, .prime-card) { padding: 13px !important; border-radius: 14px !important; }
+  .sten-ai-page .chat-body { border-radius: 15px; }
+  .sten-ai-page .chat-body .message-actions button { width: 42px !important; min-width: 42px !important; min-height: 42px !important; }
+  .mobile-bottom-nav a { min-height: 58px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}

@@ -1,0 +1,42 @@
+/* Shared interaction grammar: controls, cards, data, and STEN AI */
+button, input, select, textarea { font: inherit; }
+button, [role='button'], a { -webkit-tap-highlight-color: transparent; }
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-brand) 70%, white);
+  outline-offset: 2px;
+}
+.icon-button, .sidebar-toggle {
+  border-radius: 10px !important;
+  border-color: var(--border-default) !important;
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  transition: transform var(--sten-motion-fast) ease, border-color var(--sten-motion-fast) ease, background var(--sten-motion-fast) ease !important;
+}
+.icon-button:hover, .sidebar-toggle:hover { border-color: var(--color-brand) !important; transform: translateY(-1px); }
+.page .card, .page .panel, .page .metric-card, .page .surface, .page .section-card {
+  border-color: var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+}
+.page .metric-card strong, .page .kpi-value, .page .metric-value { font-variant-numeric: tabular-nums; letter-spacing: -.035em; }
+.page table th { color: var(--text-muted); font-size: 11px; font-weight: 700; letter-spacing: .045em; }
+.page table td { font-variant-numeric: tabular-nums; }
+.page input, .page select, .page textarea { border-color: var(--border-default); }
+.page input:focus, .page select:focus, .page textarea:focus { border-color: var(--color-brand); box-shadow: 0 0 0 3px var(--color-brand-glow); }
+.sten-ai-page { color: var(--text-primary); }
+.sten-ai-topbar { border-color: var(--border-subtle) !important; }
+.sten-ai-topbar__status { background: var(--color-success) !important; box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-success) 16%, transparent) !important; }
+.sten-ai-topbar__name h1 { letter-spacing: -.045em; }
+.sten-ai-welcome__hero h2 { letter-spacing: -.05em !important; line-height: 1.04 !important; }
+.sten-ai-welcome__hero h2 span { color: var(--color-brand-strong) !important; }
+.sten-ai-starter { border-color: var(--border-default) !important; background: var(--bg-surface) !important; box-shadow: var(--shadow-sm); }
+.sten-ai-starter:hover { border-color: var(--color-brand) !important; box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.sten-ai-starter__number { color: var(--color-brand-strong) !important; }
+.sten-composer, .composer-box { border-color: var(--border-default) !important; }
+.sten-composer.is-focused, .composer-box:focus-within { border-color: var(--color-brand) !important; box-shadow: 0 0 0 3px var(--color-brand-glow), var(--shadow-md) !important; }
+.sten-composer .send, .composer-box .send { background: var(--sten-jade) !important; color: #fff !important; }
+.sten-composer .send:hover, .composer-box .send:hover { background: var(--sten-jade-deep) !important; }
+.sten-ai-tools summary { cursor: pointer; color: var(--text-muted); }
+:where(.sten-ai-page, .page) .empty, :where(.sten-ai-page, .page) .muted { color: var(--text-muted); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

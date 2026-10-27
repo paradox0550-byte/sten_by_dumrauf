@@ -8,6 +8,8 @@ import './app.css';
 import './styles/unified-interface.css';
 import './styles/operations-calm.css';
 import './styles/mobile-experience.css';
+import './styles/sten-visual-system.css';
+import './styles/visual-system/index.css';
 
 const THEME_KEY = 'sten_theme_v5';
 const FONT_SIZE_KEY = 'sten_font_size_v1';
@@ -27,7 +29,7 @@ function applyTheme(mode: string | null = readStorage(THEME_KEY)) {
   const resolved = resolveTheme(mode);
   document.documentElement.dataset.theme = resolved;
   document.documentElement.style.colorScheme = resolved;
-  const themeColor = resolved === 'dark' ? '#0B1015' : '#F3F5F7';
+  const themeColor = resolved === 'dark' ? '#0C1216' : '#F5F3ED';
   document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute('content', themeColor);
 }
 

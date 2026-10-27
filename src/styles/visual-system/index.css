@@ -1,0 +1,5 @@
+/* STEN Visual System — single entry point. Keep visual rules grouped by responsibility. */
+@import './tokens.css';
+@import './shell.css';
+@import './components.css';
+@import './responsive.css';
