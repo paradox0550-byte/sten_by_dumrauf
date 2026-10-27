@@ -647,3 +647,39 @@
   .sten-meeting-confirm dl { gap:10px; }
   .sten-meeting-confirm__actions { display:grid; grid-template-columns:1fr; }
 }
+
+
+/* Technical diagnostics are available on demand, not appended to every AI answer. */
+.sten-ai-tools {
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.sten-ai-tools > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.sten-ai-tools > summary:hover,
+.sten-ai-tools > summary:focus-visible {
+  color: var(--text-secondary);
+}
+.sten-ai-tools__details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--bg-surface-subtle);
+}
+.sten-ai-tools__item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
