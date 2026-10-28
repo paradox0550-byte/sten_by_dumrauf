@@ -109,85 +109,13 @@ html[data-theme='light'], [data-theme='light'] {
 }
 
 /* App frame: a confident dark navigation rail anchors the warmer workspace. */
-html, body, #root { min-height: 100%; }
-body {
-  background: var(--bg-base) !important;
-  color: var(--text-primary) !important;
-  letter-spacing: -.008em;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-}
+
 .shell, .executive-shell { background: var(--bg-base) !important; }
-.sidebar {
-  color: #eaf2ed !important;
-  background: var(--sten-ink) !important;
-  border-right: 1px solid #2a3b40 !important;
-}
-.sidebar .brand { border-bottom-color: #2b3d41 !important; }
-.sidebar .brand-mark {
-  color: var(--sten-lime) !important;
-  background: #203b3a !important;
-  border-color: #315550 !important;
-}
-.sidebar .brand-copy b { color: #f7faf4 !important; letter-spacing: .12em !important; }
-.sidebar .brand-copy small { color: #9eb4ad !important; }
-.sten-primary-nav .nav-section-label {
-  color: #8da69d !important;
-  letter-spacing: .14em !important;
-  font-size: 10px !important;
-}
-.sten-primary-nav a, .sten-primary-nav .nav-group-toggle {
-  color: #c3d2cb !important;
-  border-radius: 9px !important;
-  border-color: transparent !important;
-  font-weight: 550 !important;
-  transition: background var(--sten-motion) ease, color var(--sten-motion) ease, transform var(--sten-motion) ease;
-}
-.sten-primary-nav a:hover, .sten-primary-nav .nav-group-toggle:hover {
-  color: #fff !important;
-  background: #203137 !important;
-  border-color: #2c4648 !important;
-}
-.sten-primary-nav a.active, .sten-primary-nav .nav-group-toggle.is-current {
-  color: #f7fff8 !important;
-  background: linear-gradient(100deg, #14594f, #176f61) !important;
-  border-color: #268c78 !important;
-  box-shadow: inset 3px 0 0 var(--sten-lime) !important;
-}
-.sten-primary-nav a.active svg, .sten-primary-nav .nav-group-toggle.is-current svg { color: var(--sten-lime) !important; }
-.sten-primary-nav .nav-group-children { border-left-color: #35504e !important; }
-.sidebar-bottom { border-top-color: #2b3d41 !important; }
-.sidebar-profile-copy b, .sidebar .sidebar-profile-copy small { color: #eaf2ed !important; }
-.sidebar .sidebar-profile-copy small { color: #9eb4ad !important; }
 
 .main { background: var(--bg-base) !important; }
-.topbar {
-  background: color-mix(in srgb, var(--bg-surface) 94%, transparent) !important;
-  border-bottom: 1px solid var(--border-subtle) !important;
-  box-shadow: 0 3px 14px rgb(17 27 34 / 3%) !important;
-  backdrop-filter: blur(14px) !important;
-}
-.crumb { font-size: 12px !important; font-weight: 750 !important; letter-spacing: .055em !important; }
-.period-chip { color: var(--text-muted) !important; }
-.icon-button, .sidebar-toggle {
-  border-radius: 10px !important;
-  border-color: var(--border-default) !important;
-  background: var(--bg-surface) !important;
-  color: var(--text-primary) !important;
-  transition: transform var(--sten-motion-fast) ease, border-color var(--sten-motion-fast) ease, background var(--sten-motion-fast) ease !important;
-}
-.icon-button:hover, .sidebar-toggle:hover { border-color: var(--color-brand) !important; transform: translateY(-1px); }
 
-.content { padding-top: clamp(22px, 2.4vw, 36px) !important; }
 .content > .page { max-width: 1480px !important; }
-.page-head { margin-bottom: 24px !important; }
-.page h1, .page-head h1 {
-  font-size: clamp(25px, 2.15vw, 34px) !important;
-  line-height: 1.12 !important;
-  letter-spacing: -.045em !important;
-  font-weight: 760 !important;
-}
-.page h2, .page h3, .panel-title { letter-spacing: -.025em; font-weight: 700 !important; }
+
 .page .eyebrow, .page .section-eyebrow, .sten-state-eyebrow {
   color: var(--color-brand-strong) !important;
   font-size: 10px !important;
