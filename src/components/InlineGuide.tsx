@@ -107,13 +107,18 @@ export default function InlineGuide() {
     <aside className="sten-inline-guide" aria-label="Подсказка по разделу">
       <div className="sten-inline-guide-icon" aria-hidden="true"><BookOpen size={17} /></div>
       <div className="sten-inline-guide-copy">
-        <span className="sten-inline-guide-eyebrow">{guide.eyebrow}</span>
-        <h2>{guide.title}</h2>
-        <p>{guide.body}</p>
-        {expanded && <ol>{guide.steps.map((step) => <li key={step}>{step}</li>)}</ol>}
+        {!expanded && <button type="button" className="sten-inline-guide-trigger" onClick={() => setExpanded(true)} aria-expanded={false}>
+          <BookOpen size={15} aria-hidden="true" /> Справка по разделу
+        </button>}
+        {expanded && <>
+          <span className="sten-inline-guide-eyebrow">{guide.eyebrow}</span>
+          <h2>{guide.title}</h2>
+          <p>{guide.body}</p>
+          <ol>{guide.steps.map((step) => <li key={step}>{step}</li>)}</ol>
+        </>}
         <div className="sten-inline-guide-actions">
           <button type="button" onClick={() => setExpanded(value => !value)} aria-expanded={expanded}>
-            {expanded ? 'Свернуть инструкцию' : 'Как работать с разделом'}
+            {expanded ? 'Свернуть справку' : 'Открыть справку'}
           </button>
           {guide.action && <button type="button" className="sten-inline-guide-primary" onClick={() => navigate(guide.action!.to)}>
             {guide.action.label}<ArrowRight size={15} />
