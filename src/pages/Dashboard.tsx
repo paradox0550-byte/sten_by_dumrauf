@@ -68,7 +68,7 @@ export default function Dashboard() {
         setErrorMessage('Данные временно недоступны.');
       } else {
         setState('error');
-        setErrorMessage(error instanceof Error ? error.message : 'Не удалось загрузить P&L.');
+        setErrorMessage('Не удалось обновить показатели. Попробуйте ещё раз.');
       }
     }
   }, [scope.period, scope.projectId, scope.branchId, scope.restaurantId, scope.departmentId]);
@@ -127,7 +127,7 @@ export default function Dashboard() {
       {(state === 'unavailable' || state === 'error') && (
         <section className="director-state director-state--error" role="alert">
           <p>{state === 'unavailable' ? 'Данные временно недоступны' : errorMessage || 'Не удалось загрузить P&L.'}</p>
-          {state === 'unavailable' && <p className="director-state__detail">Сервис данных временно недоступен. Попробуйте ещё раз.</p>}
+          
           <button className="secondary-button" type="button" onClick={() => void load()}><RefreshCw size={15} /> Повторить</button>
         </section>
       )}
@@ -135,8 +135,8 @@ export default function Dashboard() {
       {state === 'empty' && (
         <section className="director-state director-state--empty">
           <AlertTriangle size={20} aria-hidden="true" />
-          <div><h2>Нет данных за {monthLabel}</h2><p>Загрузите P&amp;L или отчёт смены. STEN не подставляет демонстрационные значения.</p></div>
-          <Link className="secondary-button" to="/pnl">Открыть P&amp;L</Link>
+          <div><h2>Нет данных за {monthLabel}</h2></div>
+          <Link className="secondary-button" to="/pnl">Загрузить данные</Link>
         </section>
       )}
 
