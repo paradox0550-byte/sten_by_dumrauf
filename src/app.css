@@ -9767,8 +9767,8 @@ body { font-family: var(--font-ui); font-size: 14px; line-height: 1.5; -webkit-f
   min-height: var(--sten-control-height); border-radius: 8px; font-weight: 600;
   transition: background-color var(--sten-motion) var(--sten-ease), border-color var(--sten-motion) var(--sten-ease), color var(--sten-motion) var(--sten-ease), transform var(--sten-motion-fast) var(--sten-ease);
 }
-.primary-button { background: var(--color-brand) !important; border-color: var(--color-brand) !important; color: var(--text-on-accent, #fff) !important; box-shadow: none !important; }
-.primary-button:hover:not(:disabled) { background: var(--color-brand-hover) !important; border-color: var(--color-brand-hover) !important; }
+.primary-button { background: var(--color-brand); border-color: var(--color-brand); color: var(--text-on-accent, #fff); box-shadow: none; }
+.primary-button:hover:not(:disabled) { background: var(--color-brand-hover); border-color: var(--color-brand-hover); }
 .secondary-button, .icon-button, .workspace-btn { background: var(--bg-surface) !important; border-color: var(--border-default) !important; color: var(--text-primary) !important; }
 .secondary-button:hover:not(:disabled), .icon-button:hover:not(:disabled), .workspace-btn:hover { background: var(--bg-surface-subtle) !important; border-color: var(--border-strong) !important; }
 .danger-button { background: var(--bg-danger) !important; border-color: color-mix(in srgb, var(--color-danger) 35%, transparent) !important; color: var(--color-danger) !important; }
