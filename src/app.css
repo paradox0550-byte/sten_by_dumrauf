@@ -1,5 +1,4 @@
 /* Legacy compatibility styles only. Shared shell and final visual overrides are owned by src/styles/unified-interface.css; tokens live in src/styles/tokens.css. */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @layer legacy {
 /* ============================================================================
@@ -97,7 +96,7 @@ h3, .h3 {
 .budget-grid .num,
 .prime-card strong,
 .flash-prime strong {
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }
