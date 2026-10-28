@@ -9769,8 +9769,10 @@ body { font-family: var(--font-ui); font-size: 14px; line-height: 1.5; -webkit-f
 }
 .primary-button { background: var(--color-brand); border-color: var(--color-brand); color: var(--text-on-accent, #fff); box-shadow: none; }
 .primary-button:hover:not(:disabled) { background: var(--color-brand-hover); border-color: var(--color-brand-hover); }
-.secondary-button, .icon-button, .workspace-btn { background: var(--bg-surface) !important; border-color: var(--border-default) !important; color: var(--text-primary) !important; }
-.secondary-button:hover:not(:disabled), .icon-button:hover:not(:disabled), .workspace-btn:hover { background: var(--bg-surface-subtle) !important; border-color: var(--border-strong) !important; }
+.secondary-button { background: var(--bg-surface); border-color: var(--border-default); color: var(--text-primary); }
+.icon-button, .workspace-btn { background: var(--bg-surface) !important; border-color: var(--border-default) !important; color: var(--text-primary) !important; }
+.secondary-button:hover:not(:disabled) { background: var(--bg-surface-subtle); border-color: var(--border-strong); }
+.icon-button:hover:not(:disabled), .workspace-btn:hover { background: var(--bg-surface-subtle) !important; border-color: var(--border-strong) !important; }
 .danger-button { background: var(--bg-danger) !important; border-color: color-mix(in srgb, var(--color-danger) 35%, transparent) !important; color: var(--color-danger) !important; }
 :where(button, [role="button"]):not(:disabled):active { transform: scale(.985); }
 button:disabled, [role="button"][aria-disabled="true"] { opacity: 1; color: var(--text-disabled); background: var(--bg-surface-subtle); border-color: var(--border-subtle); box-shadow: none; cursor: not-allowed; }
