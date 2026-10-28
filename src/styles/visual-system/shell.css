@@ -1,5 +1,4 @@
 /* Navigation, workspace shell, and wayfinding */
-html, body, #root { min-height: 100%; }
 body {
   background: var(--bg-base) !important;
   color: var(--text-primary) !important;
