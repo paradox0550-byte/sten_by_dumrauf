@@ -9790,6 +9790,7 @@ th { color: var(--text-secondary); font-size: 11px; font-weight: 700; letter-spa
   :where(.icon-button, .mobile-bottom-nav button) { min-width: 44px; }
 }
 @media (max-width: 767px) {
+  /* TODO(css-cascade): retain padding-inline !important; new-file padding shorthand is not the same property, and inline override is in a different media query. */
   .content { padding-inline: 14px !important; }
   .page-head { align-items: flex-start; margin-bottom: 14px; }
   .page h1, .page-head h1 { font-size: 23px; }
