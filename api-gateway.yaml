@@ -14,6 +14,18 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: $latest
+  /api/integrations/google/sheets:
+    put:
+      operationId: connectGoogleSheets
+      summary: Save Google Sheets read-only connection for the authenticated user
+      description: >
+        Accepts a short-lived Google Identity Services access token and sheet settings.
+        The backend validates the token, stores it privately per organization/user, and never
+        includes the token in connection settings responses. GIS tokens expire; reconnect is required.
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4epijnhj7h9sd5ppa66
+        tag: $latest
   /{proxy+}:
     x-yc-apigateway-integration:
       type: cloud_functions
