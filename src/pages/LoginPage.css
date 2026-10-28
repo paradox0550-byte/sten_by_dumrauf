@@ -37,9 +37,11 @@
 .login-heading h1 { margin: 10px 0 7px; font-size: 20px; line-height: 1.25; font-weight: 600; letter-spacing: -.02em; }
 .login-heading p { color: var(--text-muted); font-size: 13px; line-height: 1.5; }
 .login-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-bottom: 26px; border: 1px solid var(--border-subtle); border-radius: var(--ui-radius-md); background: var(--bg-base); }
-.login-tabs button { min-width: 0; min-height: 38px; padding: 8px 10px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--text-muted); font: 500 12px/1.3 var(--font-ui); cursor: pointer; }
+.login-tabs button { min-width: 0; min-height: 38px; padding: 8px 10px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--text-secondary); font: 500 12px/1.3 var(--font-ui); cursor: pointer; }
+.login-tabs button svg { color: currentColor; }
+.login-tabs button:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
 .login-tabs button:hover:not(:disabled) { color: var(--text-primary); }
-.login-tabs button.is-active { border-color: var(--border-subtle); background: var(--bg-elevated); color: var(--text-primary); }
+.login-tabs button.is-active { border-color: var(--border-strong); background: var(--bg-elevated); color: var(--text-primary); }
 .login-form { display: grid; gap: 18px; }
 .login-field-label, .login-field > span:first-child { display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 12px; font-weight: 500; }
 .login-code-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 56px)); justify-content: space-between; gap: 10px; margin: 12px 0 8px; }
