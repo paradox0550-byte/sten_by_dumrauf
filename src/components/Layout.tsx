@@ -44,13 +44,7 @@ const applyTheme = (theme: Theme) => {
     ?.setAttribute('content', resolved === 'dark' ? '#0C1216' : '#F5F3ED');
 };
 
-const viewNavigate = (nav: ReturnType<typeof useNavigate>, to: string) => {
-  if (typeof document !== 'undefined' && 'startViewTransition' in document) {
-    (document as Document & { startViewTransition?: (callback: () => void) => void }).startViewTransition?.(() => nav(to));
-  } else {
-    nav(to);
-  }
-};
+const viewNavigate = (nav: ReturnType<typeof useNavigate>, to: string) => nav(to);
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
