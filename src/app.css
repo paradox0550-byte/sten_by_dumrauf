@@ -451,7 +451,7 @@ h3, .h3 {
 
 .metric-card strong {
   display: block;
-  font: 600 20px/1.2 "JetBrains Mono", ui-monospace, monospace;
+  font: 600 20px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
   margin: 10px 0 5px;
   letter-spacing: -0.025em;
 }
@@ -472,7 +472,7 @@ h3, .h3 {
 
 .prime-card strong {
   display: block;
-  font: 700 32px/1 "JetBrains Mono", ui-monospace, monospace;
+  font: 700 32px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
   letter-spacing: -0.04em;
   margin: 5px 0;
 }
@@ -485,7 +485,7 @@ h3, .h3 {
 .prime-card em {
   font-style: normal;
   text-align: right;
-  font: 600 11px "JetBrains Mono", ui-monospace, monospace;
+  font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 .prime-card.attention {
@@ -537,7 +537,7 @@ h3, .h3 {
 
 .flash-prime strong {
   display: block;
-  font: 700 42px "JetBrains Mono", ui-monospace, monospace;
+  font: 700 42px ui-monospace, SFMono-Regular, Menlo, monospace;
   margin: 4px 0;
 }
 
@@ -683,7 +683,7 @@ h3, .h3 {
 }
 
 .pnl-row strong {
-  font: 600 13px "JetBrains Mono", ui-monospace, monospace;
+  font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace;
   text-align: right;
 }
 
@@ -753,7 +753,7 @@ h3, .h3 {
 }
 
 .pnl-edit-row strong {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   text-align: right;
 }
 
@@ -807,7 +807,7 @@ h3, .h3 {
 
 .pnl-kpi b {
   color: var(--text);
-  font: 600 14px/1.2 "JetBrains Mono", ui-monospace, monospace;
+  font: 600 14px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 .pnl-kpi em {
@@ -847,7 +847,7 @@ h3, .h3 {
 }
 
 .pnl-prime-control strong {
-  font: 600 30px/1 "JetBrains Mono", monospace;
+  font: 600 30px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
 }
 
@@ -895,7 +895,7 @@ h3, .h3 {
 
 .budget-grid .num {
   text-align: right;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 .budget-grid .negative {
@@ -931,7 +931,7 @@ h3, .h3 {
 .budget-kpi strong {
   display: block;
   margin-top: 7px;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 16px;
 }
 
@@ -1246,7 +1246,7 @@ h3, .h3 {
   border-radius: 11px;
   background: var(--surface2);
   color: var(--text);
-  font: 11px/1.6 "JetBrains Mono", ui-monospace, monospace;
+  font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -1308,7 +1308,7 @@ h3, .h3 {
   border-radius: 7px;
   background: var(--surface);
   color: var(--text);
-  font: 700 22px "JetBrains Mono", ui-monospace, monospace;
+  font: 700 22px ui-monospace, SFMono-Regular, Menlo, monospace;
   letter-spacing: 0.25em;
   text-align: center;
   outline: 0;
@@ -1584,7 +1584,7 @@ h3, .h3 {
 }
 
 .mapping-row strong {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   text-align: right;
 }
 
@@ -1857,7 +1857,7 @@ h3, .h3 {
 
 .insight-card strong {
   display: block;
-  font: 600 25px/1.2 "JetBrains Mono", ui-monospace, monospace;
+  font: 600 25px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
   margin: 8px 0 3px;
 }
 
@@ -1870,7 +1870,7 @@ h3, .h3 {
   display: flex;
   align-items: center;
   gap: 5px;
-  font: 600 12px "JetBrains Mono", ui-monospace, monospace;
+  font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 .delta.negative,
@@ -1972,7 +1972,7 @@ h3, .h3 {
 }
 
 .variance-row b {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 .dashboard-note {
@@ -2010,7 +2010,7 @@ h3, .h3 {
 
 .analytics-row span,
 .analytics-row strong {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   text-align: right;
 }
 
@@ -2911,7 +2911,7 @@ h3, .h3 {
 
 .pnl-summary b {
   color: var(--text);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 .pnl-actions {
@@ -2973,7 +2973,7 @@ h3, .h3 {
 
 .budget-kpi-pair b {
   color: var(--text);
-  font: 600 14px/1.2 "JetBrains Mono", ui-monospace, monospace;
+  font: 600 14px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 .budget-kpi em {
@@ -3329,7 +3329,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   font-size: 10px;
 }
 .analytics-summary-delta strong {
-  font: 650 24px/1.1 "JetBrains Mono", ui-monospace, monospace;
+  font: 650 24px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace;
   letter-spacing: -0.03em;
 }
 .analytics-kpi-strip {
@@ -3356,7 +3356,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   font-size: 9px;
 }
 .analytics-kpi-strip strong {
-  font: 650 20px/1.1 "JetBrains Mono", ui-monospace, monospace;
+  font: 650 20px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace;
   letter-spacing: -0.03em;
 }
 .analytics-report-section {
@@ -3846,7 +3846,7 @@ img.brand-mark { width: 40px; height: 40px; border-radius: 10px; flex: none; obj
   color: var(--muted);
 }
 .analytics-kpi-strip > article strong {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 20px;
   font-weight: 700;
   line-height: 1.1;
@@ -5698,7 +5698,7 @@ textarea:focus-visible {
 
 .pnl-kpi span b,
 .executive-shell .metric-card span b {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
   font-weight: 500;
   font-size: 11px;
@@ -5718,7 +5718,7 @@ textarea:focus-visible {
   font-size: 11px;
   font-weight: 600;
   font-style: normal;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
   width: fit-content;
@@ -6875,7 +6875,7 @@ textarea:focus-visible {
 .executive-shell .secretary-note small {
   font-size: 10px;
   color: var(--text-muted);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
 }
 
