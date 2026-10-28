@@ -110,34 +110,11 @@ html[data-theme='light'], [data-theme='light'] {
 
 /* App frame: a confident dark navigation rail anchors the warmer workspace. */
 
-
 .shell, .executive-shell { background: var(--bg-base) !important; }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 .main { background: var(--bg-base) !important; }
 
-
-
-
-
-
-
 .content > .page { max-width: 1480px !important; }
-
-
 
 .page .eyebrow, .page .section-eyebrow, .sten-state-eyebrow {
   color: var(--color-brand-strong) !important;
