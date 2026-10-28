@@ -34,8 +34,8 @@ body {
 .sten-primary-nav a.active svg, .sten-primary-nav .nav-group-toggle.is-current svg { color: var(--text-on-accent) !important; }
 .sten-primary-nav .nav-group-children { border-left-color: var(--border-default) !important; }
 .sidebar-bottom { border-top-color: var(--border-subtle) !important; }
-.sidebar-profile-copy b, .sidebar .sidebar-profile-copy small { color: #eaf2ed !important; }
-.sidebar .sidebar-profile-copy small { color: #9eb4ad !important; }
+.sidebar-profile-copy b { color: var(--text-primary); }
+.sidebar .sidebar-profile-copy small { color: var(--text-muted); }
 .topbar {
   background: color-mix(in srgb, var(--bg-surface) 94%, transparent) !important;
   border-bottom: 1px solid var(--border-subtle) !important;
