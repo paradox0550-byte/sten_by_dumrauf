@@ -1,5 +1,5 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { StenLogo } from './components/brand/StenLogo';
 import AppShell from './components/layout/AppShell';
@@ -29,50 +29,6 @@ const Cookies = lazy(() => import('./pages/legal/Cookies'));
 const Contacts = lazy(() => import('./pages/legal/Contacts'));
 const LegalPage = lazy(() => import('./pages/LegalPage'));
 
-/**
- * Warm route chunks after the first render. Without this, the shared Suspense
- * boundary replaces the whole workspace with its loading screen whenever a
- * user opens a page whose lazy chunk has not arrived yet.
- *
- * Keep lazy route components/code-splitting; preloading only downloads the
- * same modules in the background and does not alter route or data behavior.
- */
-function useWarmRouteChunks() {
-  useEffect(() => {
-    let cancelled = false;
-    const timer = window.setTimeout(() => {
-      if (cancelled) return;
-      void Promise.allSettled([
-        import('./pages/AI'),
-        import('./pages/Dashboard'),
-        import('./pages/Finances'),
-        import('./pages/PnL'),
-        import('./pages/PnlImport'),
-        import('./pages/Budget'),
-        import('./pages/Settings'),
-        import('./pages/Secretary'),
-        import('./pages/OperationalControlPage'),
-        import('./pages/Analytics'),
-        import('./pages/Team'),
-        import('./pages/Documents'),
-        import('./pages/AdminOrganizations'),
-        import('./pages/Unlock'),
-        import('./pages/Memory'),
-        import('./pages/AIQualityLab'),
-        import('./pages/legal/Privacy'),
-        import('./pages/legal/Consent'),
-        import('./pages/legal/Cookies'),
-        import('./pages/legal/Contacts'),
-        import('./pages/LegalPage'),
-      ]);
-    }, 0);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, []);
-}
-
 function Protected({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) {
@@ -89,8 +45,6 @@ function Protected({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  useWarmRouteChunks();
-
   return (
     <AuthProvider>
       <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
