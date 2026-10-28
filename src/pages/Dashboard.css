@@ -19,7 +19,7 @@
 .director-attention__plan b { color: var(--text-primary); font-weight: 500; }
 .director-attention__delta { color: var(--color-danger); font-family: var(--font-mono); font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; }
 .director-attention__delta b { font-weight: 500; }
-.director-attention__link { display: inline-flex; margin-top: 6px; color: var(--color-brand); font-size: 12px; text-decoration: none; cursor: pointer; user-select: none; }
+.director-attention__link { display: inline-flex; margin-top: 6px; color: var(--color-brand); font-size: 12px; text-decoration: none; cursor: pointer; }
 .director-attention__link:hover { text-decoration: underline; text-underline-offset: 3px; }
 .director-attention--clear .director-attention__heading { margin: 0; }
 .director-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-md, 16px); min-width: 0; }
@@ -62,7 +62,7 @@
 .director-state--empty a { text-decoration: none; }
 .director-dashboard button { cursor: pointer; }
 .director-dashboard button:disabled, .director-dashboard select:disabled { cursor: not-allowed; }
-.director-dashboard a, .director-dashboard button { -webkit-user-select: none; user-select: none; }
+.director-dashboard button { -webkit-user-select: none; user-select: none; }
 .director-dashboard input, .director-dashboard textarea, .director-dashboard [contenteditable="true"] { cursor: text; user-select: text; }
 .director-dashboard h1, .director-dashboard h2, .director-dashboard label, .director-dashboard .director-metric__label { cursor: default; }
 .director-dashboard h1, .director-dashboard h2 { -webkit-user-select: none; user-select: none; }
