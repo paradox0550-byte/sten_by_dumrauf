@@ -44,13 +44,7 @@ const applyTheme = (theme: Theme) => {
     ?.setAttribute('content', resolved === 'dark' ? '#0C1216' : '#F5F3ED');
 };
 
-const viewNavigate = (nav: ReturnType<typeof useNavigate>, to: string) => {
-  if (typeof document !== 'undefined' && 'startViewTransition' in document) {
-    (document as Document & { startViewTransition?: (callback: () => void) => void }).startViewTransition?.(() => nav(to));
-  } else {
-    nav(to);
-  }
-};
+const viewNavigate = (nav: ReturnType<typeof useNavigate>, to: string) => nav(to);
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
@@ -175,7 +169,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="brand-mark" aria-hidden="true"><StenLogo size={34} /></div>
             <div className="brand-copy">
               <b>STEN</b>
-              <small>Рабочий кабинет</small>
             </div>
             <button className="mobile-close" onClick={() => setMobileMenu(false)} aria-label="Закрыть меню"><X size={18} /></button>
           </div>
@@ -254,7 +247,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="sidebar-bottom">
           <div className="sidebar-profile">
             <div className="avatar">{name.slice(0, 1)}</div>
-            <div className="sidebar-profile-copy"><b>{name}</b><small>персональный режим</small></div>
+            <div className="sidebar-profile-copy"><b>{name}</b></div>
             <button className="sidebar-logout" type="button" onClick={() => { signOut(); navigate('/unlock', { replace: true }); }} aria-label="Выйти из аккаунта" title="Выйти">
               <LogOut size={16} />
             </button>

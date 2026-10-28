@@ -3,13 +3,14 @@
   grid-template-columns: 36px minmax(0, 1fr) 32px;
   gap: 12px;
   align-items: start;
-  margin: 20px 0 4px;
-  padding: 16px 18px;
+  margin: 14px 0 4px;
+  padding: 10px 14px;
   border: 1px solid var(--border-subtle, #d8e0e5);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--bg-surface, #fff);
   color: var(--text-primary, #17212b);
-  box-shadow: var(--shadow-sm, 0 1px 2px rgba(23,33,43,.05));
+  box-shadow: var(--shadow-sm, 0 2px 6px rgba(23,33,43,.04));
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
 }
 .sten-inline-guide-icon {
   display: grid;
@@ -20,7 +21,23 @@
   background: var(--bg-success, rgba(18,107,103,.09));
   color: var(--color-brand, #126b67);
 }
-.sten-inline-guide-copy { min-width: 0; }
+.sten-inline-guide-copy { min-width: 0; align-self: center; }
+.sten-inline-guide-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary, #52616e);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sten-inline-guide-trigger:hover { color: var(--color-brand, #126b67); }
+.sten-inline-guide-actions button[aria-expanded="false"] { display: none; }
 .sten-inline-guide-eyebrow {
   display: block;
   margin: 1px 0 5px;
@@ -43,7 +60,7 @@
   line-height: 1.6;
 }
 .sten-inline-guide ol {
-  margin: 12px 0 0;
+  margin: 10px 0 0;
   padding-left: 20px;
   color: var(--text-secondary, #52616e);
   font-size: 12px;
@@ -82,7 +99,7 @@
 }
 .sten-inline-guide button:focus-visible { outline: 2px solid var(--color-brand, #126b67); outline-offset: 3px; }
 @media (max-width: 640px) {
-  .sten-inline-guide { grid-template-columns: 30px minmax(0,1fr) 28px; gap: 9px; margin: 14px 0; padding: 13px; border-radius: 12px; }
+  .sten-inline-guide { grid-template-columns: 30px minmax(0,1fr) 28px; gap: 9px; margin: 10px 0; padding: 10px 11px; border-radius: 11px; }
   .sten-inline-guide-icon { width: 30px; height: 30px; }
   .sten-inline-guide p { font-size: 12px; }
   .sten-inline-guide-actions { gap: 6px 12px; }
