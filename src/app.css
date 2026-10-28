@@ -9771,7 +9771,7 @@ body { font-family: var(--font-ui); font-size: 14px; line-height: 1.5; -webkit-f
 .primary-button:hover:not(:disabled) { background: var(--color-brand-hover); border-color: var(--color-brand-hover); }
 .secondary-button { background: var(--bg-surface); border-color: var(--border-default); color: var(--text-primary); }
 .icon-button, .workspace-btn { background: var(--bg-surface) !important; border-color: var(--border-default) !important; color: var(--text-primary) !important; }
-.secondary-button:hover:not(:disabled) { background: var(--bg-surface-subtle); border-color: var(--border-strong); }
+.secondary-button:hover:not(:disabled) { background: var(--bg-surface-subtle); /* TODO(css-cascade): retain border-color !important; newer files define hover background only, with no matching hover border-color competitor. */ border-color: var(--border-strong) !important; }
 .icon-button:hover:not(:disabled), .workspace-btn:hover { background: var(--bg-surface-subtle) !important; border-color: var(--border-strong) !important; }
 .danger-button { background: var(--bg-danger) !important; border-color: color-mix(in srgb, var(--color-danger) 35%, transparent) !important; color: var(--color-danger) !important; }
 :where(button, [role="button"]):not(:disabled):active { transform: scale(.985); }
