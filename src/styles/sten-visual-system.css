@@ -7,8 +7,8 @@
   --sten-ink-raised: #17252d;
   --sten-ink-soft: #21343d;
   --sten-jade-sten: #087f70;
-  --sten-jade-sten-bright: #10a58d;
-  --sten-jade-sten-deep: #075e55;
+  --sten-jade-bright: #10a58d;
+  --sten-jade-deep: #075e55;
   --sten-lime-sten: #d9f36a;
   --sten-coral: #ff775f;
   --sten-paper-sten: #f5f3ed;
@@ -23,9 +23,6 @@
   --sten-motion-fast: 140ms;
   --sten-motion: 220ms;
   --sten-content-width: 1560px;
-}
-
-html[data-theme='dark'], [data-theme='dark'] {
 }
 
 html[data-theme='light'], [data-theme='light'] {
