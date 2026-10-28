@@ -16,10 +16,10 @@
   --sten-line: #d8ded8;
   --sten-text: #17242a;
   --sten-muted: #52636a;
-  --sten-radius-sm: 8px;
-  --sten-radius-md: 12px;
-  --sten-radius-lg: 18px;
-  --sten-radius-xl: 24px;
+  --sten-radius-sm: var(--radius-sm);
+  --sten-radius-md: var(--radius-md);
+  --sten-radius-lg: var(--radius-lg);
+  --sten-radius-xl: var(--radius-xl);
   --sten-motion-fast: 140ms;
   --sten-motion: 220ms;
   --bg-base: var(--sten-paper);
