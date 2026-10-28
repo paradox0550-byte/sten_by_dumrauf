@@ -21,8 +21,9 @@ function readStorage(key: string): string | null {
 
 function resolveTheme(mode: string | null): 'light' | 'dark' {
   if (mode === 'light' || mode === 'dark') return mode;
-  if (mode === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
-  return 'light';
+  if (mode === 'system') return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  // Keep the pre-React theme in sync with Layout's default to avoid a first-paint flash.
+  return 'dark';
 }
 
 function applyTheme(mode: string | null = readStorage(THEME_KEY)) {

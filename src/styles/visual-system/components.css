@@ -10,9 +10,9 @@ button, [role='button'], a { -webkit-tap-highlight-color: transparent; }
   border-color: var(--border-default) !important;
   background: var(--bg-surface) !important;
   color: var(--text-primary) !important;
-  transition: transform var(--sten-motion-fast) ease, border-color var(--sten-motion-fast) ease, background var(--sten-motion-fast) ease !important;
+  transition: border-color var(--sten-motion-fast) ease, background-color var(--sten-motion-fast) ease !important;
 }
-.icon-button:hover, .sidebar-toggle:hover { border-color: var(--color-brand) !important; transform: translateY(-1px); }
+.icon-button:hover, .sidebar-toggle:hover { border-color: var(--color-brand) !important; }
 .page .card, .page .panel, .page .metric-card, .page .surface, .page .section-card {
   border-color: var(--border-subtle);
   box-shadow: none;
@@ -29,7 +29,7 @@ button, [role='button'], a { -webkit-tap-highlight-color: transparent; }
 .sten-ai-welcome__hero h2 { letter-spacing: -.05em !important; line-height: 1.04 !important; }
 .sten-ai-welcome__hero h2 span { color: var(--color-brand-strong) !important; }
 .sten-ai-starter { border-color: var(--border-default) !important; background: var(--bg-surface) !important; box-shadow: var(--shadow-sm); }
-.sten-ai-starter:hover { border-color: var(--color-brand) !important; box-shadow: none; transform: translateY(-2px); }
+.sten-ai-starter:hover { border-color: var(--color-brand) !important; box-shadow: none; }
 .sten-ai-starter__number { color: var(--color-brand-strong) !important; }
 .sten-composer, .composer-box { border-color: var(--border-default) !important; }
 .sten-composer.is-focused, .composer-box:focus-within { border-color: var(--color-brand) !important; box-shadow: var(--focus) !important; }
@@ -52,7 +52,7 @@ button, [role='button'], a { -webkit-tap-highlight-color: transparent; }
 .page :is(button, a).card:hover,
 .page :is(.clickable, [role='button']).card:hover {
   border-color: color-mix(in srgb, var(--color-brand) 34%, var(--border-subtle));
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
 }
 .page :is(button, a, [role='button']) svg,
 .topbar button svg,

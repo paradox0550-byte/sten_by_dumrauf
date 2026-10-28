@@ -7,5 +7,5 @@ import InlineGuide from '../InlineGuide';
  * content flow, so it never opens a blocking modal or reloads the page.
  */
 export default function AppShell({ children }: { children: React.ReactNode }) {
-  return <Layout>{children}<InlineGuide /></Layout>;
+  return <Layout><InlineGuide />{children}</Layout>;
 }

@@ -37,7 +37,6 @@
   cursor: pointer;
 }
 .sten-inline-guide-trigger:hover { color: var(--color-brand, #126b67); }
-.sten-inline-guide-actions button[aria-expanded="false"] { display: none; }
 .sten-inline-guide-eyebrow {
   display: block;
   margin: 1px 0 5px;
@@ -103,8 +102,4 @@
   .sten-inline-guide-icon { width: 30px; height: 30px; }
   .sten-inline-guide p { font-size: 12px; }
   .sten-inline-guide-actions { gap: 6px 12px; }
-}
-@media (prefers-reduced-motion: no-preference) {
-  .sten-inline-guide { animation: sten-guide-enter 180ms ease-out both; }
-  @keyframes sten-guide-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 }

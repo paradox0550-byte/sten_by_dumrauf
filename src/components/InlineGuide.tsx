@@ -127,14 +127,14 @@ export default function InlineGuide() {
           <p>{guide.body}</p>
           <ol>{guide.steps.map((step) => <li key={step}>{step}</li>)}</ol>
         </>}
-        <div className="sten-inline-guide-actions">
-          <button type="button" onClick={() => setExpanded(value => !value)} aria-expanded={expanded}>
-            {expanded ? 'Свернуть справку' : 'Открыть справку'}
+        {expanded && <div className="sten-inline-guide-actions">
+          <button type="button" onClick={() => setExpanded(false)} aria-expanded={expanded}>
+            Свернуть справку
           </button>
           {guide.action && <button type="button" className="sten-inline-guide-primary" onClick={() => navigate(guide.action!.to)}>
             {guide.action.label}<ArrowRight size={15} />
           </button>}
-        </div>
+        </div>}
       </div>
       <button type="button" className="sten-inline-guide-close" onClick={() => setDismissed(true)} aria-label="Скрыть подсказку"><X size={16} /></button>
     </aside>
