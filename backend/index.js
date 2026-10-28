@@ -221,11 +221,15 @@ await query(`CREATE TABLE IF NOT EXISTS user_google_integrations (
   user_id TEXT NOT NULL,
   provider TEXT NOT NULL CHECK (provider IN ('calendar','sheets')),
   settings_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  access_token TEXT,
+  token_expires_at TIMESTAMPTZ,
   connected_at TIMESTAMPTZ,
   last_sync_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (organization_id, user_id, provider)
 );`);
+await query(`ALTER TABLE user_google_integrations ADD COLUMN IF NOT EXISTS access_token TEXT;`);
+await query(`ALTER TABLE user_google_integrations ADD COLUMN IF NOT EXISTS token_expires_at TIMESTAMPTZ;`);
 await query(`CREATE INDEX IF NOT EXISTS idx_user_google_integrations_org_user
   ON user_google_integrations(organization_id, user_id);`);
 await query(`CREATE TABLE IF NOT EXISTS secretary_notes (id UUID PRIMARY KEY, organization_id UUID NOT NULL, user_id TEXT, title TEXT, content TEXT, source TEXT DEFAULT 'manual', audio_url TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
@@ -2085,6 +2089,46 @@ function sanitizeGoogleIntegrationSettings(provider, raw) {
   }
   return out;
 }
+
+/* Store the short-lived GIS Sheets token separately from public settings. Never return or log it. */
+const GoogleSheetsConnectSchema = z.object({
+  accessToken: z.string().min(20).max(8192),
+  expiresIn: z.number().int().positive().max(86400).optional(),
+  settings: z.record(z.string(), z.unknown()).default({}),
+}).strict();
+
+app.put('/api/integrations/google/sheets', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const body = parseOr400(GoogleSheetsConnectSchema, req.body ?? {});
+    const settings = sanitizeGoogleIntegrationSettings('sheets', body.settings);
+    const verify = await fetch('https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=' + encodeURIComponent(body.accessToken));
+    if (!verify.ok) throw httpError(401, 'Токен Google недействителен или истёк. Подключите таблицу повторно.', 'GOOGLE_TOKEN_INVALID');
+    const tokenInfo = await verify.json();
+    const grantedScopes = String(tokenInfo.scope || '').split(/\s+/u);
+    if (!grantedScopes.includes('https://www.googleapis.com/auth/spreadsheets.readonly')) {
+      throw httpError(403, 'Google не выдал разрешение на чтение таблиц.', 'GOOGLE_SCOPE_REQUIRED');
+    }
+    const expiresIn = Math.max(60, Math.min(86400, Number(body.expiresIn) || Number(tokenInfo.expires_in) || 3600));
+    const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+    const q = await queryWithRetry(
+      `INSERT INTO user_google_integrations
+       (organization_id,user_id,provider,settings_json,access_token,token_expires_at,connected_at,updated_at)
+       VALUES($1::uuid,$2,'sheets',$3::jsonb,$4,$5::timestamptz,now(),now())
+       ON CONFLICT(organization_id,user_id,provider)
+       DO UPDATE SET settings_json=excluded.settings_json,access_token=excluded.access_token,
+         token_expires_at=excluded.token_expires_at,connected_at=now(),updated_at=now()
+       RETURNING settings_json,connected_at,last_sync_at,updated_at`,
+      [req.user.organizationId, String(req.user.id), JSON.stringify(settings), body.accessToken, tokenExpiresAt],
+      { orgId: req.user.organizationId });
+    if (!q?.rows?.[0]) throw httpError(500, 'Подключение Google не сохранено', 'SAVE_NOT_CONFIRMED');
+    await audit(req.user, 'google.integration.saved', 'user_google_integrations', 'sheets',
+      { provider: 'sheets', settingsKeys: Object.keys(settings), tokenStored: true });
+    ok(res, { provider: 'sheets', connection: {
+      settings: q.rows[0].settings_json || {}, connectedAt: q.rows[0].connected_at,
+      lastSyncAt: q.rows[0].last_sync_at, updatedAt: q.rows[0].updated_at, configured: true,
+    }, confirmed: true, tokenExpiresAt });
+  } catch (e) { next(e); }
+});
 
 app.get('/api/integrations/google/:provider', requireAuth, requireOrg, async (req, res, next) => {
   try {

@@ -16,6 +16,7 @@ type GoogleTokenResponse = {
   access_token?: string;
   error?: string;
   error_description?: string;
+  expires_in?: number;
 };
 
 type GoogleTokenClient = {
@@ -153,17 +154,18 @@ export default function GoogleSheetsIntegration() {
       await loadGoogleIdentityScript();
       const oauth = window.google?.accounts?.oauth2;
       if (!oauth) throw new Error('Не удалось запустить авторизацию Google.');
-      const accessToken = await new Promise<string>((resolve, reject) => {
+      const tokenResponse = await new Promise<{ accessToken: string; expiresIn?: number }>((resolve, reject) => {
         const client = oauth.initTokenClient({
           client_id: clientId,
           scope: READ_ONLY_SCOPE,
           callback: (response) => response.access_token
-            ? resolve(response.access_token)
+            ? resolve({ accessToken: response.access_token, expiresIn: response.expires_in ? Number(response.expires_in) : undefined })
             : reject(new Error(response.error_description || response.error || 'Google не выдал доступ.')),
           error_callback: (failure) => reject(new Error(failure.message || 'Окно авторизации Google закрыто или заблокировано.')),
         });
         client.requestAccessToken({ prompt: token ? '' : 'consent' });
       });
+      const accessToken = tokenResponse.accessToken;
       const info = await readSpreadsheet(accessToken, spreadsheetId);
       if (!info.sheets?.length) throw new Error('В таблице не найдено доступных листов.');
       setToken(accessToken);
@@ -173,7 +175,7 @@ export default function GoogleSheetsIntegration() {
         ? selectedSheetId as number
         : info.sheets[0].properties.sheetId;
       await loadSelectedSheet(accessToken, info, preferredSheetId);
-      await api.put('/api/integrations/google/sheets', { settings: {
+      await api.put('/api/integrations/google/sheets', { accessToken, expiresIn: tokenResponse.expiresIn, settings: {
         spreadsheetUrl: url.trim(),
         spreadsheetId: info.spreadsheetId,
         selectedSheetId: preferredSheetId,
@@ -196,7 +198,7 @@ export default function GoogleSheetsIntegration() {
     setNotice('');
     try {
       await loadSelectedSheet(token, spreadsheet, sheetId);
-      await api.put('/api/integrations/google/sheets', { settings: {
+      await api.put('/api/integrations/google/sheets', { accessToken: token, settings: {
         spreadsheetUrl: url.trim(),
         spreadsheetId: spreadsheet.spreadsheetId,
         selectedSheetId: sheetId,
