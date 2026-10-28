@@ -29,10 +29,10 @@
   --bg-elevated: #FFFFFF;
   --bg-inset: #F8F9FB;
   --bg-subtle: #E4E7EC;
-  --bg-success: #ECFDF3;
-  --bg-warning: #FFFAEB;
-  --bg-danger: #FEF3F2;
-  --bg-info: #EFF8FF;
+  --bg-success: rgba(98,223,160,.12);
+  --bg-warning: rgba(255,208,110,.12);
+  --bg-danger: rgba(255,129,118,.12);
+  --bg-info: rgba(50,210,176,.12);
 
   --text-primary: #101828;
   --text-secondary: #475467;
@@ -84,11 +84,11 @@
   --cyan: #327F9B;
   --cyan-bg: rgba(50,127,155,.10);
   --neutral: var(--sten-neutral);
-  --neutral-bg: rgba(100,116,139,.10);
+  --neutral-bg: #F8F9FA;
   --hair: 1px solid var(--border-subtle);
-  --skeleton-gradient: linear-gradient(90deg,#E8EBE6 0%,#F5F3ED 100%);
-  --skeleton-base: #E8EBE6;
-  --skeleton-shine: #F5F3ED;
+  --skeleton-gradient: none;
+  --skeleton-base: #F2F4F7;
+  --skeleton-shine: #F8F9FB;
 
   --font-ui: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -144,9 +144,9 @@ html[data-theme='dark'], [data-theme='dark'] {
   --color-warning-bg: var(--bg-warning);
   --color-danger-bg: var(--bg-danger);
 
-  --border-subtle: #E4E7EC;
-  --border-default: #D0D5DD;
-  --border-strong: #98A2B3;
+  --border-subtle: #29363D;
+  --border-default: #3B4B53;
+  --border-strong: #596B73;
   --shadow-sm: 0 1px 3px rgba(0,0,0,.24);
   --shadow-md: 0 6px 18px rgba(0,0,0,.28);
   --shadow-lg: 0 16px 40px rgba(0,0,0,.38);
@@ -176,7 +176,7 @@ html[data-theme='dark'], [data-theme='dark'] {
   --cyan-bg: rgba(118,201,229,.12);
   --neutral: #A0ADB5;
   --neutral-bg: rgba(160,173,181,.10);
-  --skeleton-gradient: linear-gradient(90deg,#1A272E 0%,#26363D 100%);
+  --skeleton-gradient: none;
   --skeleton-base: #1A272E;
   --skeleton-shine: #26363D;
 }
@@ -190,10 +190,10 @@ html[data-theme='light'], [data-theme='light'] {
   --bg-elevated: #FFFFFF;
   --bg-inset: #F8F9FB;
   --bg-subtle: #E4E7EC;
-  --bg-success: rgba(23,102,60,.09);
-  --bg-warning: rgba(146,80,0,.09);
-  --bg-danger: rgba(166,45,45,.08);
-  --bg-info: rgba(8,127,112,.08);
+  --bg-success: #ECFDF3;
+  --bg-warning: #FFFAEB;
+  --bg-danger: #FEF3F2;
+  --bg-info: #EFF8FF;
   --text-primary: #101828;
   --text-secondary: #475467;
   --text-muted: #667085;
