@@ -9753,7 +9753,7 @@ body { font-family: var(--font-ui); font-size: 14px; line-height: 1.5; -webkit-f
   border-color: color-mix(in srgb, var(--color-brand) 22%, transparent); font-weight: 650;
 }
 .nav-section-label { color: var(--text-muted) !important; font-size: 10px; letter-spacing: .11em; font-weight: 700; }
-.topbar { background: var(--bg-surface) !important; border-bottom: 1px solid var(--border-subtle) !important; box-shadow: none !important; backdrop-filter: none !important; }
+.topbar { background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle); box-shadow: none; backdrop-filter: none; }
 .content { min-width: 0; }
 .page-head { align-items: center; gap: 16px; margin-bottom: 18px; }
 .page h1, .page-head h1 { font-size: clamp(23px, 2vw, 29px); line-height: 1.2; font-weight: 680; letter-spacing: -.035em; }
@@ -9794,6 +9794,7 @@ th { color: var(--text-secondary); font-size: 11px; font-weight: 700; letter-spa
   .page-head { align-items: flex-start; margin-bottom: 14px; }
   .page h1, .page-head h1 { font-size: 23px; }
   .page .panel { padding: 14px; }
+  /* TODO(css-cascade): retain padding-inline !important; newer styles use padding shorthand or a different media query, not the same property/context. */
   .topbar { min-height: 54px; padding-inline: 12px !important; }
 }
 @media (prefers-reduced-motion: reduce) {
