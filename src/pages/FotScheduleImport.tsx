@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { calculateEmployeeMonth, calculateTotalFOT, inferFotPayType, type FotPayType, type FotEmployeeCalculation } from '../lib/fotCalculator';
 import { AlertCircle, FileSpreadsheet, UploadCloud, FileDown, Printer } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import './FotScheduleImport.css';
 
 type ShiftCell =
@@ -160,6 +159,7 @@ export default function FotScheduleImport({ period, historyScope = 'all' }: { pe
     }
     setBusy(true);
     try {
+      const XLSX = await import('xlsx');
       const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
       const sheetName = workbook.SheetNames[0];
       if (!sheetName) throw new Error('В книге нет листов.');
