@@ -15,9 +15,9 @@
   --sten-graphite: #101828;
   --sten-paper: #F7F8FA;
   --sten-lime: #D0D5DD;
-  --sten-profit: #17663C;
-  --sten-risk: #A62D2D;
-  --sten-neutral: #64748B;
+  --sten-profit: #18794E;
+  --sten-risk: #B42318;
+  --sten-neutral: #475467;
   --sten-plan: #94A3B8;
   --sten-previous: #64748B;
   --sten-chart-secondary: #8B7AC8;
@@ -195,9 +195,9 @@ html[data-theme='dark'], [data-theme='dark'] {
   --sten-graphite: #101828;
   --sten-paper: #F7F8FA;
   --sten-lime: #D0D5DD;
-  --sten-profit: #17663C;
-  --sten-risk: #A62D2D;
-  --sten-neutral: #64748B;
+  --sten-profit: #18794E;
+  --sten-risk: #B42318;
+  --sten-neutral: #475467;
   --sten-plan: #94A3B8;
   --sten-previous: #64748B;
   --sten-chart-secondary: #8B7AC8;
@@ -419,7 +419,7 @@ html[data-theme='light'], [data-theme='light'] {
   --violet-bg: rgba(139,122,200,.10);
   --cyan: #327F9B;
   --cyan-bg: rgba(50,127,155,.10);
-  --neutral: #64748B;
+  --neutral: #475467;
   --neutral-bg: rgba(100,116,139,.10);
   --focus: 0 0 0 2px rgba(15,82,186,.35);
   --skeleton-gradient: linear-gradient(90deg,#E8EBE6 0%,#F5F3ED 100%);
