@@ -41,7 +41,7 @@ function Protected({ children }: { children: React.ReactNode }) {
       </main>
     );
   }
-  return user ? <AppShell>{children}</AppShell> : <Navigate to="/unlock" replace />;
+  return user ? <AppShell><Suspense fallback={<div className="sten-route-loading" role="status" aria-live="polite"><span className="sten-loading-message">Открываем раздел…</span></div>}>{children}</Suspense></AppShell> : <Navigate to="/unlock" replace />;
 }
 
 export default function App() {
