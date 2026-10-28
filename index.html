@@ -20,7 +20,7 @@
 <style>
   html { background: var(--bg-base, #F7F8FA); }
   html[data-theme="light"] { background: var(--bg-base, #F7F8FA); }
-  html[data-theme="dark"] { background: var(--bg-base, #101828); }
+  html[data-theme="dark"] { background: var(--bg-base, #0C1216); }
 </style>
 <meta name="theme-color" content="#F7F8FA" id="sten-theme-color"><meta name="description" content="STEN — Smart Tracking &amp; Economic Navigator. Исполнительный контур управления ресторанным бизнесом.">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=5.0.4"><link rel="apple-touch-icon" href="./icon-192.svg?v=5.0.4"><link rel="manifest" href="./manifest.json?v=5.0.4">
@@ -44,20 +44,20 @@
 </style>
 <style id="sten-critical-css">
 html,body,#root{min-height:100%;margin:0}
-html{background:var(--bg-base,#f3f5f7);color:var(--text-primary,#17212b);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+html{background:var(--bg-base,#F7F8FA);color:var(--text-primary,#101828);font-family:var(--font-ui,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
 body{min-width:320px;line-height:1.5}
 button,input,select,textarea{font:inherit}
 button{touch-action:manipulation}
 .sten-loading{box-sizing:border-box;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;background:var(--bg-base,#f3f5f7);color:var(--text-primary,#17212b)}
-.sten-state-eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--text-secondary,#475569)}
+.sten-state-eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--text-secondary,#475467)}
 .sten-loading-message{font-size:14px;color:var(--text-secondary,#475569)}
 .login-screen{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);min-height:100dvh;background:var(--bg-base,#f3f5f7);color:var(--text-primary,#17212b)}
 .login-form-panel{display:grid;place-items:center;min-width:0;padding:32px 24px;background:var(--bg-surface,#fff)}
 .login-form-wrap{width:min(100%,380px)}
 .login-heading{margin-bottom:28px}
 .login-heading h1{margin:10px 0 7px;font-size:20px;line-height:1.25;font-weight:600}
-.login-heading p{color:var(--text-muted,#475467);font-size:13px;line-height:1.5}
-.login-field input{box-sizing:border-box;width:100%;min-width:0;height:44px;padding:0 12px;border:1px solid var(--border-default,#cbd5d8);border-radius:var(--ui-radius-md,12px);background:var(--bg-base,#f3f5f7);color:var(--text-primary,#17212b)}
+.login-heading p{color:var(--text-muted,#667085);font-size:13px;line-height:1.5}
+.login-field input{box-sizing:border-box;width:100%;min-width:0;height:44px;padding:0 12px;border:1px solid var(--border-default,#D0D5DD);border-radius:var(--ui-radius-md,8px);background:var(--bg-base,#f3f5f7);color:var(--text-primary,#17212b)}
 @media(max-width:760px){.login-screen{grid-template-columns:minmax(0,1fr)}.login-brand-panel{display:none}.login-form-panel{padding:24px 20px}}
 </style>
 </head><body><div id="root"></div><script type="module" src="./src/main.tsx"></script></body></html>
