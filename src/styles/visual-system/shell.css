@@ -65,3 +65,11 @@ body {
 .page-head { margin-bottom: 24px !important; }
 .page h1, .page-head h1 { font-size: clamp(25px, 2.15vw, 34px) !important; line-height: 1.12 !important; letter-spacing: -.045em !important; font-weight: 760 !important; }
 .page h2, .page h3, .panel-title { letter-spacing: -.025em; font-weight: 700 !important; }
+
+.sten-primary-nav svg { width: 18px; height: 18px; stroke-width: 1.8; }
+.sten-primary-nav .nav-group-chevron { width: 15px; height: 15px; stroke-width: 1.7; }
+.brand-mark { border-radius: 11px; }
+.sidebar-profile .avatar, .top-profile .avatar { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-subtle) 70%, transparent); }
+.mobile-bottom-nav a { transition: color 160ms ease, background-color 160ms ease; }
+.mobile-bottom-nav a.active { color: var(--color-brand) !important; }
+.mobile-bottom-nav a.active svg { stroke-width: 2.1; }
