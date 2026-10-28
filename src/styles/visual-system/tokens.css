@@ -123,9 +123,9 @@ html[data-theme='dark'], [data-theme='dark'] {
   --bg-elevated: #26373c;
   --bg-inset: #0a1013;
   --bg-subtle: #26363D;
-  --bg-success: #ECFDF3;
-  --bg-warning: #FFFAEB;
-  --bg-danger: #FEF3F2;
+  --bg-success: #0F291A;
+  --bg-warning: #2A220F;
+  --bg-danger: #2A1517;
   --bg-info: #EFF8FF;
 
   --text-primary: #f5f7f2;
