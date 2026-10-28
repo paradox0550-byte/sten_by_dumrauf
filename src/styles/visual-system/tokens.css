@@ -36,7 +36,7 @@
   --bg-success: rgba(98,223,160,.12);
   --bg-warning: rgba(255,208,110,.12);
   --bg-danger: rgba(255,129,118,.12);
-  --bg-info: rgba(50,210,176,.12);
+  --bg-info: #E7F4F1;
 
   --text-primary: var(--sten-text);
   --text-secondary: #40535a;
