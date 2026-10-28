@@ -9737,7 +9737,7 @@ body { font-family: var(--font-ui); font-size: 14px; line-height: 1.5; -webkit-f
 .shell, .executive-shell { background: var(--bg-base) !important; color: var(--text-primary); }
 .sidebar { background: var(--bg-surface); /* TODO(css-cascade): retain border-color !important; newer interface declares border-right, not border-color. */ border-color: var(--border-subtle) !important; box-shadow: none; }
 .brand { min-height: 68px; border-bottom: 1px solid var(--border-subtle); }
-.brand-mark { display: grid; place-items: center; overflow: hidden; background: var(--color-brand) !important; border-radius: 10px; box-shadow: none !important; }
+.brand-mark { display: grid; place-items: center; overflow: hidden; background: var(--color-brand); border-radius: 10px; box-shadow: none; }
 .brand-mark img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .brand-copy b { color: var(--text-primary); letter-spacing: .12em; font-size: 14px; font-weight: 750; }
 .brand-copy small { color: var(--text-muted); font-size: 11px; }
