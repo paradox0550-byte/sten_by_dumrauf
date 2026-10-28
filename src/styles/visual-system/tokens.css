@@ -100,18 +100,18 @@
   --text-section-title: 16px;
   --text-body: 14px;
   --text-caption: 12px;
-  --ui-radius-sm: 8px;
-  --ui-radius-md: 8px;
-  --ui-radius-lg: 8px;
+  --ui-radius-sm: var(--radius-sm);
+  --ui-radius-md: var(--radius-md);
+  --ui-radius-lg: var(--radius-lg);
   --ui-control-h: 42px;
   --ui-section-gap: 20px;
   --ui-page-gap: 18px;
   --shadow: var(--shadow-sm);
   --shadow-soft: var(--shadow-md);
   --radius-sm: 8px;
-  --radius-md: 8px;
-  --radius-lg: 8px;
-  --radius-xl: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
 }
 
 html[data-theme='dark'], [data-theme='dark'] {
