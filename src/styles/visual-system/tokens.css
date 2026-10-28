@@ -1,7 +1,10 @@
 /* STEN · Calm Intelligence — canonical semantic theme tokens.
    Light, dark and system-resolved themes share one semantic contract.
    Keep business meaning (profit/risk/no-data) independent from brand decoration. */
-@layer legacy, components, overrides;
+/* Layer order is declared before the app stylesheet imports. Keep legacy first for normal declarations;
+   important declarations invert layer precedence, so do not move !important rules between layers
+   without checking the full cascade and actual component/class usage. */
+@layer legacy, base, components, utilities, overrides;
 
 :root {
   color-scheme: light;
