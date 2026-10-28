@@ -13,7 +13,7 @@ function deferInitialStylesheet(): Plugin {
       if (!html || html.type !== 'asset' || typeof html.source !== 'string') return;
       html.source = html.source.replace(
         /<link\b(?=[^>]*\brel=["']stylesheet["'])[^>]*\bhref=["']([^"']+\.css(?:\?[^"']*)?)["'][^>]*>/g,
-        (_tag, href: string) => '<link rel="preload" as="style" href="' + href + '" onload="this.onload=null;this.rel=\\'stylesheet\\'"><noscript><link rel="stylesheet" href="' + href + '"></noscript>',
+        (_tag, href: string) => '<link rel="preload" as="style" href="' + href + '" onload="this.onload=null;this.rel=&#39;stylesheet&#39;"><noscript><link rel="stylesheet" href="' + href + '"></noscript>',
       );
     },
   };
