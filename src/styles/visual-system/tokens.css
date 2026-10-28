@@ -137,9 +137,9 @@ html[data-theme='dark'], [data-theme='dark'] {
   --color-brand-strong: #003C90;
   --color-brand-glow: rgba(15,82,186,.18);
   --color-accent: var(--color-brand);
-  --color-success: #18794E;
-  --color-warning: #B54708;
-  --color-danger: #B42318;
+  --color-success: #62DFA0;
+  --color-warning: #FFD06E;
+  --color-danger: #FF8176;
   --color-success-bg: var(--bg-success);
   --color-warning-bg: var(--bg-warning);
   --color-danger-bg: var(--bg-danger);
