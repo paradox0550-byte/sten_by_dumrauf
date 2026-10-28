@@ -1,13 +1,144 @@
-import{HashRouter,Navigate,Route,Routes}from'react-router-dom';import{lazy,Suspense}from'react';import{AuthProvider,useAuth}from'./contexts/AuthContext';import{StenLogo}from'./components/brand/StenLogo';import AppShell from'./components/layout/AppShell';const AI=lazy(()=>import('./pages/AI'));const Dashboard=lazy(()=>import('./pages/Dashboard'));const Finances=lazy(()=>import('./pages/Finances'));const PnL=lazy(()=>import('./pages/PnL'));const PnLImport=lazy(()=>import('./pages/PnlImport'));const Budget=lazy(()=>import('./pages/Budget'));const Settings=lazy(()=>import('./pages/Settings'));const Secretary=lazy(()=>import('./pages/Secretary'));const OperationalControlPage=lazy(()=>import('./pages/OperationalControlPage'));const Analytics=lazy(()=>import('./pages/Analytics'));const Team=lazy(()=>import('./pages/Team'));const Documents=lazy(()=>import('./pages/Documents'));const AdminOrganizations=lazy(()=>import('./pages/AdminOrganizations'));const AuthSetup=lazy(()=>import('./pages/Unlock'));
-const Memory=lazy(()=>import('./pages/Memory'));
-const AIQualityLab=lazy(()=>import('./pages/AIQualityLab'));
-const Privacy=lazy(()=>import('./pages/legal/Privacy'));
-const Consent=lazy(()=>import('./pages/legal/Consent'));
-const Cookies=lazy(()=>import('./pages/legal/Cookies'));
-const Contacts=lazy(()=>import('./pages/legal/Contacts'));
-const LegalPage=lazy(()=>import('./pages/LegalPage'));
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { StenLogo } from './components/brand/StenLogo';
+import AppShell from './components/layout/AppShell';
 import FloatingAIAssistant from './components/FloatingAIAssistant';
 import CookieBanner from './components/CookieBanner';
 import SystemStatusBanner from './components/SystemStatusBanner';
-function Protected({children}:{children:React.ReactNode}){const{user,loading}=useAuth();if(loading)return <main className="loading sten-loading" aria-label="Загрузка STEN" aria-busy="true"><StenLogo size={76} animated aria-label="STEN"/><span className="sten-state-eyebrow">STEN · РАБОЧЕЕ ПРОСТРАНСТВО</span><span className="sten-loading-message">Проверяем сессию…</span><span className="sten-loading-track" aria-hidden="true"><span/></span></main>;return user?<AppShell>{children}</AppShell>:<Navigate to="/unlock" replace/>;}
-export default function App(){return <AuthProvider><HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Suspense fallback={<main className="loading sten-loading" aria-label="Загрузка STEN" aria-busy="true"><span className="sten-state-eyebrow">STEN · РАБОЧЕЕ ПРОСТРАНСТВО</span><span className="sten-loading-message">Открываем раздел…</span></main>}><Routes><Route path="/unlock" element={<AuthSetup/>}/><Route path="/auth" element={<Navigate to="/unlock" replace/>}/><Route path="/legal" element={<LegalPage/>}/><Route path="/legal/privacy" element={<Privacy/>}/><Route path="/legal/consent" element={<Consent/>}/><Route path="/legal/cookies" element={<Cookies/>}/><Route path="/legal/contacts" element={<Contacts/>}/><Route path="/" element={<Protected><Dashboard/></Protected>}/><Route path="/sten" element={<Protected><AI/></Protected>}/><Route path="/ai" element={<Protected><AI/></Protected>}/><Route path="/ai-quality" element={<Protected><AIQualityLab/></Protected>}/><Route path="/memory" element={<Protected><Memory/></Protected>}/><Route path="/dashboard" element={<Protected><Dashboard/></Protected>}/><Route path="/ops" element={<Protected><OperationalControlPage/></Protected>}/><Route path="/flash" element={<Navigate to="/ops" replace/>}/><Route path="/pnl" element={<Protected><PnL/></Protected>}/><Route path="/pnl/import" element={<Protected><PnLImport/></Protected>}/><Route path="/finances" element={<Protected><Finances/></Protected>}/><Route path="/budget" element={<Protected><Budget/></Protected>}/><Route path="/analytics" element={<Protected><Analytics/></Protected>}/><Route path="/staff" element={<Protected><Team/></Protected>}/><Route path="/team" element={<Navigate to="/staff" replace/>}/><Route path="/documents" element={<Protected><Documents/></Protected>}/><Route path="/settings" element={<Protected><Settings/></Protected>}/><Route path="/admin/organizations" element={<Protected><AdminOrganizations/></Protected>}/><Route path="/quick-entry" element={<Navigate to="/ops" replace/>}/><Route path="/my-day" element={<Navigate to="/ops" replace/>}/><Route path="/plan" element={<Protected><Secretary/></Protected>}/><Route path="/secretary" element={<Navigate to="/plan" replace/>}/><Route path="*" element={<Navigate to="/sten" replace/>}/></Routes></Suspense><FloatingAIAssistant/><SystemStatusBanner/><CookieBanner/></HashRouter></AuthProvider>}
+
+const AI = lazy(() => import('./pages/AI'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Finances = lazy(() => import('./pages/Finances'));
+const PnL = lazy(() => import('./pages/PnL'));
+const PnLImport = lazy(() => import('./pages/PnlImport'));
+const Budget = lazy(() => import('./pages/Budget'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Secretary = lazy(() => import('./pages/Secretary'));
+const OperationalControlPage = lazy(() => import('./pages/OperationalControlPage'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const Team = lazy(() => import('./pages/Team'));
+const Documents = lazy(() => import('./pages/Documents'));
+const AdminOrganizations = lazy(() => import('./pages/AdminOrganizations'));
+const AuthSetup = lazy(() => import('./pages/Unlock'));
+const Memory = lazy(() => import('./pages/Memory'));
+const AIQualityLab = lazy(() => import('./pages/AIQualityLab'));
+const Privacy = lazy(() => import('./pages/legal/Privacy'));
+const Consent = lazy(() => import('./pages/legal/Consent'));
+const Cookies = lazy(() => import('./pages/legal/Cookies'));
+const Contacts = lazy(() => import('./pages/legal/Contacts'));
+const LegalPage = lazy(() => import('./pages/LegalPage'));
+
+/**
+ * Warm route chunks after the first render. Without this, the shared Suspense
+ * boundary replaces the whole workspace with its loading screen whenever a
+ * user opens a page whose lazy chunk has not arrived yet.
+ *
+ * Keep lazy route components/code-splitting; preloading only downloads the
+ * same modules in the background and does not alter route or data behavior.
+ */
+function useWarmRouteChunks() {
+  useEffect(() => {
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      void Promise.allSettled([
+        import('./pages/AI'),
+        import('./pages/Dashboard'),
+        import('./pages/Finances'),
+        import('./pages/PnL'),
+        import('./pages/PnlImport'),
+        import('./pages/Budget'),
+        import('./pages/Settings'),
+        import('./pages/Secretary'),
+        import('./pages/OperationalControlPage'),
+        import('./pages/Analytics'),
+        import('./pages/Team'),
+        import('./pages/Documents'),
+        import('./pages/AdminOrganizations'),
+        import('./pages/Unlock'),
+        import('./pages/Memory'),
+        import('./pages/AIQualityLab'),
+        import('./pages/legal/Privacy'),
+        import('./pages/legal/Consent'),
+        import('./pages/legal/Cookies'),
+        import('./pages/legal/Contacts'),
+        import('./pages/LegalPage'),
+      ]);
+    }, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, []);
+}
+
+function Protected({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <main className="loading sten-loading" aria-label="Загрузка STEN" aria-busy="true">
+        <StenLogo size={76} animated aria-label="STEN" />
+        <span className="sten-state-eyebrow">STEN · РАБОЧЕЕ ПРОСТРАНСТВО</span>
+        <span className="sten-loading-message">Проверяем сессию…</span>
+        <span className="sten-loading-track" aria-hidden="true"><span /></span>
+      </main>
+    );
+  }
+  return user ? <AppShell>{children}</AppShell> : <Navigate to="/unlock" replace />;
+}
+
+export default function App() {
+  useWarmRouteChunks();
+
+  return (
+    <AuthProvider>
+      <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <Suspense
+          fallback={
+            <main className="loading sten-loading" aria-label="Загрузка STEN" aria-busy="true">
+              <span className="sten-state-eyebrow">STEN · РАБОЧЕЕ ПРОСТРАНСТВО</span>
+              <span className="sten-loading-message">Открываем раздел…</span>
+            </main>
+          }
+        >
+          <Routes>
+            <Route path="/unlock" element={<AuthSetup />} />
+            <Route path="/auth" element={<Navigate to="/unlock" replace />} />
+            <Route path="/legal" element={<LegalPage />} />
+            <Route path="/legal/privacy" element={<Privacy />} />
+            <Route path="/legal/consent" element={<Consent />} />
+            <Route path="/legal/cookies" element={<Cookies />} />
+            <Route path="/legal/contacts" element={<Contacts />} />
+            <Route path="/" element={<Protected><Dashboard /></Protected>} />
+            <Route path="/sten" element={<Protected><AI /></Protected>} />
+            <Route path="/ai" element={<Protected><AI /></Protected>} />
+            <Route path="/ai-quality" element={<Protected><AIQualityLab /></Protected>} />
+            <Route path="/memory" element={<Protected><Memory /></Protected>} />
+            <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
+            <Route path="/ops" element={<Protected><OperationalControlPage /></Protected>} />
+            <Route path="/flash" element={<Navigate to="/ops" replace />} />
+            <Route path="/pnl" element={<Protected><PnL /></Protected>} />
+            <Route path="/pnl/import" element={<Protected><PnLImport /></Protected>} />
+            <Route path="/finances" element={<Protected><Finances /></Protected>} />
+            <Route path="/budget" element={<Protected><Budget /></Protected>} />
+            <Route path="/analytics" element={<Protected><Analytics /></Protected>} />
+            <Route path="/staff" element={<Protected><Team /></Protected>} />
+            <Route path="/team" element={<Navigate to="/staff" replace />} />
+            <Route path="/documents" element={<Protected><Documents /></Protected>} />
+            <Route path="/settings" element={<Protected><Settings /></Protected>} />
+            <Route path="/admin/organizations" element={<Protected><AdminOrganizations /></Protected>} />
+            <Route path="/quick-entry" element={<Navigate to="/ops" replace />} />
+            <Route path="/my-day" element={<Navigate to="/ops" replace />} />
+            <Route path="/plan" element={<Protected><Secretary /></Protected>} />
+            <Route path="/secretary" element={<Navigate to="/plan" replace />} />
+            <Route path="*" element={<Navigate to="/sten" replace />} />
+          </Routes>
+        </Suspense>
+        <FloatingAIAssistant />
+        <SystemStatusBanner />
+        <CookieBanner />
+      </HashRouter>
+    </AuthProvider>
+  );
+}
