@@ -53,7 +53,7 @@ html[data-theme='light'], [data-theme='light'] {
   background: var(--bg-surface) !important;
   background-image: none !important;
   box-shadow: var(--shadow-sm) !important;
-  transition: border-color var(--sten-motion) ease, box-shadow var(--sten-motion) ease, transform var(--sten-motion) ease;
+  transition: border-color var(--sten-motion) ease, box-shadow var(--sten-motion) ease;
 }
 :where(.metric-card, .pnl-kpi, .budget-kpi, .director-metric, .prime-card) { padding: 18px !important; }
 :where(.panel, .metric-card, .pnl-kpi, .budget-kpi):hover { border-color: color-mix(in srgb, var(--color-brand) 35%, var(--border-subtle)) !important; }
@@ -70,7 +70,7 @@ html[data-theme='light'], [data-theme='light'] {
   min-height: 42px;
   border-radius: 10px !important;
   font-weight: 700 !important;
-  transition: transform var(--sten-motion-fast) ease, box-shadow var(--sten-motion-fast) ease, background var(--sten-motion-fast) ease !important;
+  transition: box-shadow var(--sten-motion-fast) ease, background var(--sten-motion-fast) ease !important;
 }
 .primary-button {
   color: #fff !important;
@@ -78,8 +78,8 @@ html[data-theme='light'], [data-theme='light'] {
   border-color: var(--color-brand) !important;
   box-shadow: 0 4px 12px color-mix(in srgb, var(--color-brand) 22%, transparent) !important;
 }
-.primary-button:hover:not(:disabled) { background: var(--color-brand-hover) !important; transform: translateY(-1px); }
-.primary-button:active:not(:disabled) { transform: translateY(0); }
+.primary-button:hover:not(:disabled) { background: var(--color-brand-hover) !important; }
+.primary-button:active:not(:disabled) { box-shadow: none !important; }
 .secondary-button { color: var(--text-primary) !important; background: var(--bg-surface) !important; border-color: var(--border-default) !important; }
 .secondary-button:hover:not(:disabled) { background: var(--bg-surface-subtle) !important; }
 :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select, textarea) {

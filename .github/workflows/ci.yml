@@ -75,6 +75,18 @@ jobs:
           test -f dist/icons/ic_staff.svg
           test -f dist/icons/ic_terms.svg
 
+      - name: Browser visual acceptance smoke
+        run: node scripts/visual-acceptance.mjs
+
+      - name: Upload visual acceptance screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sten-visual-acceptance-${{ github.sha }}
+          path: artifacts/visual-acceptance/
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Backend validation
         working-directory: backend
         run: |
