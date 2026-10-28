@@ -31,7 +31,7 @@
 
   --text-primary: #17212B;
   --text-secondary: #475569;
-  --text-muted: #64748B;
+  --text-muted: #475467;
   --text-tertiary: var(--text-secondary);
   --text-disabled: #94A3B8;
   --text-on-accent: #FFFFFF;
@@ -191,7 +191,7 @@ html[data-theme='light'], [data-theme='light'] {
   --bg-info: rgba(8,127,112,.08);
   --text-primary: #17212B;
   --text-secondary: #475569;
-  --text-muted: #64748B;
+  --text-muted: #475467;
   --text-tertiary: var(--text-secondary);
   --text-disabled: #94A3B8;
   --text-on-accent: #FFFFFF;
