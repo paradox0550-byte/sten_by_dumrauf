@@ -1,11 +1,26 @@
 /// <reference types="vitest/config" />
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 
+function deferInitialStylesheet(): Plugin {
+  return {
+    name: 'sten-defer-initial-stylesheet',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      const html = bundle['index.html'];
+      if (!html || html.type !== 'asset' || typeof html.source !== 'string') return;
+      html.source = html.source.replace(
+        /<link\b(?=[^>]*\brel=["']stylesheet["'])[^>]*\bhref=["']([^"']+\.css(?:\?[^"']*)?)["'][^>]*>/g,
+        (_tag, href: string) => '<link rel="preload" as="style" href="' + href + '" onload="this.onload=null;this.rel=&#39;stylesheet&#39;"><noscript><link rel="stylesheet" href="' + href + '"></noscript>',
+      );
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), deferInitialStylesheet()],
   base: './',
   resolve: { alias: { '@': path.resolve(import.meta.dirname, './src') } },
   optimizeDeps: { include: ['@xyflow/react', '@xyflow/system'] },

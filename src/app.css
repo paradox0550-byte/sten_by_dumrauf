@@ -5875,7 +5875,7 @@ textarea:focus-visible {
   margin-bottom: 6px;
 }
 .dashboard-cockpit .page-head .eyebrow {
-  color: var(--color-brand);
+  color: var(--color-brand-strong, var(--color-brand));
 }
 
 /* Сводка «Что произошло» */
@@ -7425,7 +7425,7 @@ html[data-reduce-motion='true'] .executive-shell .analytics-report-table {
 .badge--warning { background: rgba(251,191,36,0.15);  color: var(--color-warning); }
 .badge--success { background: rgba(52,211,153,0.15);  color: var(--color-success); }
 .badge--brand   { background: rgba(91,124,250,0.15);  color: #7A94FB; }
-.badge--neutral { background: rgba(156,163,181,0.12); color: #9CA3B5; }
+.badge--neutral { background: var(--neutral-bg, rgba(156,163,181,0.12)); color: var(--text-muted, #475467); }
 
 
 /* STEN Memory — explicit user-controlled memory surface. */
@@ -8889,7 +8889,7 @@ body { font-family: var(--font-ui); font-size: 14px; line-height: 1.5; }.main, .
 .page { display: flex; flex-direction: column; gap: var(--op-space-4); }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: var(--op-space-4); margin: 0 0 var(--op-space-2); }
 .page-head > div:first-child { min-width: 0; }
-.page-head .eyebrow, .eyebrow { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 7px; color: var(--color-brand); font-size: 11px; line-height: 1.4; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+.page-head .eyebrow, .eyebrow { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 7px; color: var(--color-brand-strong, var(--color-brand)); font-size: 11px; line-height: 1.4; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
 .page h1, .page-head h1 { margin: 0; color: var(--text-primary); font-size: clamp(25px, 2.2vw, 32px); line-height: 1.18; font-weight: 650; letter-spacing: -.035em; }
 .page-head p { max-width: 720px; margin: 8px 0 0; color: var(--text-secondary); font-size: 13px; line-height: 1.55; }
 .page h2 { color: var(--text-primary); font-size: 16px; line-height: 1.35; font-weight: 650; letter-spacing: -.015em; }

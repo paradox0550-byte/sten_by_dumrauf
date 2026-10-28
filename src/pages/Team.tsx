@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, BarChart3, CalendarClock, ChefHat, ClipboardList, Download, RefreshCw, Users, Wallet } from 'lucide-react';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { scopeQuery } from '../lib/scope';
 import { useScope } from '../lib/useScope';
 import { formatMoney } from '../lib/format';
-import FotScheduleImport from './FotScheduleImport';
+const FotScheduleImport = lazy(() => import('./FotScheduleImport'));
 import './Team.css';
 
 type PayrollRecord = { department?: string | null; hours?: number | string | null; amount?: number | string | null; period?: string };
@@ -201,7 +201,7 @@ export default function Team() {
       </div>
     </header>
 
-    <FotScheduleImport period={scope.period} historyScope={[user?.organizationId || 'no-org', user?.id || 'anonymous', scope.projectId || 'all', scope.branchId || 'all', scope.restaurantId || 'all', scope.departmentId || 'all'].join(':')} />
+    <Suspense fallback={<div className="panel" aria-busy="true">Открываем импорт графика…</div>}><FotScheduleImport period={scope.period} historyScope={[user?.organizationId || 'no-org', user?.id || 'anonymous', scope.projectId || 'all', scope.branchId || 'all', scope.restaurantId || 'all', scope.departmentId || 'all'].join(':')} /></Suspense>
 
     {(error || pnlError) && <div className="fot-alert" role="alert"><AlertTriangle size={17} /><div><b>{error.includes('Нет доступа') ? 'Нет доступа' : error ? 'Не удалось загрузить ФОТ' : 'Часть аналитики недоступна'}</b><span>{[error, pnlError].filter(Boolean).join(' ')}</span></div></div>}
     {scopeUnavailable && <div className="fot-alert" role="status"><AlertTriangle size={17} /><div><b>ФОТ доступен только на уровне организации</b><span>Сервер пока не фильтрует payroll по выбранному ресторану, филиалу или подразделению. Чтобы не показать чужие данные, показатели ФОТ для этого контура скрыты.</span></div></div>}
