@@ -6,106 +6,27 @@
   --sten-ink: #111b22;
   --sten-ink-raised: #17252d;
   --sten-ink-soft: #21343d;
-  --sten-jade: #087f70;
+  --sten-jade-sten: #087f70;
   --sten-jade-bright: #10a58d;
   --sten-jade-deep: #075e55;
-  --sten-lime: #d9f36a;
+  --sten-lime-sten: #d9f36a;
   --sten-coral: #ff775f;
-  --sten-paper: #f5f3ed;
+  --sten-paper-sten: #f5f3ed;
   --sten-white: #fffefa;
   --sten-line: #d8ded8;
   --sten-text: #17242a;
   --sten-muted: #52636a;
-  --sten-radius-sm: 8px;
-  --sten-radius-md: 12px;
-  --sten-radius-lg: 18px;
-  --sten-radius-xl: 24px;
+  --sten-radius-sm: var(--radius-sm);
+  --sten-radius-md: var(--radius-md);
+  --sten-radius-lg: var(--radius-lg);
+  --sten-radius-xl: var(--radius-xl);
   --sten-motion-fast: 140ms;
   --sten-motion: 220ms;
-  --bg-base: var(--sten-paper);
-  --bg-app: var(--sten-paper);
-  --bg-surface: var(--sten-white);
-  --bg-surface-subtle: #e9eee8;
-  --bg-elevated: #fffefa;
-  --bg-inset: #e9eee8;
-  --text-primary: var(--sten-text);
-  --text-secondary: #40535a;
-  --text-muted: #52636a;
-  --text-disabled: #77868a;
-  --color-brand: var(--sten-jade);
-  --color-brand-hover: var(--sten-jade-deep);
-  --color-brand-strong: var(--sten-jade-deep);
-  --color-brand-glow: rgb(8 127 112 / 16%);
-  --color-accent: var(--sten-jade);
-  --color-success: #18734c;
-  --color-warning: #9b5b00;
-  --color-danger: #c13d37;
-  --border-subtle: var(--sten-line);
-  --border-default: #bdc9c2;
-  --border-strong: #82958b;
-  --shadow-sm: 0 2px 5px rgb(17 27 34 / 5%);
-  --shadow-md: 0 8px 22px rgb(17 27 34 / 8%);
-  --shadow-lg: 0 22px 55px rgb(17 27 34 / 16%);
-  --ui-radius-sm: var(--sten-radius-sm);
-  --ui-radius-md: var(--sten-radius-md);
-  --ui-radius-lg: var(--sten-radius-lg);
-  --ui-control-h: 42px;
-  --ui-section-gap: 20px;
-  --ui-page-gap: 18px;
   --sten-content-width: 1560px;
-}
-
-html[data-theme='dark'], [data-theme='dark'] {
-  --bg-base: #0c1216;
-  --bg-app: #0c1216;
-  --bg-surface: #151f25;
-  --bg-surface-subtle: #202e34;
-  --bg-elevated: #26373c;
-  --bg-inset: #0a1013;
-  --text-primary: #f5f7f2;
-  --text-secondary: #d0dbd5;
-  --text-muted: #a7b8b0;
-  --text-disabled: #82958c;
-  --color-brand: #32d2b0;
-  --color-brand-hover: #64e5c8;
-  --color-brand-strong: #71ebd0;
-  --color-brand-glow: rgb(50 210 176 / 17%);
-  --color-success: #62dfa0;
-  --color-warning: #ffd06e;
-  --color-danger: #ff8176;
-  --border-subtle: #2c3b40;
-  --border-default: #405258;
-  --border-strong: #627a7d;
-  --shadow-sm: 0 2px 6px rgb(0 0 0 / 18%);
-  --shadow-md: 0 10px 28px rgb(0 0 0 / 24%);
-  --shadow-lg: 0 24px 60px rgb(0 0 0 / 40%);
 }
 
 html[data-theme='light'], [data-theme='light'] {
   color-scheme: light;
-  --bg-base: var(--sten-paper);
-  --bg-app: var(--sten-paper);
-  --bg-surface: var(--sten-white);
-  --bg-surface-subtle: #e9eee8;
-  --bg-elevated: #fffefa;
-  --bg-inset: #e9eee8;
-  --text-primary: var(--sten-text);
-  --text-secondary: #40535a;
-  --text-muted: #52636a;
-  --text-disabled: #77868a;
-  --color-brand: var(--sten-jade);
-  --color-brand-hover: var(--sten-jade-deep);
-  --color-brand-strong: var(--sten-jade-deep);
-  --color-brand-glow: rgb(8 127 112 / 16%);
-  --color-success: #18734c;
-  --color-warning: #9b5b00;
-  --color-danger: #c13d37;
-  --border-subtle: var(--sten-line);
-  --border-default: #bdc9c2;
-  --border-strong: #82958b;
-  --shadow-sm: 0 2px 5px rgb(17 27 34 / 5%);
-  --shadow-md: 0 8px 22px rgb(17 27 34 / 8%);
-  --shadow-lg: 0 22px 55px rgb(17 27 34 / 16%);
 }
 
 /* App frame: a confident dark navigation rail anchors the warmer workspace. */
@@ -208,12 +129,12 @@ table tbody tr:hover td { background: color-mix(in srgb, var(--color-brand) 4%, 
   border-top: 1px solid #2a3b40 !important;
   box-shadow: 0 -10px 28px rgb(8 18 22 / 14%) !important;
 }
-.mobile-bottom-nav a { color: #aebfb8 !important; border-radius: 12px !important; }
+.mobile-bottom-nav a { color: #aebfb8 !important; border-radius: var(--radius-md) !important; }
 .mobile-bottom-nav a.active, .mobile-bottom-nav a[aria-current='page'] {
-  color: var(--sten-lime) !important;
+  color: var(--sten-lime-sten) !important;
   background: #203b3a !important;
 }
-.mobile-bottom-nav a.active svg, .mobile-bottom-nav a[aria-current='page'] svg { color: var(--sten-lime) !important; }
+.mobile-bottom-nav a.active svg, .mobile-bottom-nav a[aria-current='page'] svg { color: var(--sten-lime-sten) !important; }
 @media (max-width: 767px) {
   .content { padding-top: 18px !important; }
   .page-head { margin-bottom: 18px !important; }

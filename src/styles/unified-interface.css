@@ -82,7 +82,7 @@ button, input, select, textarea { font-family: inherit; }
 .page p, .page .muted, .muted, .field-hint, .helper-text { color: var(--text-secondary); }
 :where(.panel, .metric-card, .pnl-kpi, .budget-kpi, .analytics-summary, .analytics-gap-section, .director-attention, .director-prime, .director-metric, .flash-prime, .prime-card, .operational-day-summary, .operational-insight-panel, .operational-transaction-panel, .settings-card, .docs-panel, .memory-card, .insight-card, .deviations-widget__card) {
   border: 1px solid var(--border-subtle) !important;
-  border-radius: 12px !important;
+  border-radius: var(--radius-md) !important;
   background: var(--bg-surface) !important;
   background-image: none !important;
   box-shadow: var(--shadow-sm, none) !important;
@@ -98,7 +98,7 @@ button, input, select, textarea { font-family: inherit; }
 .secondary-button:hover:not(:disabled) { background: var(--bg-surface-subtle) !important; }
 :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select, textarea) {
   min-height: 40px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border-color: var(--border-default);
   color: var(--text-primary);
 }
@@ -194,7 +194,7 @@ td, th { border-color: var(--border-subtle) !important; }
   width: min(290px, calc(100vw - 24px));
   padding: 14px;
   border: 1px solid var(--border-default);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--bg-surface);
   color: var(--text-primary);
   box-shadow: var(--shadow-lg);
@@ -207,7 +207,7 @@ td, th { border-color: var(--border-subtle) !important; }
   justify-self: start;
   padding: 0 12px;
   border: 1px solid var(--border-default);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--bg-surface-subtle);
   color: var(--text-primary);
 }
@@ -258,7 +258,7 @@ html[data-sten-interface="mobile"] .mobile-bottom-nav a {
   gap: 3px;
   min-width: 0;
   min-height: 52px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 html[data-sten-interface="mobile"] .page-head {
   align-items: flex-start;

@@ -1,4 +1,19 @@
-/* STEN Visual System — single entry point. Keep visual rules grouped by responsibility. */
+/* STEN Visual System — single entry point.
+   Import order is intentional:
+   1. tokens.css — semantic contracts and declared layer order
+   2. shell.css — application frame and navigation
+   3. components.css — shared controls and component states
+   4. responsive.css — breakpoint-specific composition
+
+   Migration guardrail:
+   - app.css, unified-interface.css and sten-visual-system.css are imported earlier
+     by main.tsx and currently contain legacy/unlayered rules and !important overrides.
+   - Do not wrap these files wholesale in @layer: important declarations reverse layer
+     precedence, and unlayered normal declarations outrank layered normal declarations.
+   - Migrate selectors in small batches only after checking JSX/TSX usage, dynamic class
+     construction, source order, theme overrides, and the computed cascade.
+   - Keep uncertain selectors; record them as TODOs rather than deleting them.
+*/
 @import './tokens.css';
 @import './shell.css';
 @import './components.css';
