@@ -81,13 +81,13 @@ try {
     method: 'Chromium headless getComputedStyle; token values resolved after theme selectors and cascade',
     results,
   };
-  console.log(JSON.stringify(output, null, 2));
+  console.log('CONTRAST_JSON=' + JSON.stringify(output));
 
   const failures = results.filter((row) =>
     (!row.light.aaNormal || !row.dark.aaNormal) && row.exception !== 'disabled-only'
   );
   if (failures.length) {
-    console.error(`Contrast check failed: ${failures.length} non-exempt token pair(s) fail AA normal text.`);
+    console.log(`Contrast check failed: ${failures.length} non-exempt token pair(s) fail AA normal text.`);
     process.exitCode = 1;
   } else {
     console.log('Contrast check passed for all non-exempt token pairs; disabled-only pair is reported separately.');
