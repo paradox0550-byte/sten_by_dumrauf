@@ -404,3 +404,58 @@ None are labelled unused in this audit because JSX/TSX, `classList`, template li
 ## Verdict
 
 **NOT CLOSED** — this register classifies all 373 `!important` occurrences and makes an explicit keep decision for each, but acceptance criteria requiring JSX/TSX usage cross-reference and at least 20 verified remove/move changes are not met. No CSS behavior was changed in this audit commit; no unverified removals are represented as safe.
+
+## Shadow and color tokens: declared but not adopted
+
+### 2c-2 — shadow tokens
+
+- Inventory: 94 hardcoded `box-shadow` declarations across `src/app.css`, `src/styles/unified-interface.css`, and `src/styles/sten-visual-system.css`.
+- Exact matches against the current canonical `--shadow-sm`, `--shadow-md`, and `--shadow-lg` token values at audit HEAD: **0/94**.
+- Reason: the existing tokens describe semantic shadow levels, while the declarations encode concrete values and often represent component-specific, inset, multi-shadow, or colored treatments. A safe byte-for-byte migration cannot infer equivalence from visual similarity.
+- Decision: **A — deferred; no replacements made.** Extending the token vocabulary is a separate task under strategy C.
+
+### 2c-3 — sampled hardcoded colors
+
+- Sample: 10 hardcoded color values checked against the canonical token values at audit HEAD.
+- Exact matches: **2/10** — `#62dfa0` maps to `--color-success` in dark theme; `#ff8176` maps to `--color-danger` in dark theme. The other 8 sampled values do not match the relevant token values byte-for-byte.
+- Reason: replacing the remaining colors with current tokens would change their shade and potentially their visual/semantic meaning. This stage is not a redesign.
+- Decision: **A — deferred; no replacements made.** Any new semantic color tokens belong in the separate strategy C task.
+
+### Declared vs adopted
+
+| Token family | Adopted / audited sample | Status |
+|---|---:|---|
+| Radii | 46/46 replacements | Adopted |
+| Shadows | 0/94 exact matches | Declared only; adoption deferred |
+| Colors | 2/10 sampled exact matches | Declared only for most sampled values; adoption deferred |
+
+“Declared only” here records the negative finding for this migration batch; it does not mean the token definitions are missing. No design-token substitutions were made where exact equivalence was not established.
+
+## Migration summary
+
+| Stage | Status | Result |
+|---|---|---|
+| 1 | CLOSED | 13 duplicate `!important` declarations removed |
+| 1.5 | CLOSED | 6 selectors; approximately 17 `!important` declarations removed where a competing rule exists |
+| 1.75 | CLOSED | Canonical radius tokens established; 29 duplicate tokens removed |
+| 2a/2b | CLOSED | `check-contrast.mjs` integrated into CI |
+| 2b-fix | CLOSED | 3 WCAG FAIL results changed to PASS in dark theme |
+| 2c-1 | CLOSED | 46 radius substitutions |
+| 2c-2 | CLOSED | Negative finding; deferred to strategy C |
+| 2c-3 | CLOSED | Negative finding; deferred to strategy C |
+| 2c-4 | NOT STARTED | Overlay tokens — together with strategy C |
+| 2c-5 | NOT STARTED | TODOs for skipped radius cases — together with strategy C |
+| 2b-extra-1 | NOT STARTED | `--text-disabled` audit |
+| 2b-extra-2 | NOT STARTED | `color-mix` pairs in the contrast script |
+
+### Final migration verdict
+
+The scoped migration work in PR #207 is **ready for user visual verification and review**. The 2c-2 and 2c-3 negative findings are intentional scope decisions, not blockers: visual equivalence was not established, so the values remain unchanged. The prior inventory verdict above describes that earlier inventory snapshot; this summary records the final status of the staged migration.
+
+The following items are separate backlog work and do not block review of this PR: strategy C (expand semantic tokens), 2c-4, 2c-5, 2b-extra-1, and 2b-extra-2.
+
+Out of scope for PR #207:
+- Strategy B — replacing hardcodes with existing tokens where doing so would redesign or change visual semantics.
+- Strategy C — extending the token system; this must be implemented as a separate task after the migration PR is merged.
+
+PR #207 remains **draft** until the user completes the visual checklist in `docs/visual-check-1.5.md`. No merge or deployment is authorized by this documentation update.
