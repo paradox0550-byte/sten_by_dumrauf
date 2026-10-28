@@ -23,7 +23,7 @@ const stenCss = await readFile(new URL('../src/styles/sten-visual-system.css', i
 const html = `<!doctype html><html data-theme="light"><head><meta charset="utf-8"><style>${tokensCss}\n${stenCss}</style></head><body></body></html>`;
 
 function parseRgb(value) {
-  const nums = value.match(/[\\d.]+/g)?.map(Number);
+  const nums = value.match(/[\d.]+/g)?.map(Number);
   if (!nums || nums.length < 3) throw new Error(`Unsupported computed color: ${value}`);
   return nums.slice(0, 3).map((v) => v / 255);
 }
