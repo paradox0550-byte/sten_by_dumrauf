@@ -163,3 +163,48 @@
   }
   .director-attention__actions { justify-content: flex-end; }
 }
+
+/* Executive summary: a clear scan path, restrained depth, and stronger number hierarchy. */
+.director-dashboard { padding-inline: 0; }
+.director-topbar { min-height: 48px; margin-bottom: 20px; }
+.director-topbar h1 { font-size: clamp(23px, 2vw, 28px); font-weight: 650; letter-spacing: -.04em; }
+.director-period input { height: 38px; border-radius: 9px; font-family: var(--font-ui); font-size: 13px; }
+.director-dashboard__content { gap: 18px; }
+.director-attention, .director-prime, .director-metric {
+  border-radius: 15px;
+  box-shadow: var(--shadow-sm);
+}
+.director-attention { padding: 16px 18px; }
+.director-metrics { gap: 12px; }
+.director-metric {
+  position: relative;
+  gap: 8px;
+  padding: 18px 19px;
+  border-color: var(--border-subtle);
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+.director-metric__label { font-size: 11px; letter-spacing: .055em; }
+.director-metric__value { font-size: clamp(22px, 1.8vw, 28px); letter-spacing: -.045em; line-height: 1.15; }
+.director-metric__detail { color: var(--text-muted); font-size: 12px; }
+.director-metric__delta { font-size: 12px; font-weight: 650; }
+.director-state { border-radius: 14px; box-shadow: var(--shadow-sm); }
+.director-state--empty { align-items: center; }
+.director-state--empty h2 { margin: 0; font-size: 15px; }
+.director-state--empty > div { flex: 1 1 auto; }
+@media (prefers-reduced-motion: no-preference) {
+  .director-metric:hover { border-color: color-mix(in srgb, var(--color-brand) 30%, var(--border-subtle)); box-shadow: var(--shadow-md); }
+}
+@media (max-width: 767px) {
+  .director-dashboard { padding-inline: 0; }
+  .director-topbar { flex-direction: row; align-items: center; padding-top: 0; gap: 10px; }
+  .director-topbar h1 { font-size: 23px; }
+  .director-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .director-metric { padding: 14px 12px; gap: 7px; }
+  .director-metric__value { font-size: clamp(18px, 5vw, 23px); }
+  .director-metric__detail { font-size: 11px; }
+}
+@media (max-width: 390px) {
+  .director-metrics { grid-template-columns: minmax(0, 1fr); }
+  .director-topbar { align-items: flex-start; flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) { .director-metric { transition: none; } }
