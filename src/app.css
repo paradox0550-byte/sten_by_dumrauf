@@ -7993,9 +7993,6 @@ body { font-family: 'Inter Variable', Inter, sans-serif; font-size: 14px; line-h
 a { text-underline-offset: 3px; }
 :where(button, a, input, select, textarea, [tabindex]):focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; box-shadow: none; }
 :where(button, input, select, textarea) { transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease; }
-@media (prefers-reduced-motion: reduce) {
-  /* This !important is intentional: reduced-motion preference must override component animations. */
-}
 /* This !important is intentional: the user's explicit reduced-motion setting overrides component animations. */
 
 /* Compact Obsidian Precision: brighter text and tighter vertical rhythm. */
@@ -9658,8 +9655,6 @@ input::placeholder, select::placeholder, textarea::placeholder { color: var(--te
 ::selection { background: color-mix(in srgb, var(--color-brand) 22%, transparent); color: var(--text-primary); }
 @media (hover: hover) and (pointer: fine) {
   :where(.panel, .card, .metric-card, .settings-card, .executive-card):hover { box-shadow: var(--sten-shadow-hover); }
-}
-@media (prefers-reduced-motion: reduce) {
 }
 html[data-reduce-motion='true'] *, html[data-reduce-motion='true'] *::before, html[data-reduce-motion='true'] *::after { animation: none !important; transition: none !important; }
 
