@@ -32,9 +32,9 @@ const pairs = [
 ];
 
 const requiredTokens = {
-  '--bg-danger': '#2A1517',
-  '--bg-warning': '#2A220F',
-  '--bg-success': '#0F291A',
+  '--bg-danger': '#35201F',
+  '--bg-warning': '#332B1A',
+  '--bg-success': '#1B3023',
 };
 
 const tokensCss = await readFile(new URL('../src/styles/visual-system/tokens.css', import.meta.url), 'utf8');

@@ -27,7 +27,7 @@
   max-width: 68ch;
   margin: 0;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: 16px;
   line-height: 1.55;
 }
 .flash-page .head-actions,
@@ -59,13 +59,13 @@
 .flash-page .operational-control-import summary {
   display: inline-flex;
   align-items: center;
-  min-height: 40px;
-  padding: 0 10px;
+  min-height: 44px;
+  padding: 0 12px;
   border: 1px solid var(--border-default);
   border-radius: 9px;
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 .flash-page .operational-control-import[open] {
@@ -98,8 +98,8 @@
 .flash-page .operational-overview-metric span {
   min-height: 2.5em;
   color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 14px;
+  line-height: 1.45;
 }
 .flash-page .operational-overview-metric strong {
   font-size: clamp(15px, 1.3vw, 18px);
@@ -108,8 +108,8 @@
 }
 .flash-page .operational-overview-metric small {
   color: var(--text-secondary);
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: 14px;
+  line-height: 1.45;
 }
 .flash-page .operational-attention { padding-top: 14px; }
 .flash-page .operational-attention li { overflow-wrap: anywhere; }
@@ -133,7 +133,7 @@
 .flash-page .operational-day-date {
   flex: 0 0 auto;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
 }
 .flash-page .operational-day-summary,
@@ -148,7 +148,7 @@
 .flash-page .operational-summary-head > div { display: grid; gap: 3px; }
 .flash-page .operational-summary-head span {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 14px;
 }
 .flash-page .metric-grid { gap: 10px; }
 .flash-page .metric-card { min-width: 0; }
@@ -176,7 +176,7 @@
   align-items: center;
   gap: 8px;
   margin: 0 0 12px;
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.35;
 }
 .secretary-page .secretary-event {
@@ -194,7 +194,7 @@
 .secretary-page .secretary-main > span,
 .secretary-page .secretary-note > span {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -205,10 +205,10 @@
   align-items: center;
   gap: 5px;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 14px;
 }
 .secretary-page .secretary-date { display: grid; gap: 4px; }
-.secretary-page .secretary-date b { font-size: 12px; }
+.secretary-page .secretary-date b { font-size: 14px; }
 .secretary-page .secretary-note {
   display: grid;
   gap: 6px;
@@ -226,7 +226,7 @@
 .secretary-page .secretary-day:last-child { border-bottom: 0; }
 .secretary-page .secretary-day-label {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 650;
 }
 .secretary-page .secretary-day-events { min-width: 0; }
@@ -247,13 +247,13 @@
   color: var(--text-primary);
   box-shadow: var(--shadow-lg);
 }
-.secretary-page .modal-card > label { display: grid; gap: 6px; margin: 14px 0; color: var(--text-secondary); font-size: 12px; }
-.secretary-page .modal-card .scope-input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 42px; }
+.secretary-page .modal-card > label { display: grid; gap: 6px; margin: 14px 0; color: var(--text-secondary); font-size: 14px; }
+.secretary-page .modal-card .scope-input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; }
 .flash-page :where(input, select, textarea),
 .secretary-page :where(input, select, textarea) { max-width: 100%; }
 .flash-page :where(.primary-button, .secondary-button, .danger-button),
 .secretary-page :where(.primary-button, .secondary-button, .danger-button) {
-  min-height: 40px;
+  min-height: 44px;
   gap: 7px;
   white-space: normal;
 }
