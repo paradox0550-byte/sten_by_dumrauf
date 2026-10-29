@@ -6,16 +6,16 @@
   --sten-ink: #111b22;
   --sten-ink-raised: #17252d;
   --sten-ink-soft: #21343d;
-  --sten-jade-sten: #087f70;
-  --sten-jade-bright: #10a58d;
-  --sten-jade-deep: #075e55;
-  --sten-lime-sten: #d9f36a;
-  --sten-coral: #ff775f;
-  --sten-paper-sten: #f5f3ed;
-  --sten-white: #fffefa;
-  --sten-line: #d8ded8;
-  --sten-text: #17242a;
-  --sten-muted: #52636a;
+  --sten-jade-sten: #126B67;
+  --sten-jade-bright: #2D857B;
+  --sten-jade-deep: #0E5956;
+  --sten-lime-sten: #D0D8D2;
+  --sten-coral: #A62D2D;
+  --sten-paper-sten: #F3F5F3;
+  --sten-white: #FBFCFA;
+  --sten-line: #D5DED8;
+  --sten-text: #25332F;
+  --sten-muted: #53645F;
   --sten-radius-sm: var(--radius-sm);
   --sten-radius-md: var(--radius-md);
   --sten-radius-lg: var(--radius-lg);
@@ -52,8 +52,8 @@ html[data-theme='light'], [data-theme='light'] {
   border-radius: var(--sten-radius-lg) !important;
   background: var(--bg-surface) !important;
   background-image: none !important;
-  box-shadow: var(--shadow-sm) !important;
-  transition: border-color var(--sten-motion) ease, box-shadow var(--sten-motion) ease;
+  box-shadow: none !important;
+  transition: border-color var(--sten-motion) ease;
 }
 :where(.metric-card, .pnl-kpi, .budget-kpi, .director-metric, .prime-card) { padding: 18px !important; }
 :where(.panel, .metric-card, .pnl-kpi, .budget-kpi):hover { border-color: color-mix(in srgb, var(--color-brand) 35%, var(--border-subtle)) !important; }
