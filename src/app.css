@@ -10055,3 +10055,336 @@ html[data-reduce-motion='true'] .sten-loading-track > span { animation: none; wi
 @media (max-width: 767px) {
   .settings-quick-jump button { min-height: 38px; padding: 6px 7px; font-size: 11px; }
 }
+
+
+/* STEN · Executive memory overview */
+.executive-memory-overview {
+  display: grid;
+  gap: 14px;
+  margin: 4px 0 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 16px);
+  background: var(--surface);
+}
+.executive-memory-overview__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.executive-memory-overview__heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 650;
+}
+.executive-memory-overview__heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.executive-memory-overview__heading > span {
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.executive-memory-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+.executive-memory-shortcuts button {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  min-height: 76px;
+  padding: 12px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+.executive-memory-shortcuts button:hover,
+.executive-memory-shortcuts button.active {
+  border-color: var(--accent, #126B67);
+  background: var(--surface2);
+}
+.executive-memory-shortcuts strong {
+  font-size: 21px;
+  font-weight: 650;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.executive-memory-shortcuts span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.executive-memory-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface2);
+  color: var(--muted);
+}
+.executive-memory-search:focus-within {
+  border-color: var(--accent, #126B67);
+}
+.executive-memory-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.executive-memory-search button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+@media (max-width: 1050px) {
+  .executive-memory-shortcuts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .executive-memory-overview { padding: 14px; gap: 12px; }
+  .executive-memory-shortcuts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .executive-memory-shortcuts button { min-height: 66px; padding: 10px; }
+  .executive-memory-overview__heading { align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .executive-memory-shortcuts button { transition: none; }
+}
+
+
+/* STEN · Decision-to-outcome chain */
+.executive-chain {
+  display: grid;
+  gap: 16px;
+  margin: 0 0 22px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 16px);
+  background: var(--surface);
+}
+.executive-chain__heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 650;
+}
+.executive-chain__heading p {
+  margin: 5px 0 0;
+  max-width: 680px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.executive-chain__decision,
+.executive-chain__date {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.executive-chain__decision select,
+.executive-chain__date input {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface2);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.executive-chain__steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 8px;
+}
+.executive-chain__step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface2);
+  color: var(--text);
+  text-align: left;
+}
+button.executive-chain__step {
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+button.executive-chain__step:hover,
+button.executive-chain__step.active {
+  border-color: var(--accent, #126B67);
+}
+button.executive-chain__step.active {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--accent, #126B67);
+}
+.executive-chain__step.complete .executive-chain__step-number {
+  background: var(--accent, #126B67);
+  color: #fff;
+}
+.executive-chain__step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+.executive-chain__step-body {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+.executive-chain__step-body strong {
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.executive-chain__step-body p,
+.executive-chain__step-body > span {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+.executive-chain__step-body small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+.executive-chain__editor {
+  display: grid;
+  gap: 12px;
+  padding-top: 15px;
+  border-top: 1px solid var(--line);
+}
+.executive-chain__editor-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.executive-chain__editor-heading > div {
+  display: grid;
+  gap: 4px;
+}
+.executive-chain__editor-heading span,
+.executive-chain__editor-heading small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.executive-chain__editor-heading h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 650;
+}
+.executive-chain__editor > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.executive-chain__editor textarea {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  outline: none;
+  background: var(--surface2);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.executive-chain__editor textarea:focus {
+  border-color: var(--accent, #126B67);
+}
+.executive-chain__date {
+  max-width: 360px;
+}
+.executive-chain__editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.executive-chain__editor-actions > span {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.executive-chain__editor-actions .primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+.executive-chain__empty {
+  padding: 14px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+@media (max-width: 1100px) {
+  .executive-chain__steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .executive-chain__step--decision { grid-column: 1 / -1; }
+}
+@media (max-width: 600px) {
+  .executive-chain { padding: 14px; gap: 13px; }
+  .executive-chain__steps { grid-template-columns: minmax(0, 1fr); }
+  .executive-chain__step--decision { grid-column: auto; }
+  .executive-chain__step { padding: 11px; }
+  .executive-chain__editor-actions { align-items: stretch; flex-direction: column; }
+  .executive-chain__editor-actions .primary-button { width: 100%; }
+  .executive-chain__editor-heading { flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) {
+  button.executive-chain__step { transition: none; }
+}
