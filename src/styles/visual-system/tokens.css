@@ -168,7 +168,7 @@ html[data-theme='dark'], [data-theme='dark'] {
   --sten-risk: #F87171;
   --sten-neutral: #9FB0B8;
   --sten-plan: #8A98A8;
-  --sten-previous: #6B7A82;
+  --sten-previous: #7A8A93;
   --sten-chart-secondary: #8293A3;
   --bg-base: #0F1419;
   --bg-app: #0F1419;
@@ -188,9 +188,9 @@ html[data-theme='dark'], [data-theme='dark'] {
   --bg-danger-subtle: rgb(248 113 113 / 6%);
   --text-primary: #E8F0F3;
   --text-secondary: #9FB0B8;
-  --text-muted: #6B7A82;
+  --text-muted: #7A8A93;
   --text-tertiary: var(--text-secondary);
-  --text-disabled: #6B7A82;
+  --text-disabled: #7A8A93;
   --text-on-accent: #0F1419;
   --color-brand: #2DD4BF;
   --color-brand-hover: #14B8A6;
