@@ -142,7 +142,7 @@ try {
             if (routePath === '/legal') return Boolean(document.querySelector('.legal-hub'));
             if (routePath === '/admin/organizations') return Boolean(document.querySelector('.admin-organizations-page'));
             return Boolean(document.querySelector('.content > :not(.sten-inline-guide):not(.legal-footer)'));
-          }, path, { timeout: 15000 });
+          }, path, { timeout: 3500 });
           const state = await page.evaluate(() => ({
             width: window.innerWidth,
             documentWidth: document.documentElement.scrollWidth,
