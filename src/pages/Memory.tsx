@@ -205,7 +205,7 @@ export default function Memory() {
 
         <section className="executive-memory-overview" aria-label="Краткая сводка истории руководителя">
           <div className="executive-memory-overview__heading">
-            <div><h2>Управленческая история</h2><p>Быстрый доступ к ключевым записям</p></div>
+            <div><h2>Управленческая история</h2><p>Быстрый доступ к ключевым записям в текущей выборке</p></div>
             <span>{loading ? 'Обновление…' : `${memories.length} ${memories.length === 1 ? 'запись' : memories.length > 1 && memories.length < 5 ? 'записи' : 'записей'}`}</span>
           </div>
           <div className="executive-memory-shortcuts">
@@ -214,6 +214,7 @@ export default function Memory() {
             <button type="button" className={quickKind === 'cause' ? 'active' : ''} onClick={() => { setQuickKind('cause'); setQuickConfidence(''); }}><strong>{memories.filter(item => item.kind === 'cause').length}</strong><span>Причины проблем</span></button>
             <button type="button" className={quickKind === 'action' ? 'active' : ''} onClick={() => { setQuickKind('action'); setQuickConfidence(''); }}><strong>{memories.filter(item => item.kind === 'action').length}</strong><span>Действия</span></button>
             <button type="button" className={quickKind === 'pattern' ? 'active' : ''} onClick={() => { setQuickKind('pattern'); setQuickConfidence(''); }}><strong>{memories.filter(item => item.kind === 'pattern').length}</strong><span>Закономерности</span></button>
+            <button type="button" className={quickKind === 'fact' ? 'active' : ''} onClick={() => { setQuickKind('fact'); setQuickConfidence(''); }}><strong>{memories.filter(item => item.kind === 'fact').length}</strong><span>Факты и результаты</span></button>
             <button type="button" className={quickConfidence === 'unconfirmed' ? 'active' : ''} onClick={() => { setQuickConfidence('unconfirmed'); setQuickKind(''); }}}><strong>{memories.filter(item => item.confidence === 'unconfirmed').length}</strong><span>На проверке</span></button>
           </div>
           <label className="executive-memory-search">
