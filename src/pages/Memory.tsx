@@ -146,8 +146,8 @@ export default function Memory() {
 
   useEffect(() => {
     setStageText(currentStageEntry?.content ?? '');
-    setNextCheckDate(getExecutiveChainMeta(currentStageEntry ?? ({} as Memory))?.dueDate ?? '');
-  }, [selectedDecisionId, selectedStage, currentStageEntry?.id, currentStageEntry?.updated_at]);
+    setNextCheckDate(currentStageEntry ? getExecutiveChainMeta(currentStageEntry)?.dueDate ?? '' : '');
+  }, [selectedDecisionId, selectedStage, currentStageEntry]);
 
   const load = async () => {
     setLoading(true);
