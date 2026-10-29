@@ -9,6 +9,7 @@
 /* Tailwind CSS v4: semantic utilities map to STEN's runtime theme tokens. */
 @theme inline {
   --color-sten-base: var(--bg-base);
+  --color-sten-bg: var(--bg-base);
   --color-sten-surface: var(--bg-surface);
   --color-sten-surface-muted: var(--bg-surface-muted);
   --color-sten-surface-hover: var(--bg-surface-hover);
@@ -19,8 +20,11 @@
   --color-sten-bg-warning-subtle: var(--bg-warning-subtle);
   --color-sten-bg-danger-subtle: var(--bg-danger-subtle);
   --color-sten-primary: var(--text-primary);
+  --color-sten-text-primary: var(--text-primary);
   --color-sten-secondary: var(--text-secondary);
+  --color-sten-text-secondary: var(--text-secondary);
   --color-sten-muted: var(--text-muted);
+  --color-sten-text-muted: var(--text-muted);
   --color-sten-brand: var(--color-brand);
   --color-sten-brand-hover: var(--color-brand-hover);
   --color-sten-success: var(--color-success);
