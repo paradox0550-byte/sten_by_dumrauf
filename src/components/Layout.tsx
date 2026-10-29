@@ -207,7 +207,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               {([
                 ['/ops', 'Отчёт смены'],
                 ['/plan', 'План руководителя'],
-              ] as const).map(([to, label]) => <NavLink key={to} to={to} onClick={() => setMobileMenu(false)}><span>{label}</span></NavLink>)}
+              ] as const).map(([to, label]) => <NavLink key={to} to={to} end onClick={() => setMobileMenu(false)}><span>{label}</span></NavLink>)}
             </div>}
 
             <NavLink to="/staff" onClick={() => setMobileMenu(false)} className={({ isActive }) => isActive ? 'active' : ''}>
@@ -247,7 +247,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="sidebar-bottom">
           <div className="sidebar-profile">
             <div className="avatar">{name.slice(0, 1)}</div>
-            <div className="sidebar-profile-copy"><b>{name}</b></div>
+            <div className="sidebar-profile-copy" title={name}><b>{name}</b></div>
             <button className="sidebar-logout" type="button" onClick={() => { signOut(); navigate('/unlock', { replace: true }); }} aria-label="Выйти из аккаунта" title="Выйти из аккаунта">
               <LogOut size={16} />
             </button>
