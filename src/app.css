@@ -8109,7 +8109,7 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 }
 .pnl-scale-toggle { border-radius: var(--ui-radius-md); background: var(--bg-inset); }
 .pnl-scale-toggle button { min-height: 32px; border-radius: 7px; }
-.pnl-scale-toggle button.active { background: color-mix(in srgb, var(--color-brand) 18%, transparent); color: #b6c4ff; }
+.pnl-scale-toggle button.active { background: var(--bg-surface-subtle); color: var(--text-primary); }
 .quick-actions { gap: 8px; }
 .pnl-summary { border-radius: var(--ui-radius-md); }
 .pnl-edit-table {
