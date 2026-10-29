@@ -97,7 +97,7 @@ function isSecretaryQuestion(question) { return matchesAny(question, SECRETARY_P
 
 function isFollowUpQuestion(question) {
   const text = String(question || '').trim();
-  return text.length <= 120 && /^(?:а\s|и\s|почему\b|как\b|что дальше\b|а дальше\b|подробнее\b|можно подробнее\b|а по\b|что насчёт\b|что насчет\b|и что\b|покажи подробнее\b)/iu.test(text);
+  return text.length <= 120 && /^(?:а\s|и\s|почему(?=$|[\s?!.,])|как(?=$|[\s?!.,])|что дальше(?=$|[\s?!.,])|а дальше(?=$|[\s?!.,])|подробнее(?=$|[\s?!.,])|можно подробнее(?=$|[\s?!.,])|а по(?=$|[\s?!.,])|что насчёт(?=$|[\s?!.,])|что насчет(?=$|[\s?!.,])|и что(?=$|[\s?!.,])|покажи подробнее(?=$|[\s?!.,]))/iu.test(text);
 }
 
 function resolveAgent(question, previousQuestion = '') {
