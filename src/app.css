@@ -90,7 +90,7 @@ h3, .h3 {
   font-weight: 600;
 }
 
-/* === Financial Numbers (JetBrains Mono + tabular-nums) === */
+/* === Financial Numbers (IBM Plex Mono + tabular-nums) === */
 .numeric,
 .metric-card strong,
 .pnl-row strong,
@@ -6301,7 +6301,7 @@ textarea:focus-visible {
 .skeleton-row span {
   height: 12px;
   border-radius: 6px;
-  background: linear-gradient(90deg, var(--bg-surface-subtle) 0%, color-mix(in srgb, var(--bg-surface-subtle) 60%, var(--bg-surface)) 50%, var(--bg-surface-subtle) 100%);
+  background: var(--skeleton-base);
   background-size: 200% 100%;
   animation: sten-shimmer 1.4s ease-in-out infinite;
 }
@@ -7379,7 +7379,7 @@ html[data-reduce-motion='true'] .executive-shell .analytics-report-table {
 .deviations-widget__empty { padding:18px; border:1px dashed var(--border-strong); border-radius:var(--radius-sm); color:var(--text-secondary); background:var(--bg-surface-subtle); }
 .deviations-widget__empty b { display:block; margin-bottom:6px; color:var(--text-primary); }
 .deviations-widget__empty a { color:var(--color-brand); font-weight:600; }
-.deviations-widget__skeleton { min-height:78px; margin-bottom:8px; border-radius:var(--radius-sm); background:linear-gradient(90deg,var(--bg-surface-subtle),var(--bg-surface),var(--bg-surface-subtle)); background-size:200% 100%; animation:sten-deviations-shimmer 1.6s linear infinite; }
+.deviations-widget__skeleton { min-height:78px; margin-bottom:8px; border-radius:var(--radius-sm); background:var(--skeleton-base); animation:none; }
 .deviations-widget__error { display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--text-secondary); }
 @keyframes sten-deviations-shimmer { from { background-position:200% 0; } to { background-position:-200% 0; } }
 @media (prefers-reduced-motion:reduce) { .deviations-widget__skeleton { animation:none; } }
