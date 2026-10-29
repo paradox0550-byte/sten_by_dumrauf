@@ -286,6 +286,86 @@ try {
     }
   }
 
+  // Real SPA navigation smoke: click visible navigation controls instead of loading each
+  // route directly. This catches duplicated shells and route transitions that strand loading UI.
+  let navigationTransitions = 0;
+  for (const theme of themes) {
+    for (const viewport of [viewports[1], viewports[2], viewports[4]]) {
+      const context = await browser.newContext({
+        viewport,
+        deviceScaleFactor: 1,
+        colorScheme: theme,
+        reducedMotion: 'reduce',
+        serviceWorkers: 'block',
+      });
+      await context.addInitScript(({ initialTheme }) => {
+        localStorage.setItem('token', 'visual-acceptance-test-token');
+        localStorage.setItem('sten_user', JSON.stringify({
+          id: 'visual-qa-user',
+          email: 'visual@qa.local',
+          firstName: 'Visual',
+          lastName: 'QA',
+          role: 'super_admin',
+          organizationId: 'visual-qa-org',
+        }));
+        localStorage.setItem('sten_scope_v5', JSON.stringify({ organizationId: 'visual-qa-org' }));
+        localStorage.setItem('sten_theme_v5', initialTheme);
+        localStorage.setItem('sten_cookie_consent_v2', JSON.stringify({
+          accepted: true, at: new Date().toISOString(), policyVersion: '3',
+        }));
+        localStorage.setItem('sten_reduce_motion_v1', 'true');
+        localStorage.setItem('sten_interface_mode_v1', window.innerWidth <= 767 ? 'mobile' : 'desktop');
+      }, { initialTheme: theme });
+      const page = await context.newPage();
+      const pageErrors = [];
+      page.on('pageerror', error => pageErrors.push(error.message));
+      await page.route('**/*', mockApi);
+      try {
+        await page.goto(`${baseUrl}/#/dashboard`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await page.waitForFunction(() => Boolean(document.querySelector('.content > :not(.sten-inline-guide):not(.legal-footer)')), { timeout: 5000 });
+        const paths = viewport.width <= 767
+          ? ['/sten', '/pnl', '/ops', '/dashboard']
+          : ['/sten', '/staff', '/settings', '/dashboard'];
+        for (const path of paths) {
+          const link = page.locator(`a[href="#${path}"]:visible`).first();
+          if (!await link.count()) {
+            failures.push(${theme}/${viewport.width}/navigation: no visible navigation link for ${path}.);
+            continue;
+          }
+          await link.click();
+          await page.waitForFunction((expectedPath) => {
+            const hash = window.location.hash;
+            const content = document.querySelector('.content > :not(.sten-inline-guide):not(.legal-footer)');
+            return hash === `#${expectedPath}` && Boolean(content)
+              && !document.querySelector('.sten-loading[aria-busy="true"], .sten-loading');
+          }, path, { timeout: 5000 });
+          const state = await page.evaluate(() => ({
+            hash: window.location.hash,
+            shellCount: document.querySelectorAll('.shell').length,
+            guideCount: document.querySelectorAll('.sten-inline-guide').length,
+            width: window.innerWidth,
+            documentWidth: document.documentElement.scrollWidth,
+            bodyWidth: document.body.scrollWidth,
+            contentWidth: document.querySelector('.content')?.scrollWidth ?? 0,
+            contentClientWidth: document.querySelector('.content')?.clientWidth ?? 0,
+          }));
+          if (state.hash !== `#${path}`) failures.push(${theme}/${viewport.width}/navigation: route ended at ${state.hash}, expected #${path}.);
+          if (state.shellCount !== 1 || state.guideCount > 1) failures.push(${theme}/${viewport.width}/navigation: duplicate shell/guide counts ${state.shellCount}/${state.guideCount}.);
+          if (state.documentWidth > state.width + 1 || state.bodyWidth > state.width + 1 || state.contentWidth > state.contentClientWidth + 1) {
+            failures.push(${theme}/${viewport.width}/navigation: horizontal overflow document=${state.documentWidth}, body=${state.bodyWidth}, content=${state.contentWidth}/${state.contentClientWidth}.);
+          }
+          navigationTransitions += 1;
+        }
+        if (pageErrors.length) failures.push(${theme}/${viewport.width}/navigation: uncaught browser error: ${pageErrors.join(' | ')}.);
+      } catch (error) {
+        failures.push(${theme}/${viewport.width}/navigation: ${error instanceof Error ? error.message : String(error)}.);
+      } finally {
+        await context.close();
+      }
+    }
+  }
+  console.log(`Navigation smoke completed ${navigationTransitions} real SPA link transitions across mobile/tablet/desktop and both themes.`);
+
   // Accessibility/responsive smoke at enlarged text sizes. This is a separate pass so
   // screenshots remain comparable at the default 100% scale.
   let accessibilityStates = 0;
