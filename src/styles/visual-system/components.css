@@ -33,7 +33,7 @@ button, [role='button'], a { -webkit-tap-highlight-color: transparent; }
 .sten-ai-starter__number { color: var(--color-brand-strong) !important; }
 .sten-composer, .composer-box { border-color: var(--border-default) !important; }
 .sten-composer.is-focused, .composer-box:focus-within { border-color: var(--color-brand) !important; box-shadow: var(--focus) !important; }
-.sten-composer .send, .composer-box .send { background: var(--sten-jade) !important; color: #fff !important; }
+.sten-composer .send, .composer-box .send { background: var(--sten-jade) !important; color: var(--text-on-accent) !important; }
 .sten-composer .send:hover, .composer-box .send:hover { background: var(--sten-jade-deep) !important; }
 .sten-ai-tools summary { cursor: pointer; color: var(--text-muted); }
 :where(.sten-ai-page, .page) .empty, :where(.sten-ai-page, .page) .muted { color: var(--text-muted); }
@@ -46,7 +46,7 @@ button, [role='button'], a { -webkit-tap-highlight-color: transparent; }
   border-radius: var(--radius-lg, 16px);
   background-color: var(--bg-surface);
   box-shadow: var(--shadow-sm);
-  transition: border-color 180ms ease, box-shadow 180ms ease;
+  transition: border-color 180ms ease;
 }
 .page .metric-card, .page .panel, .page .section-card { overflow: clip; }
 .page :is(button, a).card:hover,
@@ -72,7 +72,7 @@ button, [role='button'], a { -webkit-tap-highlight-color: transparent; }
   transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
 }
 .page :is(input, select, textarea):disabled { opacity: .62; }
-.page :is(button, .button, .primary-button, .secondary-button) { transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
+.page :is(button, .button, .primary-button, .secondary-button) { transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease; }
 :where(.page, .sten-ai-page) :is(.empty, .empty-state) { border-radius: var(--radius-lg, 16px); }
 @media (prefers-reduced-motion: reduce) {
   .page .card, .page .panel, .page .metric-card, .page .surface, .page .section-card,
