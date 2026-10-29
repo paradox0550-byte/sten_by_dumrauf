@@ -307,3 +307,11 @@ html[data-sten-interface="mobile"] :where(.table-wrap, .table-scroll, .pnl-table
   background-color: var(--bg-surface-hover) !important;
   color: var(--text-primary) !important;
 }
+
+/* Mobile touch targets: keep interactive controls at least 44px tall. */
+
+@media (max-width: 767px) {
+  :where(button, [role="button"], input[type="button"], input[type="submit"], input[type="reset"]) {
+    min-height: 44px !important;
+  }
+}
