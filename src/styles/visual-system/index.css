@@ -14,6 +14,7 @@
      construction, source order, theme overrides, and the computed cascade.
    - Keep uncertain selectors; record them as TODOs rather than deleting them.
 */
+@import "tailwindcss/utilities.css" layer(utilities);
 @import './tokens.css';
 @import './shell.css';
 @import './components.css';
