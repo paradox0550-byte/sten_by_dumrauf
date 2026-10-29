@@ -58,7 +58,8 @@ async function mockApi(route) {
     await route.fulfill({ status: 204, headers: corsHeaders });
     return;
   }
-  if (path === '/auth/me') {
+  // VITE_API_URL may prefix auth routes (for example /api); match the endpoint, not only the root path.
+  if (path.endsWith('/auth/me')) {
     await route.fulfill({
       status: 200,
       headers: corsHeaders,
