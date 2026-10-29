@@ -58,7 +58,8 @@ async function mockApi(route) {
     await route.fulfill({ status: 204, headers: corsHeaders });
     return;
   }
-  if (path === '/auth/me') {
+  // VITE_API_URL may prefix auth routes (for example /api); match the endpoint, not only the root path.
+  if (path.endsWith('/auth/me')) {
     await route.fulfill({
       status: 200,
       headers: corsHeaders,
@@ -73,15 +74,26 @@ async function mockApi(route) {
     });
     return;
   }
-  if (path === '/api/b2b/context') {
+  if (path.endsWith('/api/b2b/context')) {
     await route.fulfill({ status: 200, headers: corsHeaders, contentType: 'application/json', body: JSON.stringify({ context: {} }) });
     return;
   }
-  if (path === '/api/b2b/org/tree') {
+  if (path.endsWith('/api/b2b/org/tree')) {
     await route.fulfill({ status: 200, headers: corsHeaders, contentType: 'application/json', body: '[]' });
     return;
   }
-  if (path.startsWith('/api/') || path.startsWith('/auth/')) {
+  if (path.endsWith('/api/admin/organizations') && route.request().method() === 'GET') {
+    // A valid empty-state fixture for the system-admin screen; no synthetic organizations.
+    await route.fulfill({
+      status: 200,
+      headers: corsHeaders,
+      contentType: 'application/json',
+      body: JSON.stringify({ organizations: [] }),
+    });
+    return;
+  }
+  // Never let a visual test call a real API: gateway deployments may prefix endpoint paths.
+  if (path.includes('/api/') || path.includes('/auth/') || requestUrl.origin !== new URL(baseUrl).origin) {
     // Empty/error-state fixture only. No synthetic business or financial values.
     await route.fulfill({
       status: 404,
@@ -113,6 +125,46 @@ try {
       });
       await context.addInitScript(({ initialTheme }) => {
         localStorage.setItem('token', 'visual-acceptance-test-token');
+        // Keep the auth bootstrap deterministic in the browser fixture. This intercepts
+        // /auth/me before CORS/network handling; production auth code remains untouched.
+        const nativeFetch = window.fetch.bind(window);
+        window.fetch = async (input, init) => {
+          const requestUrl = typeof input === 'string'
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+          let pathname = '';
+          try {
+            pathname = new URL(requestUrl, window.location.origin).pathname.replace(/\/+$/, '');
+          } catch { /* fall through to the real request */ }
+          if (pathname.endsWith('/auth/me')) {
+            return new Response(JSON.stringify({ user: {
+              id: 'visual-qa-user',
+              organizationId: 'visual-qa-org',
+              firstName: 'Visual',
+              lastName: 'QA',
+              role: 'super_admin',
+            } }), {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            });
+          }
+          return nativeFetch(input, init);
+        };
+        // Test-only identity lets the app start with a consistent cache while /auth/me
+        // remains the authority that validates the session before Protected renders.
+        localStorage.setItem('sten_user', JSON.stringify({
+          id: 'visual-qa-user',
+          email: 'visual@qa.local',
+          firstName: 'Visual',
+          lastName: 'QA',
+          role: 'super_admin',
+          organizationId: 'visual-qa-org',
+        }));
+        localStorage.setItem('sten_scope_v5', JSON.stringify({
+          organizationId: 'visual-qa-org',
+        }));
         localStorage.setItem('sten_theme_v5', initialTheme);
         localStorage.setItem('sten_interface_mode_v1', window.innerWidth <= 767 ? 'mobile' : 'desktop');
         localStorage.setItem('sten_reduce_motion_v1', 'true');
@@ -126,10 +178,13 @@ try {
       for (const [name, path] of routes) {
         try {
           await page.goto(`${baseUrl}/#${path}`, { waitUntil: 'domcontentloaded', timeout: 15000 });
-          await page.waitForFunction((routePath) => routePath === '/legal'
-            ? Boolean(document.querySelector('.legal-hub'))
-            : Boolean(document.querySelector('.content > :not(.sten-inline-guide):not(.legal-footer)')),
-          path, { timeout: 5000 });
+          await page.waitForFunction((routePath) => {
+            // Never accept Suspense/Auth loading placeholders as a rendered screen.
+            if (document.querySelector('.sten-loading[aria-busy="true"], .sten-loading')) return false;
+            if (routePath === '/legal') return Boolean(document.querySelector('.legal-hub'));
+            if (routePath === '/admin/organizations') return Boolean(document.querySelector('.admin-organizations-page'));
+            return Boolean(document.querySelector('.content > :not(.sten-inline-guide):not(.legal-footer)'));
+          }, path, { timeout: 3500 });
           const state = await page.evaluate(() => ({
             width: window.innerWidth,
             documentWidth: document.documentElement.scrollWidth,
@@ -137,9 +192,12 @@ try {
             contentWidth: document.querySelector('.content')?.scrollWidth ?? 0,
             contentClientWidth: document.querySelector('.content')?.clientWidth ?? 0,
             fatal: Boolean(document.querySelector('.sten-fatal')),
+            loadingScreen: Boolean(document.querySelector('.sten-loading')),
             hasScreen: window.location.hash === '#/legal'
               ? Boolean(document.querySelector('.legal-hub'))
-              : Boolean(document.querySelector('.content > :not(.sten-inline-guide):not(.legal-footer)')),
+              : window.location.hash === '#/admin/organizations'
+                ? Boolean(document.querySelector('.admin-organizations-page'))
+                : Boolean(document.querySelector('.content > :not(.sten-inline-guide):not(.legal-footer)')),
             hash: window.location.hash,
             guideExists: Boolean(document.querySelector('.sten-inline-guide')),
             guideBeforePage: (() => {
@@ -150,6 +208,7 @@ try {
             collapsedGuideHasActions: Boolean(document.querySelector('.sten-inline-guide:not(:has(.sten-inline-guide-actions))')),
           }));
           if (state.fatal) failures.push(`${theme}/${viewport.width}/${name}: fatal React boundary`);
+          if (state.loadingScreen) failures.push(`${theme}/${viewport.width}/${name}: captured loading placeholder instead of a rendered screen`);
           if (!state.hasScreen) failures.push(`${theme}/${viewport.width}/${name}: route content did not render`);
           if (state.guideExists && !state.guideBeforePage) failures.push(`${theme}/${viewport.width}/${name}: contextual help appears after page content`);
           if (state.guideExists && !state.collapsedGuideHasActions) failures.push(`${theme}/${viewport.width}/${name}: collapsed contextual help exposes expanded actions`);
@@ -167,7 +226,14 @@ try {
             pageErrors.length = 0;
           }
         } catch (error) {
-          failures.push(`${theme}/${viewport.width}/${name}: ${error instanceof Error ? error.message : String(error)}`);
+          const diagnostics = await page.evaluate(() => ({
+            hash: window.location.hash,
+            readyState: document.readyState,
+            contentPresent: Boolean(document.querySelector('.content')),
+            bodyText: (document.body.innerText || '').slice(0, 240),
+          })).catch(() => null);
+          const browserErrors = pageErrors.length ? `; browser errors: ${pageErrors.join(' | ')}` : '';
+          failures.push(`${theme}/${viewport.width}/${name}: ${error instanceof Error ? error.message : String(error)}; diagnostics=${JSON.stringify(diagnostics)}${browserErrors}`);
         }
       }
       await context.close();
