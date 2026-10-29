@@ -119,3 +119,6 @@ button, [role='button'], a { -webkit-tap-highlight-color: transparent; }
   outline-offset: 1px !important;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-brand) 20%, transparent) !important;
 }
+.settings-page [id^="settings-"] { scroll-margin-top: 88px; }
+.settings-page .analytics-settings { overflow: visible !important; }
+.settings-page .analytics-settings h2 { line-height: 1.3; overflow-wrap: normal; }
