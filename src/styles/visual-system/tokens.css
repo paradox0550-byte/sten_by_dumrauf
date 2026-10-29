@@ -25,9 +25,9 @@
   --sten-previous: #64748B;
   --sten-chart-secondary: #8B7AC8;
 
-  --bg-base: var(--sten-paper-sten);
-  --bg-app: var(--sten-paper-sten);
-  --bg-surface: var(--sten-white);
+  --bg-base: #F3F5F7;
+  --bg-app: #F3F5F7;
+  --bg-surface: #FFFFFF;
   --bg-surface-muted: #EDF1F2;
   --bg-surface-subtle: #E8EEF0;
   --bg-elevated: #FFFFFF;
@@ -38,9 +38,9 @@
   --bg-danger: rgba(255,129,118,.12);
   --bg-info: #E7F4F1;
 
-  --text-primary: var(--sten-text);
+  --text-primary: #17212B;
   --text-secondary: #475569;
-  --text-muted: #64748B;
+  --text-muted: #5B687A;
   --text-tertiary: var(--text-secondary);
   --text-disabled: #77868a;
   --text-on-accent: #FFFFFF;
@@ -49,7 +49,7 @@
   --color-brand-hover: #0A5652;
   --color-brand-strong: #0A5652;
   --color-brand-glow: rgb(18 107 103 / 16%);
-  --color-accent: var(--sten-jade-sten);
+  --color-accent: #126B67;
   --color-success: #18734c;
   --color-warning: #9b5b00;
   --color-danger: #c13d37;
@@ -57,7 +57,7 @@
   --color-warning-bg: var(--bg-warning);
   --color-danger-bg: var(--bg-danger);
 
-  --border-subtle: var(--sten-line);
+  --border-subtle: #DCE4E8;
   --border-default: #bdc9c2;
   --border-strong: #82958b;
   --shadow-sm: 0 1px 2px rgb(17 27 34 / 4%), 0 4px 12px rgb(17 27 34 / 3%);
@@ -188,9 +188,9 @@ html[data-theme='dark'], [data-theme='dark'] {
 
 html[data-theme='light'], [data-theme='light'] {
   color-scheme: light;
-  --bg-base: var(--sten-paper-sten);
-  --bg-app: var(--sten-paper-sten);
-  --bg-surface: var(--sten-white);
+  --bg-base: #F3F5F7;
+  --bg-app: #F3F5F7;
+  --bg-surface: #FFFFFF;
   --bg-surface-muted: #EDF1F2;
   --bg-surface-subtle: #E8EEF0;
   --bg-elevated: #FFFFFF;
@@ -200,9 +200,9 @@ html[data-theme='light'], [data-theme='light'] {
   --bg-warning: #FFFAEB;
   --bg-danger: #FEF3F2;
   --bg-info: #E7F4F1;
-  --text-primary: var(--sten-text);
+  --text-primary: #17212B;
   --text-secondary: #475569;
-  --text-muted: #64748B;
+  --text-muted: #5B687A;
   --text-tertiary: var(--text-secondary);
   --text-disabled: #77868a;
   --text-on-accent: #FFFFFF;
@@ -217,7 +217,7 @@ html[data-theme='light'], [data-theme='light'] {
   --color-success-bg: var(--bg-success);
   --color-warning-bg: var(--bg-warning);
   --color-danger-bg: var(--bg-danger);
-  --border-subtle: var(--sten-line);
+  --border-subtle: #DCE4E8;
   --border-default: #bdc9c2;
   --border-strong: #82958b;
   --shadow-sm: 0 2px 5px rgb(17 27 34 / 5%);
