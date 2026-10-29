@@ -221,6 +221,8 @@ try {
           const dir = `${outputDir}/${theme}/${viewport.width}`;
           await mkdir(dir, { recursive: true });
           await page.screenshot({ path: `${dir}/${name}.png`, fullPage: true, animations: 'disabled' });
+          // Capture the actual viewport separately so fixed navigation stays at the viewport edge.
+          await page.screenshot({ path: `${dir}/${name}-viewport.png`, fullPage: false, animations: 'disabled' });
           // Preserve one first-visit consent screenshot per viewport/theme, then clear the
           // fixed notice before capturing other pages so it does not hide their controls.
           if (name === 'dashboard') {
