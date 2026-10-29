@@ -329,7 +329,7 @@ try {
         for (const path of paths) {
           const link = page.locator(`a[href="#${path}"]:visible`).first();
           if (!await link.count()) {
-            failures.push(${theme}/${viewport.width}/navigation: no visible navigation link for ${path}.);
+            failures.push(`${theme}/${viewport.width}/navigation: no visible navigation link for ${path}.`);
             continue;
           }
           await link.click();
@@ -349,16 +349,16 @@ try {
             contentWidth: document.querySelector('.content')?.scrollWidth ?? 0,
             contentClientWidth: document.querySelector('.content')?.clientWidth ?? 0,
           }));
-          if (state.hash !== `#${path}`) failures.push(${theme}/${viewport.width}/navigation: route ended at ${state.hash}, expected #${path}.);
-          if (state.shellCount !== 1 || state.guideCount > 1) failures.push(${theme}/${viewport.width}/navigation: duplicate shell/guide counts ${state.shellCount}/${state.guideCount}.);
+          if (state.hash !== `#${path}`) failures.push(`${theme}/${viewport.width}/navigation: route ended at ${state.hash}, expected #${path}.`);
+          if (state.shellCount !== 1 || state.guideCount > 1) failures.push(`${theme}/${viewport.width}/navigation: duplicate shell/guide counts ${state.shellCount}/${state.guideCount}.`);
           if (state.documentWidth > state.width + 1 || state.bodyWidth > state.width + 1 || state.contentWidth > state.contentClientWidth + 1) {
-            failures.push(${theme}/${viewport.width}/navigation: horizontal overflow document=${state.documentWidth}, body=${state.bodyWidth}, content=${state.contentWidth}/${state.contentClientWidth}.);
+            failures.push(`${theme}/${viewport.width}/navigation: horizontal overflow document=${state.documentWidth}, body=${state.bodyWidth}, content=${state.contentWidth}/${state.contentClientWidth}.`);
           }
           navigationTransitions += 1;
         }
-        if (pageErrors.length) failures.push(${theme}/${viewport.width}/navigation: uncaught browser error: ${pageErrors.join(' | ')}.);
+        if (pageErrors.length) failures.push(`${theme}/${viewport.width}/navigation: uncaught browser error: ${pageErrors.join(' | ')}.`);
       } catch (error) {
-        failures.push(${theme}/${viewport.width}/navigation: ${error instanceof Error ? error.message : String(error)}.);
+        failures.push(`${theme}/${viewport.width}/navigation: ${error instanceof Error ? error.message : String(error)}.`);
       } finally {
         await context.close();
       }
