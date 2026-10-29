@@ -71,3 +71,47 @@ body {
 .mobile-bottom-nav a { transition: color 160ms ease, background-color 160ms ease; }
 .mobile-bottom-nav a.active { color: var(--color-brand) !important; }
 .mobile-bottom-nav a.active svg { stroke-width: 2.1; }
+
+
+/* Sidebar: a current parent only indicates location; the exact child owns the active accent. */
+.sten-primary-nav .nav-group-toggle.is-current {
+  color: var(--text-primary) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  font-weight: 550 !important;
+}
+.sten-primary-nav .nav-group-toggle.is-current::before {
+  display: none;
+}
+.sten-primary-nav .nav-group-toggle.is-current svg {
+  color: var(--text-secondary) !important;
+}
+.sten-primary-nav .nav-group-toggle.is-current:hover {
+  color: var(--text-primary) !important;
+  background: var(--bg-surface-subtle) !important;
+}
+.sten-primary-nav .nav-group-children a.active {
+  color: var(--color-brand) !important;
+  background: color-mix(in srgb, var(--color-brand) 6%, transparent) !important;
+  border-color: transparent !important;
+  font-weight: 600 !important;
+}
+.sten-primary-nav .nav-group-children a.active::before {
+  inset-block: 8px;
+  width: 2px;
+}
+.sidebar-profile-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.sidebar-profile-copy b {
+  display: block;
+  min-width: 0;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 900px) {
+  .sidebar-profile-copy b { max-width: 150px; }
+}
