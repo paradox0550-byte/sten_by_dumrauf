@@ -124,6 +124,33 @@ try {
       });
       await context.addInitScript(({ initialTheme }) => {
         localStorage.setItem('token', 'visual-acceptance-test-token');
+        // Keep the auth bootstrap deterministic in the browser fixture. This intercepts
+        // /auth/me before CORS/network handling; production auth code remains untouched.
+        const nativeFetch = window.fetch.bind(window);
+        window.fetch = async (input, init) => {
+          const requestUrl = typeof input === 'string'
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+          let pathname = '';
+          try {
+            pathname = new URL(requestUrl, window.location.origin).pathname.replace(/\\/+$/, '');
+          } catch { /* fall through to the real request */ }
+          if (pathname.endsWith('/auth/me')) {
+            return new Response(JSON.stringify({ user: {
+              id: 'visual-qa-user',
+              organizationId: 'visual-qa-org',
+              firstName: 'Visual',
+              lastName: 'QA',
+              role: 'super_admin',
+            } }), {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            });
+          }
+          return nativeFetch(input, init);
+        };
         // Test-only identity lets the app start with a consistent cache while /auth/me
         // remains the authority that validates the session before Protected renders.
         localStorage.setItem('sten_user', JSON.stringify({
