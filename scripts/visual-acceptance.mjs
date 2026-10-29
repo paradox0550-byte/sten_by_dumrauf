@@ -290,7 +290,7 @@ try {
   // route directly. This catches duplicated shells and route transitions that strand loading UI.
   let navigationTransitions = 0;
   for (const theme of themes) {
-    for (const viewport of [viewports[1], viewports[4]]) {
+    for (const viewport of [viewports[1], viewports[2], viewports[4]]) {
       const context = await browser.newContext({
         viewport,
         deviceScaleFactor: 1,
