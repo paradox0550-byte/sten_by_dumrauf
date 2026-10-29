@@ -215,7 +215,7 @@ export default function Memory() {
             <button type="button" className={quickKind === 'action' ? 'active' : ''} onClick={() => { setQuickKind('action'); setQuickConfidence(''); }}><strong>{memories.filter(item => item.kind === 'action').length}</strong><span>Действия</span></button>
             <button type="button" className={quickKind === 'pattern' ? 'active' : ''} onClick={() => { setQuickKind('pattern'); setQuickConfidence(''); }}><strong>{memories.filter(item => item.kind === 'pattern').length}</strong><span>Закономерности</span></button>
             <button type="button" className={quickKind === 'fact' ? 'active' : ''} onClick={() => { setQuickKind('fact'); setQuickConfidence(''); }}><strong>{memories.filter(item => item.kind === 'fact').length}</strong><span>Факты и результаты</span></button>
-            <button type="button" className={quickConfidence === 'unconfirmed' ? 'active' : ''} onClick={() => { setQuickConfidence('unconfirmed'); setQuickKind(''); }}}><strong>{memories.filter(item => item.confidence === 'unconfirmed').length}</strong><span>На проверке</span></button>
+            <button type="button" className={quickConfidence === 'unconfirmed' ? 'active' : ''} onClick={() => { setQuickConfidence('unconfirmed'); setQuickKind(''); }}><strong>{memories.filter(item => item.confidence === 'unconfirmed').length}</strong><span>На проверке</span></button>
           </div>
           <label className="executive-memory-search">
             <Search size={16} aria-hidden="true" />
