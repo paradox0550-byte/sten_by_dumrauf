@@ -295,3 +295,15 @@ html[data-sten-interface="mobile"] :where(.table-wrap, .table-scroll, .pnl-table
 :where(svg.lucide) { stroke-width: 1.85; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 :where(.sten-primary-nav, .mobile-bottom-nav) a.active > svg.lucide,
 :where(.sten-primary-nav, .mobile-bottom-nav) a[aria-current="page"] > svg.lucide { color: var(--color-brand) !important; }
+
+
+/* Floating menus and dialogs use neutral surfaces; brand color is reserved for actions and active navigation. */
+:where(.modal, .modal-card, .dialog, .modal-dialog, [role="dialog"], [role="listbox"], .dropdown-menu, .menu-popover, .popover-content, .sten-install-help) {
+  background-color: var(--bg-elevated, var(--bg-surface)) !important;
+  border-color: var(--border-default) !important;
+  color: var(--text-primary);
+}
+:where(.dropdown-menu, .menu-popover, .popover-content, [role="listbox"]) :where(button, a, [role="option"], [role="menuitem"]):hover {
+  background-color: var(--bg-surface-hover) !important;
+  color: var(--text-primary) !important;
+}
