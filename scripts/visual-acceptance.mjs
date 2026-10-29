@@ -327,12 +327,38 @@ try {
           ? ['/sten', '/pnl', '/ops', '/dashboard']
           : ['/sten', '/staff', '/settings', '/dashboard'];
         for (const path of paths) {
-          const link = page.locator(`a[href="#${path}"]:visible`).first();
+          // Prefer the navigation control that is actually part of the active interface.
+          // At tablet widths the sidebar can be collapsed; do not click an off-canvas link.
+          let link = viewport.width <= 767
+            ? page.locator(`.mobile-bottom-nav a[href="#${path}"]:visible`).first()
+            : page.locator(`.sten-primary-nav a[href="#${path}"]:visible`).first();
+          if (!await link.count() && viewport.width <= 767) {
+            link = page.locator(`.sten-primary-nav a[href="#${path}"]:visible`).first();
+            if (!await link.count()) {
+              const menu = page.locator('.mobile-menu:visible').first();
+              if (await menu.count()) await menu.click();
+              link = page.locator(`.sidebar.is-open a[href="#${path}"]:visible`).first();
+            }
+          }
           if (!await link.count()) {
             failures.push(`${theme}/${viewport.width}/navigation: no visible navigation link for ${path}.`);
             continue;
           }
-          await link.click();
+          await link.scrollIntoViewIfNeeded();
+          const box = await link.boundingBox();
+          const inViewport = box && box.x >= 0 && box.y >= 0
+            && box.x + box.width <= viewport.width && box.y + box.height <= viewport.height;
+          if (!inViewport && viewport.width >= 768) {
+            // Tablet defaults to a compact sidebar. Expand it through the real UI if
+            // the target is clipped, then locate the link again before interacting.
+            const sidebarToggle = page.locator('.sidebar-toggle:visible').first();
+            if (await sidebarToggle.count()) {
+              await sidebarToggle.click();
+              link = page.locator(`.sten-primary-nav a[href="#${path}"]:visible`).first();
+              await link.scrollIntoViewIfNeeded();
+            }
+          }
+          await link.click({ timeout: 10000 });
           await page.waitForFunction((expectedPath) => {
             const hash = window.location.hash;
             const content = document.querySelector('.content > :not(.sten-inline-guide):not(.legal-footer)');
