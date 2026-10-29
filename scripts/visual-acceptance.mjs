@@ -124,6 +124,19 @@ try {
       });
       await context.addInitScript(({ initialTheme }) => {
         localStorage.setItem('token', 'visual-acceptance-test-token');
+        // Test-only identity lets the app start with a consistent cache while /auth/me
+        // remains the authority that validates the session before Protected renders.
+        localStorage.setItem('sten_user', JSON.stringify({
+          id: 'visual-qa-user',
+          email: 'visual@qa.local',
+          firstName: 'Visual',
+          lastName: 'QA',
+          role: 'super_admin',
+          organizationId: 'visual-qa-org',
+        }));
+        localStorage.setItem('sten_scope_v5', JSON.stringify({
+          organizationId: 'visual-qa-org',
+        }));
         localStorage.setItem('sten_theme_v5', initialTheme);
         localStorage.setItem('sten_interface_mode_v1', window.innerWidth <= 767 ? 'mobile' : 'desktop');
         localStorage.setItem('sten_reduce_motion_v1', 'true');
