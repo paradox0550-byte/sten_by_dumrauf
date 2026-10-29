@@ -2666,7 +2666,7 @@ let completion = null;
 if ((agent.id === 'finance_diagnostics' || isDeviationQuestion(question)) && req.user.organizationId) {
 const rawScope = body.scope || {};
 const toolArgs = {
-period: String(rawScope.period || ''),
+period: YM_RE.test(String(rawScope.period || '')) ? String(rawScope.period) : new Date().toISOString().slice(0, 7),
 project_id: String(rawScope.project_id || ''),
 branch_id: String(rawScope.branch_id || ''),
 restaurant_id: String(rawScope.restaurant_id || ''),
