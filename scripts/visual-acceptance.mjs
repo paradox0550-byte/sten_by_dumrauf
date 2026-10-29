@@ -135,7 +135,7 @@ try {
               : input.url;
           let pathname = '';
           try {
-            pathname = new URL(requestUrl, window.location.origin).pathname.replace(/\\/+$/, '');
+            pathname = new URL(requestUrl, window.location.origin).pathname.replace(/\/+$/, '');
           } catch { /* fall through to the real request */ }
           if (pathname.endsWith('/auth/me')) {
             return new Response(JSON.stringify({ user: {
