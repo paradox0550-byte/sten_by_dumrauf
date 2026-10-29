@@ -73,7 +73,7 @@ html[data-theme='light'], [data-theme='light'] {
   transition: box-shadow var(--sten-motion-fast) ease, background var(--sten-motion-fast) ease !important;
 }
 .primary-button {
-  color: #fff !important;
+  color: var(--text-on-accent) !important;
   background: var(--color-brand) !important;
   border-color: var(--color-brand) !important;
   box-shadow: 0 4px 12px color-mix(in srgb, var(--color-brand) 22%, transparent) !important;
