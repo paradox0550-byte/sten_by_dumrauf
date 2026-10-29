@@ -67,6 +67,8 @@ export default function Memory() {
   const [organizationName, setOrganizationName] = useState<string | undefined>();
   const [exporting, setExporting] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [quickKind, setQuickKind] = useState<MemoryKind | ''>('');
+  const [quickConfidence, setQuickConfidence] = useState<MemoryConfidence | ''>('');
 
   const filters = useMemo<MemoryFilters>(() => ({
     ...(kind ? { kind } : {}),
@@ -78,19 +80,13 @@ export default function Memory() {
 
   const visibleMemories = useMemo(() => {
     const query = searchText.trim().toLocaleLowerCase('ru-RU');
-    if (!query) return memories;
-    return memories.filter(memory => `${memory.title} ${memory.content}`.toLocaleLowerCase('ru-RU').includes(query));
-  }, [memories, searchText]);
-
-  const chooseKind = (value: MemoryKind | '') => {
-    setKind(value);
-    setConfidence('');
-  };
-
-  const selectConfidence = (value: MemoryConfidence | '') => {
-    setConfidence(value);
-    setKind('');
-  };
+    return memories.filter(memory => {
+      const matchesQuery = !query || `${memory.title} ${memory.content}`.toLocaleLowerCase('ru-RU').includes(query);
+      const matchesKind = !quickKind || memory.kind === quickKind;
+      const matchesConfidence = !quickConfidence || memory.confidence === quickConfidence;
+      return matchesQuery && matchesKind && matchesConfidence;
+    });
+  }, [memories, searchText, quickKind, quickConfidence]);
 
   const load = async () => {
     setLoading(true);
@@ -213,12 +209,12 @@ export default function Memory() {
             <span>{loading ? 'Обновление…' : `${memories.length} ${memories.length === 1 ? 'запись' : memories.length > 1 && memories.length < 5 ? 'записи' : 'записей'}`}</span>
           </div>
           <div className="executive-memory-shortcuts">
-            <button type="button" className={kind === '' && confidence === '' ? 'active' : ''} onClick={() => { chooseKind(''); setSearchText(''); }}><strong>{memories.length}</strong><span>Вся история</span></button>
-            <button type="button" className={kind === 'decision' ? 'active' : ''} onClick={() => chooseKind('decision')}><strong>{memories.filter(item => item.kind === 'decision').length}</strong><span>Решения</span></button>
-            <button type="button" className={kind === 'cause' ? 'active' : ''} onClick={() => chooseKind('cause')}><strong>{memories.filter(item => item.kind === 'cause').length}</strong><span>Причины проблем</span></button>
-            <button type="button" className={kind === 'action' ? 'active' : ''} onClick={() => chooseKind('action')}><strong>{memories.filter(item => item.kind === 'action').length}</strong><span>Действия</span></button>
-            <button type="button" className={kind === 'pattern' ? 'active' : ''} onClick={() => chooseKind('pattern')}><strong>{memories.filter(item => item.kind === 'pattern').length}</strong><span>Закономерности</span></button>
-            <button type="button" className={confidence === 'unconfirmed' ? 'active' : ''} onClick={() => selectConfidence('unconfirmed')}><strong>{memories.filter(item => item.confidence === 'unconfirmed').length}</strong><span>На проверке</span></button>
+            <button type="button" className={quickKind === '' && quickConfidence === '' ? 'active' : ''} onClick={() => { setQuickKind(''); setQuickConfidence(''); setSearchText(''); }}><strong>{memories.length}</strong><span>Вся история</span></button>
+            <button type="button" className={quickKind === 'decision' ? 'active' : ''} onClick={() => { setQuickKind('decision'); setQuickConfidence(''); }}><strong>{memories.filter(item => item.kind === 'decision').length}</strong><span>Решения</span></button>
+            <button type="button" className={quickKind === 'cause' ? 'active' : ''} onClick={() => { setQuickKind('cause'); setQuickConfidence(''); }}><strong>{memories.filter(item => item.kind === 'cause').length}</strong><span>Причины проблем</span></button>
+            <button type="button" className={quickKind === 'action' ? 'active' : ''} onClick={() => { setQuickKind('action'); setQuickConfidence(''); }}><strong>{memories.filter(item => item.kind === 'action').length}</strong><span>Действия</span></button>
+            <button type="button" className={quickKind === 'pattern' ? 'active' : ''} onClick={() => { setQuickKind('pattern'); setQuickConfidence(''); }}><strong>{memories.filter(item => item.kind === 'pattern').length}</strong><span>Закономерности</span></button>
+            <button type="button" className={quickConfidence === 'unconfirmed' ? 'active' : ''} onClick={() => { setQuickConfidence('unconfirmed'); setQuickKind(''); }}}><strong>{memories.filter(item => item.confidence === 'unconfirmed').length}</strong><span>На проверке</span></button>
           </div>
           <label className="executive-memory-search">
             <Search size={16} aria-hidden="true" />
