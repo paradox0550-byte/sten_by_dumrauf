@@ -66,6 +66,7 @@ export default function Memory() {
   const [menuId, setMenuId] = useState<string | null>(null);
   const [organizationName, setOrganizationName] = useState<string | undefined>();
   const [exporting, setExporting] = useState(false);
+  const [searchText, setSearchText] = useState('');
 
   const filters = useMemo<MemoryFilters>(() => ({
     ...(kind ? { kind } : {}),
@@ -74,6 +75,22 @@ export default function Memory() {
     ...(since ? { since } : {}),
     limit,
   }), [kind, confidence, restaurantId, since, limit]);
+
+  const visibleMemories = useMemo(() => {
+    const query = searchText.trim().toLocaleLowerCase('ru-RU');
+    if (!query) return memories;
+    return memories.filter(memory => `${memory.title} ${memory.content}`.toLocaleLowerCase('ru-RU').includes(query));
+  }, [memories, searchText]);
+
+  const chooseKind = (value: MemoryKind | '') => {
+    setKind(value);
+    setConfidence('');
+  };
+
+  const selectConfidence = (value: MemoryConfidence | '') => {
+    setConfidence(value);
+    setKind('');
+  };
 
   const load = async () => {
     setLoading(true);
@@ -180,15 +197,35 @@ export default function Memory() {
       <div className="memory-page__inner">
         <header className="page-head">
           <div>
-            <span className="eyebrow"><Brain size={14} /> MEMORY · КОНТЕКСТ</span>
-            <h1>Память STEN</h1>
-            <p>Что система помнит о вашем ресторане</p>
+            <span className="eyebrow"><Brain size={14} /> ИСТОРИЯ РУКОВОДИТЕЛЯ</span>
+            <h1>Память руководителя</h1>
+            <p>Решения, проблемы, действия и закономерности — из сохранённых записей STEN.</p>
             <button type="button" className="secondary-button memory-page__export-btn" onClick={() => void exportMarkdown()} disabled={!memories.length || exporting} aria-label="Скачать память в формате Markdown">
               {exporting ? <Loader2 size={15} className="memory-export-spinner" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
               {exporting ? 'Выгрузка…' : 'Скачать Markdown ↓'}
             </button>
           </div>
         </header>
+
+        <section className="executive-memory-overview" aria-label="Краткая сводка истории руководителя">
+          <div className="executive-memory-overview__heading">
+            <div><h2>Управленческая история</h2><p>Быстрый доступ к ключевым записям</p></div>
+            <span>{loading ? 'Обновление…' : `${memories.length} ${memories.length === 1 ? 'запись' : memories.length > 1 && memories.length < 5 ? 'записи' : 'записей'}`}</span>
+          </div>
+          <div className="executive-memory-shortcuts">
+            <button type="button" className={kind === '' && confidence === '' ? 'active' : ''} onClick={() => { chooseKind(''); setSearchText(''); }}><strong>{memories.length}</strong><span>Вся история</span></button>
+            <button type="button" className={kind === 'decision' ? 'active' : ''} onClick={() => chooseKind('decision')}><strong>{memories.filter(item => item.kind === 'decision').length}</strong><span>Решения</span></button>
+            <button type="button" className={kind === 'cause' ? 'active' : ''} onClick={() => chooseKind('cause')}><strong>{memories.filter(item => item.kind === 'cause').length}</strong><span>Причины проблем</span></button>
+            <button type="button" className={kind === 'action' ? 'active' : ''} onClick={() => chooseKind('action')}><strong>{memories.filter(item => item.kind === 'action').length}</strong><span>Действия</span></button>
+            <button type="button" className={kind === 'pattern' ? 'active' : ''} onClick={() => chooseKind('pattern')}><strong>{memories.filter(item => item.kind === 'pattern').length}</strong><span>Закономерности</span></button>
+            <button type="button" className={confidence === 'unconfirmed' ? 'active' : ''} onClick={() => selectConfidence('unconfirmed')}><strong>{memories.filter(item => item.confidence === 'unconfirmed').length}</strong><span>На проверке</span></button>
+          </div>
+          <label className="executive-memory-search">
+            <Search size={16} aria-hidden="true" />
+            <input value={searchText} onChange={event => setSearchText(event.target.value)} placeholder="Найти решение, проблему или договорённость…" aria-label="Поиск по истории руководителя" />
+            {searchText && <button type="button" onClick={() => setSearchText('')} aria-label="Очистить поиск"><X size={15} /></button>}
+          </label>
+        </section>
 
         {(memories.length > 0 || Boolean(kind || confidence || restaurantId || since)) && <section className="memory-filters" aria-label="Фильтры памяти">
           {renderFilters('Тип', kinds, kind, value => setKind(value as MemoryKind | ''))}
@@ -216,7 +253,7 @@ export default function Memory() {
 
         <main className="memory-list" aria-live="polite">
           {loading ? Array.from({ length: 3 }).map((_, index) => <div className="memory-card memory-card--skeleton" key={index}><span/><span/><span/></div>) :
-            memories.length ? memories.map(memory => (
+            visibleMemories.length ? visibleMemories.map(memory => (
               <article className="memory-card" key={memory.id}>
                 <div className="memory-card__top">
                   <div className="memory-card__badges">
@@ -244,7 +281,14 @@ export default function Memory() {
                   <button type="button" className="memory-card__ai" onClick={() => navigate('/ai?q=' + encodeURIComponent('Почему я это запомнил: ' + memory.title))} aria-label={'Разобрать в AI: ' + memory.title}><Search size={14} /> Разобрать в AI</button>
                 </div>
               </article>
-            )) : (
+            )) : memories.length ? (
+              <div className="memory-empty">
+                <Search size={28} />
+                <h2>Ничего не найдено</h2>
+                <p>Попробуй изменить запрос или очистить поиск.</p>
+                <button type="button" className="secondary-button" onClick={() => setSearchText('')}>Очистить поиск</button>
+              </div>
+            ) : (
               <div className="memory-empty">
                 <Brain size={30} />
                 <h2>Память пока пуста</h2>
