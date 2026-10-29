@@ -92,7 +92,7 @@ button, input, select, textarea { font-family: inherit; }
   min-height: var(--sten-control-height); border-radius: 9px; font-size: 13px !important; font-weight: 600;
   transition: background-color var(--sten-motion) var(--sten-ease), border-color var(--sten-motion) var(--sten-ease), color var(--sten-motion) var(--sten-ease);
 }
-.primary-button { color: var(--text-on-accent, #fff) !important; background: var(--color-brand) !important; border-color: var(--color-brand) !important; }
+.primary-button { color: var(--text-on-accent, #F7FAF7) !important; background: var(--color-brand) !important; border-color: var(--color-brand) !important; }
 .primary-button:hover:not(:disabled) { background: var(--color-brand-hover) !important; border-color: var(--color-brand-hover) !important; }
 .secondary-button { color: var(--text-primary) !important; background: var(--bg-surface) !important; border-color: var(--border-default) !important; }
 .secondary-button:hover:not(:disabled) { background: var(--bg-surface-subtle) !important; }
