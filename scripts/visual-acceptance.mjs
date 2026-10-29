@@ -137,10 +137,12 @@ try {
         try {
           await page.goto(`${baseUrl}/#${path}`, { waitUntil: 'domcontentloaded', timeout: 15000 });
           await page.waitForFunction((routePath) => {
+            // Never accept Suspense/Auth loading placeholders as a rendered screen.
+            if (document.querySelector('.sten-loading[aria-busy="true"], .sten-loading')) return false;
             if (routePath === '/legal') return Boolean(document.querySelector('.legal-hub'));
             if (routePath === '/admin/organizations') return Boolean(document.querySelector('.admin-organizations-page'));
             return Boolean(document.querySelector('.content > :not(.sten-inline-guide):not(.legal-footer)'));
-          }, path, { timeout: path === '/admin/organizations' ? 10000 : 5000 });
+          }, path, { timeout: 15000 });
           const state = await page.evaluate(() => ({
             width: window.innerWidth,
             documentWidth: document.documentElement.scrollWidth,
@@ -148,6 +150,7 @@ try {
             contentWidth: document.querySelector('.content')?.scrollWidth ?? 0,
             contentClientWidth: document.querySelector('.content')?.clientWidth ?? 0,
             fatal: Boolean(document.querySelector('.sten-fatal')),
+            loadingScreen: Boolean(document.querySelector('.sten-loading')),
             hasScreen: window.location.hash === '#/legal'
               ? Boolean(document.querySelector('.legal-hub'))
               : window.location.hash === '#/admin/organizations'
@@ -163,6 +166,7 @@ try {
             collapsedGuideHasActions: Boolean(document.querySelector('.sten-inline-guide:not(:has(.sten-inline-guide-actions))')),
           }));
           if (state.fatal) failures.push(`${theme}/${viewport.width}/${name}: fatal React boundary`);
+          if (state.loadingScreen) failures.push(`${theme}/${viewport.width}/${name}: captured loading placeholder instead of a rendered screen`);
           if (!state.hasScreen) failures.push(`${theme}/${viewport.width}/${name}: route content did not render`);
           if (state.guideExists && !state.guideBeforePage) failures.push(`${theme}/${viewport.width}/${name}: contextual help appears after page content`);
           if (state.guideExists && !state.collapsedGuideHasActions) failures.push(`${theme}/${viewport.width}/${name}: collapsed contextual help exposes expanded actions`);
