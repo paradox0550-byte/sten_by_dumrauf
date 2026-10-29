@@ -1,5 +1,5 @@
 /* Legacy compatibility styles only. Shared shell and final visual overrides are owned by src/styles/unified-interface.css; tokens live in src/styles/tokens.css. */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 
 @layer legacy {
 /* ============================================================================
@@ -26,8 +26,8 @@ html, body, #root {
 }
 
 body {
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 16px;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -97,7 +97,7 @@ h3, .h3 {
 .budget-grid .num,
 .prime-card strong,
 .flash-prime strong {
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }
