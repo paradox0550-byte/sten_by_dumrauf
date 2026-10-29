@@ -27,10 +27,10 @@ button, [role='button'], a { -webkit-tap-highlight-color: transparent; }
 .sten-ai-topbar__status { background: var(--color-success) !important; box-shadow: none !important; }
 .sten-ai-topbar__name h1 { letter-spacing: -.045em; }
 .sten-ai-welcome__hero h2 { letter-spacing: -.05em !important; line-height: 1.04 !important; }
-.sten-ai-welcome__hero h2 span { color: var(--color-brand-strong) !important; }
+.sten-ai-welcome__hero h2 span { color: var(--text-primary) !important; }
 .sten-ai-starter { border-color: var(--border-default) !important; background: var(--bg-surface) !important; box-shadow: var(--shadow-sm); }
 .sten-ai-starter:hover { border-color: var(--border-strong) !important; box-shadow: none; }
-.sten-ai-starter__number { color: var(--color-brand-strong) !important; }
+.sten-ai-starter__number { color: var(--text-secondary) !important; }
 .sten-composer, .composer-box { border-color: var(--border-default) !important; }
 .sten-composer.is-focused, .composer-box:focus-within { border-color: var(--color-brand) !important; box-shadow: var(--focus) !important; }
 .sten-composer .send, .composer-box .send { background: var(--sten-jade) !important; color: var(--text-on-accent) !important; }
