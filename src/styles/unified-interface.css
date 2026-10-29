@@ -291,10 +291,7 @@ html[data-sten-interface="mobile"] :where(.table-wrap, .table-scroll, .pnl-table
 }
 
 
-/* STEN brand icon system: restrained cyan/blue accent, consistent icon weight. */
+/* STEN icon system: neutral by default; brand color marks the current destination only. */
 :where(svg.lucide) { stroke-width: 1.85; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
-:where(button, a, [role="button"]):is(:hover, :focus-visible) > svg.lucide { color: var(--sten-icon-accent, #078FBD); }
 :where(.sten-primary-nav, .mobile-bottom-nav) a.active > svg.lucide,
-:where(.sten-primary-nav, .mobile-bottom-nav) a[aria-current="page"] > svg.lucide { color: var(--sten-icon-accent, #078FBD); }
-:root { --sten-icon-accent: #078FBD; --sten-icon-accent-strong: #1454C7; }
-html[data-theme="dark"] { --sten-icon-accent: #19C8DF; --sten-icon-accent-strong: #3F91FF; }
+:where(.sten-primary-nav, .mobile-bottom-nav) a[aria-current="page"] > svg.lucide { color: var(--color-brand) !important; }
