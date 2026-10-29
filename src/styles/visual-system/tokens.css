@@ -30,6 +30,12 @@
   --color-sten-success: var(--color-success);
   --color-sten-warning: var(--color-warning);
   --color-sten-danger: var(--color-danger);
+  --color-sten-chart-1: var(--chart-series-1);
+  --color-sten-chart-2: var(--chart-series-2);
+  --color-sten-chart-3: var(--chart-series-3);
+  --color-sten-chart-4: var(--chart-series-4);
+  --color-sten-chart-5: var(--chart-series-5);
+  --color-sten-chart-6: var(--chart-series-6);
   --color-sten-bg-success: var(--bg-success);
   --color-sten-bg-warning: var(--bg-warning);
   --color-sten-bg-danger: var(--bg-danger);
@@ -64,6 +70,12 @@
   --sten-plan: #94A3B8;
   --sten-previous: #64748B;
   --sten-chart-secondary: #7A8794;
+  --chart-series-1: #334155;
+  --chart-series-2: #475569;
+  --chart-series-3: #64748B;
+  --chart-series-4: #7A8794;
+  --chart-series-5: #94A3B8;
+  --chart-series-6: #CBD5E1;
   --bg-base: #F5F7F9;
   --bg-app: #F5F7F9;
   --bg-surface: #FFFFFF;
@@ -170,6 +182,12 @@ html[data-theme='dark'], [data-theme='dark'] {
   --sten-plan: #8A98A8;
   --sten-previous: #7A8A93;
   --sten-chart-secondary: #8293A3;
+  --chart-series-1: #D0D8E0;
+  --chart-series-2: #B6C2CC;
+  --chart-series-3: #9FB0B8;
+  --chart-series-4: #7A8A93;
+  --chart-series-5: #64748B;
+  --chart-series-6: #475569;
   --bg-base: #0F1419;
   --bg-app: #0F1419;
   --bg-surface: #161C24;
