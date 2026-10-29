@@ -180,9 +180,9 @@ td, th { border-color: var(--border-subtle) !important; }
   min-height: 40px;
 }
 .sten-mode-toggle[aria-pressed="true"] {
-  color: var(--color-brand-strong) !important;
-  border-color: color-mix(in srgb, var(--color-brand) 38%, var(--border-default)) !important;
-  background: color-mix(in srgb, var(--color-brand) 8%, var(--bg-surface)) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-strong) !important;
+  background: var(--bg-surface-hover) !important;
 }
 .sten-install-help {
   position: absolute;
