@@ -74,15 +74,15 @@ async function mockApi(route) {
     });
     return;
   }
-  if (path === '/api/b2b/context') {
+  if (path.endsWith('/api/b2b/context')) {
     await route.fulfill({ status: 200, headers: corsHeaders, contentType: 'application/json', body: JSON.stringify({ context: {} }) });
     return;
   }
-  if (path === '/api/b2b/org/tree') {
+  if (path.endsWith('/api/b2b/org/tree')) {
     await route.fulfill({ status: 200, headers: corsHeaders, contentType: 'application/json', body: '[]' });
     return;
   }
-  if (path === '/api/admin/organizations' && route.request().method() === 'GET') {
+  if (path.endsWith('/api/admin/organizations') && route.request().method() === 'GET') {
     // A valid empty-state fixture for the system-admin screen; no synthetic organizations.
     await route.fulfill({
       status: 200,
@@ -92,7 +92,8 @@ async function mockApi(route) {
     });
     return;
   }
-  if (path.startsWith('/api/') || path.startsWith('/auth/')) {
+  // Never let a visual test call a real API: gateway deployments may prefix endpoint paths.
+  if (path.includes('/api/') || path.includes('/auth/') || requestUrl.origin !== new URL(baseUrl).origin) {
     // Empty/error-state fixture only. No synthetic business or financial values.
     await route.fulfill({
       status: 404,
