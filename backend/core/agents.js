@@ -95,12 +95,22 @@ function isFinanceQuestion(question) { return matchesAny(question, FINANCE_PATTE
 function isOperationsQuestion(question) { return matchesAny(question, OPERATIONS_PATTERNS); }
 function isSecretaryQuestion(question) { return matchesAny(question, SECRETARY_PATTERNS); }
 
-function resolveAgent(question) {
+function isFollowUpQuestion(question) {
+  const text = String(question || '').trim();
+  return text.length <= 120 && /^(?:а\s|и\s|почему\b|как\b|что дальше\b|а дальше\b|подробнее\b|можно подробнее\b|а по\b|что насчёт\b|что насчет\b|и что\b|покажи подробнее\b)/iu.test(text);
+}
+
+function resolveAgent(question, previousQuestion = '') {
   // Explicit meeting/task language wins over domain words such as "budget" in a reminder.
   if (isSecretaryQuestion(question)) return AGENTS.secretary;
   // Explicit finance intent wins when an operational question also mentions shifts or sales.
   if (isFinanceQuestion(question)) return AGENTS.finance_diagnostics;
   if (isOperationsQuestion(question)) return AGENTS.operations_analyst;
+  // Keep a specialist active for short follow-ups such as "А почему?".
+  if (isFollowUpQuestion(question) && previousQuestion) {
+    const previousAgent = resolveAgent(previousQuestion);
+    if (previousAgent.id !== 'sten') return previousAgent;
+  }
   return AGENTS.sten;
 }
 
@@ -119,6 +129,7 @@ module.exports = {
   isFinanceQuestion,
   isOperationsQuestion,
   isSecretaryQuestion,
+  isFollowUpQuestion,
   resolveAgent,
   toolsForAgent,
   agentAllowsTool,
