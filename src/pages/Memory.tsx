@@ -372,7 +372,7 @@ export default function Memory() {
                   <span className="executive-chain__step-body">
                     <strong>{stage.label}</strong>
                     <span>{latest?.content ?? 'Пока не зафиксировано'}</span>
-                    <small>{latest ? ('Версий: ' + entries.length + ' · ' + MEMORY_CONFIDENCE_LABEL[latest.confidence] + ' · ' + formatDate(latest.created_at)) : 'Ожидает записи'}</small>
+                    <small>{latest ? ((entries.length > 1 ? 'Версий: ' + entries.length + ' · ' : '') + MEMORY_CONFIDENCE_LABEL[latest.confidence] + ' · ' + formatDate(latest.created_at)) : 'Ожидает записи'}</small>
                     {stage.value === 'next_check' && meta?.dueDate && <small>Плановая дата: {meta.dueDate}</small>}
                   </span>
                 </button>;
