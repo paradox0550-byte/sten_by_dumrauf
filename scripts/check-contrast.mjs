@@ -66,7 +66,11 @@ function composite(foreground, background) {
   };
 }
 
-function hexFromColor(value) {\n  const channels = parseColor(value).rgb.map((channel) => Math.round(channel * 255));\n  return '#' + channels.map((channel) => channel.toString(16).padStart(2, '0')).join('').toUpperCase();\n}\nfunction asCssRgb(color) {
+function hexFromColor(value) {
+  const channels = parseColor(value).rgb.map((channel) => Math.round(channel * 255));
+  return '#' + channels.map((channel) => channel.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+function asCssRgb(color) {
   return `rgb(${color.rgb.map((channel) => Math.round(channel * 255)).join(', ')})`;
 }
 function linearize(value) {
