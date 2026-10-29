@@ -81,6 +81,16 @@ async function mockApi(route) {
     await route.fulfill({ status: 200, headers: corsHeaders, contentType: 'application/json', body: '[]' });
     return;
   }
+  if (path === '/api/admin/organizations' && route.request().method() === 'GET') {
+    // A valid empty-state fixture for the system-admin screen; no synthetic organizations.
+    await route.fulfill({
+      status: 200,
+      headers: corsHeaders,
+      contentType: 'application/json',
+      body: JSON.stringify({ organizations: [] }),
+    });
+    return;
+  }
   if (path.startsWith('/api/') || path.startsWith('/auth/')) {
     // Empty/error-state fixture only. No synthetic business or financial values.
     await route.fulfill({
@@ -126,10 +136,11 @@ try {
       for (const [name, path] of routes) {
         try {
           await page.goto(`${baseUrl}/#${path}`, { waitUntil: 'domcontentloaded', timeout: 15000 });
-          await page.waitForFunction((routePath) => routePath === '/legal'
-            ? Boolean(document.querySelector('.legal-hub'))
-            : Boolean(document.querySelector('.content > :not(.sten-inline-guide):not(.legal-footer)')),
-          path, { timeout: 5000 });
+          await page.waitForFunction((routePath) => {
+            if (routePath === '/legal') return Boolean(document.querySelector('.legal-hub'));
+            if (routePath === '/admin/organizations') return Boolean(document.querySelector('.admin-organizations-page'));
+            return Boolean(document.querySelector('.content > :not(.sten-inline-guide):not(.legal-footer)'));
+          }, path, { timeout: path === '/admin/organizations' ? 10000 : 5000 });
           const state = await page.evaluate(() => ({
             width: window.innerWidth,
             documentWidth: document.documentElement.scrollWidth,
@@ -167,7 +178,14 @@ try {
             pageErrors.length = 0;
           }
         } catch (error) {
-          failures.push(`${theme}/${viewport.width}/${name}: ${error instanceof Error ? error.message : String(error)}`);
+          const diagnostics = await page.evaluate(() => ({
+            hash: window.location.hash,
+            readyState: document.readyState,
+            contentPresent: Boolean(document.querySelector('.content')),
+            bodyText: (document.body.innerText || '').slice(0, 240).replace(/\\s+/g, ' '),
+          })).catch(() => null);
+          const browserErrors = pageErrors.length ? `; browser errors: ${pageErrors.join(' | ')}` : '';
+          failures.push(`${theme}/${viewport.width}/${name}: ${error instanceof Error ? error.message : String(error)}; diagnostics=${JSON.stringify(diagnostics)}${browserErrors}`);
         }
       }
       await context.close();
