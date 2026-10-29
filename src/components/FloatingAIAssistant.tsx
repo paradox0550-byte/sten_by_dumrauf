@@ -57,7 +57,7 @@ export default function FloatingAIAssistant() {
       <button role="menuitem" onClick={openDocs}><FileText size={16} />Документы</button>
       <button role="menuitem" className="sten-floating-ai__close" onClick={() => setMenuOpen(false)}><X size={15} />Закрыть меню</button>
     </div>}
-    <button type="button" className={`sten-floating-ai__button is-${status}`} aria-label="STEN AI: открыть чат" aria-haspopup="menu" aria-expanded={menuOpen}
+    <button type="button" className={`sten-floating-ai__button is-${status}`} aria-label="Быстрый доступ к STEN AI: открыть чат; удерживайте для меню" title="STEN AI — быстрый доступ к чату, новому диалогу и документам" aria-haspopup="menu" aria-expanded={menuOpen}
       onPointerDown={onPointerDown} onPointerUp={onPointerEnd} onPointerLeave={onPointerEnd}
       onContextMenu={(event) => { event.preventDefault(); setMenuOpen(true); }}
       onClick={() => { if (longPressed.current) { longPressed.current = false; return; } openChat(); }}>
