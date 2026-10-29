@@ -1352,3 +1352,11 @@
   font-size: 11px;
   line-height: 1.45;
 }
+
+
+/* AI identity stays restrained: graphite avatar, branded mark. */
+.sten-ai-page .sten-avatar {
+  background: var(--chat-panel);
+  border: 1px solid color-mix(in srgb, var(--chat-accent) 42%, var(--chat-border));
+  color: var(--chat-accent);
+}
