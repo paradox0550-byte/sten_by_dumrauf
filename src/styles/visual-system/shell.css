@@ -3,8 +3,6 @@ body {
   background: var(--bg-base);
   color: var(--text-primary);
   letter-spacing: -.008em;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
 }
 .shell, .executive-shell, .main { background: var(--bg-base); }
 .sidebar {
@@ -13,7 +11,7 @@ body {
   border-right: 1px solid var(--border-subtle);
 }
 .sidebar .brand { border-bottom-color: var(--border-subtle); }
-.sidebar .brand-mark { color: var(--color-brand); background: var(--bg-surface-subtle); border-color: var(--border-default); }
+.sidebar .brand-mark { color: var(--text-primary); background: var(--bg-surface-subtle); border-color: var(--border-default); }
 .sidebar .brand-copy b { color: var(--text-primary); letter-spacing: .12em !important; }
 .sidebar .brand-copy small { color: var(--text-muted); }
 .sten-primary-nav .nav-section-label { color: var(--text-muted); letter-spacing: .14em !important; font-size: 12px !important; }

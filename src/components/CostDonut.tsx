@@ -2,7 +2,14 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recha
 
 type Slice = { name: string; value: number | null };
 
-const COLORS = ['#2563eb', '#f59e0b', '#7c3aed', '#0891b2', '#16a34a', '#dc2626'];
+const COLORS = [
+  'var(--color-sten-chart-1)',
+  'var(--color-sten-chart-2)',
+  'var(--color-sten-chart-3)',
+  'var(--color-sten-chart-4)',
+  'var(--color-sten-chart-5)',
+  'var(--color-sten-chart-6)',
+];
 const fmt = (v: number) => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(v);
 
 export default function CostDonut({ data, height = 240 }: { data: Slice[]; height?: number }) {

@@ -180,9 +180,9 @@ td, th { border-color: var(--border-subtle) !important; }
   min-height: 40px;
 }
 .sten-mode-toggle[aria-pressed="true"] {
-  color: var(--color-brand-strong) !important;
-  border-color: color-mix(in srgb, var(--color-brand) 38%, var(--border-default)) !important;
-  background: color-mix(in srgb, var(--color-brand) 8%, var(--bg-surface)) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-strong) !important;
+  background: var(--bg-surface-hover) !important;
 }
 .sten-install-help {
   position: absolute;
@@ -291,10 +291,27 @@ html[data-sten-interface="mobile"] :where(.table-wrap, .table-scroll, .pnl-table
 }
 
 
-/* STEN brand icon system: restrained cyan/blue accent, consistent icon weight. */
+/* STEN icon system: neutral by default; brand color marks the current destination only. */
 :where(svg.lucide) { stroke-width: 1.85; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
-:where(button, a, [role="button"]):is(:hover, :focus-visible) > svg.lucide { color: var(--sten-icon-accent, #078FBD); }
 :where(.sten-primary-nav, .mobile-bottom-nav) a.active > svg.lucide,
-:where(.sten-primary-nav, .mobile-bottom-nav) a[aria-current="page"] > svg.lucide { color: var(--sten-icon-accent, #078FBD); }
-:root { --sten-icon-accent: #078FBD; --sten-icon-accent-strong: #1454C7; }
-html[data-theme="dark"] { --sten-icon-accent: #19C8DF; --sten-icon-accent-strong: #3F91FF; }
+:where(.sten-primary-nav, .mobile-bottom-nav) a[aria-current="page"] > svg.lucide { color: var(--color-brand) !important; }
+
+
+/* Floating menus and dialogs use neutral surfaces; brand color is reserved for actions and active navigation. */
+:where(.modal, .modal-card, .dialog, .modal-dialog, [role="dialog"], [role="listbox"], .dropdown-menu, .menu-popover, .popover-content, .sten-install-help) {
+  background-color: var(--bg-elevated, var(--bg-surface)) !important;
+  border-color: var(--border-default) !important;
+  color: var(--text-primary);
+}
+:where(.dropdown-menu, .menu-popover, .popover-content, [role="listbox"]) :where(button, a, [role="option"], [role="menuitem"]):hover {
+  background-color: var(--bg-surface-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Mobile touch targets: keep interactive controls at least 44px tall. */
+
+@media (max-width: 767px) {
+  :where(button, [role="button"], input[type="button"], input[type="submit"], input[type="reset"]) {
+    min-height: 44px !important;
+  }
+}

@@ -12,7 +12,7 @@ button, [role='button'], a { -webkit-tap-highlight-color: transparent; }
   color: var(--text-primary) !important;
   transition: border-color var(--sten-motion-fast) ease, background-color var(--sten-motion-fast) ease !important;
 }
-.icon-button:hover, .sidebar-toggle:hover { border-color: var(--color-brand) !important; }
+.icon-button:hover, .sidebar-toggle:hover { border-color: var(--border-strong) !important; }
 .page .card, .page .panel, .page .metric-card, .page .surface, .page .section-card {
   border-color: var(--border-subtle);
   box-shadow: none;
@@ -27,10 +27,10 @@ button, [role='button'], a { -webkit-tap-highlight-color: transparent; }
 .sten-ai-topbar__status { background: var(--color-success) !important; box-shadow: none !important; }
 .sten-ai-topbar__name h1 { letter-spacing: -.045em; }
 .sten-ai-welcome__hero h2 { letter-spacing: -.05em !important; line-height: 1.04 !important; }
-.sten-ai-welcome__hero h2 span { color: var(--color-brand-strong) !important; }
+.sten-ai-welcome__hero h2 span { color: var(--text-primary) !important; }
 .sten-ai-starter { border-color: var(--border-default) !important; background: var(--bg-surface) !important; box-shadow: var(--shadow-sm); }
-.sten-ai-starter:hover { border-color: var(--color-brand) !important; box-shadow: none; }
-.sten-ai-starter__number { color: var(--color-brand-strong) !important; }
+.sten-ai-starter:hover { border-color: var(--border-strong) !important; box-shadow: none; }
+.sten-ai-starter__number { color: var(--text-secondary) !important; }
 .sten-composer, .composer-box { border-color: var(--border-default) !important; }
 .sten-composer.is-focused, .composer-box:focus-within { border-color: var(--color-brand) !important; box-shadow: var(--focus) !important; }
 .sten-composer .send, .composer-box .send { background: var(--sten-jade) !important; color: var(--text-on-accent) !important; }
@@ -51,7 +51,7 @@ button, [role='button'], a { -webkit-tap-highlight-color: transparent; }
 .page .metric-card, .page .panel, .page .section-card { overflow: clip; }
 .page :is(button, a).card:hover,
 .page :is(.clickable, [role='button']).card:hover {
-  border-color: color-mix(in srgb, var(--color-brand) 34%, var(--border-subtle));
+  border-color: var(--border-default);
   box-shadow: var(--shadow-sm);
 }
 .page :is(button, a, [role='button']) svg,
@@ -65,7 +65,7 @@ button, [role='button'], a { -webkit-tap-highlight-color: transparent; }
   border-bottom: 1px solid var(--border-subtle);
 }
 .page table tbody tr { transition: background-color 140ms ease; }
-.page table tbody tr:hover { background: var(--row-hover, color-mix(in srgb, var(--color-brand) 5%, transparent)); }
+.page table tbody tr:hover { background: var(--row-hover, var(--bg-surface-subtle)); }
 .page table tbody tr:last-child td { border-bottom-color: transparent; }
 .page :is(input, select, textarea) {
   border-radius: var(--radius-sm, 8px);

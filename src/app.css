@@ -28,8 +28,6 @@ html, body, #root {
 body {
   font-size: 16px;
   line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 button, input, textarea, select {
@@ -3685,7 +3683,6 @@ body { font-size: 14px; }
 .badge-warn    { color: var(--warning); background: var(--warning-bg); }
 .badge-danger  { color: var(--danger);  background: var(--danger-bg); }
 .badge-info    { color: var(--info);    background: var(--info-bg); }
-.badge-violet  { color: var(--violet);  background: var(--violet-bg); }
 .badge-cyan    { color: var(--cyan);    background: var(--cyan-bg); }
 
 /* Заголовки и акценты — не всё золотое */
@@ -8112,7 +8109,7 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 }
 .pnl-scale-toggle { border-radius: var(--ui-radius-md); background: var(--bg-inset); }
 .pnl-scale-toggle button { min-height: 32px; border-radius: 7px; }
-.pnl-scale-toggle button.active { background: color-mix(in srgb, var(--color-brand) 18%, transparent); color: #b6c4ff; }
+.pnl-scale-toggle button.active { background: var(--bg-surface-subtle); color: var(--text-primary); }
 .quick-actions { gap: 8px; }
 .pnl-summary { border-radius: var(--ui-radius-md); }
 .pnl-edit-table {
