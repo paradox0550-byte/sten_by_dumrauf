@@ -105,3 +105,78 @@
 .sten-secretary-tabs button{flex:0 0 auto;min-height:38px;padding:8px 13px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--text-secondary,var(--muted,#65717d));font:inherit;font-size:13px;font-weight:550;cursor:pointer;white-space:nowrap}
 .sten-secretary-tabs button.is-active{border-color:var(--border-subtle,var(--line,#dce2e7));background:var(--bg-surface,var(--surface,#fff));color:var(--text-primary,#17212b);box-shadow:0 1px 2px #17212b0a}
 @media(max-width:700px){.sten-secretary-tabs{width:100%;display:grid;grid-template-columns:1fr 1fr;overflow:visible}.sten-secretary-tabs button{white-space:normal;padding:9px 7px;font-size:12px}.sten-secretary-tabs button:last-child{grid-column:1/-1}}
+
+
+/* Weekly plan: actions stay secondary; the selected day remains the primary accent. */
+.sten-plan-kicker {
+  color: var(--text-secondary, #9FB0B8);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.sten-plan-kicker svg { color: currentColor; }
+.sten-plan-week-heading h2 {
+  margin: 8px 0;
+  color: var(--text-primary, #E8F0F3);
+  font-size: clamp(24px, 2.2vw, 28px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -.025em;
+}
+.sten-plan-week-heading p {
+  color: var(--text-muted, #B0BEC5);
+  font-size: 16px;
+  line-height: 1.5;
+}
+.sten-plan-add button.primary-button {
+  width: fit-content;
+  max-width: 200px;
+  min-width: 0;
+  min-height: 44px;
+  height: 44px;
+  justify-self: start;
+  padding: 0 18px;
+  border: 1px solid var(--border-default, #C9D2DC);
+  border-radius: 9px;
+  background: var(--bg-surface, #161C24);
+  color: var(--text-primary, #E8F0F3);
+  box-shadow: none;
+  font-weight: 600;
+}
+.sten-plan-add button.primary-button:hover:not(:disabled) {
+  border-color: var(--border-strong, #98A6B5);
+  background: var(--bg-surface-hover, #1E2630);
+}
+.sten-plan-add button.primary-button:disabled {
+  opacity: .55;
+}
+.sten-plan-goals-list {
+  display: grid;
+  gap: 0;
+  background: transparent;
+  border: 0;
+}
+.sten-plan-goals-list .sten-plan-goal {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle, #303B47);
+}
+.sten-plan-goals-list .sten-plan-goal:last-child { border-bottom: 0; }
+.sten-plan-goals-list .sten-plan-goal > span {
+  background: var(--bg-surface-muted, #1B232D);
+  color: var(--text-secondary, #9FB0B8);
+  border-radius: 4px;
+}
+@media (max-width: 700px) {
+  .sten-plan-add button.primary-button {
+    grid-column: auto;
+    width: fit-content;
+    max-width: 200px;
+  }
+}
+@media (max-width: 380px) {
+  .sten-plan-add button.primary-button {
+    width: fit-content;
+    grid-column: auto;
+  }
+}
