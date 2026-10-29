@@ -24,6 +24,10 @@ export function StenLogo({ variant = 'mark', animated = false, size = 32, classN
           <linearGradient id={blue} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#167DEB"/><stop offset="1" stopColor="#103FAD"/></linearGradient>
           <linearGradient id={silver} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#F8FBFD"/><stop offset=".45" stopColor="#AAB7C2"/><stop offset=".7" stopColor="#F7FAFC"/><stop offset="1" stopColor="#687783"/></linearGradient>
         </defs>
+        {markOnly && <>
+          <rect x="7" y="7" width="242" height="242" rx="47" fill="#EAF0F4" stroke={`url(#${silver})`} strokeWidth="7"/>
+          <rect x="15" y="15" width="226" height="226" rx="39" fill="none" stroke="#7B8994" strokeOpacity=".65" strokeWidth="2"/>
+        </>}
         {(markOnly || lockup) && <g transform={lockup ? 'translate(0 8) scale(.46)' : undefined}>
           <path d={MARK_1} fill={`url(#${cyan})`} stroke={`url(#${silver})`} strokeWidth="5" strokeLinejoin="round"/>
           <path d={MARK_2} fill={`url(#${blue})`} stroke={`url(#${silver})`} strokeWidth="5" strokeLinejoin="round"/>
