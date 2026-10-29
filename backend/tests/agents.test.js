@@ -48,6 +48,12 @@ test('meeting and reminder questions route to the secretary', () => {
   assert.equal(isSecretaryQuestion(''), false);
 });
 
+test('short follow-ups retain the previous specialist context', () => {
+  assert.equal(resolveAgent('А почему?', 'Почему упала прибыль?').id, 'finance_diagnostics');
+  assert.equal(resolveAgent('А что проверить дальше?', 'Разбери жалобы гостей').id, 'operations_analyst');
+  assert.equal(resolveAgent('Покажи подробнее', 'Напомни о встрече завтра').id, 'secretary');
+});
+
 test('general questions remain with the general STEN assistant', () => {
   for (const question of ['Привет', 'Составь план на сегодня']) {
     assert.equal(resolveAgent(question).id, 'sten', question);
