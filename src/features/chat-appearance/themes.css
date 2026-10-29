@@ -5,16 +5,16 @@
 }
 
 .sten-ai-page .chat {
-  --chat-bg: #0B0F1A;
-  --chat-panel: #0F141D;
-  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126b67) 12%, #0F141D);
-  --chat-bubble-ai: #101722;
-  --chat-text: #F5F7FA;
-  --chat-muted: #9AA6B8;
-  --chat-border: rgba(255, 255, 255, 0.08);
-  --chat-drawer: #111722;
-  --chat-input: #0C121B;
-  --chat-on-accent: #0B0D10;
+  --chat-bg: #0B1015;
+  --chat-panel: #141B22;
+  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126B67) 14%, #141B22);
+  --chat-bubble-ai: #1A232C;
+  --chat-text: #F3F6F8;
+  --chat-muted: #9AA8B4;
+  --chat-border: #2B3742;
+  --chat-drawer: #1A232C;
+  --chat-input: #080D12;
+  --chat-on-accent: #0C1216;
   position: relative;
   overflow: hidden;
   background: var(--chat-bg);
@@ -27,7 +27,7 @@
   --chat-panel: #0A0E16;
   --chat-bubble-user: color-mix(in srgb, var(--color-brand-strong, #0f5d59) 15%, #0E131F);
   --chat-bubble-ai: #0E131F;
-  --chat-text: #F5F7FA;
+  --chat-text: #F3F6F8;
   --chat-muted: #8995A8;
   --chat-border: rgba(255, 255, 255, 0.07);
   --chat-drawer: #0C111A;
@@ -45,20 +45,20 @@
   --chat-border: rgba(255, 255, 255, 0.09);
   --chat-drawer: #1A2029;
   --chat-input: #141A22;
-  --chat-on-accent: #0B0D10;
+  --chat-on-accent: #0C1216;
 }
 
 .sten-ai-page.theme-paper .chat {
-  --chat-bg: #F7F8FA;
+  --chat-bg: #F3F5F7;
   --chat-panel: #FFFFFF;
-  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126b67) 10%, #FFFFFF);
+  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126B67) 9%, #FFFFFF);
   --chat-bubble-ai: #FFFFFF;
-  --chat-text: #141820;
-  --chat-muted: #667085;
-  --chat-border: rgba(20, 24, 32, 0.10);
+  --chat-text: #17212B;
+  --chat-muted: #64748B;
+  --chat-border: #DCE4E8;
   --chat-drawer: #FFFFFF;
   --chat-input: #FFFFFF;
-  --chat-on-accent: #0B0D10;
+  --chat-on-accent: #0C1216;
   color-scheme: light;
 }
 
@@ -67,40 +67,40 @@
   --chat-panel: #0F1521;
   --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126b67) 18%, #0F1521);
   --chat-bubble-ai: #111927;
-  --chat-text: #F5F7FA;
+  --chat-text: #F3F6F8;
   --chat-muted: #98A4B7;
   --chat-border: rgba(18, 107, 103, 0.16);
   --chat-drawer: #111927;
   --chat-input: #0C121D;
-  --chat-on-accent: #0B0D10;
+  --chat-on-accent: #0C1216;
 }
 
 .sten-ai-page.theme-system .chat {
-  --chat-bg: #F7F8FA;
+  --chat-bg: #F3F5F7;
   --chat-panel: #FFFFFF;
-  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126b67) 10%, #FFFFFF);
+  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126B67) 9%, #FFFFFF);
   --chat-bubble-ai: #FFFFFF;
-  --chat-text: #141820;
-  --chat-muted: #667085;
-  --chat-border: rgba(20, 24, 32, 0.10);
+  --chat-text: #17212B;
+  --chat-muted: #64748B;
+  --chat-border: #DCE4E8;
   --chat-drawer: #FFFFFF;
   --chat-input: #FFFFFF;
-  --chat-on-accent: #0B0D10;
+  --chat-on-accent: #0C1216;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   .sten-ai-page.theme-system .chat {
-    --chat-bg: #0B0F1A;
-    --chat-panel: #0F141D;
-    --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126b67) 12%, #0F141D);
-    --chat-bubble-ai: #101722;
-    --chat-text: #F5F7FA;
-    --chat-muted: #9AA6B8;
-    --chat-border: rgba(255, 255, 255, 0.08);
-    --chat-drawer: #111722;
-    --chat-input: #0C121B;
-    --chat-on-accent: #0B0D10;
+    --chat-bg: #0B1015;
+    --chat-panel: #141B22;
+    --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126B67) 14%, #141B22);
+    --chat-bubble-ai: #1A232C;
+    --chat-text: #F3F6F8;
+    --chat-muted: #9AA8B4;
+    --chat-border: #2B3742;
+    --chat-drawer: #1A232C;
+    --chat-input: #080D12;
+    --chat-on-accent: #0C1216;
     color-scheme: dark;
   }
 }

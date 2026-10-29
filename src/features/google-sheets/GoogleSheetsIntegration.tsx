@@ -75,9 +75,9 @@ async function readSpreadsheet(accessToken: string, spreadsheetId: string): Prom
   );
   if (!response.ok) {
     if (response.status === 401) throw new Error('Доступ Google истёк. Подключите таблицу повторно.');
-    if (response.status === 403) throw new Error('У Google-аккаунта нет доступа к этой таблице или API ещё не включён в Google Cloud.');
+    if (response.status === 403) throw new Error('У этого Google-аккаунта нет доступа к таблице. Проверьте права доступа или обратитесь к администратору Google.');
     if (response.status === 404) throw new Error('Таблица не найдена. Проверьте ссылку и права доступа.');
-    throw new Error(`Google Sheets вернул ошибку (${response.status}). Попробуйте ещё раз.`);
+    throw new Error('Не удалось получить данные из Google Таблиц. Попробуйте ещё раз.');
   }
   return response.json() as Promise<SpreadsheetInfo>;
 }
@@ -90,7 +90,7 @@ async function readSheetValues(accessToken: string, spreadsheetId: string, sheet
   );
   if (!response.ok) {
     if (response.status === 403) throw new Error('Нет доступа к выбранному листу.');
-    throw new Error(`Не удалось прочитать лист (${response.status}).`);
+    throw new Error('Не удалось прочитать выбранный лист. Проверьте доступ и попробуйте ещё раз.');
   }
   const result = await response.json() as { values?: unknown[][] };
   return (result.values ?? []).map((row) => row.map((cell) => cell == null ? '' : String(cell)));
@@ -141,7 +141,7 @@ export default function GoogleSheetsIntegration() {
     setError('');
     setNotice('');
     if (!clientId) {
-      setError('Интеграция пока не настроена: добавьте VITE_GOOGLE_CLIENT_ID после регистрации OAuth-клиента в Google Cloud. Никакие данные не отправлялись.');
+      setError('Подключение Google пока не завершено. Обратитесь к администратору STEN, чтобы настроить доступ. Никакие данные не отправлялись.');
       return;
     }
     if (!spreadsheetId) {
@@ -181,7 +181,7 @@ export default function GoogleSheetsIntegration() {
         selectedSheetId: preferredSheetId,
         selectedSheetTitle: info.sheets.find((sheet) => sheet.properties.sheetId === preferredSheetId)?.properties.title || '',
       } });
-      setNotice('Настройки таблицы сохранены в аккаунте STEN. ' + (values.length ? '' : 'Данные загружены и готовы к анализу.'));
+      setNotice('Настройки таблицы сохранены в аккаунте STEN.');
       setError('');
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Не удалось подключить таблицу.');
