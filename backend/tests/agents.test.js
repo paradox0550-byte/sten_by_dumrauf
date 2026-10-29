@@ -19,6 +19,7 @@ test('financial intent routes to the financial diagnostics agent', () => {
     'Покажи перерасход по бюджету',
     'Почему упала прибыль?',
     'Проверь food cost и prime cost',
+    'Проверь ФОТ по сменам',
   ]) {
     assert.equal(resolveAgent(question).id, 'finance_diagnostics', question);
   }
