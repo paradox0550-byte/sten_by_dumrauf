@@ -289,8 +289,8 @@ export default function GoogleSheetsIntegration() {
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-        <button className="primary-button" type="button" disabled={busy || !settingsLoaded} onClick={() => void connectAndRead()}>
+      <div className="settings-integration-actions">
+        <button className="secondary-button settings-integration-action" type="button" disabled={busy || !settingsLoaded} onClick={() => void connectAndRead()}>
           {busy ? <LoaderCircle size={16} className="spin" aria-hidden="true" /> : token ? <RefreshCw size={16} aria-hidden="true" /> : <Link2 size={16} aria-hidden="true" />}
           {busy ? 'Загружаем…' : token ? 'Обновить данные' : 'Подключить и прочитать'}
         </button>

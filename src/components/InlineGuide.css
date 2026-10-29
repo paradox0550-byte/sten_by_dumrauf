@@ -103,3 +103,28 @@
   .sten-inline-guide p { font-size: 12px; }
   .sten-inline-guide-actions { gap: 6px 12px; }
 }
+
+
+/* Information is neutral; success green is reserved for actual success states. */
+.sten-inline-guide-icon {
+  background: var(--bg-surface, #161C24);
+  color: var(--text-muted, #B0BEC5);
+  border: 1px solid var(--border-default, #303B47);
+}
+.sten-inline-guide-trigger:hover { color: var(--text-primary, #E8F0F3); }
+.sten-inline-guide-actions button { color: var(--text-secondary, #9FB0B8); }
+.sten-inline-guide-actions .sten-inline-guide-primary {
+  color: var(--text-primary, #E8F0F3);
+}
+.sten-inline-guide button:focus-visible {
+  outline-color: color-mix(in srgb, var(--color-brand, #2DD4BF) 55%, var(--bg-surface, #161C24));
+}
+
+
+/* Keep help and information glyphs monochrome in every theme. */
+.sten-inline-guide .sten-inline-guide-icon,
+.sten-inline-guide .sten-inline-guide-icon svg { color: var(--text-muted, #B0BEC5); }
+.sten-inline-guide .sten-inline-guide-icon {
+  background: var(--bg-surface, #161C24);
+  border: 1px solid var(--border-default, #303B47);
+}

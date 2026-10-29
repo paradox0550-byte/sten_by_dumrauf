@@ -9,3 +9,85 @@
 .ai-training-scope-note{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--border-subtle,#30394a);font-size:11px;line-height:1.5;color:var(--text-secondary,#a9b1c4)}
 @media(max-width:900px){.ai-training-standard-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px){.ai-training-standard{padding:14px}.ai-training-standard-grid{grid-template-columns:1fr;gap:8px}.ai-training-standard-grid>div{padding:10px}}
+
+
+/* AI Quality Lab: controls and identifiers are neutral until a real result is selected. */
+.ai-quality-id {
+  color: var(--text-secondary, #9FB0B8);
+  background: var(--bg-surface-subtle, #1B232D);
+  border: 1px solid var(--border-default, #303B47);
+  font-family: var(--font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.ai-quality-run {
+  width: 100%;
+  min-height: 44px;
+  height: 44px;
+  border: 1px solid var(--border-default, #303B47) !important;
+  background: var(--bg-surface, #161C24) !important;
+  color: var(--text-primary, #E8F0F3) !important;
+  box-shadow: none !important;
+  font-weight: 500;
+}
+.ai-quality-run:hover:not(:disabled) {
+  background: var(--bg-surface-hover, #1E2630) !important;
+  border-color: var(--border-strong, #98A6B5) !important;
+}
+.ai-quality-run:active:not(:disabled) {
+  background: var(--color-brand, #2DD4BF) !important;
+  border-color: var(--color-brand, #2DD4BF) !important;
+  color: var(--text-on-accent, #0F1419) !important;
+}
+.ai-quality-checks svg,
+.ai-quality-rubric svg {
+  color: var(--text-muted, #B0BEC5);
+}
+.ai-quality-meta {
+  color: var(--text-muted, #B0BEC5);
+  font-size: 12px;
+}
+.ai-quality-grading button {
+  min-height: 40px;
+  padding: 0 16px;
+  background: var(--bg-surface, #161C24);
+  border-color: var(--border-default, #303B47);
+  color: var(--text-primary, #E8F0F3);
+}
+.ai-quality-grading button:hover {
+  background: var(--bg-surface-hover, #1E2630);
+}
+.ai-quality-grading button.selected.pass {
+  border-color: var(--color-success, #62C69A);
+  color: var(--color-success, #62C69A);
+  background: var(--bg-success-subtle, rgb(98 198 154 / 8%));
+}
+.ai-quality-grading button.selected.fail {
+  border-color: var(--color-danger, #FF7C83);
+  color: var(--color-danger, #FF7C83);
+  background: var(--bg-danger-subtle, rgb(255 124 131 / 8%));
+}
+.ai-quality-grading button.selected.review {
+  border-color: var(--color-warning, #E4B86C);
+  color: var(--color-warning, #E4B86C);
+  background: var(--bg-warning-subtle, rgb(228 184 108 / 8%));
+}
+
+
+/* Light theme: test execution is a repeatable secondary action, not a primary CTA. */
+[data-theme="light"] .ai-quality-page .ai-quality-run {
+  background: var(--bg-surface, #FFFFFF) !important;
+  border: 1px solid var(--color-brand, #0D9488) !important;
+  color: var(--color-brand, #0D9488) !important;
+  font-weight: 500;
+}
+[data-theme="light"] .ai-quality-page .ai-quality-run:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-brand, #0D9488) 6%, #FFFFFF) !important;
+  border-color: var(--color-brand, #0D9488) !important;
+}
+[data-theme="light"] .ai-quality-page .ai-quality-run:active:not(:disabled) {
+  background: var(--color-brand, #0D9488) !important;
+  color: #FFFFFF !important;
+}

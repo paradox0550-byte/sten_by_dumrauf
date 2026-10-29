@@ -145,3 +145,26 @@
 .fot-calculation-fields label,
 .fot-column-mapping label,
 .fot-history-heading label { font-size: 12px; }
+
+
+/* Upload is a neutral action; brand color appears only as an interaction cue. */
+.fot-import-heading > svg,
+.fot-import-drop svg {
+  color: var(--text-muted);
+}
+.fot-import-drop {
+  border: 2px dashed var(--border-subtle);
+  background: var(--bg-surface);
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+.fot-import-drop:hover:not(:disabled) {
+  border-color: var(--color-brand);
+  background: var(--bg-surface-subtle);
+}
+.fot-import-drop:hover:not(:disabled) svg {
+  color: var(--color-brand);
+}
+.fot-import-drop:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 3px;
+}

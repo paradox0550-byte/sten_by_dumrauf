@@ -10378,3 +10378,47 @@ button.executive-chain__step.active {
 @media (prefers-reduced-motion: reduce) {
   button.executive-chain__step { transition: none; }
 }
+
+
+/* STEN settings: restrained selection, neutral information, brand-only controls. */
+.settings-page .choice.active {
+  background: color-mix(in srgb, var(--color-brand) 6%, transparent);
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+}
+.settings-page .choice.active svg,
+.settings-page .font-size-choices .choice.active small { color: var(--color-brand); }
+.settings-page .toggle-row input:checked + i {
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+}
+.workspace-status {
+  background: color-mix(in srgb, var(--color-brand) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-brand) 30%, transparent);
+  color: var(--color-brand);
+}
+.settings-integration-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.settings-integration-action {
+  width: 100%;
+  min-height: 44px;
+  justify-content: center;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.settings-integration-action:hover:not(:disabled) {
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+  background: var(--bg-surface);
+}
+.settings-integration-action:active:not(:disabled) {
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+  color: #0F1419;
+}

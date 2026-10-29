@@ -716,3 +716,18 @@
   line-height: 1.3;
   font-weight: 600;
 }
+
+
+/* STEN AI interaction contract: calm focus, clear speaker signal, quiet action hover. */
+.sten-ai-page .composer-box:focus-within {
+  border-color: color-mix(in srgb, var(--color-brand) 72%, var(--border-default)) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-brand) 30%, transparent) !important;
+}
+.sten-ai-page .chat-body .message-row--assistant .message-bubble {
+  border-left-width: 2px;
+  border-left-color: color-mix(in srgb, var(--color-brand) 72%, var(--border-subtle));
+}
+.sten-ai-page .chat-body .message-actions button:hover {
+  background: var(--bg-surface-hover, var(--bg-elevated));
+  border-color: var(--border-strong, var(--border-subtle));
+}
