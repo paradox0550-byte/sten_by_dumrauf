@@ -66,7 +66,7 @@ function composite(foreground, background) {
   };
 }
 
-function asCssRgb(color) {
+function hexFromColor(value) {\n  const channels = parseColor(value).rgb.map((channel) => Math.round(channel * 255));\n  return '#' + channels.map((channel) => channel.toString(16).padStart(2, '0')).join('').toUpperCase();\n}\nfunction asCssRgb(color) {
   return `rgb(${color.rgb.map((channel) => Math.round(channel * 255)).join(', ')})`;
 }
 function linearize(value) {
@@ -131,7 +131,7 @@ try {
     for (const token of Object.keys(requiredTokens)) {
       const resolved = await resolvedToken(page, token);
       tokenReport[theme][token] = resolved;
-      if (theme === 'dark' && resolved.computed.toUpperCase() !== requiredTokens[token]) {
+      if (theme === 'dark' && hexFromColor(resolved.computed) !== requiredTokens[token]) {
         throw new Error(`${theme} ${token}: expected ${requiredTokens[token]}, got ${resolved.computed}`);
       }
     }
