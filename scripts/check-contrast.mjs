@@ -42,9 +42,9 @@ const stenCss = await readFile(new URL('../src/styles/sten-visual-system.css', i
 const html = `<!doctype html><html data-theme="light"><head><meta charset="utf-8"><style>${tokensCss}\n${stenCss}</style></head><body></body></html>`;
 
 function parseColor(value) {
-  const match = value.match(/rgba?\\(([^)]+)\\)/i);
+  const match = value.match(/rgba?\(([^)]+)\)/i);
   if (!match) throw new Error(`Unsupported computed color "${value}"`);
-  const channels = match[1].replace(/\\//g, ' ').split(/[ ,]+/).filter(Boolean).map((part) => {
+  const channels = match[1].replace(/\//g, ' ').split(/[ ,]+/).filter(Boolean).map((part) => {
     if (part.endsWith('%')) return Number.parseFloat(part) * 2.55;
     return Number.parseFloat(part);
   });
@@ -108,7 +108,7 @@ async function resolvedToken(page, token) {
     if (!computed || computed === 'rgba(0, 0, 0, 0)') {
       // Transparent semantic backgrounds are valid, but they must be handled
       // through a declared backdrop rather than silently counted as black.
-      if (!/^rgba?\\(/i.test(value)) {
+      if (!/^rgba?\(/i.test(value)) {
         throw new Error(`CSS custom property ${name} does not resolve to a color: "${value}"`);
       }
     }
