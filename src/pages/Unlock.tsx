@@ -60,7 +60,7 @@ export default function AuthSetup() {
 
   function updateDigit(index: number, raw: string) {
     if (busy) return;
-    const numeric = raw.replace(/\\D/g, '');
+    const numeric = raw.replace(/\D/g, '');
     if (!numeric) {
       setDigits(current => current.map((digit, i) => i === index ? '' : digit));
       return;
@@ -88,7 +88,7 @@ export default function AuthSetup() {
   }
 
   function onCodePaste(event: ClipboardEvent<HTMLDivElement>) {
-    const value = event.clipboardData.getData('text').replace(/\\D/g, '').slice(0, 4);
+    const value = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4);
     if (!value) return;
     event.preventDefault();
     const next = [...value.split(''), '', '', ''].slice(0, 4);
