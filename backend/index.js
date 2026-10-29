@@ -2547,7 +2547,10 @@ try {
 const body = parseOr400(AskSchema, req.body ?? {});
 const question = String(body.question || body.prompt || '').trim();
 if (!question && !Array.isArray(body.messages)) throw httpError(400, 'Пустой вопрос', 'EMPTY_QUESTION');
-const agent = resolveAgent(question);
+const previousUserQuestion = Array.isArray(body.messages)
+  ? [...body.messages].reverse().find(message => message.role === 'user' && String(message.content || '').trim() && String(message.content || '').trim() !== question)?.content || ''
+  : '';
+const agent = resolveAgent(question, previousUserQuestion);
 const ctx = intelligenceContext();
 const selectedContext = await resolveWorkspaceContext(req.user, body.scope || {}, false);
 // Память
