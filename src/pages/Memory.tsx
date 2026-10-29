@@ -3,7 +3,7 @@ import { Brain, ChevronDown, MoreHorizontal, Search, Trash2, Check, X, Download,
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { buildMemoryFilename, buildMemoryMarkdown } from '../lib/memory-export';
-import { api, deleteMemory, listMemory, updateMemoryConfidence } from '../lib/api';
+import { api, createMemory, deleteMemory, listMemory, updateMemoryConfidence } from '../lib/api';
 import { MEMORY_CONFIDENCE_LABEL, MEMORY_KIND_LABEL } from '../lib/contracts/memory';
 import type { Memory, MemoryConfidence, MemoryFilters, MemoryKind } from '../lib/contracts/memory';
 
@@ -20,6 +20,33 @@ const kindBadge: Record<MemoryKind, string> = {
 };
 const confidenceBadge: Record<MemoryConfidence, string> = { confirmed: 'success', unconfirmed: 'neutral', rejected: 'danger' };
 type Restaurant = { id: string; name: string; kind?: string };
+type ExecutiveChainStage = 'action' | 'change' | 'lesson' | 'next_check';
+type ExecutiveChainMeta = { decisionId: string; stage: ExecutiveChainStage; dueDate?: string; previousEntryId?: string };
+const EXECUTIVE_CHAIN_KEY = 'sten_executive_chain';
+const EXECUTIVE_CHAIN_STAGES: Array<{ value: ExecutiveChainStage; label: string; question: string; kind: MemoryKind }> = [
+  { value: 'action', label: 'Что сделали', question: 'Какое конкретное действие выполнили? Кто или какая команда его выполнила?', kind: 'action' },
+  { value: 'change', label: 'Что изменилось', question: 'Что изменилось после действия? Укажи измеримый результат, период и источник, если они есть.', kind: 'fact' },
+  { value: 'lesson', label: 'Чему научились', question: 'Какой вывод подтверждён результатом? Что стоит повторить или не повторять?', kind: 'pattern' },
+  { value: 'next_check', label: 'Что проверить дальше', question: 'Что нужно проверить и по какому признаку поймём результат?', kind: 'manager_note' },
+];
+
+function getExecutiveChainMeta(memory: Memory): ExecutiveChainMeta | null {
+  const value = memory.evidence_json?.[EXECUTIVE_CHAIN_KEY];
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const data = value as Record<string, unknown>;
+  const stages: ExecutiveChainStage[] = ['action', 'change', 'lesson', 'next_check'];
+  if (typeof data.decision_id !== 'string' || !stages.includes(data.stage as ExecutiveChainStage)) return null;
+  return {
+    decisionId: data.decision_id,
+    stage: data.stage as ExecutiveChainStage,
+    ...(typeof data.due_date === 'string' ? { dueDate: data.due_date } : {}),
+    ...(typeof data.previous_entry_id === 'string' ? { previousEntryId: data.previous_entry_id } : {}),
+  };
+}
+
+function latestChainEntry(entries: Memory[] | undefined): Memory | undefined {
+  return entries?.slice().sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0];
+}
 
 function extractRestaurants(value: unknown): Restaurant[] {
   const raw = (value as { restaurants?: unknown; context?: { restaurants?: unknown } } | null)?.restaurants
@@ -69,6 +96,12 @@ export default function Memory() {
   const [searchText, setSearchText] = useState('');
   const [quickKind, setQuickKind] = useState<MemoryKind | ''>('');
   const [quickConfidence, setQuickConfidence] = useState<MemoryConfidence | ''>('');
+  const [chainMemories, setChainMemories] = useState<Memory[]>([]);
+  const [selectedDecisionId, setSelectedDecisionId] = useState('');
+  const [selectedStage, setSelectedStage] = useState<ExecutiveChainStage>('action');
+  const [stageText, setStageText] = useState('');
+  const [nextCheckDate, setNextCheckDate] = useState('');
+  const [savingChain, setSavingChain] = useState(false);
 
   const filters = useMemo<MemoryFilters>(() => ({
     ...(kind ? { kind } : {}),
@@ -88,10 +121,38 @@ export default function Memory() {
     });
   }, [memories, searchText, quickKind, quickConfidence]);
 
+  const chainDecisions = useMemo(
+    () => chainMemories.filter(memory => memory.kind === 'decision' && memory.confidence !== 'rejected'),
+    [chainMemories],
+  );
+
+  const chainByDecision = useMemo(() => {
+    const result = new Map<string, Partial<Record<ExecutiveChainStage, Memory[]>>>();
+    for (const memory of chainMemories) {
+      const meta = getExecutiveChainMeta(memory);
+      if (!meta) continue;
+      const stages = result.get(meta.decisionId) ?? {};
+      const entries = stages[meta.stage] ?? [];
+      stages[meta.stage] = [...entries, memory].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+      result.set(meta.decisionId, stages);
+    }
+    return result;
+  }, [chainMemories]);
+
+  const selectedDecision = chainDecisions.find(memory => memory.id === selectedDecisionId) ?? null;
+  const selectedChain = selectedDecision ? chainByDecision.get(selectedDecision.id) ?? {} : {};
+  const selectedStageEntries = selectedChain[selectedStage] ?? [];
+  const currentStageEntry = latestChainEntry(selectedStageEntries);
+
+  useEffect(() => {
+    setStageText(currentStageEntry?.content ?? '');
+    setNextCheckDate(getExecutiveChainMeta(currentStageEntry ?? ({} as Memory))?.dueDate ?? '');
+  }, [selectedDecisionId, selectedStage, currentStageEntry?.id, currentStageEntry?.updated_at]);
+
   const load = async () => {
     setLoading(true);
     try {
-      const [memoryResponse, contextResponse] = await Promise.all([
+      const [memoryResponse, contextResponse, chainResponses] = await Promise.all([
         confidence
           ? listMemory(filters)
           : Promise.all((['confirmed', 'unconfirmed', 'rejected'] as const).map(value => listMemory({ ...filters, confidence: value })))
@@ -99,8 +160,12 @@ export default function Memory() {
                 memories: results.flatMap(result => result.memories).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).slice(0, limit),
               })),
         api.get<unknown>('/api/b2b/context'),
+        Promise.all((['confirmed', 'unconfirmed', 'rejected'] as const).map(value =>
+          listMemory({ ...(restaurantId ? { restaurant_id: restaurantId } : {}), confidence: value, limit: 200 }),
+        )),
       ]);
       setMemories(memoryResponse.memories ?? []);
+      setChainMemories(chainResponses.flatMap(result => result.memories ?? []).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)));
       setRestaurants(extractRestaurants(contextResponse));
       setOrganizationName(extractOrganizationName(contextResponse));
       setToast(null);
@@ -121,6 +186,47 @@ export default function Memory() {
       setToast(next === 'confirmed' ? 'Память подтверждена' : 'Память отклонена');
     } catch {
       setToast('Не удалось. Повторить');
+    }
+  };
+
+  const saveChainStep = async () => {
+    if (!selectedDecision || !stageText.trim() || savingChain) return;
+    setSavingChain(true);
+    const stageConfig = EXECUTIVE_CHAIN_STAGES.find(item => item.value === selectedStage);
+    if (!stageConfig) {
+      setSavingChain(false);
+      return;
+    }
+    const previousEntry = latestChainEntry(selectedStageEntries);
+    try {
+      await createMemory({
+        scope: {
+          project_id: selectedDecision.project_id || null,
+          branch_id: selectedDecision.branch_id || null,
+          restaurant_id: selectedDecision.restaurant_id || null,
+          department_id: selectedDecision.department_id || null,
+        },
+        kind: stageConfig.kind,
+        title: 'Результат решения: ' + selectedDecision.title + ' — ' + stageConfig.label.toLocaleLowerCase('ru-RU'),
+        content: stageText.trim(),
+        evidence: {
+          [EXECUTIVE_CHAIN_KEY]: {
+            version: 1,
+            decision_id: selectedDecision.id,
+            decision_title: selectedDecision.title,
+            stage: selectedStage,
+            ...(selectedStage === 'next_check' && nextCheckDate ? { due_date: nextCheckDate } : {}),
+            ...(previousEntry ? { previous_entry_id: previousEntry.id } : {}),
+            saved_at: new Date().toISOString(),
+          },
+        },
+      });
+      setToast('Этап цепочки сохранён');
+      await load();
+    } catch {
+      setToast('Не удалось сохранить этап. Проверь соединение и повтори');
+    } finally {
+      setSavingChain(false);
     }
   };
 
@@ -223,6 +329,72 @@ export default function Memory() {
             <input value={searchText} onChange={event => setSearchText(event.target.value)} placeholder="Найти решение, проблему или договорённость…" aria-label="Поиск по истории руководителя" />
             {searchText && <button type="button" onClick={() => setSearchText('')} aria-label="Очистить поиск"><X size={15} /></button>}
           </label>
+        </section>
+
+        <section className="executive-chain" aria-label="Связь решений с результатами">
+          <div className="executive-chain__heading">
+            <div>
+              <h2>От решения к результату</h2>
+              <p>Записывай этапы по мере выполнения. Каждая версия сохраняется отдельно, без перезаписи истории.</p>
+            </div>
+          </div>
+          <label className="executive-chain__decision">
+            <span>Сохранённое решение</span>
+            <select value={selectedDecisionId} onChange={event => setSelectedDecisionId(event.target.value)}>
+              <option value="">Выбери решение для отслеживания</option>
+              {chainDecisions.map(decision => (
+                <option key={decision.id} value={decision.id}>{decision.title}</option>
+              ))}
+            </select>
+          </label>
+          {selectedDecision ? <>
+            <div className="executive-chain__steps">
+              <div className="executive-chain__step executive-chain__step--decision">
+                <span className="executive-chain__step-number">1</span>
+                <div className="executive-chain__step-body">
+                  <strong>Что решили</strong>
+                  <p>{selectedDecision.content}</p>
+                  <small>Исходная запись · {formatDate(selectedDecision.created_at)}</small>
+                </div>
+              </div>
+              {EXECUTIVE_CHAIN_STAGES.map((stage, index) => {
+                const entries = selectedChain[stage.value] ?? [];
+                const latest = latestChainEntry(entries);
+                const meta = latest ? getExecutiveChainMeta(latest) : null;
+                return <button
+                  type="button"
+                  key={stage.value}
+                  className={'executive-chain__step' + (selectedStage === stage.value ? ' active' : '') + (latest ? ' complete' : '')}
+                  onClick={() => setSelectedStage(stage.value)}
+                  aria-pressed={selectedStage === stage.value}
+                >
+                  <span className="executive-chain__step-number">{index + 2}</span>
+                  <span className="executive-chain__step-body">
+                    <strong>{stage.label}</strong>
+                    <span>{latest?.content ?? 'Пока не зафиксировано'}</span>
+                    <small>{latest ? ('Версий: ' + entries.length + ' · ' + MEMORY_CONFIDENCE_LABEL[latest.confidence] + ' · ' + formatDate(latest.created_at)) : 'Ожидает записи'}</small>
+                    {stage.value === 'next_check' && meta?.dueDate && <small>Плановая дата: {meta.dueDate}</small>}
+                  </span>
+                </button>;
+              })}
+            </div>
+            <div className="executive-chain__editor">
+              <div className="executive-chain__editor-heading">
+                <div><span>Этап {EXECUTIVE_CHAIN_STAGES.findIndex(item => item.value === selectedStage) + 2} из 5</span><h3>{EXECUTIVE_CHAIN_STAGES.find(item => item.value === selectedStage)?.label}</h3></div>
+                <small>{currentStageEntry ? 'Новая запись создаст следующую версию' : 'Первичная фиксация'}</small>
+              </div>
+              <p>{EXECUTIVE_CHAIN_STAGES.find(item => item.value === selectedStage)?.question}</p>
+              <textarea value={stageText} onChange={event => setStageText(event.target.value)} rows={3} maxLength={6000} placeholder="Запиши результат конкретно. Если данных пока нет — не придумывай, вернись к этапу позже." />
+              {selectedStage === 'next_check' && <label className="executive-chain__date"><span>Дата следующей проверки (план, без автоматического уведомления)</span><input type="date" value={nextCheckDate} onChange={event => setNextCheckDate(event.target.value)} /></label>}
+              <div className="executive-chain__editor-actions">
+                <span>{stageText.trim().length} / 6000</span>
+                <button type="button" className="primary-button" onClick={() => void saveChainStep()} disabled={!stageText.trim() || savingChain}>
+                  {savingChain ? <Loader2 size={15} className="memory-export-spinner" aria-hidden="true" /> : null}
+                  {savingChain ? 'Сохраняю…' : currentStageEntry ? 'Сохранить новую версию' : 'Сохранить этап'}
+                </button>
+              </div>
+            </div>
+          </> : <div className="executive-chain__empty">{chainMemories.length ? 'Выбери сохранённое решение, чтобы начать фиксировать действия и результаты.' : 'Сохранённые решения появятся здесь после загрузки памяти.'}</div>}
         </section>
 
         {(memories.length > 0 || Boolean(kind || confidence || restaurantId || since)) && <section className="memory-filters" aria-label="Фильтры памяти">
