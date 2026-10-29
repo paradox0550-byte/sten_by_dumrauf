@@ -10055,3 +10055,124 @@ html[data-reduce-motion='true'] .sten-loading-track > span { animation: none; wi
 @media (max-width: 767px) {
   .settings-quick-jump button { min-height: 38px; padding: 6px 7px; font-size: 11px; }
 }
+
+
+/* STEN · Executive memory overview */
+.executive-memory-overview {
+  display: grid;
+  gap: 14px;
+  margin: 4px 0 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 16px);
+  background: var(--surface);
+}
+.executive-memory-overview__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.executive-memory-overview__heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 650;
+}
+.executive-memory-overview__heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.executive-memory-overview__heading > span {
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.executive-memory-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+.executive-memory-shortcuts button {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  min-height: 76px;
+  padding: 12px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+.executive-memory-shortcuts button:hover,
+.executive-memory-shortcuts button.active {
+  border-color: var(--accent, #126B67);
+  background: var(--surface2);
+}
+.executive-memory-shortcuts strong {
+  font-size: 21px;
+  font-weight: 650;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.executive-memory-shortcuts span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.executive-memory-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface2);
+  color: var(--muted);
+}
+.executive-memory-search:focus-within {
+  border-color: var(--accent, #126B67);
+}
+.executive-memory-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.executive-memory-search button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+@media (max-width: 1050px) {
+  .executive-memory-shortcuts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .executive-memory-overview { padding: 14px; gap: 12px; }
+  .executive-memory-shortcuts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .executive-memory-shortcuts button { min-height: 66px; padding: 10px; }
+  .executive-memory-overview__heading { align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .executive-memory-shortcuts button { transition: none; }
+}
