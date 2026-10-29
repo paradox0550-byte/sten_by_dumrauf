@@ -161,14 +161,14 @@ export default function Memory() {
               })),
         api.get<unknown>('/api/b2b/context'),
         Promise.all((['confirmed', 'unconfirmed', 'rejected'] as const).map(value =>
-          listMemory({ ...(restaurantId ? { restaurant_id: restaurantId } : {}), confidence: value, limit: 200 }),
+          listMemory({ ...(restaurantId ? { restaurant_id: restaurantId } : {}), confidence: value, limit: 200 }).catch(() => null),
         )),
       ]);
       setMemories(memoryResponse.memories ?? []);
-      setChainMemories(chainResponses.flatMap(result => result.memories ?? []).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)));
+      setChainMemories(chainResponses.flatMap(result => result?.memories ?? []).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)));
       setRestaurants(extractRestaurants(contextResponse));
       setOrganizationName(extractOrganizationName(contextResponse));
-      setToast(null);
+      setToast(chainResponses.some(result => result === null) ? 'Часть истории решений не загрузилась. Обнови страницу.' : null);
     } catch {
       setToast('Не удалось. Повторить');
     } finally {
@@ -384,7 +384,7 @@ export default function Memory() {
                 <small>{currentStageEntry ? 'Новая запись создаст следующую версию' : 'Первичная фиксация'}</small>
               </div>
               <p>{EXECUTIVE_CHAIN_STAGES.find(item => item.value === selectedStage)?.question}</p>
-              <textarea value={stageText} onChange={event => setStageText(event.target.value)} rows={3} maxLength={6000} placeholder="Запиши результат конкретно. Если данных пока нет — не придумывай, вернись к этапу позже." />
+              <textarea aria-label={'Содержание этапа: ' + (EXECUTIVE_CHAIN_STAGES.find(item => item.value === selectedStage)?.label ?? '')} value={stageText} onChange={event => setStageText(event.target.value)} rows={3} maxLength={6000} placeholder="Запиши результат конкретно. Если данных пока нет — не придумывай, вернись к этапу позже." />
               {selectedStage === 'next_check' && <label className="executive-chain__date"><span>Дата следующей проверки (план, без автоматического уведомления)</span><input type="date" value={nextCheckDate} onChange={event => setNextCheckDate(event.target.value)} /></label>}
               <div className="executive-chain__editor-actions">
                 <span>{stageText.trim().length} / 6000</span>
