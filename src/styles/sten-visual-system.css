@@ -111,7 +111,7 @@ table tbody tr:hover td { background: var(--bg-surface-subtle); }
   color: var(--text-secondary) !important;
 }
 .sten-ai-page .chat-body .message-actions button:hover {
-  color: var(--color-brand-strong) !important;
+  color: var(--text-primary) !important;
   background: var(--bg-surface-subtle) !important;
   border-color: var(--border-default) !important;
 }
