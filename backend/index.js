@@ -14,6 +14,7 @@ const documentProcessor = require('./documentProcessor');
 const { convertWithMarkItDown } = require('./markitdownClient');
 const { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { buildSkillPrompt } = require('./core/skills');
+const { resolveAgent, toolsForAgent, agentAllowsTool } = require('./core/agents');
 const { TOOLS, executeTool } = require('./core/tools');
 const { createMemory, listMemory, updateMemoryConfidence, deleteMemory, loadMemoryContext } = require('./core/memory');
 const { loadConversationContext, startConversationTurn, finishConversationTurn, failConversationTurn } = require('./core/conversationMemory');
@@ -923,7 +924,7 @@ throw httpError(502, 'Связь с YandexGPT недоступна', 'AI_UNREACH
 } finally { clearTimeout(timer); }
 }
 
-async function callYandexGPTWithTools(messages) {
+async function callYandexGPTWithTools(messages, agent = null) {
 const uri = modelUri();
 if (!uri || !ENV.YANDEXGPT_API_KEY) throw httpError(503, 'YandexGPT не сконфигурирован (YANDEXGPT_API_KEY / YC_FOLDER_ID / YANDEXGPT_MODEL)', 'AI_UNAVAILABLE');
 const controller = new AbortController();
@@ -937,7 +938,7 @@ body: JSON.stringify({
 modelUri: uri,
 completionOptions: { stream: true, temperature: ENV.YANDEXGPT_TEMPERATURE, maxTokens: String(ENV.YANDEXGPT_MAX_TOKENS) },
 messages,
-tools: TOOLS.map(tool => ({ function: { name: tool.name, description: tool.description, parameters: tool.parameters } })),
+tools: toolsForAgent(TOOLS, agent).map(tool => ({ function: { name: tool.name, description: tool.description, parameters: tool.parameters } })),
 }),
 });
 if (!res.ok) {
@@ -2507,6 +2508,13 @@ const SYSTEM_PROMPT = [
 
 const SOFT_TOOL_ERRORS = new Set(['FOT_SCOPE_NOT_IMPLEMENTED']);
 
+async function executeAgentTool(user, name, args, ctx, agent) {
+  if (!agentAllowsTool(agent, name)) {
+    throw httpError(403, `Агент «${agent.name}» не имеет доступа к инструменту ${name}.`, 'AGENT_TOOL_FORBIDDEN');
+  }
+  return executeTool(user, name, args, ctx);
+}
+
 /** Признак «аналитического» вопроса, где нужен find_deviations. */
 function isDeviationQuestion(text) {
 const t = String(text || '').toLowerCase();
@@ -2539,6 +2547,10 @@ try {
 const body = parseOr400(AskSchema, req.body ?? {});
 const question = String(body.question || body.prompt || '').trim();
 if (!question && !Array.isArray(body.messages)) throw httpError(400, 'Пустой вопрос', 'EMPTY_QUESTION');
+const previousUserQuestion = Array.isArray(body.messages)
+  ? [...body.messages].reverse().find(message => message.role === 'user' && String(message.content || '').trim() && String(message.content || '').trim() !== question)?.content || ''
+  : '';
+const agent = resolveAgent(question, previousUserQuestion);
 const ctx = intelligenceContext();
 const selectedContext = await resolveWorkspaceContext(req.user, body.scope || {}, false);
 // Память
@@ -2601,6 +2613,7 @@ if (priorHistory.text) {
   });
 }
 messages.push({ role: 'system', text: buildSkillPrompt(question, skillConfig) });
+if (agent.systemPrompt) messages.push({ role: 'system', text: agent.systemPrompt });
 // Документы
 const docsStart = Date.now();
 let docsIncluded = 0;
@@ -2650,10 +2663,10 @@ if (!_last || _last.role !== 'user' || _last.text !== question) messages.push({ 
 // Force-tool: детерминированный вызов find_deviations по «аналитическому» вопросу
 const toolsUsed = [];
 let completion = null;
-if (isDeviationQuestion(question) && req.user.organizationId) {
+if ((agent.id === 'finance_diagnostics' || isDeviationQuestion(question)) && req.user.organizationId) {
 const rawScope = body.scope || {};
 const toolArgs = {
-period: String(rawScope.period || ''),
+period: YM_RE.test(String(rawScope.period || '')) ? String(rawScope.period) : new Date().toISOString().slice(0, 7),
 project_id: String(rawScope.project_id || ''),
 branch_id: String(rawScope.branch_id || ''),
 restaurant_id: String(rawScope.restaurant_id || ''),
@@ -2662,7 +2675,7 @@ department_id: String(rawScope.department_id || ''),
 const started = Date.now();
 let result;
 try {
-result = await executeTool(req.user, 'find_deviations', toolArgs, ctx);
+result = await executeAgentTool(req.user, 'find_deviations', toolArgs, ctx, agent);
 } catch (e) {
 if (e && SOFT_TOOL_ERRORS.has(e.code)) result = { ok: true, detail: e.code, message: e.message };
 else throw e;
@@ -2676,7 +2689,7 @@ role: 'system',
 text: 'ДЕТЕРМИНИРОВАННЫЙ СПИСОК ОТКЛОНЕНИЙ (find_deviations, реальные данные БД):\n' + JSON.stringify(result).slice(0, 20000),
 });
 const llmAnswerStart = Date.now();
-completion = await callYandexGPTWithTools(messages);
+completion = await callYandexGPTWithTools(messages, agent);
 trackStep('llm', { name: 'answer', ms: Date.now() - llmAnswerStart });
 // Один дополнительный раунд tools (чтобы модель могла доуточнить P&L/память)
 let iter = 0;
@@ -2696,7 +2709,7 @@ try { args = JSON.parse(args); } catch { throw httpError(400, `Некоррек�
 }
 const started2 = Date.now();
 let result2;
-try { result2 = await executeTool(req.user, name, args, ctx); }
+try { result2 = await executeAgentTool(req.user, name, args, ctx, agent); }
 catch (e) {
 if (e && SOFT_TOOL_ERRORS.has(e.code)) result2 = { ok: true, detail: e.code, message: e.message };
 else throw e;
@@ -2709,7 +2722,7 @@ toolResults.push({ functionResult: { name, content: JSON.stringify(result2) } })
 }
 messages.push({ role: 'tool', toolResultList: { toolResults } });
 const llmStart = Date.now();
-completion = await callYandexGPTWithTools(messages);
+completion = await callYandexGPTWithTools(messages, agent);
 trackStep('llm', { name: 'answer', ms: Date.now() - llmStart });
 iter++;
 }
@@ -2719,7 +2732,7 @@ throw httpError(409, `STEN достиг лимита ${ENV.TOOL_MAX_ITERATIONS} 
 } else {
 // Обычный tool-calling цикл
 const llmPlanStart = Date.now();
-completion = await callYandexGPTWithTools(messages);
+completion = await callYandexGPTWithTools(messages, agent);
 trackStep('llm', { name: 'plan', ms: Date.now() - llmPlanStart });
 let iter = 0;
 while (completion.toolCalls.length && iter < ENV.TOOL_MAX_ITERATIONS) {
@@ -2738,7 +2751,7 @@ try { args = JSON.parse(args); } catch { throw httpError(400, `Некоррек�
 }
 const started = Date.now();
 let result;
-try { result = await executeTool(req.user, name, args, ctx); }
+try { result = await executeAgentTool(req.user, name, args, ctx, agent); }
 catch (e) {
 if (e && SOFT_TOOL_ERRORS.has(e.code)) result = { ok: true, detail: e.code, message: e.message };
 else throw e;
@@ -2751,7 +2764,7 @@ toolResults.push({ functionResult: { name, content: JSON.stringify(result) } });
 }
 messages.push({ role: 'tool', toolResultList: { toolResults } });
 const llmStart = Date.now();
-completion = await callYandexGPTWithTools(messages);
+completion = await callYandexGPTWithTools(messages, agent);
 trackStep('llm', { name: 'answer', ms: Date.now() - llmStart });
 iter++;
 }
@@ -2779,6 +2792,7 @@ total_ms,
 ok(res, {
 answer: parsedAnswer.answer,
 model: ENV.YANDEXGPT_MODEL,
+agent: { id: agent.id, name: agent.name },
 sources: body.sources ?? [],
 tools_used: toolsUsed,
 proposed_memory: parsedAnswer.proposed_memory,

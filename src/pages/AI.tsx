@@ -21,7 +21,7 @@ import '../features/chat-appearance/themes.css';
 import '../features/chat-appearance/avatars.css';
 import '../styles/chat.css';
 
-type Msg={id:string;role:'user'|'assistant';text:string;sources?:AskSource[];createdAt?:string;proposedMemory?:ProposedMemory[]|null;steps?:AskStep[];totalMs?:number;model?:string;toolsUsed?:Array<{name:string;ok?:boolean;ms?:number}>|null};
+type Msg={id:string;role:'user'|'assistant';text:string;sources?:AskSource[];createdAt?:string;proposedMemory?:ProposedMemory[]|null;steps?:AskStep[];totalMs?:number;model?:string;agent?:{id:string;name:string};toolsUsed?:Array<{name:string;ok?:boolean;ms?:number}>|null};
 type Doc={id:string;name:string;size:number;status:string;chars?:number};
 type DocPreview={id:string;name:string;preview:string;chars:number;truncated:boolean;readOnly:true};
 type MeetingDraft={title:string;date:string;time:string;location:string;description:string;awaitingConfirmation:boolean};
@@ -273,7 +273,7 @@ function AIContent({user}:{user:User|null}){
      if(requestId!==askSeqRef.current)return;
      const p = r;
      const answer=String(p.answer??p.message??'Ответ не получен.');
-     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:answer,sources:Array.isArray(p.sources)?p.sources:[],steps:Array.isArray(p.steps)?p.steps:undefined,totalMs:typeof p.total_ms==='number'?p.total_ms:undefined,proposedMemory:Array.isArray(p.proposed_memory)?p.proposed_memory:p.proposed_memory===null?null:undefined,model:typeof p.model==='string'?p.model:undefined,toolsUsed:Array.isArray(p.tools_used)?p.tools_used.map(t=>({name:t.name,ok:t.ok,ms:t.ms})):p.tools_used===null?null:undefined,createdAt:new Date().toISOString()}]);
+     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:answer,sources:Array.isArray(p.sources)?p.sources:[],steps:Array.isArray(p.steps)?p.steps:undefined,totalMs:typeof p.total_ms==='number'?p.total_ms:undefined,proposedMemory:Array.isArray(p.proposed_memory)?p.proposed_memory:p.proposed_memory===null?null:undefined,model:typeof p.model==='string'?p.model:undefined,toolsUsed:Array.isArray(p.tools_used)?p.tools_used.map(t=>({name:t.name,ok:t.ok,ms:t.ms})):p.tools_used===null?null:undefined,agent:p.agent&&typeof p.agent.id==='string'&&typeof p.agent.name==='string'?{id:p.agent.id,name:p.agent.name}:undefined,createdAt:new Date().toISOString()}]);
      if(voiceModeRef.current||voiceAutoplayRef.current)speakAnswer(answer);
    }catch(e){
      if(requestId!==askSeqRef.current)return;
@@ -501,6 +501,7 @@ function AIContent({user}:{user:User|null}){
              sources:messages[i-1].sources,
            }:undefined;
            return <Fragment key={m.id}>
+             {m.role === 'assistant' && m.agent && m.agent.id !== 'sten' && <div className="sten-ai-agent-label" aria-label={`Ответ подготовил агент ${m.agent.name}`}>{m.agent.name}</div>}
              <MessageRow
                key={m.id}
                message={message}
