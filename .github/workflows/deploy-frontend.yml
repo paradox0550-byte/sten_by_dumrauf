@@ -174,22 +174,23 @@ jobs:
               exit 1
             fi
           done <<< "$assets"
-          # Verify every emitted font is reachable at the same URL used by CSS.
+          # Verify bundled font assets when present. IBM Plex is currently loaded
+          # from the stylesheet declared in app CSS, so an empty local font list is valid.
           shopt -s nullglob
           fonts=(dist/assets/*.woff2 dist/assets/*.woff dist/assets/*.ttf)
           if [ ${#fonts[@]} -eq 0 ]; then
-            echo "❌ No font assets available for production smoke test"
-            exit 1
+            echo "ℹ️ No bundled font assets; using the stylesheet-hosted IBM Plex font with system fallbacks."
+          else
+            for f in "${fonts[@]}"; do
+              asset="assets/$(basename "$f")"
+              asset_code=$(curl --retry 5 --retry-all-errors --connect-timeout 10 --max-time 30 -sS -o /dev/null -w "%{http_code}" "$URL$asset")
+              echo "$asset: $asset_code"
+              if [ "$asset_code" != "200" ]; then
+                echo "❌ Font asset failed: $asset"
+                exit 1
+              fi
+            done
           fi
-          for f in "${fonts[@]}"; do
-            asset="assets/$(basename "$f")"
-            asset_code=$(curl --retry 5 --retry-all-errors --connect-timeout 10 --max-time 30 -sS -o /dev/null -w "%{http_code}" "$URL$asset")
-            echo "$asset: $asset_code"
-            if [ "$asset_code" != "200" ]; then
-              echo "❌ Font asset failed: $asset"
-              exit 1
-            fi
-          done
           # Keep explicit checks for stable brand and navigation assets.
           for asset in favicon.svg icon-192.svg icon-512.svg icons/favicon.svg icons/ic_overview.svg icons/ic_pnl.svg icons/ic_report.svg icons/ic_settings.svg icons/ic_staff.svg icons/ic_terms.svg brand/sten-mark.svg brand/sten-lockup.svg; do
             asset_code=$(curl -sS -o /dev/null -w "%{http_code}" "$URL$asset")
