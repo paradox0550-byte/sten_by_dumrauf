@@ -3,8 +3,6 @@ body {
   background: var(--bg-base);
   color: var(--text-primary);
   letter-spacing: -.008em;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
 }
 .shell, .executive-shell, .main { background: var(--bg-base); }
 .sidebar {
