@@ -2,6 +2,7 @@
 .login-screen {
   box-sizing: border-box;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   min-height: 100dvh;
   padding: max(28px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
