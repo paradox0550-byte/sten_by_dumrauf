@@ -112,6 +112,7 @@ export default function Memory() {
   };
 
   useEffect(() => { void load(); }, [kind, confidence, restaurantId, since, limit]);
+  useEffect(() => { setQuickKind(''); setQuickConfidence(''); }, [kind, confidence, restaurantId, since, limit]);
 
   const update = async (id: string, next: 'confirmed' | 'rejected') => {
     try {
@@ -209,7 +210,7 @@ export default function Memory() {
             <span>{loading ? 'Обновление…' : `${memories.length} ${memories.length === 1 ? 'запись' : memories.length > 1 && memories.length < 5 ? 'записи' : 'записей'}`}</span>
           </div>
           <div className="executive-memory-shortcuts">
-            <button type="button" className={quickKind === '' && quickConfidence === '' ? 'active' : ''} onClick={() => { setQuickKind(''); setQuickConfidence(''); setSearchText(''); }}><strong>{memories.length}</strong><span>Вся история</span></button>
+            <button type="button" className={quickKind === '' && quickConfidence === '' ? 'active' : ''} onClick={() => { setQuickKind(''); setQuickConfidence(''); setSearchText(''); }}><strong>{memories.length}</strong><span>Вся выборка</span></button>
             <button type="button" className={quickKind === 'decision' ? 'active' : ''} onClick={() => { setQuickKind('decision'); setQuickConfidence(''); }}><strong>{memories.filter(item => item.kind === 'decision').length}</strong><span>Решения</span></button>
             <button type="button" className={quickKind === 'cause' ? 'active' : ''} onClick={() => { setQuickKind('cause'); setQuickConfidence(''); }}><strong>{memories.filter(item => item.kind === 'cause').length}</strong><span>Причины проблем</span></button>
             <button type="button" className={quickKind === 'action' ? 'active' : ''} onClick={() => { setQuickKind('action'); setQuickConfidence(''); }}><strong>{memories.filter(item => item.kind === 'action').length}</strong><span>Действия</span></button>
