@@ -184,7 +184,7 @@ try {
             hash: window.location.hash,
             readyState: document.readyState,
             contentPresent: Boolean(document.querySelector('.content')),
-            bodyText: (document.body.innerText || '').slice(0, 240).replace(/\\s+/g, ' '),
+            bodyText: (document.body.innerText || '').slice(0, 240),
           })).catch(() => null);
           const browserErrors = pageErrors.length ? `; browser errors: ${pageErrors.join(' | ')}` : '';
           failures.push(`${theme}/${viewport.width}/${name}: ${error instanceof Error ? error.message : String(error)}; diagnostics=${JSON.stringify(diagnostics)}${browserErrors}`);
