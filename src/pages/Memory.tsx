@@ -199,7 +199,7 @@ export default function Memory() {
     }
     const previousEntry = latestChainEntry(selectedStageEntries);
     try {
-      await createMemory({
+      const created = await createMemory({
         scope: {
           project_id: selectedDecision.project_id || null,
           branch_id: selectedDecision.branch_id || null,
@@ -221,8 +221,17 @@ export default function Memory() {
           },
         },
       });
+      setChainMemories(current => [created, ...current.filter(item => item.id !== created.id)].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)));
+      setMemories(current => {
+        const matchesFilters = (!kind || created.kind === kind)
+          && (!confidence || created.confidence === confidence)
+          && (!restaurantId || created.restaurant_id === restaurantId)
+          && (!since || created.created_at.slice(0, 10) >= since);
+        return matchesFilters
+          ? [created, ...current.filter(item => item.id !== created.id)].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).slice(0, limit)
+          : current;
+      });
       setToast('Этап цепочки сохранён');
-      await load();
     } catch {
       setToast('Не удалось сохранить этап. Проверь соединение и повтори');
     } finally {
