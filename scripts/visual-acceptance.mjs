@@ -150,7 +150,9 @@ try {
             fatal: Boolean(document.querySelector('.sten-fatal')),
             hasScreen: window.location.hash === '#/legal'
               ? Boolean(document.querySelector('.legal-hub'))
-              : Boolean(document.querySelector('.content > :not(.sten-inline-guide):not(.legal-footer)')),
+              : window.location.hash === '#/admin/organizations'
+                ? Boolean(document.querySelector('.admin-organizations-page'))
+                : Boolean(document.querySelector('.content > :not(.sten-inline-guide):not(.legal-footer)')),
             hash: window.location.hash,
             guideExists: Boolean(document.querySelector('.sten-inline-guide')),
             guideBeforePage: (() => {
