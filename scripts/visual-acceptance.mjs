@@ -286,6 +286,75 @@ try {
     }
   }
 
+  // Accessibility/responsive smoke at enlarged text sizes. This is a separate pass so
+  // screenshots remain comparable at the default 100% scale.
+  let accessibilityStates = 0;
+  for (const theme of themes) {
+    for (const viewport of viewports) {
+      for (const fontScale of ['110', '120']) {
+        const context = await browser.newContext({
+          viewport,
+          deviceScaleFactor: 1,
+          colorScheme: theme,
+          reducedMotion: 'reduce',
+          serviceWorkers: 'block',
+        });
+        await context.addInitScript(({ initialTheme, scale }) => {
+          localStorage.setItem('token', 'visual-acceptance-test-token');
+          localStorage.setItem('sten_user', JSON.stringify({
+            id: 'visual-qa-user',
+            email: 'visual@qa.local',
+            firstName: 'Visual',
+            lastName: 'QA',
+            role: 'super_admin',
+            organizationId: 'visual-qa-org',
+          }));
+          localStorage.setItem('sten_scope_v5', JSON.stringify({ organizationId: 'visual-qa-org' }));
+          localStorage.setItem('sten_theme_v5', initialTheme);
+          localStorage.setItem('sten_font_size_v1', scale);
+          localStorage.setItem('sten_reduce_motion_v1', 'true');
+          localStorage.setItem('sten_interface_mode_v1', window.innerWidth <= 767 ? 'mobile' : 'desktop');
+        }, { initialTheme: theme, scale: fontScale });
+        const page = await context.newPage();
+        const pageErrors = [];
+        page.on('pageerror', error => pageErrors.push(error.message));
+        await page.route('**/*', mockApi);
+        try {
+          await page.goto(`${baseUrl}/#/dashboard`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+          await page.waitForFunction(() => Boolean(document.querySelector('.content > :not(.sten-inline-guide):not(.legal-footer)')), { timeout: 5000 });
+          await page.keyboard.press('Tab');
+          const state = await page.evaluate(() => {
+            const active = document.activeElement;
+            const style = active ? getComputedStyle(active) : null;
+            return {
+              scale: document.documentElement.dataset.fontScale,
+              width: window.innerWidth,
+              documentWidth: document.documentElement.scrollWidth,
+              bodyWidth: document.body.scrollWidth,
+              contentWidth: document.querySelector('.content')?.scrollWidth ?? 0,
+              contentClientWidth: document.querySelector('.content')?.clientWidth ?? 0,
+              reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+              focusVisible: Boolean(active && active.matches(':focus-visible')
+                && style && style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) >= 1),
+            };
+          });
+          if (state.scale !== fontScale) failures.push(${theme}/${viewport.width}/font-${fontScale}: scale was not applied (actual ${state.scale}).);
+          if (state.documentWidth > state.width + 1 || state.bodyWidth > state.width + 1 || state.contentWidth > state.contentClientWidth + 1) {
+            failures.push(${theme}/${viewport.width}/font-${fontScale}: horizontal overflow document=${state.documentWidth}, body=${state.bodyWidth}, content=${state.contentWidth}/${state.contentClientWidth}.);
+          }
+          if (!state.reducedMotion) failures.push(${theme}/${viewport.width}/font-${fontScale}: reduced-motion preference was not respected.);
+          if (!state.focusVisible) failures.push(${theme}/${viewport.width}/font-${fontScale}: keyboard focus ring was not visible after Tab.);
+          if (pageErrors.length) failures.push(${theme}/${viewport.width}/font-${fontScale}: uncaught browser error: ${pageErrors.join(' | ')}.);
+          accessibilityStates += 1;
+        } catch (error) {
+          failures.push(${theme}/${viewport.width}/font-${fontScale}: ${error instanceof Error ? error.message : String(error)}.);
+        } finally {
+          await context.close();
+        }
+      }
+    }
+  }
+  console.log(`Accessibility smoke checked enlarged text 110%/120%, keyboard focus, and reduced motion across ${accessibilityStates} viewport/theme states.`);
   console.log(`Visual smoke checked ${routes.length} protected routes plus login × ${viewports.length} viewports × ${themes.length} themes = ${(routes.length + 1) * viewports.length * themes.length} screen states.`);
   console.log('Fixture: authenticated test-only user; all business endpoints return empty/error states, never fake financial values.');
   console.log(`Screenshots: ${outputDir}/`);
