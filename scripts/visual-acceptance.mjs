@@ -338,16 +338,16 @@ try {
                 && style && style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) >= 1),
             };
           });
-          if (state.scale !== fontScale) failures.push(${theme}/${viewport.width}/font-${fontScale}: scale was not applied (actual ${state.scale}).);
+          if (state.scale !== fontScale) failures.push(`${theme}/${viewport.width}/font-${fontScale}: scale was not applied (actual ${state.scale}).`);
           if (state.documentWidth > state.width + 1 || state.bodyWidth > state.width + 1 || state.contentWidth > state.contentClientWidth + 1) {
-            failures.push(${theme}/${viewport.width}/font-${fontScale}: horizontal overflow document=${state.documentWidth}, body=${state.bodyWidth}, content=${state.contentWidth}/${state.contentClientWidth}.);
+            failures.push(`${theme}/${viewport.width}/font-${fontScale}: horizontal overflow document=${state.documentWidth}, body=${state.bodyWidth}, content=${state.contentWidth}/${state.contentClientWidth}.`);
           }
-          if (!state.reducedMotion) failures.push(${theme}/${viewport.width}/font-${fontScale}: reduced-motion preference was not respected.);
-          if (!state.focusVisible) failures.push(${theme}/${viewport.width}/font-${fontScale}: keyboard focus ring was not visible after Tab.);
-          if (pageErrors.length) failures.push(${theme}/${viewport.width}/font-${fontScale}: uncaught browser error: ${pageErrors.join(' | ')}.);
+          if (!state.reducedMotion) failures.push(`${theme}/${viewport.width}/font-${fontScale}: reduced-motion preference was not respected.`);
+          if (!state.focusVisible) failures.push(`${theme}/${viewport.width}/font-${fontScale}: keyboard focus ring was not visible after Tab.`);
+          if (pageErrors.length) failures.push(`${theme}/${viewport.width}/font-${fontScale}: uncaught browser error: ${pageErrors.join(' | ')}.`);
           accessibilityStates += 1;
         } catch (error) {
-          failures.push(${theme}/${viewport.width}/font-${fontScale}: ${error instanceof Error ? error.message : String(error)}.);
+          failures.push(`${theme}/${viewport.width}/font-${fontScale}: ${error instanceof Error ? error.message : String(error)}.`);
         } finally {
           await context.close();
         }
