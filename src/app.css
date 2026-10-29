@@ -9760,7 +9760,7 @@ body { font-family: var(--font-ui); font-size: 14px; line-height: 1.5; -webkit-f
   min-height: var(--sten-control-height); border-radius: var(--radius-sm); font-weight: 600;
   transition: background-color var(--sten-motion) var(--sten-ease), border-color var(--sten-motion) var(--sten-ease), color var(--sten-motion) var(--sten-ease), transform var(--sten-motion-fast) var(--sten-ease);
 }
-.primary-button { background: var(--color-brand); border-color: var(--color-brand); color: var(--text-on-accent, #fff); box-shadow: none; }
+.primary-button { background: var(--color-brand); border-color: var(--color-brand); color: var(--text-on-accent, #F7FAF7); box-shadow: none; }
 .primary-button:hover:not(:disabled) { background: var(--color-brand-hover); border-color: var(--color-brand-hover); }
 .secondary-button { background: var(--bg-surface); border-color: var(--border-default); color: var(--text-primary); }
 .icon-button, .workspace-btn { background: var(--bg-surface) !important; border-color: var(--border-default) !important; color: var(--text-primary) !important; }
