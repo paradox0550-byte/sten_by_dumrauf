@@ -221,6 +221,15 @@ try {
           const dir = `${outputDir}/${theme}/${viewport.width}`;
           await mkdir(dir, { recursive: true });
           await page.screenshot({ path: `${dir}/${name}.png`, fullPage: true, animations: 'disabled' });
+          // Preserve one first-visit consent screenshot per viewport/theme, then clear the
+          // fixed notice before capturing other pages so it does not hide their controls.
+          if (name === 'dashboard') {
+            const acknowledge = page.getByRole('button', { name: 'Понятно', exact: true });
+            if (await acknowledge.isVisible().catch(() => false)) {
+              await acknowledge.click();
+              await page.locator('.cookie-banner').waitFor({ state: 'detached', timeout: 1500 });
+            }
+          }
           if (pageErrors.length) {
             failures.push(`${theme}/${viewport.width}/${name}: uncaught browser error: ${pageErrors.join(' | ')}`);
             pageErrors.length = 0;
