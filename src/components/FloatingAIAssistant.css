@@ -1,12 +1,12 @@
 .sten-floating-ai { position:fixed; right:16px; bottom:calc(88px + env(safe-area-inset-bottom)); z-index:90; }
-.sten-floating-ai__button { position:relative; display:grid; place-items:center; width:56px; height:56px; padding:0; border:1px solid color-mix(in srgb,var(--color-brand) 20%,transparent); border-radius:50%; background:var(--bg-surface); box-shadow:var(--shadow-md); transition:transform 180ms var(--sten-ease,cubic-bezier(.2,.7,.2,1)),box-shadow 180ms ease,border-color 180ms ease; overflow:visible; isolation:isolate; }
-.sten-floating-ai__button::before { content:""; position:absolute; inset:-5px; z-index:-1; border:1px solid color-mix(in srgb,var(--color-brand) 22%,transparent); border-radius:50%; opacity:0; transform:scale(.88); transition:opacity 180ms ease,transform 180ms ease; }
-.sten-floating-ai__button .sten-fab-icon { display:block; width:44px; height:44px; overflow:visible; }
-.sten-floating-ai__button:hover { transform:translateY(-2px); border-color:color-mix(in srgb,var(--color-brand) 48%,var(--border-default)); box-shadow:var(--shadow-lg); }
+.sten-floating-ai__button { position:relative; display:grid; place-items:center; width:48px; height:48px; padding:0; border:1px solid var(--border-default); border-radius:50%; background:var(--bg-surface); box-shadow:var(--shadow-sm); transition:transform 180ms var(--sten-ease,cubic-bezier(.2,.7,.2,1)),box-shadow 180ms ease,border-color 180ms ease; overflow:visible; isolation:isolate; }
+.sten-floating-ai__button::before { content:""; position:absolute; inset:-4px; z-index:-1; border:1px solid var(--border-default); border-radius:50%; opacity:0; transform:scale(.92); transition:opacity 180ms ease,transform 180ms ease; }
+.sten-floating-ai__button .sten-fab-icon { display:block; width:36px; height:36px; overflow:visible; filter:grayscale(1); }
+.sten-floating-ai__button:hover { transform:translateY(-1px); border-color:var(--border-strong); box-shadow:var(--shadow-md); }
 .sten-floating-ai__button:hover::before { opacity:1; transform:scale(1); }
 .sten-floating-ai__button:active { transform:scale(.97); }
 .sten-floating-ai__button:focus-visible { outline:2px solid var(--color-brand); outline-offset:4px; }
-.sten-floating-ai__status { position:absolute; inset:-4px; border:1.5px solid color-mix(in srgb,var(--color-brand) 30%,transparent); border-radius:50%; pointer-events:none; transition:border-color 180ms ease,box-shadow 180ms ease; }
+.sten-floating-ai__status { position:absolute; inset:-3px; border:1.5px solid var(--border-default); border-radius:50%; pointer-events:none; transition:border-color 180ms ease,box-shadow 180ms ease; }
 .sten-floating-ai__button.is-working .sten-floating-ai__status { border-color:var(--color-brand); box-shadow:0 0 0 3px color-mix(in srgb,var(--color-brand) 10%,transparent); animation:sten-ai-pulse 1.8s ease-in-out infinite; }
 .sten-floating-ai__button.is-error .sten-floating-ai__status { border-color:var(--color-warning); box-shadow:0 0 0 3px color-mix(in srgb,var(--color-warning) 12%,transparent); }
 .sten-floating-ai__menu { position:absolute; right:0; bottom:calc(100% + 12px); display:grid; gap:3px; width:190px; padding:6px; border:1px solid var(--border-subtle); border-radius:12px; background:var(--bg-elevated); box-shadow:var(--shadow-lg); animation:sten-menu-enter 160ms var(--sten-ease,cubic-bezier(.2,.7,.2,1)) both; transform-origin:bottom right; }
@@ -15,7 +15,13 @@
 .sten-floating-ai__menu .sten-floating-ai__close { color:var(--text-muted); }
 @keyframes sten-ai-pulse { 0%,100% { transform:scale(1); opacity:.8; } 50% { transform:scale(1.055); opacity:1; } }
 @keyframes sten-menu-enter { from { opacity:0; transform:translateY(5px) scale(.985); } to { opacity:1; transform:translateY(0) scale(1); } }
-@media (min-width:900px) { .sten-floating-ai { right:24px; bottom:24px; } .sten-floating-ai__button { width:60px; height:60px; } .sten-floating-ai__button .sten-fab-icon { width:46px; height:46px; } }
+@media (min-width:900px) { .sten-floating-ai { right:24px; bottom:24px; } .sten-floating-ai__button { width:48px; height:48px; } .sten-floating-ai__button .sten-fab-icon { width:36px; height:36px; } }
 @media (max-width:420px) { .sten-floating-ai { right:12px; } }
 @media (prefers-reduced-motion:reduce) { .sten-floating-ai__button,.sten-floating-ai__button::before,.sten-floating-ai__status,.sten-floating-ai__menu { animation:none!important; transition:none!important; } }
 html[data-reduce-motion='true'] .sten-floating-ai__button,html[data-reduce-motion='true'] .sten-floating-ai__button::before,html[data-reduce-motion='true'] .sten-floating-ai__status,html[data-reduce-motion='true'] .sten-floating-ai__menu { animation:none!important; transition:none!important; }
+
+/* The floating mark is a labelled shortcut, not a decorative badge. */
+.sten-floating-ai__button[title] { cursor: pointer; }
+.sten-floating-ai__button:hover::before,
+.sten-floating-ai__button:focus-visible::before { opacity: 1; transform: scale(1); }
+.sten-floating-ai__button:focus-visible { outline: 2px solid color-mix(in srgb,var(--color-brand) 78%,var(--bg-surface)); outline-offset: 3px; }
