@@ -59,7 +59,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem(SIDEBAR_KEY);
     if (saved !== null) return saved === '1';
-    return window.matchMedia('(min-width: 768px) and (max-width: 1279px)').matches;
+    return false;
   });
   const { user, signOut } = useAuth();
   const [scope, setScope] = useScope();
@@ -248,7 +248,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="sidebar-profile">
             <div className="avatar">{name.slice(0, 1)}</div>
             <div className="sidebar-profile-copy"><b>{name}</b></div>
-            <button className="sidebar-logout" type="button" onClick={() => { signOut(); navigate('/unlock', { replace: true }); }} aria-label="Выйти из аккаунта" title="Выйти">
+            <button className="sidebar-logout" type="button" onClick={() => { signOut(); navigate('/unlock', { replace: true }); }} aria-label="Выйти из аккаунта" title="Выйти из аккаунта">
               <LogOut size={16} />
             </button>
           </div>
@@ -262,7 +262,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <button className="icon-button mobile-menu" onClick={() => setMobileMenu(v => !v)} aria-label="Меню">
             {mobileMenu ? <X size={18} /> : <Menu size={18} />}
           </button>
-          <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(v => !v)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed ? 'Развернуть навигацию' : 'Свернуть навигацию'} title={sidebarCollapsed ? 'Развернуть навигацию' : 'Свернуть навигацию'}>
+          <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(v => !v)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed ? 'Развернуть навигацию' : 'Свернуть навигацию'}>
             {sidebarCollapsed ? <PanelLeft size={17} /> : <PanelLeftClose size={17} />}
           </button>
 
@@ -283,7 +283,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
           <div className="top-actions">
             <InterfaceModeControl />
-            <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark')} aria-label={theme === 'dark' ? 'Тема: тёмная. Переключить на светлую' : theme === 'light' ? 'Тема: светлая. Переключить на системную' : 'Тема: системная. Переключить на тёмную'} title={theme === 'dark' ? 'Тёмная тема' : theme === 'light' ? 'Светлая тема' : 'Системная тема'}>
+            <button className="icon-button" onClick={() => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark')} aria-label={theme === 'dark' ? 'Тема: тёмная. Переключить тему.' : theme === 'light' ? 'Тема: светлая. Переключить тему.' : 'Тема: системная. Переключить тему.'}>
               {theme === 'dark' ? <Sun size={17} /> : theme === 'light' ? <Moon size={17} /> : <Monitor size={17} />}
             </button>
           </div>
@@ -306,7 +306,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <nav className="mobile-bottom-nav" aria-label="Основная навигация">
         {mobileItems.map(([to, label, Icon]) => (
-          <NavLink key={to} to={to} end={to === '/dashboard'} className={({ isActive }) => isActive || (to === '/pnl' && matchesPath(financePaths)) || (to === '/ops' && matchesPath(operationsPaths)) ? 'active' : ''} onClick={(event) => {
+          <NavLink key={to} to={to} end={to === '/dashboard'} className={({ isActive }) => isActive || (to === '/pnl' && matchesPath(financePaths)) || (to === '/ops' && matchesPath(operationsPaths)) ? 'active' : ''} onClick={() => setMobileMenu(false)} onAuxClick={(event) => {
             if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
             event.preventDefault();
             viewNavigate(navigate, to);
