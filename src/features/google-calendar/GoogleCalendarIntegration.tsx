@@ -254,8 +254,8 @@ export default function GoogleCalendarIntegration() {
         </div>
       </div>
       {connectedEmail && <p className="muted" style={{ margin: '12px 0 0' }}><CheckCircle2 size={14} style={{ display: 'inline', verticalAlign: 'text-bottom' }} /> {connectedEmail}{lastSync ? ` · Последняя синхронизация: ${lastSync}` : ''}</p>}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
-        <button className="primary-button" type="button" disabled={busy || !settingsLoaded} onClick={() => void sync()}>
+      <div className="settings-integration-actions">
+        <button className="secondary-button settings-integration-action" type="button" disabled={busy || !settingsLoaded} onClick={() => void sync()}>
           {busy ? <LoaderCircle size={16} className="spin" aria-hidden="true" /> : token ? <RefreshCw size={16} aria-hidden="true" /> : <Link2 size={16} aria-hidden="true" />}
           {busy ? 'Синхронизируем…' : token ? 'Синхронизировать сейчас' : 'Подключить и синхронизировать'}
         </button>
