@@ -1,4 +1,3 @@
-import '@fontsource-variable/inter';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -30,7 +29,7 @@ function applyTheme(mode: string | null = readStorage(THEME_KEY)) {
   const resolved = resolveTheme(mode);
   document.documentElement.dataset.theme = resolved;
   document.documentElement.style.colorScheme = resolved;
-  const themeColor = resolved === 'dark' ? '#0C1216' : '#F5F3ED';
+  const themeColor = resolved === 'dark' ? '#111816' : '#F3F5F3';
   document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute('content', themeColor);
 }
 
