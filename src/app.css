@@ -28,8 +28,6 @@ html, body, #root {
 body {
   font-size: 16px;
   line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 button, input, textarea, select {
@@ -3685,7 +3683,6 @@ body { font-size: 14px; }
 .badge-warn    { color: var(--warning); background: var(--warning-bg); }
 .badge-danger  { color: var(--danger);  background: var(--danger-bg); }
 .badge-info    { color: var(--info);    background: var(--info-bg); }
-.badge-violet  { color: var(--violet);  background: var(--violet-bg); }
 .badge-cyan    { color: var(--cyan);    background: var(--cyan-bg); }
 
 /* Заголовки и акценты — не всё золотое */
