@@ -43,8 +43,8 @@ async function googleRequest<T>(token: string, url: string, init?: RequestInit):
     let detail = '';
     try { detail = (await response.json() as { error?: { message?: string } }).error?.message || ''; } catch { /* Google may return a non-JSON error. */ }
     if (response.status === 401) throw new Error('Доступ Google истёк. Подключите календарь повторно.');
-    if (response.status === 403) throw new Error('Google Calendar API или разрешение календаря не включены для этого OAuth-клиента.');
-    throw new Error(detail || `Google Calendar вернул ошибку (${response.status}).`);
+    if (response.status === 403) throw new Error('У STEN пока нет разрешения на работу с календарём Google. Обратитесь к администратору, чтобы завершить подключение.');
+    throw new Error('Не удалось выполнить действие в Google Calendar. Проверьте доступ и попробуйте ещё раз.');
   }
   return response.json() as Promise<T>;
 }
@@ -92,7 +92,7 @@ export default function GoogleCalendarIntegration() {
 
   const authorize = async (): Promise<string> => {
     if (token) return token;
-    if (!clientId) throw new Error('Не настроен VITE_GOOGLE_CLIENT_ID. Используется тот же OAuth-клиент, что и для Google Таблиц.');
+    if (!clientId) throw new Error('Подключение Google пока не завершено. Обратитесь к администратору STEN, чтобы настроить доступ.');
     await loadGoogleScript();
     const oauth = window.google?.accounts?.oauth2;
     if (!oauth) throw new Error('Не удалось запустить авторизацию Google.');
