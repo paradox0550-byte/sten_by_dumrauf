@@ -125,16 +125,16 @@ table tbody tr:hover td { background: color-mix(in srgb, var(--color-brand) 4%, 
 
 /* Mobile: keep navigation and composer intentional, not stacked into a tiny desktop. */
 .mobile-bottom-nav {
-  background: var(--sten-ink) !important;
-  border-top: 1px solid #2a3b40 !important;
-  box-shadow: 0 -10px 28px rgb(8 18 22 / 14%) !important;
+  background: var(--bg-surface) !important;
+  border-top: 1px solid var(--border-subtle) !important;
+  box-shadow: 0 -8px 24px rgb(0 0 0 / 10%) !important;
 }
-.mobile-bottom-nav a { color: #aebfb8 !important; border-radius: var(--radius-md) !important; }
+.mobile-bottom-nav a { color: var(--text-secondary) !important; border-radius: var(--radius-md) !important; }
 .mobile-bottom-nav a.active, .mobile-bottom-nav a[aria-current='page'] {
-  color: var(--sten-lime-sten) !important;
-  background: #203b3a !important;
+  color: var(--color-brand-strong) !important;
+  background: color-mix(in srgb, var(--color-brand) 12%, var(--bg-surface)) !important;
 }
-.mobile-bottom-nav a.active svg, .mobile-bottom-nav a[aria-current='page'] svg { color: var(--sten-lime-sten) !important; }
+.mobile-bottom-nav a.active svg, .mobile-bottom-nav a[aria-current='page'] svg { color: var(--color-brand-strong) !important; }
 @media (max-width: 767px) {
   .content { padding-top: 18px !important; }
   .page-head { margin-bottom: 18px !important; }
