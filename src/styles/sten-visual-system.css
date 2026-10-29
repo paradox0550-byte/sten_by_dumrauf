@@ -56,7 +56,7 @@ html[data-theme='light'], [data-theme='light'] {
   transition: border-color var(--sten-motion) ease;
 }
 :where(.metric-card, .pnl-kpi, .budget-kpi, .director-metric, .prime-card) { padding: 18px !important; }
-:where(.panel, .metric-card, .pnl-kpi, .budget-kpi):hover { border-color: color-mix(in srgb, var(--color-brand) 35%, var(--border-subtle)) !important; }
+:where(.panel, .metric-card, .pnl-kpi, .budget-kpi):hover { border-color: var(--border-default) !important; }
 .metric-card strong, .pnl-kpi strong, .budget-kpi strong, .prime-card strong {
   letter-spacing: -.045em;
   font-weight: 760 !important;
@@ -76,7 +76,6 @@ html[data-theme='light'], [data-theme='light'] {
   color: var(--text-on-accent) !important;
   background: var(--color-brand) !important;
   border-color: var(--color-brand) !important;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-brand) 22%, transparent) !important;
 }
 .primary-button:hover:not(:disabled) { background: var(--color-brand-hover) !important; }
 .primary-button:active:not(:disabled) { box-shadow: none !important; }
@@ -91,7 +90,7 @@ html[data-theme='light'], [data-theme='light'] {
 :where(input, select, textarea):focus-visible { box-shadow: 0 0 0 3px var(--color-brand-glow) !important; }
 th { color: var(--text-secondary) !important; font-weight: 750 !important; }
 td, th { border-color: var(--border-subtle) !important; }
-table tbody tr:hover td { background: color-mix(in srgb, var(--color-brand) 4%, var(--bg-surface)); }
+table tbody tr:hover td { background: var(--bg-surface-subtle); }
 
 /* STEN AI: workspace first, diagnostics and process details second. */
 .sten-ai-page .chat-body,
@@ -114,7 +113,7 @@ table tbody tr:hover td { background: color-mix(in srgb, var(--color-brand) 4%, 
 .sten-ai-page .chat-body .message-actions button:hover {
   color: var(--color-brand-strong) !important;
   background: var(--bg-surface-subtle) !important;
-  border-color: var(--color-brand) !important;
+  border-color: var(--border-default) !important;
 }
 .sten-ai-page .chat-body .message-actions button svg { width: 16px; height: 16px; }
 .sten-ai-page :where(.chat-composer, .chat-input-area, .chat-footer) {
@@ -132,7 +131,7 @@ table tbody tr:hover td { background: color-mix(in srgb, var(--color-brand) 4%, 
 .mobile-bottom-nav a { color: var(--text-secondary) !important; border-radius: var(--radius-md) !important; }
 .mobile-bottom-nav a.active, .mobile-bottom-nav a[aria-current='page'] {
   color: var(--color-brand-strong) !important;
-  background: color-mix(in srgb, var(--color-brand) 12%, var(--bg-surface)) !important;
+  background: var(--bg-surface-subtle) !important;
 }
 .mobile-bottom-nav a.active svg, .mobile-bottom-nav a[aria-current='page'] svg { color: var(--color-brand-strong) !important; }
 @media (max-width: 767px) {
