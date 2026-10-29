@@ -96,10 +96,11 @@ function isOperationsQuestion(question) { return matchesAny(question, OPERATIONS
 function isSecretaryQuestion(question) { return matchesAny(question, SECRETARY_PATTERNS); }
 
 function resolveAgent(question) {
-  // Explicit action/meeting language wins over domain words such as "budget" in a reminder.
+  // Explicit meeting/task language wins over domain words such as "budget" in a reminder.
   if (isSecretaryQuestion(question)) return AGENTS.secretary;
-  if (isOperationsQuestion(question)) return AGENTS.operations_analyst;
+  // Explicit finance intent wins when an operational question also mentions shifts or sales.
   if (isFinanceQuestion(question)) return AGENTS.finance_diagnostics;
+  if (isOperationsQuestion(question)) return AGENTS.operations_analyst;
   return AGENTS.sten;
 }
 
