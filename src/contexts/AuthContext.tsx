@@ -5,13 +5,24 @@ export type User={id:string;email?:string;firstName?:string;lastName?:string;pos
 type Ctx={user:User|null;loading:boolean;signOut:()=>void;login:(email:string,password:string)=>Promise<void>;refresh:()=>Promise<void>};
 const C=createContext<Ctx|null>(null), USER='sten_user',TOKEN='token';
 
+function readStoredUser():User|null{
+  try{
+    const raw=localStorage.getItem(USER);
+    if(!raw)return null;
+    const value=JSON.parse(raw) as User;
+    return value && typeof value.id==='string' ? value : null;
+  }catch{return null}
+}
+
 export function AuthProvider({children}:{children:React.ReactNode}){
-  const[user,setUser]=useState<User|null>(null),[loading,setLoading]=useState(true);
+  // Cached identity is only a hint while the session is verified; Protected remains blocked by loading.
+  const[user,setUser]=useState<User|null>(()=>readStoredUser()),[loading,setLoading]=useState(true);
   const restore=useCallback(async()=>{
     const t=localStorage.getItem(TOKEN);
     if(!t){setUser(null);setLoading(false);return}
     try{
       const r=await api.get<{user:User}>('/auth/me');
+      if(!r.user || typeof r.user.id!=='string')throw new Error('Invalid session response');
       setUser(r.user);
       localStorage.setItem(USER,JSON.stringify(r.user));
     }catch{
