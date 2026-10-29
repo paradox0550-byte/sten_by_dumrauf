@@ -46,6 +46,7 @@ export interface AskResponse {
   answer?: string;
   message?: string;
   model?: string;
+  agent?: { id: string; name: string };
   sources?: AskSource[];
   tools_used?: Array<{ name: string; args?: unknown; ok?: boolean; ms?: number }>;
   tool_results?: Array<{ name: string; args?: unknown; result?: unknown }>;
@@ -63,6 +64,7 @@ export const AskResponseSchema = z.object({
     kind: z.string().optional(),
     excerpt: z.string().optional(),
   })).optional(),
+  agent: z.object({ id: z.string(), name: z.string() }).optional(),
   proposed_memory: z.array(z.object({
     kind: z.enum(['fact','decision','cause','action','manager_note','pattern']),
     title: z.string(),
