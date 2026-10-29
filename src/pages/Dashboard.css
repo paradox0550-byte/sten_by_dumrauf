@@ -207,6 +207,8 @@
 }
 @media (max-width: 390px) {
   .director-metrics { grid-template-columns: minmax(0, 1fr); }
-  .director-topbar { align-items: flex-start; flex-direction: column; }
+  .director-topbar { align-items: center; flex-direction: row; }
+  .director-topbar h1 { font-size: 23px; }
+  .director-period input { width: 132px; max-width: 42vw; }
 }
 @media (prefers-reduced-motion: reduce) { .director-metric { transition: none; } }
