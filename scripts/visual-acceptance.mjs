@@ -338,8 +338,11 @@ try {
               link = page.locator(`.sidebar.is-open a[href="#${path}"]:visible`).first();
             }
           } else {
-            const expand = page.getByRole('button', { name: 'Развернуть навигацию' });
-            if (await expand.isVisible().catch(() => false)) await expand.click();
+            const sidebarToggle = page.locator('button.sidebar-toggle:visible').first();
+            if (await sidebarToggle.count()) {
+              const expanded = await sidebarToggle.getAttribute('aria-expanded');
+              if (expanded === 'false') await sidebarToggle.click();
+            }
             link = page.locator(`.sten-primary-nav a[href="#${path}"]:visible`).first();
           }
           if (!await link.count()) {
