@@ -86,8 +86,7 @@ jobs:
           shopt -s nullglob
           fonts=(dist/assets/*.woff2 dist/assets/*.woff dist/assets/*.ttf)
           if [ ${#fonts[@]} -eq 0 ]; then
-            echo "❌ No font files emitted into dist/assets; expected Inter WOFF2/WOFF/TTF assets."
-            exit 1
+            echo "ℹ️ No bundled font files; the current UI loads IBM Plex through its stylesheet."
           fi
           for f in "${fonts[@]}"; do
             name=$(basename "$f")
