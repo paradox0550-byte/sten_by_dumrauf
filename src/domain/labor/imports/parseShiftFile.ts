@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import { ShiftLineSchema, type NormalizationReport, type ShiftLine } from './schema';
 import { normalizeHeader, parseLocalizedNumber } from './normalize';
+import { parseScheduleMatrix } from './parseScheduleMatrix';
 
 const ALIASES = {
   date: ['дата', 'день', 'рабочая дата', 'дата смены', 'date'],
@@ -62,7 +63,29 @@ export async function parseShiftFile(buffer: ArrayBuffer, options: { sheetName?:
   };
   const required: Array<keyof typeof columns> = ['date', 'employee', 'position', 'hours'];
   const missing = required.filter(key => columns[key] < 0);
-  if (missing.length) throw new Error('Не найдены обязательные поля: ' + missing.map(key => ALIASES[key][0]).join(', '));
+  if (missing.length) {
+    const matrixSchedule = parseScheduleMatrix(rows);
+    if (!matrixSchedule) throw new Error('Не найдены обязательные поля: ' + missing.map(key => ALIASES[key][0]).join(', '));
+    const data: ShiftLine[] = [], issues: NormalizationReport['issues'] = [...matrixSchedule.rows
+      .filter(row => row.hours == null)
+      .map(row => ({ row: row.sourceRow, reason: 'Не удалось определить часы или интервал смены; исходное значение не превращено в ноль.' }))];
+    for (const row of matrixSchedule.rows) {
+      if (row.hours == null) continue;
+      const parsed = ShiftLineSchema.safeParse({
+        businessDate: row.businessDate, employeeName: row.employeeName,
+        positionName: row.positionName ?? '', zoneId: null, hours: row.hours,
+        hourlyRate: null, startTime: row.startTime, endTime: row.endTime, sourceRow: row.sourceRow,
+      });
+      if (parsed.success) data.push(parsed.data);
+      else issues.push({ row: row.sourceRow, reason: parsed.error.issues.map(issue => issue.message).join('; ') });
+    }
+    return {
+      data, sheetName,
+      report: { totalRows: matrixSchedule.rows.length, acceptedRows: data.length,
+        rejectedRows: matrixSchedule.rows.length - data.length, skippedRows: 0,
+        issues: [...issues, ...matrixSchedule.warnings.map(reason => ({ row: matrixSchedule.headerRowIndex + 1, reason }))].slice(0, 100) },
+    };
+  }
 
   const data: ShiftLine[] = [];
   const issues: NormalizationReport['issues'] = [];
