@@ -45,7 +45,12 @@ function sumCost(rows: LaborPlanRow[]): Total {
   let sum = 0; const reasons: string[] = [];
   for (const row of rows) {
     // Monthly salary is represented once by a period_salary row, never once per shift.
-    if (row.recordType === 'shift' && row.pay.model === 'monthly_salary') continue;
+    if (row.recordType === 'shift' && row.pay.model === 'monthly_salary') {
+      const hasPeriodSalary = rows.some(candidate => candidate.recordType === 'period_salary'
+        && candidate.employeeName === row.employeeName && candidate.positionName === row.positionName);
+      if (!hasPeriodSalary) reasons.push(`Нет отдельной строки оклада за период: ${row.employeeName ?? row.positionName}.`);
+      continue;
+    }
     const result = costOf(row); if (result.value == null) reasons.push(result.reason ?? 'Стоимость не определена.'); else sum += result.value;
   }
   return { value: reasons.length ? null : sum, complete: reasons.length === 0, reasons };
