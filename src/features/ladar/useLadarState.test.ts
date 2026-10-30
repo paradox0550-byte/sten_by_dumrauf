@@ -5,7 +5,7 @@ describe('resolveLadarState', () => {
   it('defaults missing or non-server status to idle', () => {
     expect(resolveLadarState(null)).toBe('idle');
     expect(resolveLadarState(undefined)).toBe('idle');
-    expect(resolveLadarState({ source: 'local' as 'server', state: 'deviation', confirmed: true, explanation: 'test' })).toBe('idle');
+    expect(resolveLadarState({ source: 'local', state: 'deviation', confirmed: true, explanation: 'test' } as unknown as Parameters<typeof resolveLadarState>[0])).toBe('idle');
   });
 
   it('passes through valid server analysis states', () => {
