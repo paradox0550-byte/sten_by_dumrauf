@@ -40,8 +40,6 @@ async function googleRequest<T>(token: string, url: string, init?: RequestInit):
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init?.headers || {}) },
   });
   if (!response.ok) {
-    let detail = '';
-    try { detail = (await response.json() as { error?: { message?: string } }).error?.message || ''; } catch { /* Google may return a non-JSON error. */ }
     if (response.status === 401) throw new Error('Доступ Google истёк. Подключите календарь повторно.');
     if (response.status === 403) throw new Error('У STEN пока нет разрешения на работу с календарём Google. Обратитесь к администратору, чтобы завершить подключение.');
     throw new Error('Не удалось выполнить действие в Google Calendar. Проверьте доступ и попробуйте ещё раз.');
@@ -170,7 +168,7 @@ export default function GoogleCalendarIntegration() {
           await googleRequest<GoogleCalendarEvent>(accessToken, `${CALENDAR_API}/${encodeURIComponent(existing.id)}`, { method: 'PATCH', body: JSON.stringify(body) });
           updated++;
         } else {
-          const created = await googleRequest<GoogleCalendarEvent>(accessToken, CALENDAR_API, { method: 'POST', body: JSON.stringify(body) });
+          await googleRequest<GoogleCalendarEvent>(accessToken, CALENDAR_API, { method: 'POST', body: JSON.stringify(body) });
           exported++;
         }
       }
