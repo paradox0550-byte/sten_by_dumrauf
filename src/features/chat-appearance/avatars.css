@@ -156,3 +156,21 @@
   .sten-ai-page .chat-toast { right: 8px; bottom: 64px; max-width: calc(100% - 16px); }
 }
 @media (prefers-reduced-motion: reduce) { .sten-ai-page .message-actions { transition: none; } }
+
+.sten-ai-page .message-details-toggle {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 3px 0;
+  border: 0;
+  border-bottom: 1px solid var(--chat-border);
+  background: transparent;
+  color: var(--chat-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.sten-ai-page .message-details-toggle:hover { color: var(--chat-text); border-bottom-color: var(--color-brand); }
+.sten-ai-page .message-details-toggle:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
+.sten-ai-page .message-details-source { display: grid; gap: 3px; padding: 7px 0; border-top: 1px solid var(--chat-border); overflow-wrap: anywhere; }
+.sten-ai-page .message-details-source p,
+.sten-ai-page .message-details-source span { margin: 0; color: var(--chat-muted); font-size: 11px; }

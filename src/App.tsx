@@ -23,6 +23,7 @@ const AdminOrganizations = lazy(() => import('./pages/AdminOrganizations'));
 const AuthSetup = lazy(() => import('./pages/Unlock'));
 const Memory = lazy(() => import('./pages/Memory'));
 const AIQualityLab = lazy(() => import('./pages/AIQualityLab'));
+const DevLadar = lazy(() => import('./pages/DevLadar'));
 const Privacy = lazy(() => import('./pages/legal/Privacy'));
 const Consent = lazy(() => import('./pages/legal/Consent'));
 const Cookies = lazy(() => import('./pages/legal/Cookies'));
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="/sten" element={<Protected><AI /></Protected>} />
             <Route path="/ai" element={<Protected><AI /></Protected>} />
             <Route path="/ai-quality" element={<Protected><AIQualityLab /></Protected>} />
+            <Route path="/dev/ladar" element={<Protected><DevLadar /></Protected>} />
             <Route path="/memory" element={<Protected><Memory /></Protected>} />
             <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
             <Route path="/ops" element={<Protected><OperationalControlPage /></Protected>} />
