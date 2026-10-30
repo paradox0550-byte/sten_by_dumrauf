@@ -1,0 +1,110 @@
+.sten-ladar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.sten-ladar__glyph {
+  display: block;
+  flex: 0 0 var(--ladar-size, 32px);
+  width: var(--ladar-size, 32px);
+  height: var(--ladar-size, 32px);
+  overflow: visible;
+  color: var(--color-brand);
+}
+
+.sten-ladar__orbit {
+  fill: none;
+  stroke: var(--border-default);
+  stroke-width: 1.5;
+}
+
+.sten-ladar__eye {
+  fill: var(--bg-surface);
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+
+.sten-ladar__iris {
+  fill: var(--bg-brand-subtle, var(--bg-surface-muted));
+  stroke: currentColor;
+  stroke-width: 1.5;
+  transform-box: view-box;
+  transform-origin: 24px 24px;
+}
+
+.sten-ladar__pupil {
+  fill: currentColor;
+  transform-box: view-box;
+  transform-origin: 24px 24px;
+}
+
+.sten-ladar__label {
+  color: var(--text-secondary);
+  font: inherit;
+  line-height: 1.35;
+}
+
+.sten-ladar__label--action {
+  padding: 2px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sten-ladar__label--action:hover {
+  border-bottom-color: var(--color-brand);
+}
+
+.sten-ladar__label--action:focus-visible {
+  outline: var(--focus-outline, 2px solid var(--color-brand));
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.sten-ladar--analyzing .sten-ladar__iris,
+.sten-ladar--analyzing .sten-ladar__pupil {
+  animation: sten-ladar-observe 1.8s ease-in-out infinite;
+}
+
+.sten-ladar--deviation {
+  color: var(--color-warning);
+}
+
+.sten-ladar--deviation .sten-ladar__signal {
+  fill: var(--color-warning);
+  stroke: var(--bg-surface);
+  stroke-width: 1.5;
+}
+
+.sten-ladar--complete {
+  color: var(--color-success);
+}
+
+.sten-ladar__check {
+  fill: none;
+  stroke: var(--color-success);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@keyframes sten-ladar-observe {
+  0%, 100% { transform: translateX(-1.5px); }
+  50% { transform: translateX(1.5px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sten-ladar--analyzing .sten-ladar__iris,
+  .sten-ladar--analyzing .sten-ladar__pupil {
+    animation: none;
+    transform: none;
+  }
+}
