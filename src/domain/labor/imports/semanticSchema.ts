@@ -66,11 +66,11 @@ function scoreHeader(row:unknown[]):number{return row.reduce((s,v)=>s+(match(Str
 function familyOf(fields:SemanticField[]):{family:SemanticReportFamily;confidence:number}{
  const has=(...xs:SemanticField[])=>xs.some(x=>fields.includes(x));
  if(has('employeeName','employeeId')&&has('positionName')&&has('hours','startTime','endTime'))return {family:has('startTime','endTime')?'labor_actual':'labor_schedule',confidence:.9};
- if(has('itemName','categoryName')&&has('quantity')&&has('cost'))return {family:'inventory_cost',confidence:.86};
+ if(has('businessDate')&&has('revenue')&&has('hourOfDay'))return {family:'sales_hourly',confidence:.88};
  if(has('writeOffReason')&&has('quantity'))return {family:'write_offs',confidence:.86};
+ if(has('itemName','categoryName')&&has('quantity')&&has('cost'))return {family:'inventory_cost',confidence:.86};
  if(has('paymentType','discountType','discountAmount')&&has('revenue'))return {family:'payments_discounts',confidence:.82};
  if(has('accountName','operationType')&&has('cost','revenue'))return {family:'finance_postings',confidence:.78};
- if(has('businessDate')&&has('revenue')&&has('hourOfDay'))return {family:'sales_hourly',confidence:.88};
  if(has('businessDate')&&has('revenue')&&(has('checks')||has('guests')))return {family:'sales_hourly',confidence:.78};
  if(has('itemName','categoryName')&&has('quantity','revenue'))return {family:'sales_mix',confidence:.78};
  return {family:'unknown',confidence:.2};
