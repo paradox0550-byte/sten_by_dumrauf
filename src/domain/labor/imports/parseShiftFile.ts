@@ -76,8 +76,10 @@ export async function parseShiftFile(buffer: ArrayBuffer, options: { sheetName?:
     const positionName = String(row[columns.position] ?? '').trim();
     const hours = parseLocalizedNumber(row[columns.hours]);
     const hourlyRate = columns.rate < 0 || row[columns.rate] == null ? null : parseLocalizedNumber(row[columns.rate]);
-    const startTime = columns.start < 0 ? null : parseTime(row[columns.start]);
-    const endTime = columns.end < 0 ? null : parseTime(row[columns.end]);
+    const rawStart = columns.start < 0 ? null : row[columns.start];
+    const rawEnd = columns.end < 0 ? null : row[columns.end];
+    const startTime = rawStart == null || String(rawStart).trim() === '' ? null : parseTime(rawStart);
+    const endTime = rawEnd == null || String(rawEnd).trim() === '' ? null : parseTime(rawEnd);
     const candidate = {
       businessDate: businessDate ?? '',
       employeeName, positionName,
@@ -86,6 +88,11 @@ export async function parseShiftFile(buffer: ArrayBuffer, options: { sheetName?:
       startTime, endTime, sourceRow: index + 2,
     };
     const parsed = ShiftLineSchema.safeParse(candidate);
+    if ((rawStart != null && String(rawStart).trim() !== '' && startTime == null) ||
+        (rawEnd != null && String(rawEnd).trim() !== '' && endTime == null)) {
+      issues.push({ row: index + 2, reason: 'Некорректное время начала или окончания смены' });
+      return;
+    }
     if (!parsed.success) {
       issues.push({ row: index + 2, reason: [
         ...(!businessDate ? ['Некорректная дата'] : []),
