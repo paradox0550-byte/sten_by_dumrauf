@@ -10,7 +10,7 @@ export type LaborCalcResult = {
   actualLaborCost: number | null;
   excessLaborCost: number | null;
   byZone: Array<{ zoneId: string; actualHours: number; requiredHours: number | null; excessHours: number | null }>;
-  byRole: Array<{ positionName: string; actualHours: number; minimumHours: number; excessHours: number }>;
+  byRole: Array<{ positionName: string; actualHours: number; minimumHours: number; coverageGapHours: number }>;
 };
 
 export function calculateLabor(input: {
@@ -63,14 +63,18 @@ export function calculateLabor(input: {
   });
   const byRole = [...actualByRole.entries()].map(([positionName, hours]) => {
     const minimumHours = input.config.coverageMinHoursByRole[positionName] ?? 0;
-    return { positionName, actualHours: round(hours), minimumHours: round(minimumHours), excessHours: round(Math.max(0, hours - minimumHours)) };
+    return { positionName, actualHours: round(hours), minimumHours: round(minimumHours), coverageGapHours: round(Math.max(0, minimumHours - hours)) };
   });
   const allNormsKnown = input.sales.every(line => line.zoneId != null && line.effortUnits != null && demandNorms.get(line.zoneId) != null);
   const requiredHours = allNormsKnown ? round([...requiredByZone.values()].reduce((sum, value) => sum + value, 0)) : null;
   const excessHours = requiredHours == null ? null : round(byZone.reduce((sum, zone) => sum + (zone.excessHours ?? 0), 0));
   const actualLaborCost = costKnown ? round(knownCost) : null;
-  const excessLaborCost = actualLaborCost == null || excessHours == null || actualHours === 0
-    ? null : round(actualLaborCost * excessHours / actualHours);
+  // A blended payroll rate can misstate savings when roles have different rates.
+  // Keep excess cost unknown until it can be calculated by role/zone with traceable rates.
+  const knownRates = input.shifts.map(shift => shift.hourlyRate ?? input.config.roles.find(item =>
+    item.positionName.toLocaleLowerCase('ru-RU') === shift.positionName.toLocaleLowerCase('ru-RU'))?.hourlyRate ?? null);
+  const uniformKnownRate = knownRates.length > 0 && knownRates.every(rate => rate != null && rate === knownRates[0]);
+  const excessLaborCost = uniformKnownRate && excessHours != null ? round(excessHours * knownRates[0]!) : null;
   return {
     status: reasons.length ? 'partial' : 'complete', reasons, actualHours: round(actualHours), requiredHours,
     excessHours, actualLaborCost, excessLaborCost, byZone, byRole,
