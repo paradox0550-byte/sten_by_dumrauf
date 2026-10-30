@@ -8,14 +8,15 @@ export function createImportBatch(input: {
   acceptedRows: number;
   rejectedRows: number;
   dates: string[];
+  contentFingerprint: string;
 }): ImportBatch {
   const sortedDates = [...input.dates].sort();
-  const canonical = [input.source, input.fileName, ...sortedDates, input.rowCount, input.acceptedRows, input.rejectedRows].join('|');
-  // Stable content-independent identity is deliberately not used for deduplication.
-  // Adapters should provide a content digest when persistent ingestion is introduced.
-  const fingerprint = hashText(canonical);
+  // The caller must pass a digest of the original file bytes. File name and row counts
+  // are not sufficient to identify content safely or prevent accidental collisions.
+  const fingerprint = input.contentFingerprint.trim();
+  if (!fingerprint) throw new Error('Для идентификации импорта нужен отпечаток содержимого файла.');
   return ImportBatchSchema.parse({
-    id: fingerprint,
+    id: `${input.source}:${fingerprint}`,
     source: input.source,
     fileName: input.fileName,
     importedAt: (input.importedAt ?? new Date()).toISOString(),
@@ -28,14 +29,6 @@ export function createImportBatch(input: {
   });
 }
 
-function hashText(value: string): string {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(16).padStart(8, '0');
-}
 
 export function normalizeHeader(value: unknown): string {
   return String(value ?? '').replace(/^\uFEFF/, '').normalize('NFKC')
