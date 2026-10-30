@@ -9,7 +9,7 @@ export type SemanticSheetPreview = {
 };
 export type SemanticFilePreview = {
   sheets: SemanticSheetPreview[];
-  sourceFormat: 'spreadsheet' | 'delimited_text';
+  sourceFormat: 'tabular_file';
   warnings: string[];
 };
 
@@ -35,7 +35,7 @@ export function parseSemanticFile(buffer: ArrayBuffer): SemanticFilePreview {
   if (!sheets.length) throw new Error('Не удалось извлечь строки из файла.');
   return {
     sheets,
-    sourceFormat: workbook.SheetNames.some(name => /\.csv$/i.test(name)) ? 'delimited_text' : 'spreadsheet',
+    sourceFormat: 'tabular_file',
     warnings,
   };
 }
