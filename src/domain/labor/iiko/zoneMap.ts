@@ -8,7 +8,7 @@ export const DEFAULT_ZONE_MAP: Readonly<Record<string, Exclude<ZoneId, 'unknown'
 };
 
 export function normalizeCategory(category: string): string {
-  return category.normalize('NFKC').replace(/[\\s\\u00a0]+/g, ' ').trim().toLocaleLowerCase('ru-RU');
+  return category.normalize('NFKC').replace(/[\s\u00a0]+/g, ' ').trim().toLocaleLowerCase('ru-RU');
 }
 
 const defaults = new Map(Object.entries(DEFAULT_ZONE_MAP).map(([name, zone]) => [normalizeCategory(name), zone]));
