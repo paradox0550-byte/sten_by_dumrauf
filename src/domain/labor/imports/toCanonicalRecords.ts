@@ -1,6 +1,6 @@
 import { parseLocalizedNumber } from './normalize';
 import { ShiftLineSchema, SalesLineSchema, type ShiftLine, type SalesLine, type ImportIssue } from './schema';
-import type { CanonicalRecord, SemanticImportPreview, SemanticField } from './semanticSchema';
+import type { CanonicalRecord, SemanticField } from './semanticSchema';
 
 export type CanonicalAdapterResult<T> = {
   records: T[];
@@ -51,9 +51,8 @@ function dateValue(record: CanonicalRecord): string | null {
 /** Converts confirmed semantic records into canonical shift facts. Totals and incomplete rows never enter calculations. */
 export function toCanonicalShiftLines(
   records: CanonicalRecord[],
-  options: { confirmedFields?: SemanticField[]; defaultPosition?: string } = {},
+  options: { defaultPosition?: string } = {},
 ): CanonicalAdapterResult<ShiftLine> {
-  const confirmed = new Set(options.confirmedFields ?? []);
   const result: ShiftLine[] = [], issues: ImportIssue[] = [];
   let skippedRows = 0;
   for (const record of records) {
