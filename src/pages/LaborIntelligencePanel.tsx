@@ -61,7 +61,7 @@ export default function LaborIntelligencePanel({ period, scopeKey }: Props) {
     roles: stored.roles,
     zoneDemandNorms: stored.norms,
     coverageMinHoursByRole: stored.coverageMinHoursByRole,
-  }), [stored.roles, stored.norms]);
+  }), [stored.roles, stored.norms, stored.coverageMinHoursByRole]);
 
   async function importSales(file?: File) {
     if (!file) return;
