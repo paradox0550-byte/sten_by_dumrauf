@@ -47,8 +47,8 @@ const aliases: Record<Exclude<SemanticField,'unknown'>,string[]> = {
  balance:['остаток','остатки','баланс','stock balance','on hand'],
 };
 function norm(value:unknown):string {
- return String(value??'').normalize('NFKC').replace(/[\\uFEFF\\u00A0]/g,' ').toLocaleLowerCase('ru-RU')
- .replace(/[.,:;()\\[\\]{}]/g,' ').replace(/[\\s/_-]+/g,' ').trim();
+ return String(value??'').normalize('NFKC').replace(/[\uFEFF\u00A0]/g,' ').toLocaleLowerCase('ru-RU')
+ .replace(/[.,:;()\[\]{}]/g,' ').replace(/[\s/_-]+/g,' ').trim();
 }
 function match(label:string):{field:SemanticField;confidence:number;alternatives:SemanticField[]} {
  const n=norm(label); if(!n)return {field:'unknown',confidence:0,alternatives:[]};
@@ -56,7 +56,9 @@ function match(label:string):{field:SemanticField;confidence:number;alternatives
  for(const [field,terms] of Object.entries(aliases) as Array<[Exclude<SemanticField,'unknown'>,string[]]>) {
   for(const term of terms){const t=norm(term);if(n===t)matches.push({field,score:1});else if(n.includes(t)||t.includes(n))matches.push({field,score:.78});}
  }
- const unique=[...new Map(matches.sort((a,b)=>b.score-a.score).map(x=>[x.field,x])).values()];
+ const bestByField=new Map<Exclude<SemanticField,'unknown'>,number>();
+ for(const item of matches){bestByField.set(item.field,Math.max(bestByField.get(item.field)??0,item.score));}
+ const unique=[...bestByField].map(([field,score])=>({field,score})).sort((a,b)=>b.score-a.score);
  if(!unique.length)return {field:'unknown',confidence:0,alternatives:[]};
  const top=unique[0], collision=unique.find(x=>x.field!==top.field&&x.score>=top.score);
  if(collision)return {field:'unknown',confidence:.45,alternatives:unique.slice(0,4).map(x=>x.field)};
