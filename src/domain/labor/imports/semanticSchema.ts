@@ -47,8 +47,8 @@ const aliases: Record<Exclude<SemanticField,'unknown'>,string[]> = {
  balance:['остаток','остатки','баланс','stock balance','on hand'],
 };
 function norm(value:unknown):string {
- return String(value??'').normalize('NFKC').replace(/[\uFEFF\u00A0]/g,' ').toLocaleLowerCase('ru-RU')
- .replace(/[.,:;()\[\]{}]/g,' ').replace(/[\s/_-]+/g,' ').trim();
+ return String(value??'').normalize('NFKC').replace(/[\\uFEFF\\u00A0]/g,' ').toLocaleLowerCase('ru-RU')
+ .replace(/[.,:;()\\[\\]{}]/g,' ').replace(/[\\s/_-]+/g,' ').trim();
 }
 function match(label:string):{field:SemanticField;confidence:number;alternatives:SemanticField[]} {
  const n=norm(label); if(!n)return {field:'unknown',confidence:0,alternatives:[]};
@@ -62,7 +62,7 @@ function match(label:string):{field:SemanticField;confidence:number;alternatives
  if(collision)return {field:'unknown',confidence:.45,alternatives:unique.slice(0,4).map(x=>x.field)};
  return {field:top.field,confidence:top.score,alternatives:unique.slice(1,4).map(x=>x.field)};
 }
-function scoreHeader(row:unknown[]):number{return row.reduce((s,v)=>s+(match(String(v??'')).confidence>=.78?1:0),0);}
+function scoreHeader(row:unknown[]):number{return row.reduce<number>((s,v)=>s+(match(String(v??'')).confidence>=.78?1:0),0);}
 function familyOf(fields:SemanticField[]):{family:SemanticReportFamily;confidence:number}{
  const has=(...xs:SemanticField[])=>xs.some(x=>fields.includes(x));
  if(has('employeeName','employeeId')&&has('positionName')&&has('hours','startTime','endTime'))return {family:has('startTime','endTime')?'labor_actual':'labor_schedule',confidence:.9};
