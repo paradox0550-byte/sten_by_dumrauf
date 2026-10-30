@@ -2,21 +2,13 @@ import * as XLSX from 'xlsx';
 import { IikoParsedRow, type IikoParsedSales, type IikoUnmappedRow, type ZoneId } from './schema';
 import { mapCategoryToZone, normalizeCategory } from './zoneMap';
 
-export type ParseOptions = {
-  customZoneMap?: Readonly<Record<string, ZoneId>>;
-  sheetName?: string;
-};
+export type ParseOptions = { customZoneMap?: Readonly<Record<string, ZoneId>>; sheetName?: string };
 export type ParseReport = {
-  sheetName: string;
-  totalRows: number;
-  validRows: number;
-  unmappedRows: number;
-  invalidRows: number;
-  skippedRows: number;
+  sheetName: string; totalRows: number; validRows: number; unmappedRows: number;
+  invalidRows: number; skippedRows: number;
   errors: Array<{ row: number; reason: string }>;
   unmappedCategories: Array<{ category: string; rows: number; revenue: number }>;
-  mappedRevenue: number;
-  unmappedRevenue: number;
+  mappedRevenue: number; unmappedRevenue: number;
 };
 export type ParseResult = { data: IikoParsedSales; unmappedData: IikoUnmappedRow[]; report: ParseReport };
 
@@ -28,25 +20,21 @@ const ALIASES = {
   qty: ['количество', 'количество блюд', 'кол-во', 'количество, шт'],
   revenue: ['сумма', 'сумма со скидкой', 'сумма со скидкой, р.', 'выручка', 'сумма, р.'],
   cost: ['себестоимость', 'сумма себестоимости'],
-  modifier: ['модификатор'],
-  modifierCategory: ['категория модификатора'],
+  modifier: ['модификатор'], modifierCategory: ['категория модификатора'],
   orderNumber: ['заказ', 'номер заказа'],
 } as const;
-
 const normalizeHeader = (value: unknown) => String(value ?? '').replace(/^\\uFEFF/, '')
   .normalize('NFKC').replace(/[\\s\\u00a0]+/g, ' ').trim().toLocaleLowerCase('ru-RU');
-
 function findColumn(headers: unknown[], key: keyof typeof ALIASES): number {
-  const aliases = ALIASES[key].map(normalizeHeader);
-  return headers.findIndex(header => aliases.includes(normalizeHeader(header)));
+  return headers.findIndex(header => ALIASES[key].map(normalizeHeader).includes(normalizeHeader(header)));
 }
 function parseNumber(value: unknown): number | null {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   if (typeof value !== 'string') return null;
-  const cleaned = value.replace(/[\\s\\u00a0₽руб.]/gi, '').replace(',', '.');
+  const cleaned = value.replace(/[\\s\\u00a0₽]/g, '').replace(/руб\\.?/gi, '').replace(',', '.');
   if (!cleaned || !/^-?\\d+(?:\\.\\d+)?$/.test(cleaned)) return null;
-  const result = Number(cleaned);
-  return Number.isFinite(result) ? result : null;
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 function validDate(value: string): string | null {
   if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return null;
@@ -79,23 +67,18 @@ function parseHour(value: unknown): number | null {
 function isTotalRow(row: unknown[]): boolean {
   return row.some(value => typeof value === 'string' && /^(итого|всего|общий итог)$/i.test(value.trim()));
 }
-function round(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
-}
+const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
 export async function parseIikoSalesFile(buffer: ArrayBuffer, options: ParseOptions = {}): Promise<ParseResult> {
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: true, raw: true });
   const sheetName = options.sheetName ?? workbook.SheetNames[0];
   if (!sheetName || !workbook.Sheets[sheetName]) throw new Error('В книге не найден лист с данными продаж.');
-  const matrix = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], {
-    header: 1, raw: true, defval: null, blankrows: false,
-  });
+  const matrix = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], { header: 1, raw: true, defval: null, blankrows: false });
   if (!matrix.length) throw new Error('Лист Excel пустой.');
   const headers = matrix[0];
   const columns = {
-    date: findColumn(headers, 'date'), hour: findColumn(headers, 'hour'),
-    dish: findColumn(headers, 'dish'), category: findColumn(headers, 'category'),
-    qty: findColumn(headers, 'qty'), revenue: findColumn(headers, 'revenue'),
+    date: findColumn(headers, 'date'), hour: findColumn(headers, 'hour'), dish: findColumn(headers, 'dish'),
+    category: findColumn(headers, 'category'), qty: findColumn(headers, 'qty'), revenue: findColumn(headers, 'revenue'),
     cost: findColumn(headers, 'cost'), modifier: findColumn(headers, 'modifier'),
     modifierCategory: findColumn(headers, 'modifierCategory'), orderNumber: findColumn(headers, 'orderNumber'),
   };
@@ -109,7 +92,6 @@ export async function parseIikoSalesFile(buffer: ArrayBuffer, options: ParseOpti
   const unmapped = new Map<string, { category: string; rows: number; revenue: number }>();
   let totalRows = 0;
   let skippedRows = 0;
-
   matrix.slice(1).forEach((row, index) => {
     const excelRow = index + 2;
     if (!row.some(value => value != null && String(value).trim() !== '') || isTotalRow(row)) { skippedRows++; return; }
@@ -117,7 +99,6 @@ export async function parseIikoSalesFile(buffer: ArrayBuffer, options: ParseOpti
     const modifier = columns.modifier >= 0 ? String(row[columns.modifier] ?? '').trim() : '';
     const modifierCategory = columns.modifierCategory >= 0 ? String(row[columns.modifierCategory] ?? '').trim() : '';
     if (modifier || modifierCategory) { skippedRows++; return; }
-
     const date = parseDate(row[columns.date]);
     const hour = parseHour(row[columns.hour]);
     const dish = String(row[columns.dish] ?? '').trim();
@@ -132,7 +113,6 @@ export async function parseIikoSalesFile(buffer: ArrayBuffer, options: ParseOpti
     if (qty == null || qty < 0) reasons.push('Количество должно быть неотрицательным числом');
     if (revenue == null) reasons.push('Сумма должна быть числом');
     if (reasons.length) { errors.push({ row: excelRow, reason: reasons.join('; ') }); return; }
-
     const cost = columns.cost >= 0 ? parseNumber(row[columns.cost]) : null;
     const base = {
       date: date!, hour: hour!, dish, category, qty: qty!, revenue: revenue!,
@@ -144,7 +124,7 @@ export async function parseIikoSalesFile(buffer: ArrayBuffer, options: ParseOpti
       unmappedData.push({ ...base, zone: 'unknown' });
       const key = normalizeCategory(category);
       const previous = unmapped.get(key) ?? { category, rows: 0, revenue: 0 };
-      unmapped.set(key, { ...previous, rows: previous.rows + 1, revenue: round(previous.revenue + base.revenue) });
+      unmapped.set(key, { ...previous, rows: previous.rows + 1, revenue: roundMoney(previous.revenue + base.revenue) });
       return;
     }
     const parsed = IikoParsedRow.safeParse({ ...base, zone });
@@ -154,15 +134,14 @@ export async function parseIikoSalesFile(buffer: ArrayBuffer, options: ParseOpti
     }
     data.push(parsed.data);
   });
-
   const unmappedCategories = [...unmapped.values()].sort((a, b) => b.revenue - a.revenue);
-  const sumRevenue = (rows: Array<{ revenue: number }>) => round(rows.reduce((sum, row) => sum + row.revenue, 0));
+  const sumRevenue = (rows: Array<{ revenue: number }>) => roundMoney(rows.reduce((sum, row) => sum + row.revenue, 0));
   return {
     data, unmappedData,
     report: {
       sheetName, totalRows, validRows: data.length, unmappedRows: unmappedData.length,
-      invalidRows: errors.length, skippedRows, errors: errors.slice(0, 50),
-      unmappedCategories, mappedRevenue: sumRevenue(data), unmappedRevenue: sumRevenue(unmappedData),
+      invalidRows: errors.length, skippedRows, errors: errors.slice(0, 50), unmappedCategories,
+      mappedRevenue: sumRevenue(data), unmappedRevenue: sumRevenue(unmappedData),
     },
   };
 }
