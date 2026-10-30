@@ -98,7 +98,10 @@ export async function parseIikoSalesFile(buffer: ArrayBuffer, options: ParseOpti
     totalRows++;
     const modifier = columns.modifier >= 0 ? String(row[columns.modifier] ?? '').trim() : '';
     const modifierCategory = columns.modifierCategory >= 0 ? String(row[columns.modifierCategory] ?? '').trim() : '';
-    if (modifier || modifierCategory) { skippedRows++; return; }
+    // A populated modifier column can describe a modifier attached to a valid dish row.
+    // Skip only modifier-only rows that do not carry a dish name; never discard a base dish.
+    const dishValue = String(row[columns.dish] ?? '').trim();
+    if ((modifier || modifierCategory) && !dishValue) { skippedRows++; return; }
     const date = parseDate(row[columns.date]);
     const hour = parseHour(row[columns.hour]);
     const dish = String(row[columns.dish] ?? '').trim();
