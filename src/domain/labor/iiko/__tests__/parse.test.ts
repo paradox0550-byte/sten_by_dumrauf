@@ -66,7 +66,8 @@ describe('parseIikoSalesFile', () => {
       ['Итого', null, null, null, 1, 500, null],
       ['2026-10-27', 20, 'Суп', 'Супы', 1, 300, null],
     ]));
-    expect(result.data).toHaveLength(1);
-    expect(result.report.skippedRows).toBe(2);
+    expect(result.data).toHaveLength(2);
+    expect(result.report.skippedRows).toBe(1);
+    expect(result.data[0].dish).toBe('Паста');
   });
 });
