@@ -23,21 +23,21 @@ const ALIASES = {
   modifier: ['модификатор'], modifierCategory: ['категория модификатора'],
   orderNumber: ['заказ', 'номер заказа'],
 } as const;
-const normalizeHeader = (value: unknown) => String(value ?? '').replace(/^\\uFEFF/, '')
-  .normalize('NFKC').replace(/[\\s\\u00a0]+/g, ' ').trim().toLocaleLowerCase('ru-RU');
+const normalizeHeader = (value: unknown) => String(value ?? '').replace(/^\uFEFF/, '')
+  .normalize('NFKC').replace(/[\s\u00a0]+/g, ' ').trim().toLocaleLowerCase('ru-RU');
 function findColumn(headers: unknown[], key: keyof typeof ALIASES): number {
   return headers.findIndex(header => ALIASES[key].map(normalizeHeader).includes(normalizeHeader(header)));
 }
 function parseNumber(value: unknown): number | null {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   if (typeof value !== 'string') return null;
-  const cleaned = value.replace(/[\\s\\u00a0₽]/g, '').replace(/руб\\.?/gi, '').replace(',', '.');
-  if (!cleaned || !/^-?\\d+(?:\\.\\d+)?$/.test(cleaned)) return null;
+  const cleaned = value.replace(/[\s\u00a0₽]/g, '').replace(/руб\.?/gi, '').replace(',', '.');
+  if (!cleaned || !/^-?\d+(?:\.\d+)?$/.test(cleaned)) return null;
   const parsed = Number(cleaned);
   return Number.isFinite(parsed) ? parsed : null;
 }
 function validDate(value: string): string | null {
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const [year, month, day] = value.split('-').map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day ? value : null;
@@ -51,15 +51,15 @@ function parseDate(value: unknown): string | null {
     if (parts?.y && parts?.m && parts?.d) return validDate([parts.y, String(parts.m).padStart(2, '0'), String(parts.d).padStart(2, '0')].join('-'));
   }
   const text = String(value ?? '').trim();
-  const iso = text.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/);
+  const iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (iso) return validDate([iso[1], iso[2].padStart(2, '0'), iso[3].padStart(2, '0')].join('-'));
-  const ru = text.match(/^(\\d{1,2})[./-](\\d{1,2})[./-](\\d{4})$/);
+  const ru = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
   if (ru) return validDate([ru[3], ru[2].padStart(2, '0'), ru[1].padStart(2, '0')].join('-'));
   return null;
 }
 function parseHour(value: unknown): number | null {
   if (typeof value === 'string') {
-    const match = value.trim().match(/^(\\d{1,2})(?::00)?$/);
+    const match = value.trim().match(/^(\d{1,2})(?::00)?$/);
     if (match) value = Number(match[1]);
   }
   return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 23 ? value : null;
