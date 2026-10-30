@@ -37,7 +37,7 @@ export function buildLaborPlanRows(input:{
       pay,status:input.status,source:input.source,sourceRow:shift.sourceRow??null,
     });
     if(parsed.success)rows.push(parsed.data);
-    if(model==='monthly_salary'&&role.monthlySalary!=null){
+    if(model==='monthly_salary'){
       const employeeKey=`${key(shift.employeeName)}|${key(role.positionName)}`;
       monthlyEmployees.set(employeeKey,{role,employeeName:shift.employeeName,employeeId:null});
     }
