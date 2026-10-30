@@ -17,7 +17,9 @@ function weeklySales(): SalesLine[] {
 describe('forecastHourlyDemand', () => {
   it('requires enough history and forecasts weekday/hour/zone averages', () => {
     expect(forecastHourlyDemand(weeklySales().slice(0, 2)).status).toBe('insufficient_data');
-    const result = forecastHourlyDemand(weeklySales(), { asOf: '2026-10-26', minimumWeeks: 4 });
+    const base = weeklySales();
+    const outlier = { ...base[0], quantity: 100, effortUnits: 100 };
+    const result = forecastHourlyDemand([...base, outlier], { asOf: '2026-10-26', minimumWeeks: 4 });
     expect(result.status).toBe('ready');
     expect(result.cells[0]).toMatchObject({ hour: 19, zoneId: 'hot', units: 20 });
   });
