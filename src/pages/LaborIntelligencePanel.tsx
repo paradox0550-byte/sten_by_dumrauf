@@ -48,10 +48,9 @@ export default function LaborIntelligencePanel({ period, scopeKey }: Props) {
   const [roleCoverage, setRoleCoverage] = useState('');
   const [normInputs, setNormInputs] = useState<Record<string, string>>({});
   const [effortInputs, setEffortInputs] = useState<Record<string, string>>({});
-  const [zoneInputs, setZoneInputs] = useState<Record<string, Zone>>({});
   const [expanded, setExpanded] = useState(true);
 
-  useEffect(() => { setStored(readStored(storageKey)); setLoadedFor(storageKey); setSales([]); setShifts([]); setSalesReport(null); setShiftReport(null); setNormInputs({}); setEffortInputs({}); setZoneInputs({}); }, [storageKey]);
+  useEffect(() => { setStored(readStored(storageKey)); setLoadedFor(storageKey); setSales([]); setShifts([]); setSalesReport(null); setShiftReport(null); setNormInputs({}); setEffortInputs({}); }, [storageKey]);
   useEffect(() => { if (loadedFor === storageKey) { try { localStorage.setItem(storageKey, JSON.stringify(stored)); } catch { /* Keep the active configuration in memory if browser storage is full. */ } } }, [storageKey, loadedFor, stored]);
 
   const categories = useMemo(() => [...new Set(salesReport?.unmappedCategories.map(item => item.category) ?? [])], [salesReport]);
