@@ -22,23 +22,40 @@ export function forecastHourlyDemand(
     return date.toISOString().slice(0, 10);
   }));
   if (uniqueWeeks.size < minimumWeeks) {
-    return { status: 'insufficient_data', reason: `Для прогноза нужно минимум ${minimumWeeks} полных недель истории с трудоёмкостью блюд по зонам.`, cells: [] };
+    return { status: 'insufficient_data', reason: `Для прогноза нужно минимум ${minimumWeeks} календарных недель истории с трудоёмкостью блюд по зонам.`, cells: [] };
   }
-  const buckets = new Map<string, { total: number; days: Set<string> }>();
+
+  // First sum all items for each actual trading date and hour, then take the median
+  // of comparable weekday/hour/zone observations. This prevents a busy outlier day
+  // from dominating the schedule forecast.
+  const daily = new Map<string, { weekday: number; hour: number; zoneId: string; units: number }>();
   for (const line of history) {
-    const date = new Date(`${line.businessDate}T00:00:00Z`);
-    const weekday = date.getUTCDay();
-    const key = [weekday, line.hour, line.zoneId].join('|');
-    const bucket = buckets.get(key) ?? { total: 0, days: new Set<string>() };
-    bucket.total += line.effortUnits!;
-    bucket.days.add(line.businessDate);
-    buckets.set(key, bucket);
+    const weekday = new Date(`${line.businessDate}T00:00:00Z`).getUTCDay();
+    const key = [line.businessDate, line.hour, line.zoneId].join('|');
+    const bucket = daily.get(key) ?? { weekday, hour: line.hour, zoneId: line.zoneId!, units: 0 };
+    bucket.units += line.effortUnits!;
+    daily.set(key, bucket);
   }
-  const cells = [...buckets.entries()].map(([key, bucket]) => {
-    const [weekday, hour, zoneId] = key.split('|');
-    return { weekday: Number(weekday), hour: Number(hour), zoneId, units: round(bucket.total / bucket.days.size),
-      confidence: bucket.days.size >= 4 ? 'sufficient' as const : 'limited' as const };
-  }).sort((a, b) => a.weekday - b.weekday || a.hour - b.hour || a.zoneId.localeCompare(b.zoneId));
+  const observations = new Map<string, { weekday: number; hour: number; zoneId: string; values: number[] }>();
+  for (const bucket of daily.values()) {
+    const key = [bucket.weekday, bucket.hour, bucket.zoneId].join('|');
+    const target = observations.get(key) ?? { weekday: bucket.weekday, hour: bucket.hour, zoneId: bucket.zoneId, values: [] };
+    target.values.push(bucket.units);
+    observations.set(key, target);
+  }
+  const cells = [...observations.values()].map(bucket => ({
+    weekday: bucket.weekday,
+    hour: bucket.hour,
+    zoneId: bucket.zoneId,
+    units: median(bucket.values),
+    confidence: bucket.values.length >= 4 ? 'sufficient' as const : 'limited' as const,
+  })).sort((a, b) => a.weekday - b.weekday || a.hour - b.hour || a.zoneId.localeCompare(b.zoneId));
   return { status: 'ready', reason: null, cells };
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return round(sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2);
 }
 function round(value: number): number { return Math.round((value + Number.EPSILON) * 100) / 100; }
