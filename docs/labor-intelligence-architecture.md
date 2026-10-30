@@ -31,10 +31,25 @@ The engine reports excess hours only against calculated production demand. Cover
 
 ## Forecast and schedule draft
 
-The initial forecast groups history by weekday, hour and zone and requires at least four distinct weeks by default. It uses mean workload per observed date in each bucket; the result is an estimate, not a guarantee.
+The initial forecast groups history by weekday, hour and zone and requires at least four distinct weeks by default. It uses the median workload per observed trading date in each weekday/hour/zone bucket; the result is an estimate, not a guarantee.
 
 The schedule recommendation layer returns required labor hours and an indicative minimum headcount for each forecast slot only when a productivity norm exists. It does not assign named employees, infer availability, or waive minimum coverage. A final roster must additionally satisfy role passports, fixed hours, employee availability, labor law and manager approval.
 
 ## Known validation boundary
 
 The iiko parser currently supports common OLAP header aliases and expects a single tabular header row. A real anonymized restaurant export is still required to validate the exact iiko template, especially modifier representation, grouped headers, and whether hour/category dimensions are present. When mandatory hourly or category detail is absent, parsing stops with a clear error rather than inventing it.
+
+
+## Frontend workflow
+
+The Team and FOT page includes a local Labor Intelligence workspace:
+- iiko XLSX/CSV import and row-quality summary;
+- manual category-to-zone mapping and category effort coefficients;
+- shift/timesheet XLSX/CSV import into canonical ShiftLine records;
+- editable role passports, hourly rates and minimum coverage hours;
+- zone productivity norms;
+- period-scoped actual labor calculation and an 8-week demand forecast.
+
+Configuration is saved in browser local storage, scoped by organization/user/workspace. Imported rows remain in page memory only and are cleared on refresh. No backend persistence, cross-device sync or persistent import deduplication is implemented.
+
+The shift import currently expects tabular rows with date, employee, position and hours. The existing wide calendar-style schedule importer is not yet adapted into canonical ShiftLine records. STEN AI does not yet receive the calculation result as structured context.
