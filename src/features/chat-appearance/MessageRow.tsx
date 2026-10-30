@@ -74,7 +74,7 @@ export function MessageRow({ message, previousMessage, user, onCopy, onToSecreta
             {detailsOpen && (
               <section className="message-details" aria-label="Детали ответа">
                 {sourceItems.map((source,index)=>(
-                  <div className="message-details__source" key={source.id??source.uri??`detail-${index}`}>
+                  <div className="message-details-source" key={source.id??source.uri??`detail-${index}`}>
                     <strong>{source.title??source.kind??'Источник'}</strong>
                     {source.uri && <span>{source.uri}</span>}
                     {source.excerpt && <p>{source.excerpt}</p>}
