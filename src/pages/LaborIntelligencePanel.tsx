@@ -68,7 +68,7 @@ export default function LaborIntelligencePanel({ period, scopeKey }: Props) {
       const parsed = await parseIikoSalesFile(await file.arrayBuffer());
       const categoriesWithNoZone = parsed.report.unmappedCategories;
       const allRows: IikoParsedRow[] = [
-        ...parsed.data,
+        ...parsed.data.map(row => ({ ...row, zone: stored.zoneByCategory[row.category] ?? row.zone })),
         ...parsed.unmappedData.map(row => ({ ...row, zone: stored.zoneByCategory[row.category] ?? 'unknown' as const })),
       ];
       const effort = Object.fromEntries(Object.entries(stored.effortByCategory).filter(([, value]) => Number.isFinite(value) && value > 0));
