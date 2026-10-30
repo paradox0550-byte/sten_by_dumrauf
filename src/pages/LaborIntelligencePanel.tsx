@@ -13,13 +13,13 @@ import './LaborIntelligencePanel.css';
 
 type Zone = Exclude<ZoneId, 'unknown'>;
 type Props = { period: string; scopeKey: string };
-type Stored = { version: 1; roles: RolePassport[]; norms: ZoneDemandNorm[]; effortByCategory: Record<string, number>; zoneByCategory: Record<string, Zone> };
+type Stored = { version: 1; roles: RolePassport[]; norms: ZoneDemandNorm[]; effortByCategory: Record<string, number>; zoneByCategory: Record<string, Zone>; coverageMinHoursByRole: Record<string, number> };
 const STORAGE = 'sten_labor_intelligence_v1:';
 const ZONES: Array<{ id: Zone; label: string }> = [
   { id: 'hot', label: 'Горячий цех' }, { id: 'cold', label: 'Холодный цех' },
   { id: 'bar', label: 'Бар' }, { id: 'prep', label: 'Заготовка' }, { id: 'dessert', label: 'Десерты' },
 ];
-const emptyStored = (): Stored => ({ version: 1, roles: [], norms: ZONES.map(zone => ({ zoneId: zone.id, unitsPerLaborHour: null })), effortByCategory: {}, zoneByCategory: {} });
+const emptyStored = (): Stored => ({ version: 1, roles: [], norms: ZONES.map(zone => ({ zoneId: zone.id, unitsPerLaborHour: null })), effortByCategory: {}, zoneByCategory: {}, coverageMinHoursByRole: {} });
 const readStored = (key: string): Stored => {
   try {
     const raw = localStorage.getItem(key);
@@ -60,7 +60,7 @@ export default function LaborIntelligencePanel({ period, scopeKey }: Props) {
   const configuration: LaborConfiguration = useMemo(() => ({
     roles: stored.roles,
     zoneDemandNorms: stored.norms,
-    coverageMinHoursByRole: Object.fromEntries(stored.roles.map(role => [role.positionName, role.minimumShiftHours ?? 0])),
+    coverageMinHoursByRole: stored.coverageMinHoursByRole,
   }), [stored.roles, stored.norms]);
 
   async function importSales(file?: File) {
@@ -121,7 +121,7 @@ export default function LaborIntelligencePanel({ period, scopeKey }: Props) {
     if (stored.roles.some(role => role.positionName.toLocaleLowerCase('ru-RU') === name.toLocaleLowerCase('ru-RU'))) return;
     if ((rate != null && (!Number.isFinite(rate) || rate < 0)) || (coverage != null && (!Number.isFinite(coverage) || coverage < 0))) return;
     const role: RolePassport = { id: crypto.randomUUID(), positionName: name, workMode: 'mixed', zoneIds: [roleZone], unitName: 'час', minimumShiftHours: null, fixedHoursPerDay: null, hourlyRate: rate, salaryPerShift: null, monthlySalary: null, productivityUnitsPerHour: null, effortCoefficient: null, active: true };
-    setStored(prev => ({ ...prev, roles: [...prev.roles, role] }));
+    setStored(prev => ({ ...prev, roles: [...prev.roles, role], coverageMinHoursByRole: { ...prev.coverageMinHoursByRole, ...(coverage == null ? {} : { [name]: coverage }) } }));
     setRoleName(''); setRoleRate(''); setRoleCoverage('');
   }
 
@@ -145,7 +145,7 @@ export default function LaborIntelligencePanel({ period, scopeKey }: Props) {
       {salesReport && salesReport.unmappedCategories.length > 0 && <div className="li-config"><h3>Сопоставьте категории с рабочими зонами</h3><p>Категория без зоны не попадёт в расчёт потребности. Выберите реальную зону ресторана.</p>{salesReport.unmappedCategories.map(item => <div className="li-config-row" key={item.category}><span>{item.category} · {item.rows} строк · {rub(item.revenue)}</span><select value={stored.zoneByCategory[item.category] ?? ''} onChange={event => { if (event.target.value) setZone(item.category, event.target.value as Zone); }}><option value="">Не сопоставлена</option>{ZONES.map(zone => <option key={zone.id} value={zone.id}>{zone.label}</option>)}</select></div>)}</div>}
       {allCategories.length > 0 && <div className="li-config"><h3>Трудоёмкость блюд и категорий</h3><p>Коэффициент задаётся владельцем ресторана: трудоёмкие единицы на одну проданную позицию. Количество блюд само по себе не считается трудозатратами.</p>{allCategories.map(category => <div className="li-config-row" key={category}><span>{category}</span><label>Ед./блюдо<input type="number" min="0.001" step="0.1" placeholder="Не задано" value={effortInputs[category] ?? (stored.effortByCategory[category]?.toString() ?? '')} onChange={event => setEffort(category, event.target.value)} /></label></div>)}</div>}
       <div className="li-config"><h3>Паспорта должностей</h3><p>Укажите фактические должности, зоны и ставки. Нормы и минимальное покрытие не подставляются автоматически.</p><div className="li-role-form"><input aria-label="Должность" placeholder="Название должности" value={roleName} onChange={event => setRoleName(event.target.value)} /><select value={roleZone} onChange={event => setRoleZone(event.target.value as Zone)}>{ZONES.map(zone => <option key={zone.id} value={zone.id}>{zone.label}</option>)}</select><input aria-label="Ставка в час" type="number" min="0" placeholder="₽ / час" value={roleRate} onChange={event => setRoleRate(event.target.value)} /><input aria-label="Минимум часов покрытия" type="number" min="0" placeholder="Мин. часов покрытия" value={roleCoverage} onChange={event => setRoleCoverage(event.target.value)} /><button type="button" className="secondary-button" onClick={addRole} disabled={!roleName.trim()}>Добавить</button></div>
-        {stored.roles.length > 0 ? <div className="li-role-list">{stored.roles.map(role => <div className="li-config-row" key={role.id}><span><b>{role.positionName}</b><small>{role.zoneIds.map(zone => ZONES.find(item => item.id === zone)?.label ?? zone).join(', ')} · {role.hourlyRate == null ? 'ставка не задана' : rub(role.hourlyRate)}</small></span><button type="button" className="li-remove" onClick={() => setStored(prev => ({ ...prev, roles: prev.roles.filter(item => item.id !== role.id) }))}>Удалить</button></div>)}</div> : <div className="li-empty">Паспорта должностей ещё не настроены.</div>}
+        {stored.roles.length > 0 ? <div className="li-role-list">{stored.roles.map(role => <div className="li-config-row" key={role.id}><span><b>{role.positionName}</b><small>{role.zoneIds.map(zone => ZONES.find(item => item.id === zone)?.label ?? zone).join(', ')} · {role.hourlyRate == null ? 'ставка не задана' : rub(role.hourlyRate)} · минимум покрытия {fmt(stored.coverageMinHoursByRole[role.positionName] ?? null)} ч</small></span><button type="button" className="li-remove" onClick={() => setStored(prev => ({ ...prev, roles: prev.roles.filter(item => item.id !== role.id), coverageMinHoursByRole: Object.fromEntries(Object.entries(prev.coverageMinHoursByRole).filter(([name]) => name !== role.positionName)) }))}>Удалить</button></div>)}</div> : <div className="li-empty">Паспорта должностей ещё не настроены.</div>}
       </div>
       <div className="li-config"><h3>Нормы производительности по зонам</h3><p>Сколько трудоёмких единиц зона обрабатывает за один человеко-час. Заполняйте по хронометражу или подтверждённой статистике.</p><div className="li-norm-grid">{stored.norms.map(norm => <label key={norm.zoneId}>{ZONES.find(zone => zone.id === norm.zoneId)?.label ?? norm.zoneId}<input type="number" min="0.001" step="0.1" placeholder="Ед. / человеко-час" value={normInputs[norm.zoneId] ?? (norm.unitsPerLaborHour?.toString() ?? '')} onChange={event => { const raw = event.target.value; setNormInputs(prev => ({ ...prev, [norm.zoneId]: raw })); const value = raw.trim() === '' ? null : Number(raw.replace(',', '.')); setStored(prev => ({ ...prev, norms: prev.norms.map(item => item.zoneId === norm.zoneId ? { ...item, unitsPerLaborHour: value != null && Number.isFinite(value) && value > 0 ? value : null } : item) })); }} /></label>)}</div></div>
       <div className="li-results">
