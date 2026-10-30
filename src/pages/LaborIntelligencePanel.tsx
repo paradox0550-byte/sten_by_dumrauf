@@ -34,6 +34,7 @@ const rub = (value: number | null | undefined) => value == null || !Number.isFin
 export default function LaborIntelligencePanel({ period, scopeKey }: Props) {
   const storageKey = STORAGE + scopeKey;
   const [stored, setStored] = useState<Stored>(() => readStored(storageKey));
+  const [loadedFor, setLoadedFor] = useState(storageKey);
   const [sales, setSales] = useState<SalesLine[]>([]);
   const [shifts, setShifts] = useState<ShiftLine[]>([]);
   const [salesReport, setSalesReport] = useState<{ fileName: string; totalRows: number; validRows: number; unmappedRows: number; invalidRows: number; skippedRows: number; unmappedCategories: Array<{ category: string; rows: number; revenue: number }>; errors: Array<{ row: number; reason: string }> } | null>(null);
@@ -50,8 +51,8 @@ export default function LaborIntelligencePanel({ period, scopeKey }: Props) {
   const [zoneInputs, setZoneInputs] = useState<Record<string, Zone>>({});
   const [expanded, setExpanded] = useState(true);
 
-  useEffect(() => { setStored(readStored(storageKey)); setSales([]); setShifts([]); setSalesReport(null); setShiftReport(null); }, [storageKey]);
-  useEffect(() => { try { localStorage.setItem(storageKey, JSON.stringify(stored)); } catch { /* Keep the active configuration in memory if browser storage is full. */ } }, [storageKey, stored]);
+  useEffect(() => { setStored(readStored(storageKey)); setLoadedFor(storageKey); setSales([]); setShifts([]); setSalesReport(null); setShiftReport(null); setNormInputs({}); setEffortInputs({}); setZoneInputs({}); }, [storageKey]);
+  useEffect(() => { if (loadedFor === storageKey) { try { localStorage.setItem(storageKey, JSON.stringify(stored)); } catch { /* Keep the active configuration in memory if browser storage is full. */ } } }, [storageKey, loadedFor, stored]);
 
   const categories = useMemo(() => [...new Set(salesReport?.unmappedCategories.map(item => item.category) ?? [])], [salesReport]);
   const knownCategories = useMemo(() => [...new Set(sales.map(line => line.categoryName))].sort((a, b) => a.localeCompare(b, 'ru')), [sales]);
