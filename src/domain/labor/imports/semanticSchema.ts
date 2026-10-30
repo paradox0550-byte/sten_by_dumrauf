@@ -48,7 +48,7 @@ const aliases: Record<Exclude<SemanticField,'unknown'>,string[]> = {
 };
 function norm(value:unknown):string {
  return String(value??'').normalize('NFKC').replace(/[\uFEFF\u00A0]/g,' ').toLocaleLowerCase('ru-RU')
- .replace(/[.,:;()\[\]{}]/g,' ').replace(/[\s/_-]+/g,' ').trim();
+ .replace(/[.,:;(){}]/g,' ').replace(/\[/g,' ').replace(/\]/g,' ').replace(/[\s/_-]+/g,' ').trim();
 }
 function match(label:string):{field:SemanticField;confidence:number;alternatives:SemanticField[]} {
  const n=norm(label); if(!n)return {field:'unknown',confidence:0,alternatives:[]};
