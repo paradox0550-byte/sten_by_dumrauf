@@ -6,6 +6,8 @@ import type { IikoParsedRow, ZoneId } from '../domain/labor/iiko/schema';
 import { calculateLabor } from '../domain/labor/calc/laborCalc';
 import { forecastHourlyDemand } from '../domain/labor/forecast/demandForecast';
 import { recommendHourlyStaffing } from '../domain/labor/forecast/recommendSchedule';
+import { buildLaborPlanRows } from '../domain/labor/core/rolePlanAdapter';
+import { calculateLaborBudget } from '../domain/labor/core/budgetCalc';
 import { parseShiftFile } from '../domain/labor/imports/parseShiftFile';
 import type { SalesLine, ShiftLine } from '../domain/labor/imports/schema';
 import type { LaborConfiguration, RolePassport, ZoneDemandNorm } from '../domain/labor/roles/schema';
@@ -132,6 +134,16 @@ export default function LaborIntelligencePanel({ period, scopeKey }: Props) {
   const recommendations = useMemo(() => recommendHourlyStaffing(forecast.cells, Object.fromEntries(stored.norms.map(norm => [norm.zoneId, norm.unitsPerLaborHour]))), [forecast, stored.norms]);
   const salesRevenue = periodSales.length ? periodSales.reduce((sum, line) => sum + line.revenue, 0) : null;
   const actualHours = calculation?.actualHours ?? null;
+  const periodStart = `${period}-01`;
+  const monthEnd = new Date(Date.UTC(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0)).toISOString().slice(0, 10);
+  const budgetSummary = useMemo(() => {
+    if (!periodShifts.length || !stored.roles.length) return null;
+    const adapted = buildLaborPlanRows({
+      shifts: periodShifts, rolePassports: stored.roles, status: 'actual',
+      source: 'Импортированный табель', periodStart, periodEnd: monthEnd,
+    });
+    return { ...calculateLaborBudget({ rows: adapted.rows, periodStart, periodEnd: monthEnd }), unmatchedPositions: adapted.unmatchedPositions };
+  }, [periodShifts, stored.roles, periodStart, monthEnd]);
 
   return <section className="fot-section li-panel">
     <div className="fot-section-heading"><div><span className="eyebrow">STEN LABOR INTELLIGENCE</span><h2>Загрузка команды и потребность в часах</h2><p>Продажи, табель, нормы и рекомендации собраны в одном контуре. Все настройки привязаны к текущему рабочему пространству.</p></div><button type="button" className="secondary-button" onClick={() => setExpanded(value => !value)}>{expanded ? 'Свернуть' : 'Открыть расчёт'}</button></div>
@@ -148,6 +160,13 @@ export default function LaborIntelligencePanel({ period, scopeKey }: Props) {
       <div className="li-config"><h3>Нормы производительности по зонам</h3><p>Сколько трудоёмких единиц зона обрабатывает за один человеко-час. Заполняйте по хронометражу или подтверждённой статистике.</p><div className="li-norm-grid">{stored.norms.map(norm => <label key={norm.zoneId}>{ZONES.find(zone => zone.id === norm.zoneId)?.label ?? norm.zoneId}<input type="number" min="0.001" step="0.1" placeholder="Ед. / человеко-час" value={normInputs[norm.zoneId] ?? (norm.unitsPerLaborHour?.toString() ?? '')} onChange={event => { const raw = event.target.value; setNormInputs(prev => ({ ...prev, [norm.zoneId]: raw })); const value = raw.trim() === '' ? null : Number(raw.replace(',', '.')); setStored(prev => ({ ...prev, norms: prev.norms.map(item => item.zoneId === norm.zoneId ? { ...item, unitsPerLaborHour: value != null && Number.isFinite(value) && value > 0 ? value : null } : item) })); }} /></label>)}</div></div>
       <div className="li-results">
         <div className="li-result-head"><h3>Фактическая загрузка · {period}</h3><button type="button" className="secondary-button" onClick={() => { setSales([]); setShifts([]); setSalesReport(null); setShiftReport(null); }}><RefreshCw size={14} /> Очистить импорт</button></div>
+        {budgetSummary && <div className="li-status">
+          <b>Бюджет и ФОТ по паспортам должностей</b>
+          <span>Фактические часы: {fmt(budgetSummary.actualHours.value)} ч · ФОТ по подтверждённым ставкам: {rub(budgetSummary.actualCost.value)}</span>
+          <span>Статус часов: {budgetSummary.actualHours.status} · статус стоимости: {budgetSummary.actualCost.status}</span>
+          {budgetSummary.unmatchedPositions.length > 0 && <span>Нет паспорта для должностей: {budgetSummary.unmatchedPositions.join(', ')}</span>}
+          {budgetSummary.actualCost.reasons.map(reason => <span key={reason}>{reason}</span>)}
+        </div>}
         <div className="li-kpis"><article><small>Продажи за период</small><strong>{periodSales.length ? fmt(periodSales.length, 0) + ' строк' : '—'}</strong></article><article><small>Выручка импорта</small><strong>{rub(salesRevenue)}</strong></article><article><small>Часы по табелю</small><strong>{periodShifts.length ? fmt(periodShifts.reduce((sum, line) => sum + line.hours, 0)) : '—'}</strong></article><article><small>Часы по расчёту</small><strong>{fmt(actualHours)}</strong></article></div>
         {!calculation ? <div className="li-empty"><AlertTriangle size={16} /> Для расчёта загрузите продажи и табель, настройте должности и коэффициенты трудоёмкости.</div> : <>
           <div className="li-status"><b>{calculation.status === 'complete' ? 'Расчёт выполнен' : calculation.status === 'partial' ? 'Расчёт частичный' : 'Расчёт недоступен'}</b>{calculation.reasons.map(reason => <span key={reason}>{reason}</span>)}</div>
