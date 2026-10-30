@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import { IikoParsedRow, type IikoParsedSales, type IikoUnmappedRow, type ZoneId } from './schema';
 import { mapCategoryToZone, normalizeCategory } from './zoneMap';
+import { parseLocalizedNumber } from '../imports/normalize';
 
 export type ParseOptions = { customZoneMap?: Readonly<Record<string, ZoneId>>; sheetName?: string };
 export type ParseReport = {
@@ -29,12 +30,7 @@ function findColumn(headers: unknown[], key: keyof typeof ALIASES): number {
   return headers.findIndex(header => ALIASES[key].map(normalizeHeader).includes(normalizeHeader(header)));
 }
 function parseNumber(value: unknown): number | null {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-  if (typeof value !== 'string') return null;
-  const cleaned = value.replace(/[\s\u00a0₽]/g, '').replace(/руб\.?/gi, '').replace(',', '.');
-  if (!cleaned || !/^-?\d+(?:\.\d+)?$/.test(cleaned)) return null;
-  const parsed = Number(cleaned);
-  return Number.isFinite(parsed) ? parsed : null;
+  return parseLocalizedNumber(value);
 }
 function validDate(value: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
