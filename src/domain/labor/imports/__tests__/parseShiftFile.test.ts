@@ -28,6 +28,16 @@ describe('parseShiftFile', () => {
     expect(result.report.rejectedRows).toBe(1);
   });
 
+  it('imports matrix schedules through the same canonical shift parser', async () => {
+    const result = await parseShiftFile(workbookBuffer([
+      ['Сотрудник', 'Должность', '01.10.2026', '02.10.2026'],
+      ['Иванов И.И.', 'Повар', 8, '20:00–04:00'],
+    ]));
+    expect(result.data).toHaveLength(2);
+    expect(result.data[0]).toMatchObject({ businessDate: '2026-10-01', hours: 8, positionName: 'Повар' });
+    expect(result.data[1]).toMatchObject({ businessDate: '2026-10-02', hours: 8, startTime: '20:00', endTime: '04:00' });
+  });
+
   it('fails clearly when required columns are missing', async () => {
     await expect(parseShiftFile(workbookBuffer([['Сотрудник', 'Часы']]))).rejects.toThrow('Не найдены обязательные поля');
   });
