@@ -44,6 +44,7 @@ function useReducedMotion(): boolean {
 
 export function MessageRow({ message, previousMessage, user, onCopy, onToSecretary, onAnalyzePnl, onSaveMemory, onSpeak, showSaveMemory, children }: MessageRowProps) {
   const { settings }=useAppearanceContext();
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const reducedMotion=useReducedMotion();
   const grouped=previousMessage?.role===message.role;
   const isAssistant=message.role==='assistant';
@@ -63,9 +64,25 @@ export function MessageRow({ message, previousMessage, user, onCopy, onToSecreta
         {children}
         <div className="message-bubble">{message.role === 'assistant' ? <MarkdownMessage content={message.content} /> : message.content}</div>
         {settings.showSources && sourceItems.length>0 && (
-          <div className="message-sources" aria-label="Источники">
-            {sourceItems.map((source,index)=><span className="message-source-chip" key={source.id??source.uri??`source-${index}`}>{source.title??source.kind??source.uri??'Источник'}</span>)}
-          </div>
+          <>
+            <div className="message-sources" aria-label="Источники">
+              {sourceItems.map((source,index)=><span className="message-source-chip" key={source.id??source.uri??`source-${index}`}>{source.title??source.kind??source.uri??'Источник'}</span>)}
+            </div>
+            <button type="button" className="message-details-toggle" aria-expanded={detailsOpen} onClick={() => setDetailsOpen(value=>!value)}>
+              {detailsOpen ? 'Скрыть детали' : 'Показать детали'}
+            </button>
+            {detailsOpen && (
+              <section className="message-details" aria-label="Детали ответа">
+                {sourceItems.map((source,index)=>(
+                  <div className="message-details__source" key={source.id??source.uri??`detail-${index}`}>
+                    <strong>{source.title??source.kind??'Источник'}</strong>
+                    {source.uri && <span>{source.uri}</span>}
+                    {source.excerpt && <p>{source.excerpt}</p>}
+                  </div>
+                ))}
+              </section>
+            )}
+          </>
         )}
         {isAssistant && settings.showActions && (
           <MessageActions onCopy={onCopy} onToSecretary={onToSecretary} onAnalyzePnl={onAnalyzePnl} onSaveMemory={onSaveMemory} onSpeak={onSpeak} showSaveMemory={showSaveMemory}/>
