@@ -4,6 +4,7 @@ type Total = { value: number | null; complete: boolean; reasons: string[] };
 const round = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 function hoursOf(row: LaborPlanRow): number | null {
+  if (row.recordType === 'period_salary') return null;
   if (row.hours != null) return row.hours;
   if (!row.startTime || !row.endTime) return null;
   const minutes = (value: string) => { const [h, m] = value.split(':').map(Number); return h * 60 + m; };
@@ -15,6 +16,10 @@ function hoursOf(row: LaborPlanRow): number | null {
 
 function costOf(row: LaborPlanRow): { value: number | null; reason?: string } {
   const h = hoursOf(row); const p = row.pay;
+  if (row.recordType === 'period_salary') {
+    if (p.model !== 'monthly_salary' || p.monthlySalary == null) return { value: null, reason: 'Для строки оклада за период нужна подтверждённая месячная зарплата.' };
+    return { value: p.monthlySalary + (p.approvedAllowances ?? 0) };
+  }
   if (p.model === 'hourly') {
     if (h == null) return { value: null, reason: 'Не определены часы смены.' };
     if (p.hourlyRate == null) return { value: null, reason: 'Не указана подтверждённая почасовая ставка.' };
@@ -29,9 +34,10 @@ function costOf(row: LaborPlanRow): { value: number | null; reason?: string } {
 }
 
 function sumHours(rows: LaborPlanRow[]): Total {
-  if (!rows.length) return { value: null, complete: false, reasons: ['Нет строк за выбранный период.'] };
+  const shiftRows = rows.filter(row => row.recordType !== 'period_salary');
+  if (!shiftRows.length) return { value: null, complete: false, reasons: ['Нет смен за выбранный период.'] };
   let sum = 0; const reasons: string[] = [];
-  for (const row of rows) { const h = hoursOf(row); if (h == null) reasons.push(`Не определены часы: ${row.positionName}, ${row.businessDate}.`); else sum += h; }
+  for (const row of shiftRows) { const h = hoursOf(row); if (h == null) reasons.push(`Не определены часы: ${row.positionName}, ${row.businessDate}.`); else sum += h; }
   return { value: reasons.length ? null : sum, complete: reasons.length === 0, reasons };
 }
 function sumCost(rows: LaborPlanRow[]): Total {
