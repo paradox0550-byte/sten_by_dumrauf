@@ -23,6 +23,8 @@ describe('calculateLabor', () => {
     expect(result.excessHours).toBe(2);
     expect(result.actualLaborCost).toBe(1600);
     expect(result.excessLaborCost).toBe(800);
+    expect(result.byHourZone.find(slot => slot.date === '2026-10-27' && slot.hour === 19 && slot.zoneId === 'hot'))
+      .toMatchObject({ actualHours: 1, requiredHours: 2, excessHours: 0 });
   });
 
   it('does not invent effort or productivity norms', () => {
@@ -30,6 +32,7 @@ describe('calculateLabor', () => {
       config: { ...config, zoneDemandNorms: [{ zoneId: 'hot', unitsPerLaborHour: null }] } });
     expect(result.status).toBe('partial');
     expect(result.requiredHours).toBeNull();
+    expect(result.byHourZone[0].requiredHours).toBeNull();
     expect(result.excessHours).toBeNull();
     expect(result.reasons.length).toBeGreaterThan(0);
   });
