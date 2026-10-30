@@ -125,13 +125,13 @@ export default function LaborIntelligencePanel({ period, scopeKey }: Props) {
     setRoleName(''); setRoleRate(''); setRoleCoverage('');
   }
 
-  const calculation = useMemo(() => sales.length && shifts.length && stored.roles.length
-    ? calculateLabor({ sales, shifts, config: configuration })
-    : null, [sales, shifts, configuration, stored.roles.length]);
-  const forecast = useMemo(() => forecastHourlyDemand(sales), [sales]);
-  const recommendations = useMemo(() => recommendHourlyStaffing(forecast.cells, Object.fromEntries(stored.norms.map(norm => [norm.zoneId, norm.unitsPerLaborHour]))), [forecast, stored.norms]);
   const periodSales = sales.filter(line => line.businessDate.startsWith(period));
   const periodShifts = shifts.filter(line => line.businessDate.startsWith(period));
+  const calculation = useMemo(() => periodSales.length && periodShifts.length && stored.roles.length
+    ? calculateLabor({ sales: periodSales, shifts: periodShifts, config: configuration })
+    : null, [periodSales, periodShifts, configuration, stored.roles.length]);
+  const forecast = useMemo(() => forecastHourlyDemand(sales), [sales]);
+  const recommendations = useMemo(() => recommendHourlyStaffing(forecast.cells, Object.fromEntries(stored.norms.map(norm => [norm.zoneId, norm.unitsPerLaborHour]))), [forecast, stored.norms]);
   const salesRevenue = periodSales.length ? periodSales.reduce((sum, line) => sum + line.revenue, 0) : null;
   const actualHours = calculation?.actualHours ?? null;
 
@@ -159,7 +159,7 @@ export default function LaborIntelligencePanel({ period, scopeKey }: Props) {
         </>}
       </div>
       <div className="li-config"><h3>Прогноз спроса и потребность в смене</h3><p>Медиана сопоставимых дней недели, часа и зоны по истории до 8 недель. Нужно не менее 4 календарных недель с заданной трудоёмкостью.</p>{forecast.status !== 'ready' ? <div className="li-empty">{forecast.reason}</div> : <><div className="li-status"><b>История достаточна для предварительного прогноза</b><span>Слоты прогноза: {forecast.cells.length}. Это потребность в часах, не готовый график сотрудников.</span></div><div className="li-table-wrap"><table><thead><tr><th>День недели</th><th>Час</th><th>Зона</th><th>Нагрузка</th><th>Часы</th><th>Сотрудники, минимум</th></tr></thead><tbody>{recommendations.slice(0, 80).map((row, index) => <tr key={row.weekday + ':' + row.hour + ':' + row.zoneId + ':' + index}><td>{['Вс','Пн','Вт','Ср','Чт','Пт','Сб'][row.weekday]}</td><td>{String(row.hour).padStart(2, '0')}:00</td><td>{ZONES.find(zone => zone.id === row.zoneId)?.label ?? row.zoneId}</td><td>{fmt(row.workloadUnits)}</td><td>{fmt(row.requiredLaborHours)}</td><td>{fmt(row.requiredPeople, 0)}</td></tr>)}</tbody></table></div></>}</div>
-      <p className="li-footnote">Импорт и настройки хранятся локально в этом браузере для выбранного рабочего контура. Данные не отправляются на сервер и пока не синхронизируются между устройствами. Перед утверждением графика проверьте доступность сотрудников, трудовое законодательство и минимальное покрытие каждой зоны.</p>
+      <p className="li-footnote">Настройки сохраняются локально для выбранного рабочего контура. Импортированные строки доступны до обновления страницы; данные не отправляются на сервер и не синхронизируются между устройствами. Перед утверждением графика проверьте доступность сотрудников, трудовое законодательство и минимальное покрытие каждой зоны.</p>
     </>}
   </section>;
 }
