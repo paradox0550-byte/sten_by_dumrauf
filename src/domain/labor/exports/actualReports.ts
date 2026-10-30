@@ -68,14 +68,6 @@ function dateRange(text: string): [string | null, string | null] {
 function isSummary(value: unknown): boolean {
   return typeof value === 'string' && /(?:^|\s)(?:всего|итого|общий итог)(?:$|\s)/i.test(value.trim());
 }
-function metaValue(rows: unknown[][], prefix: RegExp): string | null {
-  for (const row of rows.slice(0, 6)) {
-    const text = row.map(v => String(v ?? '')).join(' ');
-    const match = text.match(prefix);
-    if (match?.[1]) return match[1].trim();
-  }
-  return null;
-}
 /** Parses the Power BI hourly report. Its grouped date cells are forward-filled; subtotal/payment rows are never added as sales. */
 export async function parsePowerBiHourlyFile(buffer: ArrayBuffer): Promise<ActualReportResult<HourlySalesObservation>> {
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: true, raw: true });
@@ -85,7 +77,7 @@ export async function parsePowerBiHourlyFile(buffer: ArrayBuffer): Promise<Actua
   const meta = matrix.slice(0, 5).map(row => row.map(v => String(v ?? '')).join(' ')).join(' ');
   const restaurant = meta.match(/Название ресторана:\s*(.+?)(?:\s+Период:|$)/i)?.[1]?.trim() ?? null;
   const [periodStart, periodEnd] = dateRange(meta);
-  let headerIndex = matrix.findIndex(row => row.some(v => normalizeHeader(v) === 'учетный день' || normalizeHeader(v) === 'учётный день')
+  const headerIndex = matrix.findIndex(row => row.some(v => normalizeHeader(v) === 'учетный день' || normalizeHeader(v) === 'учётный день')
     && row.some(v => normalizeHeader(v) === 'час открытия')
     && row.some(v => normalizeHeader(v).includes('сумма со скидкой')));
   if (headerIndex < 0) throw new Error('Это не поддерживаемый Power BI почасовой отчёт: не найдены заголовки «Учетный день», «Час открытия» и «Сумма со скидкой».');
