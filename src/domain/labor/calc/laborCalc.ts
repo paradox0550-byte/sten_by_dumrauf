@@ -91,7 +91,11 @@ export function calculateLabor(input: {
       excessHours: required == null ? null : round(Math.max(0, actual - required)) };
   });
   const hourlyKeys = new Set([...requiredByHourZone.keys(), ...actualByHourZone.keys()]);
-  const byHourZone = [...hourlyKeys].sort((left, right) => left.localeCompare(right)).map(key => {
+  const byHourZone = [...hourlyKeys].sort((left, right) => {
+    const [leftDate, leftHour, leftZone] = left.split('|');
+    const [rightDate, rightHour, rightZone] = right.split('|');
+    return leftDate.localeCompare(rightDate) || Number(leftHour) - Number(rightHour) || leftZone.localeCompare(rightZone);
+  }).map(key => {
     const [date, hourText, zoneId] = key.split('|');
     const actual = hourlyActualComplete ? actualByHourZone.get(key) ?? 0 : null;
     const required = requiredByHourZone.get(key)?.hours;
