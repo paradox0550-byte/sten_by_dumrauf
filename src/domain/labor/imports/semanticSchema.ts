@@ -70,7 +70,8 @@ function familyOf(fields:SemanticField[]):{family:SemanticReportFamily;confidenc
  if(has('writeOffReason')&&has('quantity'))return {family:'write_offs',confidence:.86};
  if(has('paymentType','discountType','discountAmount')&&has('revenue'))return {family:'payments_discounts',confidence:.82};
  if(has('accountName','operationType')&&has('cost','revenue'))return {family:'finance_postings',confidence:.78};
- if(has('businessDate')&&has('revenue')&&(has('checks')||has('guests'))&&(has('hourOfDay')||has('businessDate')))return {family:'sales_hourly',confidence:has('hourOfDay')?.88:.78};
+ if(has('businessDate')&&has('revenue')&&has('hourOfDay'))return {family:'sales_hourly',confidence:.88};
+ if(has('businessDate')&&has('revenue')&&(has('checks')||has('guests')))return {family:'sales_hourly',confidence:.78};
  if(has('itemName','categoryName')&&has('quantity','revenue'))return {family:'sales_mix',confidence:.78};
  return {family:'unknown',confidence:.2};
 }
