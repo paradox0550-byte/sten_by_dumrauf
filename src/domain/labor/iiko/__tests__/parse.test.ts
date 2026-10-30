@@ -59,6 +59,14 @@ describe('parseIikoSalesFile', () => {
     expect(result.data[0]).toMatchObject({ date: '2026-10-27', hour: 19, qty: 2.5, revenue: 1200.5 });
   });
 
+  it('parses European thousands and decimal separators without truncating the amount', async () => {
+    const result = await parseIikoSalesFile(workbookBuffer([
+      ['Учетный день', 'Час закрытия', 'Блюдо', 'Категория номенклатуры', 'Количество блюд', 'Сумма со скидкой, р.'],
+      ['27.10.2026', 19, 'Паста', 'Паста', 1, '1.234,50'],
+    ]));
+    expect(result.data[0].revenue).toBe(1234.5);
+  });
+
   it('skips modifier rows and subtotal rows', async () => {
     const result = await parseIikoSalesFile(workbookBuffer([
       [...headers, 'Модификатор'],
