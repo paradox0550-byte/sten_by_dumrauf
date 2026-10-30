@@ -16,6 +16,7 @@ export const PayTermsSchema = z.object({
 export type PayTerms = z.infer<typeof PayTermsSchema>;
 
 export const LaborPlanRowSchema = z.object({
+  recordType: z.enum(['shift', 'period_salary']).default('shift'),
   id: z.string().min(1), businessDate: z.string().date(),
   employeeId: z.string().trim().min(1).nullable().default(null), employeeName: z.string().trim().min(1).nullable().default(null),
   positionName: z.string().trim().min(1), departmentId: z.string().trim().min(1).nullable().default(null), departmentName: z.string().trim().min(1).nullable().default(null),
