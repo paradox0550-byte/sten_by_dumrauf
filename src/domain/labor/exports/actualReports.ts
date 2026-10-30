@@ -43,7 +43,9 @@ const headerAliases = {
   discountPercent: ['скидка(%)', 'скидка (%)', 'скидка'],
 } as const;
 function findHeader(headers: unknown[], aliases: readonly string[]): number {
-  return headers.findIndex(value => aliases.some(alias => normalizeHeader(value).includes(normalizeHeader(alias))));
+  const normalizedAliases = aliases.map(normalizeHeader);
+  const exact = headers.findIndex(value => normalizedAliases.includes(normalizeHeader(value)));
+  return exact >= 0 ? exact : headers.findIndex(value => normalizedAliases.some(alias => normalizeHeader(value).includes(alias)));
 }
 function parseDate(value: unknown): string | null {
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
