@@ -5,6 +5,8 @@ export type PnlExcelSheet = {
   name: string;
   rows: PnlCellValue[][];
   headerRow: number;
+  startRow: number;
+  startColumn: number;
   formulaCells: Record<string, { formula: string; hasCachedValue: boolean }>;
 };
 export type PnlExcelWorkbook = { sheets: PnlExcelSheet[] };
@@ -100,7 +102,7 @@ export function parsePnlWorkbook(data: ArrayBuffer): PnlExcelWorkbook {
   if (!workbook.SheetNames.length) throw new Error('В Excel нет листов с данными.');
   const sheets = workbook.SheetNames.map(name => {
     const worksheet = workbook.Sheets[name];
-    if (!worksheet || !worksheet['!ref']) return { name, rows: [], headerRow: -1, formulaCells: {} };
+    if (!worksheet || !worksheet['!ref']) return { name, rows: [], headerRow: -1, startRow: 0, startColumn: 0, formulaCells: {} };
     const rows = XLSX.utils.sheet_to_json<PnlCellValue[]>(worksheet, { header: 1, defval: null, raw: true, blankrows: true });
     const formulaCells: PnlExcelSheet['formulaCells'] = {};
     const range = XLSX.utils.decode_range(worksheet['!ref']);
@@ -113,7 +115,7 @@ export function parsePnlWorkbook(data: ArrayBuffer): PnlExcelWorkbook {
         }
       }
     }
-    return { name, rows, headerRow: detectPnlHeaderRow(rows), formulaCells };
+    return { name, rows, headerRow: detectPnlHeaderRow(rows), startRow: range.s.r, startColumn: range.s.c, formulaCells };
   });
   return { sheets };
 }
@@ -130,8 +132,8 @@ export function buildPnlImportRows(
   for (let rowIndex = headerRow + 1; rowIndex < sheet.rows.length; rowIndex += 1) {
     const row = sheet.rows[rowIndex] ?? [];
     const article = String(row[columns.article] ?? '').trim();
-    const planAddress = columns.plan === null ? null : XLSX.utils.encode_cell({ r: rowIndex, c: columns.plan });
-    const factAddress = columns.fact === null ? null : XLSX.utils.encode_cell({ r: rowIndex, c: columns.fact });
+    const planAddress = columns.plan === null ? null : XLSX.utils.encode_cell({ r: rowIndex + sheet.startRow, c: columns.plan + sheet.startColumn });
+    const factAddress = columns.fact === null ? null : XLSX.utils.encode_cell({ r: rowIndex + sheet.startRow, c: columns.fact + sheet.startColumn });
     const planCell = planAddress ? sheet.formulaCells[planAddress] : undefined;
     const factCell = factAddress ? sheet.formulaCells[factAddress] : undefined;
     const plan = columns.plan === null ? null : parsePnlAmount(row[columns.plan]);
@@ -154,7 +156,7 @@ export function buildPnlImportRows(
       fact,
       source: `Excel: ${sheet.name}, строка ${rowIndex + 1}`,
       sheet: sheet.name,
-      sourceRow: rowIndex + 1,
+      sourceRow: rowIndex + sheet.startRow + 1,
       sourceCellPlan: planAddress,
       sourceCellFact: factAddress,
       warnings,
