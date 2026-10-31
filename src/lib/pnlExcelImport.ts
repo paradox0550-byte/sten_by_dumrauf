@@ -10,6 +10,7 @@ export type PnlExcelSheet = {
   formulaCells: Record<string, { formula: string; hasCachedValue: boolean }>;
 };
 export type PnlExcelWorkbook = { sheets: PnlExcelSheet[] };
+export type PnlCategory = 'revenue' | 'cogs' | 'payroll' | 'overtime' | 'opex' | 'other_operating' | 'depreciation' | 'interest' | 'tax' | 'other' | 'unclassified';
 export type PnlColumnMap = { article: number; plan: number | null; fact: number | null };
 export type PnlImportedRow = {
   id: string;
@@ -147,7 +148,7 @@ export function buildPnlImportRows(
     if (plan === null && fact === null && !(planCell && !planCell.hasCachedValue) && !(factCell && !factCell.hasCachedValue)) {
       warnings.push('Не удалось прочитать сумму План/Факт');
     }
-    if (TOTAL_LABEL.test(normalizePnlText(article))) warnings.push('Похоже на итоговую строку — исключена из импорта во избежание двойного счёта');
+    const category = suggestPnlCategory(article);\n    if (!category || category === 'unclassified') warnings.push('Требует выбора категории P&L');\n    if (TOTAL_LABEL.test(normalizePnlText(article))) warnings.push('Похоже на итоговую строку — исключена из импорта во избежание двойного счёта');
     const skip = TOTAL_LABEL.test(normalizePnlText(article));
     result.push({
       id: `${sheet.name}-${rowIndex + 1}`,
