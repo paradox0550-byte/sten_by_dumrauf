@@ -38,6 +38,8 @@ describe('P&L Excel import', () => {
     const sheet: PnlExcelSheet = {
       name: 'P&L',
       headerRow: 0,
+      startRow: 0,
+      startColumn: 0,
       formulaCells: {},
       rows: [
         ['Статья', 'План', 'Факт'],
@@ -58,6 +60,8 @@ describe('P&L Excel import', () => {
     const sheet: PnlExcelSheet = {
       name: 'P&L',
       headerRow: 0,
+      startRow: 0,
+      startColumn: 0,
       rows: [['Статья', 'План', 'Факт'], ['Аренда', null, 5000]],
       formulaCells: { B2: { formula: 'SUM(B3:B8)', hasCachedValue: false } },
     };
