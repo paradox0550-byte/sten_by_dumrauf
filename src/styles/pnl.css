@@ -149,4 +149,11 @@
   .pnl-expense-intro { margin:0 0 10px; color:var(--text-secondary); font-size:12px; line-height:1.45; }
   .pnl-expense-classification .pnl-expense-empty { padding:2px 0; }
 
+  .pnl-tools-disclosure { position:relative; }
+  .pnl-tools-disclosure > summary { min-height:36px; display:flex; align-items:center; padding:0 11px; border:1px solid var(--border-default); border-radius:var(--ui-radius-sm); background:var(--bg-surface); color:var(--text-primary); cursor:pointer; font-size:12px; font-weight:500; list-style:none; }
+  .pnl-tools-disclosure > summary::-webkit-details-marker { display:none; }
+  .pnl-tools-disclosure[open] > summary { border-color:var(--color-brand); }
+  .pnl-template-actions { position:absolute; right:0; top:calc(100% + 6px); z-index:12; display:grid; gap:6px; min-width:220px; padding:8px; border:1px solid var(--border-default); border-radius:var(--ui-radius-md); background:var(--bg-surface); box-shadow:var(--shadow-md, 0 8px 24px rgb(0 0 0 / 10%)); }
+  .pnl-template-actions .secondary-button { justify-content:flex-start; width:100%; }
+
 }
