@@ -34,7 +34,7 @@ const TOTAL_LABEL = /^(?:итого|всего|общий итог|итог|tota
 
 export function normalizePnlText(value: unknown): string {
   return String(value ?? '').normalize('NFKC').replace(/[\u00a0\u202f]/g, ' ').trim().toLocaleLowerCase('ru-RU')
-    .replace(/[ё]/g, 'е').replace(/[\s_/-]+/g, ' ');
+    .replace(/[ё]/g, 'е').replace(/[.,:;()]+/g, ' ').replace(/[\s_/-]+/g, ' ');
 }
 
 export function parsePnlAmount(value: unknown): number | null {
