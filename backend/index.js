@@ -485,17 +485,19 @@ if (x === null || b === null || b === 0) return null;
 return (x / b) * 100;
 }
 function pnl({ revenue, cogs, personnel, overtime, opex, other, other_operating, depreciation, interest, tax } = {}) {
+const expenseValue = value => { const n = numOrNull(value); return n === null ? null : Math.abs(n); };
 const r = {
-revenue: numOrNull(revenue), cogs: numOrNull(cogs), personnel: numOrNull(personnel),
-overtime: numOrNull(overtime), opex: numOrNull(opex), other: numOrNull(other),
-otherOperating: numOrNull(other_operating), depreciation: numOrNull(depreciation),
-interest: numOrNull(interest), tax: numOrNull(tax),
+revenue: numOrNull(revenue), cogs: expenseValue(cogs), personnel: expenseValue(personnel),
+overtime: expenseValue(overtime), opex: expenseValue(opex), other: expenseValue(other),
+otherOperating: expenseValue(other_operating), depreciation: expenseValue(depreciation),
+interest: expenseValue(interest), tax: expenseValue(tax),
 };
 const labor = sumDefined([r.personnel, r.overtime]);
 const operatingOther = sumDefined([r.otherOperating, r.other]);
 const operatingExpenses = sumDefined([r.opex, operatingOther]);
 const costs = sumDefined([r.cogs, labor, operatingExpenses]);
 r.labor = labor;
+r.grossProfit = (r.revenue !== null && r.cogs !== null) ? r.revenue - r.cogs : null;
 r.operatingExpenses = operatingExpenses;
 const ebitdaMissingBlocks = [];
 if (r.cogs === null) ebitdaMissingBlocks.push('cogs');
@@ -513,13 +515,14 @@ r.otherOperatingPercent = pctOf(operatingOther, r.revenue);
 r.otherOperatingRequiresReview = r.otherOperatingPercent !== null && r.otherOperatingPercent > 5;
 r.overtimePercentOfLabor = pctOf(r.overtime, labor);
 const belowEbitda = sumDefined([r.depreciation, r.interest, r.tax]);
+r.belowEbitdaExpenses = belowEbitda;
 r.netProfit = (r.ebitda !== null && belowEbitda !== null) ? r.ebitda - belowEbitda : null;
 r.foodCostPercent = pctOf(r.cogs, r.revenue);
 r.personnelPercent = pctOf(labor, r.revenue);
 r.opexPercent = pctOf(operatingExpenses, r.revenue);
 r.ebitdaMargin = pctOf(r.ebitda, r.revenue);
 r.netMargin = pctOf(r.netProfit, r.revenue);
-r.formulaVersion = 'pnl-v3-prime-cost';
+r.formulaVersion = 'pnl-v4-signed-expenses-category-aware';
 r.provenance = 'deterministic-backend-calculator';
 return r;
 }
@@ -1480,7 +1483,7 @@ function rollupAgg(agg) {
 const pick = (key, field = 'fact') => {
 const matching = (agg || []).filter(row => pnlRowKey(row) === key);
 if (!matching.length || matching.some(row => row[field] === null || row[field] === undefined || !Number.isFinite(Number(row[field])))) return null;
-return matching.reduce((sum, row) => sum + Number(row[field]), 0);
+return matching.reduce((sum, row) => sum + (key === 'revenue' ? Number(row[field]) : Math.abs(Number(row[field]))), 0);
 };
 return {
 revenue: pick('revenue'), cogs: pick('cogs'), personnel: pick('payroll'),
@@ -1724,7 +1727,7 @@ const all = [];
 for (const r of rows) { try { const parsed = JSON.parse(r.rows); if (Array.isArray(parsed)) all.push(...parsed); } catch { /* ignore */ } }
 let aggregated = aggregateRows(all);
 const txRows = await strictQuery(
-`SELECT article, SUM(amount) AS total, COUNT(*)::int AS count FROM pnl_transactions
+`SELECT article, SUM(CASE WHEN type='expense' THEN -amount ELSE amount END) AS total, COUNT(*)::int AS count FROM pnl_transactions
 WHERE organization_id=$1::uuid AND period=$2
 AND ($3::text='' OR project_id=$3) AND ($4::text='' OR branch_id=$4)
 AND ($5::text='' OR restaurant_id=$5) AND ($6::text='' OR department_id=$6)
