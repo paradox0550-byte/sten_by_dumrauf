@@ -55,12 +55,13 @@ function isAggregateOpex(row: PnlDraftRow): boolean {
 function isDetailExpense(row: PnlDraftRow, overrides?: LocalClassificationOverride): boolean {
   const articleKey = canonicalArticleKey(row.article);
   if (isDerivedPnlArticle(row.article) || articleKey === 'revenue' || isAggregateOpex(row)) return false;
-  // Aggregate financial lines must never become expense details, even if the
-  // imported row carries a broad or legacy category key.
-  if (AGGREGATE_KEYS.has(articleKey.replace(/[\s_-]+/g, ''))) return false;
-  // Explicit OPEX detail keys take precedence over generic names such as "Прочее".
+  // Explicit OPEX detail keys take precedence over generic names such as "Прочее",
+  // but never turn core financial aggregates (revenue, COGS, payroll, EBITDA) into details.
   const explicitKey = String(row.key ?? '').trim().toLocaleLowerCase('ru-RU');
-  if (['opex', 'other_operating', 'depreciation', 'interest', 'tax', 'expense', 'expenses'].includes(explicitKey)) return true;
+  const hasExplicitOpexDetailKey = ['opex', 'other_operating', 'depreciation', 'interest', 'tax', 'expense', 'expenses'].includes(explicitKey);
+  const normalizedArticleKey = articleKey.replace(/[\s_-]+/g, '');
+  if (AGGREGATE_KEYS.has(normalizedArticleKey) && !(normalizedArticleKey === 'other' && hasExplicitOpexDetailKey)) return false;
+  if (hasExplicitOpexDetailKey) return true;
   if (classifyExpense(row.article, row.id, overrides) !== 'unknown') return true;
   return (isFiniteNumber(row.plan) && row.plan < 0) || (isFiniteNumber(row.fact) && row.fact < 0);
 }
