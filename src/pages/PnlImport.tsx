@@ -138,7 +138,7 @@ export default function PnLImport() {
       const next = { ...row, ...patch };
       const warnings = next.warnings.filter(warning => {
         if (warning === 'Нет названия статьи' && next.article.trim()) return false;
-        if (warning === 'Требует выбора категории P&L' && next.category !== 'unclassified') return false;
+        if (warning === 'Требует выбора категории P&L') return false;
         if (warning === 'Не удалось прочитать сумму План/Факт' && (next.plan !== null || next.fact !== null)) return false;
         if (warning === 'Формула План не содержит сохранённого результата' && patch.plan !== undefined) return false;
         if (warning === 'Формула Факт не содержит сохранённого результата' && patch.fact !== undefined) return false;
@@ -181,6 +181,7 @@ export default function PnLImport() {
       const result = await writePnlAndVerify(scope, usableRows.map(row => ({
         article: row.article.trim(),
         label: row.article.trim(),
+        source: row.source,
         key: row.category === 'unclassified' ? undefined : row.category,
         plan: row.plan,
         fact: row.fact,
