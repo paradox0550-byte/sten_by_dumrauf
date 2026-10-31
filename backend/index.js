@@ -1825,6 +1825,22 @@ ok(res,{status:'approved',approvedAt:new Date().toISOString(),scope:s});
 } catch(e){next(e);}
 });
 
+
+app.post('/api/pnl/unapprove', requireAuth, requireOrg, async (req, res, next) => {
+try {
+if (!APPROVER_ROLES.has(String(req.user.role || '').toLowerCase())) throw httpError(403, 'У Вас нет права возвращать утверждённый план в черновик.', 'FORBIDDEN_APPROVAL');
+const s = parseOr400(PnlApproveSchema, req.body ?? {});
+if (s.restaurant_id) await assertRestaurantAccess(req.user, s.restaurant_id);
+await assertScopeAccess(req.user, s);
+const result = await strictQuery(
+`DELETE FROM pnl_approvals WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 AND status='approved' RETURNING status`,
+[req.user.organizationId, s.period, s.project_id, s.branch_id, s.restaurant_id, s.department_id]);
+if (!result.length) throw httpError(409, 'Утверждённый план для выбранной области не найден.', 'PNL_APPROVAL_NOT_FOUND');
+await audit(req.user, 'pnl.unapproved', 'pnl_approvals', `${s.period}|${s.project_id}|${s.branch_id}|${s.restaurant_id}|${s.department_id}`, {});
+ok(res, { status: 'draft', message: 'План возвращён в черновик.', scope: s });
+} catch(e) { next(e); }
+});
+
 app.post('/api/pnl/calculate', requireAuth, (req, res, next) => {
 try {
 const body = parseOr400(PnlCalculateSchema, req.body ?? {});

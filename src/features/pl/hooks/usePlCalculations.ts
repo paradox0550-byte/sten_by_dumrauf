@@ -43,40 +43,55 @@ function sumKnown(values: Array<number | null | undefined>): number | undefined 
   return values.reduce<number>((sum, value) => sum + (value as number), 0);
 }
 
-function signedExpenseRows(rows: PnlDraftRow[]): PnlDraftRow[] {
-  const excluded = new Set(['revenue', 'cogs', 'payroll', 'opex', 'depreciation', 'interest', 'tax']);
-  return rows.filter((row) => {
-    const key = canonicalArticleKey(row.article);
-    if (excluded.has(key) || isDerivedPnlArticle(row.article)) return false;
-    // STEN stores expenses as negative values. Do not guess whether positive-only rows are expenses.
-    return (isFiniteNumber(row.plan) && row.plan < 0) || (isFiniteNumber(row.fact) && row.fact < 0);
-  });
+const AGGREGATE_KEYS = new Set([
+  'revenue', 'cogs', 'payroll', 'personnel', 'labor', 'other', 'grossprofit', 'ebitda', 'netprofit',
+]);
+
+function isAggregateOpex(row: PnlDraftRow): boolean {
+  return canonicalArticleKey(row.article) === 'opex'
+    || /^(?:операционные расходы|операционные затраты|общий opex)$/iu.test(row.article.normalize('NFC').trim());
+}
+
+function isDetailExpense(row: PnlDraftRow, overrides?: LocalClassificationOverride): boolean {
+  const articleKey = canonicalArticleKey(row.article);
+  if (isDerivedPnlArticle(row.article) || articleKey === 'revenue' || isAggregateOpex(row)) return false;
+  // Explicit OPEX detail keys take precedence over generic names such as "Прочее",
+  // but never turn core financial aggregates (revenue, COGS, payroll, EBITDA) into details.
+  const explicitKey = String(row.key ?? '').trim().toLocaleLowerCase('ru-RU');
+  const hasExplicitOpexDetailKey = ['opex', 'other_operating', 'depreciation', 'interest', 'tax', 'expense', 'expenses'].includes(explicitKey);
+  const normalizedArticleKey = articleKey.replace(/[\s_-]+/g, '');
+  if (AGGREGATE_KEYS.has(normalizedArticleKey) && !(normalizedArticleKey === 'other' && hasExplicitOpexDetailKey)) return false;
+  if (hasExplicitOpexDetailKey) return true;
+  if (classifyExpense(row.article, row.id, overrides) !== 'unknown') return true;
+  return (isFiniteNumber(row.plan) && row.plan < 0) || (isFiniteNumber(row.fact) && row.fact < 0);
 }
 
 /**
- * Uses STEN's signed convention (expenses are negative).
- * A controllable profit is only reported when source inputs are complete and no expense
- * remains unclassified. Aggregate OPEX cannot safely be split or combined with detail rows
- * without a source-level guarantee that they do not overlap.
+ * Classifies detailed operating expense lines. Aggregate OPEX is deliberately not
+ * added to details: without source-level evidence this could double-count costs.
+ * Missing amounts stay unknown rather than being converted to zero.
  */
 export function calculateClassifiedPlData(
   rows: PnlDraftRow[],
   overrides?: LocalClassificationOverride,
 ): EnrichedPlData {
-  const detailedExpenseRows = signedExpenseRows(rows);
-  const hasAggregateOpex = rows.some((row) => canonicalArticleKey(row.article) === 'opex');
-  const articlesWithTypes: ClassifiedPlArticle[] = detailedExpenseRows.map((row) => ({
-    id: row.id,
-    name: row.article,
-    plan: row.plan,
-    fact: row.fact,
-    controlType: classifyExpense(row.article, row.id, overrides),
-  }));
+  const hasAggregateOpex = rows.some(isAggregateOpex);
+  const articlesWithTypes: ClassifiedPlArticle[] = rows
+    .filter((row) => isDetailExpense(row, overrides))
+    .map((row) => ({
+      id: row.id,
+      name: row.article,
+      plan: row.plan,
+      fact: row.fact,
+      controlType: classifyExpense(row.article, row.id, overrides),
+    }));
 
-  const sumByType = (type: ExpenseControlType, field: 'plan' | 'fact') => {
+  const sumByType = (type: ExpenseControlType, field: 'plan' | 'fact'): number | undefined => {
     const selected = articlesWithTypes.filter((row) => row.controlType === type);
-    // An empty category is zero only when there is a detailed, fully classified expense list.
     if (selected.length === 0) {
+      // An empty unknown bucket means there are no unknown expenses; keep it absent.
+      // Known buckets may be zero when a complete detailed list proves the category is empty.
+      if (type === 'unknown') return undefined;
       return articlesWithTypes.length > 0 && !articlesWithTypes.some((row) => row.controlType === 'unknown')
         ? 0
         : undefined;
@@ -90,7 +105,7 @@ export function calculateClassifiedPlData(
 
   const revenue = rows.find((row) => canonicalArticleKey(row.article) === 'revenue');
   const cogs = rows.find((row) => canonicalArticleKey(row.article) === 'cogs');
-  const payroll = rows.find((row) => canonicalArticleKey(row.article) === 'payroll');
+  const payroll = rows.find((row) => ['payroll', 'personnel', 'labor'].includes(canonicalArticleKey(row.article)));
 
   const profitFor = (field: 'plan' | 'fact'): number | undefined => {
     if (hasAggregateOpex || articlesWithTypes.some((row) => row.controlType === 'unknown')) return undefined;
@@ -99,8 +114,8 @@ export function calculateClassifiedPlData(
     const labor = payroll?.[field];
     const controllable = controllableOpex[field];
     if (![rev, cost, labor, controllable].every(isFiniteNumber)) return undefined;
-    // Revenue + signed COGS + signed payroll + signed controllable OPEX.
-    return (rev as number) + (cost as number) + (labor as number) + (controllable as number);
+    // Normalize both imported positive costs and STEN's signed negative costs.
+    return (rev as number) - Math.abs(cost as number) - Math.abs(labor as number) - Math.abs(controllable as number);
   };
 
   const controllableProfit = { plan: profitFor('plan'), fact: profitFor('fact') };
