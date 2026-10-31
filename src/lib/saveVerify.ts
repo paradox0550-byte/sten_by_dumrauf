@@ -10,6 +10,7 @@ export interface ComparableRow {
   article: string;
   key?: string;
   label?: string;
+  source?: string | null;
   plan?: number | null;
   fact?: number | null;
 }
@@ -75,6 +76,7 @@ export async function writePnlAndVerify(scope: Scope, rows: ComparableRow[]): Pr
         article: r.article,
         key: r.key,
         label: r.label,
+        source: r.source ?? null,
         plan: r.plan ?? null,
         fact: r.fact ?? null,
       })),
