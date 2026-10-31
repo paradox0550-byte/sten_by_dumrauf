@@ -177,7 +177,9 @@ export function buildPnlImportRows(
     const warnings: string[] = [];
     if (!article) warnings.push('Нет названия статьи');
     if (planCell && !planCell.hasCachedValue) warnings.push('Формула План не содержит сохранённого результата');
+    else if (planCell) warnings.push(`Формула План (${planCell.formula}) — используется сохранённый результат Excel`);
     if (factCell && !factCell.hasCachedValue) warnings.push('Формула Факт не содержит сохранённого результата');
+    else if (factCell) warnings.push(`Формула Факт (${factCell.formula}) — используется сохранённый результат Excel`);
     if (plan === null && fact === null && !(planCell && !planCell.hasCachedValue) && !(factCell && !factCell.hasCachedValue)) {
       warnings.push('Не удалось прочитать сумму План/Факт');
     }
