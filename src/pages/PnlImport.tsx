@@ -15,9 +15,6 @@ import {
   type PnlExcelWorkbook,
 } from '../lib/pnlExcelImport';
 
-const money = (value: number | null) => value === null
-  ? '—'
-  : new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value);
 const columnName = (index: number) => {
   let n = index + 1;
   let label = '';
@@ -141,6 +138,8 @@ export default function PnLImport() {
       const warnings = next.warnings.filter(warning => {
         if (warning === 'Нет названия статьи' && next.article.trim()) return false;
         if (warning === 'Не удалось прочитать сумму План/Факт' && (next.plan !== null || next.fact !== null)) return false;
+        if (warning === 'Формула План не содержит сохранённого результата' && patch.plan !== undefined) return false;
+        if (warning === 'Формула Факт не содержит сохранённого результата' && patch.fact !== undefined) return false;
         if (warning.startsWith('Похоже на итоговую строку')) return false;
         return true;
       });
@@ -278,8 +277,8 @@ export default function PnLImport() {
                         <input className="settings-field" value={row.article} aria-label="Название статьи" onChange={event => updateRow(row.id, { article: event.target.value })} />
                         <small>{row.source}</small>
                       </td>
-                      <td><input className="settings-field" type="number" step="any" value={row.plan ?? ''} aria-label={`План ${row.article}`} onChange={event => updateRow(row.id, { plan: event.target.value === '' ? null : parsePnlAmount(event.target.value) })} /></td>
-                      <td><input className="settings-field" type="number" step="any" value={row.fact ?? ''} aria-label={`Факт ${row.article}`} onChange={event => updateRow(row.id, { fact: event.target.value === '' ? null : parsePnlAmount(event.target.value) })} /></td>
+                      <td><input className="settings-field" type="number" step="any" value={row.plan ?? ''} aria-label={`План ${row.article}`} onChange={event => updateRow(row.id, { plan: event.target.value === '' || !Number.isFinite(Number(event.target.value)) ? null : Number(event.target.value) })} /></td>
+                      <td><input className="settings-field" type="number" step="any" value={row.fact ?? ''} aria-label={`Факт ${row.article}`} onChange={event => updateRow(row.id, { fact: event.target.value === '' || !Number.isFinite(Number(event.target.value)) ? null : Number(event.target.value) })} /></td>
                       <td style={{ minWidth: 230 }}>
                         <small>{row.sourceCellPlan ? `План: ${row.sourceCellPlan}` : 'План: не выбран'} · {row.sourceCellFact ? `Факт: ${row.sourceCellFact}` : 'Факт: не выбран'}</small>
                         {row.warnings.filter(warning => warning !== 'Похоже на итоговую строку — исключена из импорта во избежание двойного счёта').map(warning => <small key={warning} style={{ display: 'block', color: 'var(--sten-risk, #A62D2D)' }}>{warning}</small>)}
