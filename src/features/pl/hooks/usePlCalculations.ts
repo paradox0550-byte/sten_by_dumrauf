@@ -44,8 +44,7 @@ function sumKnown(values: Array<number | null | undefined>): number | undefined 
 }
 
 const AGGREGATE_KEYS = new Set([
-  'revenue', 'cogs', 'payroll', 'personnel', 'labor', 'depreciation',
-  'interest', 'tax', 'other', 'grossprofit', 'ebitda', 'netprofit',
+  'revenue', 'cogs', 'payroll', 'personnel', 'labor', 'other', 'grossprofit', 'ebitda', 'netprofit',
 ]);
 
 function isAggregateOpex(row: PnlDraftRow): boolean {
@@ -112,8 +111,8 @@ export function calculateClassifiedPlData(
     const labor = payroll?.[field];
     const controllable = controllableOpex[field];
     if (![rev, cost, labor, controllable].every(isFiniteNumber)) return undefined;
-    // STEN stores expenses as signed values (normally negative).
-    return (rev as number) + (cost as number) + (labor as number) + (controllable as number);
+    // Normalize both imported positive costs and STEN's signed negative costs.
+    return (rev as number) - Math.abs(cost as number) - Math.abs(labor as number) - Math.abs(controllable as number);
   };
 
   const controllableProfit = { plan: profitFor('plan'), fact: profitFor('fact') };
