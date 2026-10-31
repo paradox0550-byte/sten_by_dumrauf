@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import * as XLSX from 'xlsx';
 import {
   buildPnlImportRows,
   detectPnlHeaderRow,
@@ -66,7 +67,6 @@ describe('P&L Excel import', () => {
   });
 
   it('reads all workbook sheets and records formula metadata', () => {
-    const XLSX = require('xlsx') as typeof import('xlsx');
     const worksheet = XLSX.utils.aoa_to_sheet([
       ['Статья', 'План', 'Факт'],
       ['Выручка', 100, 90],
