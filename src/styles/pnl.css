@@ -135,4 +135,18 @@
     .pnl-expense-item { align-items:flex-start; }
     .pnl-expense-item select { max-width:145px; }
   }
+  /* Keep secondary financial detail available without dominating the working table. */
+  .pnl-disclosure { margin:0 0 10px; border:1px solid var(--border-subtle); border-radius:var(--ui-radius-md, 10px); background:var(--bg-surface); }
+  .pnl-disclosure-summary { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:42px; padding:10px 13px; cursor:pointer; color:var(--text-primary); font-size:12px; font-weight:600; list-style:none; }
+  .pnl-disclosure-summary::-webkit-details-marker { display:none; }
+  .pnl-disclosure-summary::before { content:"›"; display:inline-block; margin-right:2px; color:var(--text-secondary); font-size:18px; line-height:1; transform:rotate(0); }
+  .pnl-disclosure[open] > .pnl-disclosure-summary::before { transform:rotate(90deg); }
+  .pnl-disclosure-summary span { margin-right:auto; }
+  .pnl-disclosure-summary small { color:var(--text-secondary); font-size:11px; font-weight:500; }
+  .pnl-kpis-disclosure > .pnl-kpis-expanded { padding:0 12px 12px; }
+  .pnl-expense-classification { padding:0; }
+  .pnl-expense-classification-body { padding:0 12px 12px; }
+  .pnl-expense-intro { margin:0 0 10px; color:var(--text-secondary); font-size:12px; line-height:1.45; }
+  .pnl-expense-classification .pnl-expense-empty { padding:2px 0; }
+
 }
