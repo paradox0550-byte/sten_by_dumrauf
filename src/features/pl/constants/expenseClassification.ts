@@ -13,6 +13,7 @@ const KEYWORD_MAPPING: ReadonlyArray<readonly [string, ExpenseControlType]> = [
   ['lease', 'uncontrollable'],
   ['royalty', 'uncontrollable'],
   ['tax', 'uncontrollable'],
+  ['процент', 'uncontrollable'],
   ['коммунальн', 'controllable'],
   ['food cost', 'controllable'],
   ['food cogs', 'controllable'],
