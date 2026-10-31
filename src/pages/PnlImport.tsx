@@ -33,6 +33,8 @@ const headerLabel = (sheet: PnlExcelSheet, headerRow: number, index: number) => 
 const blockingWarnings = (row: PnlImportedRow) => row.warnings.filter(warning =>
   warning !== 'Похоже на итоговую строку — исключена из импорта во избежание двойного счёта'
   && warning !== 'Похоже на итоговую строку — включена вручную; проверьте, что она не дублирует составляющие'
+  && !warning.startsWith('Формула План (')
+  && !warning.startsWith('Формула Факт (')
 );
 
 export default function PnLImport() {
@@ -302,7 +304,7 @@ export default function PnLImport() {
             {blockers.length > 0 && <div className="import-result warn"><AlertTriangle size={16} />Нужно исправить обязательные ошибки: {blockers.length}. Суммы без результата формулы не заменяются нулём.</div>}
             <label className="import-confirmation">
               <input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />
-              <span><b>Я проверил статьи и суммы</b><small>Будут записаны только включённые строки. Итоговые строки исключены по умолчанию.</small></span>
+              <span><b>Я проверил статьи и суммы</b><small>Текущие строки P&amp;L выбранного периода будут заменены. Запишутся только включённые строки; итоги исключены по умолчанию.</small></span>
             </label>
             <button className="primary-button wide" disabled={!canSave} onClick={() => void save()}>
               <Save size={16} /> {saving ? 'Сохраняем…' : 'Подтвердить и записать в P&amp;L'}
