@@ -1742,7 +1742,7 @@ const planRows = aggregated.map(x => ({ ...x, fact: x.plan, plan: null }));
 const plan = rollupAgg(planRows);
 const summary = {
 revenuePlan: (() => { const o = aggregated.find(x => pnlRowKey(x) === 'revenue'); return o ? (o.plan ?? null) : null; })(),
-revenueFact: (() => { const o = aggregated.find(x => normKey(x.article) === normKey('revenue') || normKey(x.article) === normKey('выручка')); return o ? (o.fact ?? null) : null; })(),
+revenueFact: (() => { const o = aggregated.find(x => pnlRowKey(x) === 'revenue'); return o ? (o.fact ?? null) : null; })(),
 filledRows: filled, scope: s,
 calculated: { fact: calculatePnl(fact), plan: calculatePnl(plan) },
 };
@@ -2914,7 +2914,7 @@ const existing = await safeQuery(
 'SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1',
 [req.user.organizationId, s.period, s.project_id || '', s.branch_id || '', s.restaurant_id || '', s.department_id || ''], []);
 let rows = []; try { rows = existing[0]?.rows ? JSON.parse(existing[0].rows) : []; } catch { rows = []; }
-const idx = rows.findIndex(r => canonicalArticleKey(r.article) === 'revenue');
+const idx = rows.findIndex(r => pnlRowKey(r) === 'revenue');
 if (idx >= 0) rows[idx] = { ...rows[idx], article: 'Выручка', fact: b.parsed.revenue, source: 'message-confirmed' };
 else rows.push({ id: null, article: 'Выручка', plan: null, fact: b.parsed.revenue, source: 'message-confirmed' });
 await queryWithRetry(
