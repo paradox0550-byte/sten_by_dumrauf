@@ -16,7 +16,7 @@ export interface ComparableRow {
 
 const norm = (v?: number | null) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const normalizedArticle = (value: string) => {
-  const text = value.normalize('NFKC').trim().toLocaleLowerCase('ru-RU').replace(/[ё]/g, 'е').replace(/[–—-]+/g, ' ').replace(/\\s+/g, ' ');
+  const text = value.normalize('NFKC').trim().toLocaleLowerCase('ru-RU').replace(/[–—-]+/g, ' ').replace(/\\s+/g, ' ');
   const aliases: Record<string, string> = { revenue: 'revenue', выручка: 'revenue', cogs: 'cogs', себестоимость: 'cogs', payroll: 'payroll', personnel: 'payroll', фот: 'payroll', opex: 'opex', 'операционные расходы': 'opex', 'операционные затраты': 'opex', depreciation: 'depreciation', амортизация: 'depreciation', interest: 'interest', проценты: 'interest', tax: 'tax', налоги: 'tax', other: 'other', прочее: 'other' };
   return aliases[text] || text;
 };
