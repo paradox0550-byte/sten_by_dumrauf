@@ -181,7 +181,9 @@ export function buildPnlImportRows(
     if (plan === null && fact === null && !(planCell && !planCell.hasCachedValue) && !(factCell && !factCell.hasCachedValue)) {
       warnings.push('Не удалось прочитать сумму План/Факт');
     }
-    const category = suggestPnlCategory(article);\n    if (!category || category === 'unclassified') warnings.push('Требует выбора категории P&L');\n    if (TOTAL_LABEL.test(normalizePnlText(article))) warnings.push('Похоже на итоговую строку — исключена из импорта во избежание двойного счёта');
+    const category = suggestPnlCategory(article);
+    if (category === 'unclassified') warnings.push('Требует выбора категории P&L');
+    if (TOTAL_LABEL.test(normalizePnlText(article))) warnings.push('Похоже на итоговую строку — исключена из импорта во избежание двойного счёта');
     const skip = TOTAL_LABEL.test(normalizePnlText(article));
     result.push({
       id: `${sheet.name}-${rowIndex + 1}`,
