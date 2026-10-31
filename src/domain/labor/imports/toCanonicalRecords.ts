@@ -17,7 +17,7 @@ function text(value: unknown): string | null {
 function time(value: unknown): string | null {
   const raw = text(value);
   if (!raw) return null;
-  const match = raw.match(/(?:^|\\s)([01]?\\d|2[0-3]):([0-5]\\d)(?:$|\\s)/);
+  const match = raw.match(/(?:^|\s)([01]?\d|2[0-3]):([0-5]\d)(?:$|\s)/);
   return match ? `${match[1].padStart(2, '0')}:${match[2]}` : null;
 }
 
@@ -27,8 +27,8 @@ function date(value: unknown): string | null {
   }
   const raw = text(value);
   if (!raw) return null;
-  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(raw)) return raw;
-  const match = raw.match(/^(\\d{1,2})[./-](\\d{1,2})[./-](\\d{4})$/);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const match = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
   if (!match) return null;
   const [, d, m, y] = match;
   const parsed = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d)));
