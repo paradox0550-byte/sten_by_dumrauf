@@ -1,5 +1,5 @@
 import{useEffect,useRef,useState}from'react';
-import{CheckCircle2,Copy,Download,FileSpreadsheet,LayoutTemplate,Plus,Receipt,RefreshCw,Save,Upload,X}from'lucide-react';
+import{CheckCircle2,Copy,Download,FileSpreadsheet,LayoutTemplate,Plus,Receipt,RefreshCw,Save,X}from'lucide-react';
 import{useNavigate}from'react-router-dom';
 import WorkspaceSelector from '../components/WorkspaceSelector';
 import PnlTable from '../components/PnlTable';
