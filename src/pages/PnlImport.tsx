@@ -7,10 +7,12 @@ import { useScope } from '../lib/useScope';
 import {
   buildPnlImportRows,
   guessPnlColumns,
+  PNL_CATEGORY_LABELS,
   parsePnlWorkbook,
   type PnlColumnMap,
   type PnlExcelSheet,
   type PnlImportedRow,
+  type PnlCategory,
   type PnlExcelWorkbook,
 } from '../lib/pnlExcelImport';
 
@@ -136,6 +138,7 @@ export default function PnLImport() {
       const next = { ...row, ...patch };
       const warnings = next.warnings.filter(warning => {
         if (warning === 'Нет названия статьи' && next.article.trim()) return false;
+        if (warning === 'Требует выбора категории P&L' && next.category !== 'unclassified') return false;
         if (warning === 'Не удалось прочитать сумму План/Факт' && (next.plan !== null || next.fact !== null)) return false;
         if (warning === 'Формула План не содержит сохранённого результата' && patch.plan !== undefined) return false;
         if (warning === 'Формула Факт не содержит сохранённого результата' && patch.fact !== undefined) return false;
@@ -143,6 +146,7 @@ export default function PnLImport() {
         return true;
       });
       if (!next.article.trim()) warnings.push('Нет названия статьи');
+      if (next.category === 'unclassified') warnings.push('Требует выбора категории P&L');
       if (next.plan === null && next.fact === null
         && !warnings.some(warning => warning.includes('Формула'))) warnings.push('Не удалось прочитать сумму План/Факт');
       if (/^(?:итого|всего|общий итог|итог|total|grand total|subtotal|промежуточный итог)(?:\s|$|[:—-])/iu.test(next.article.trim())) {
@@ -176,6 +180,8 @@ export default function PnLImport() {
     try {
       const result = await writePnlAndVerify(scope, usableRows.map(row => ({
         article: row.article.trim(),
+        label: row.article.trim(),
+        key: row.category === 'unclassified' ? undefined : row.category,
         plan: row.plan,
         fact: row.fact,
       })));
@@ -267,7 +273,7 @@ export default function PnLImport() {
             <p>Исходные названия сохраняются. Измените название или суммы только если проверили исходную ячейку.</p>
             <div className="table-scroll">
               <table>
-                <thead><tr><th>Включить</th><th>Статья из Excel</th><th>План</th><th>Факт</th><th>Источник и предупреждения</th></tr></thead>
+                <thead><tr><th>Включить</th><th>Статья из Excel</th><th>Категория P&amp;L</th><th>План</th><th>Факт</th><th>Источник и предупреждения</th></tr></thead>
                 <tbody>
                   {rows.map(row => (
                     <tr key={row.id} style={{ opacity: row.skipped ? 0.55 : 1 }}>
@@ -275,6 +281,11 @@ export default function PnLImport() {
                       <td style={{ minWidth: 190 }}>
                         <input className="settings-field" value={row.article} aria-label="Название статьи" onChange={event => updateRow(row.id, { article: event.target.value })} />
                         <small>{row.source}</small>
+                      </td>
+                      <td style={{ minWidth: 175 }}>
+                        <select className="settings-field" value={row.category} aria-label={`Категория P&L для ${row.article}`} onChange={event => updateRow(row.id, { category: event.target.value as PnlCategory })}>
+                          {Object.entries(PNL_CATEGORY_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                        </select>
                       </td>
                       <td><input className="settings-field" type="number" step="any" value={row.plan ?? ''} aria-label={`План ${row.article}`} onChange={event => updateRow(row.id, { plan: event.target.value === '' || !Number.isFinite(Number(event.target.value)) ? null : Number(event.target.value) })} /></td>
                       <td><input className="settings-field" type="number" step="any" value={row.fact ?? ''} aria-label={`Факт ${row.article}`} onChange={event => updateRow(row.id, { fact: event.target.value === '' || !Number.isFinite(Number(event.target.value)) ? null : Number(event.target.value) })} /></td>
