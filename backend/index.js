@@ -485,17 +485,19 @@ if (x === null || b === null || b === 0) return null;
 return (x / b) * 100;
 }
 function pnl({ revenue, cogs, personnel, overtime, opex, other, other_operating, depreciation, interest, tax } = {}) {
+const expenseValue = value => { const n = numOrNull(value); return n === null ? null : Math.abs(n); };
 const r = {
-revenue: numOrNull(revenue), cogs: numOrNull(cogs), personnel: numOrNull(personnel),
-overtime: numOrNull(overtime), opex: numOrNull(opex), other: numOrNull(other),
-otherOperating: numOrNull(other_operating), depreciation: numOrNull(depreciation),
-interest: numOrNull(interest), tax: numOrNull(tax),
+revenue: numOrNull(revenue), cogs: expenseValue(cogs), personnel: expenseValue(personnel),
+overtime: expenseValue(overtime), opex: expenseValue(opex), other: expenseValue(other),
+otherOperating: expenseValue(other_operating), depreciation: expenseValue(depreciation),
+interest: expenseValue(interest), tax: expenseValue(tax),
 };
 const labor = sumDefined([r.personnel, r.overtime]);
 const operatingOther = sumDefined([r.otherOperating, r.other]);
 const operatingExpenses = sumDefined([r.opex, operatingOther]);
 const costs = sumDefined([r.cogs, labor, operatingExpenses]);
 r.labor = labor;
+r.grossProfit = (r.revenue !== null && r.cogs !== null) ? r.revenue - r.cogs : null;
 r.operatingExpenses = operatingExpenses;
 const ebitdaMissingBlocks = [];
 if (r.cogs === null) ebitdaMissingBlocks.push('cogs');
@@ -513,13 +515,14 @@ r.otherOperatingPercent = pctOf(operatingOther, r.revenue);
 r.otherOperatingRequiresReview = r.otherOperatingPercent !== null && r.otherOperatingPercent > 5;
 r.overtimePercentOfLabor = pctOf(r.overtime, labor);
 const belowEbitda = sumDefined([r.depreciation, r.interest, r.tax]);
+r.belowEbitdaExpenses = belowEbitda;
 r.netProfit = (r.ebitda !== null && belowEbitda !== null) ? r.ebitda - belowEbitda : null;
 r.foodCostPercent = pctOf(r.cogs, r.revenue);
 r.personnelPercent = pctOf(labor, r.revenue);
 r.opexPercent = pctOf(operatingExpenses, r.revenue);
 r.ebitdaMargin = pctOf(r.ebitda, r.revenue);
 r.netMargin = pctOf(r.netProfit, r.revenue);
-r.formulaVersion = 'pnl-v3-prime-cost';
+r.formulaVersion = 'pnl-v4-signed-expenses-category-aware';
 r.provenance = 'deterministic-backend-calculator';
 return r;
 }
@@ -555,12 +558,15 @@ branch_id: z.string().trim().max(120).optional().nullable(),
 restaurant_id: z.string().trim().max(120).optional().nullable(),
 department_id: z.string().trim().max(120).optional().nullable(),
 }).strict();
+const PNL_CATEGORY_KEYS = new Set(['revenue','cogs','payroll','overtime','opex','other_operating','depreciation','interest','tax','other']);
 const PnlRowSchema = z.object({
 id: z.string().max(120).optional(),
 article: z.string().min(1).max(240),
+key: z.string().max(60).optional(),
+label: z.string().max(240).optional(),
 plan: z.number().finite().nullable().optional(),
 fact: z.number().finite().nullable().optional(),
-source: z.string().max(60).nullable().optional(),
+source: z.string().max(500).nullable().optional(),
 }).strict();
 const PnlWriteSchema = ScopeSchema.extend({ rows: z.array(PnlRowSchema).min(1).max(2000) }).strict();
 const PnlTransactionSchema = ScopeSchema.extend({
@@ -1442,23 +1448,42 @@ case 'other': return 'Прочее';
 default: return String(value || '').trim() || 'Без названия';
 }
 }
+function pnlRowKey(row) {
+const explicit = String(row?.key || row?.classification?.category || '').trim().toLowerCase();
+return PNL_CATEGORY_KEYS.has(explicit) ? explicit : canonicalArticleKey(row?.article);
+}
 function aggregateRows(rows) {
 const byArticle = new Map();
 for (const r of rows) {
-const key = canonicalArticleKey(r.article);
-const cur = byArticle.get(key) || { article: canonicalArticleLabel(r.article), plan: null, fact: null, sources: new Set() };
-if (r.plan !== null && r.plan !== undefined && Number.isFinite(Number(r.plan))) cur.plan = (cur.plan ?? 0) + Number(r.plan);
-if (r.fact !== null && r.fact !== undefined && Number.isFinite(Number(r.fact))) cur.fact = (cur.fact ?? 0) + Number(r.fact);
+const article = String(r.article || '').normalize('NFC').trim() || 'Без названия';
+const category = pnlRowKey(r);
+const groupKey = category + '\u001f' + normalizeArticleKey(article);
+const cur = byArticle.get(groupKey) || {
+article: canonicalArticleKey(article) === category ? canonicalArticleLabel(article) : article,
+key: category, label: r.label || article, plan: null, fact: null, sources: new Set(),
+planSeen: false, factSeen: false, planMissing: false, factMissing: false,
+};
+if (r.plan !== null && r.plan !== undefined && Number.isFinite(Number(r.plan))) {
+cur.plan = (cur.plan ?? 0) + Number(r.plan); cur.planSeen = true;
+} else cur.planMissing = true;
+if (r.fact !== null && r.fact !== undefined && Number.isFinite(Number(r.fact))) {
+cur.fact = (cur.fact ?? 0) + Number(r.fact); cur.factSeen = true;
+} else cur.factMissing = true;
 if (r.source) cur.sources.add(String(r.source));
-byArticle.set(key, cur);
+byArticle.set(groupKey, cur);
 }
-return [...byArticle.values()].map(x => ({ ...x, source: [...x.sources].join(',') || null }));
+return [...byArticle.values()].map(x => ({
+article: x.article, key: x.key, label: x.label,
+plan: x.planMissing || !x.planSeen ? null : x.plan,
+fact: x.factMissing || !x.factSeen ? null : x.fact,
+source: [...x.sources].join(',') || null,
+}));
 }
 function rollupAgg(agg) {
-const byKey = new Map((agg || []).map(x => [canonicalArticleKey(x.article), x]));
 const pick = (key, field = 'fact') => {
-const row = byKey.get(canonicalArticleKey(key));
-return row && row[field] !== undefined ? row[field] : null;
+const matching = (agg || []).filter(row => pnlRowKey(row) === key);
+if (!matching.length || matching.some(row => row[field] === null || row[field] === undefined || !Number.isFinite(Number(row[field])))) return null;
+return matching.reduce((sum, row) => sum + (key === 'revenue' ? Number(row[field]) : Math.abs(Number(row[field]))), 0);
 };
 return {
 revenue: pick('revenue'), cogs: pick('cogs'), personnel: pick('payroll'),
@@ -1483,7 +1508,7 @@ const all = [];
 for (const r of rows) { try { const p = JSON.parse(r.rows); if (Array.isArray(p)) all.push(...p); } catch { /* ignore */ } }
 if (!all.length) return fallback;
 const agg = aggregateRows(all);
-const revenueRow = agg.find(r => canonicalArticleKey(r.article) === 'revenue');
+const revenueRow = agg.find(r => pnlRowKey(r) === 'revenue');
 return revenueRow && revenueRow.fact !== null ? Number(revenueRow.fact) : null;
 }
 
@@ -1702,7 +1727,7 @@ const all = [];
 for (const r of rows) { try { const parsed = JSON.parse(r.rows); if (Array.isArray(parsed)) all.push(...parsed); } catch { /* ignore */ } }
 let aggregated = aggregateRows(all);
 const txRows = await strictQuery(
-`SELECT article, SUM(amount) AS total, COUNT(*)::int AS count FROM pnl_transactions
+`SELECT article, SUM(CASE WHEN type='expense' THEN -amount ELSE amount END) AS total, COUNT(*)::int AS count FROM pnl_transactions
 WHERE organization_id=$1::uuid AND period=$2
 AND ($3::text='' OR project_id=$3) AND ($4::text='' OR branch_id=$4)
 AND ($5::text='' OR restaurant_id=$5) AND ($6::text='' OR department_id=$6)
@@ -1719,8 +1744,8 @@ const fact = rollupAgg(aggregated);
 const planRows = aggregated.map(x => ({ ...x, fact: x.plan, plan: null }));
 const plan = rollupAgg(planRows);
 const summary = {
-revenuePlan: (() => { const o = aggregated.find(x => normKey(x.article) === normKey('revenue') || normKey(x.article) === normKey('выручка')); return o ? (o.plan ?? null) : null; })(),
-revenueFact: (() => { const o = aggregated.find(x => normKey(x.article) === normKey('revenue') || normKey(x.article) === normKey('выручка')); return o ? (o.fact ?? null) : null; })(),
+revenuePlan: (() => { const o = aggregated.find(x => pnlRowKey(x) === 'revenue'); return o ? (o.plan ?? null) : null; })(),
+revenueFact: (() => { const o = aggregated.find(x => pnlRowKey(x) === 'revenue'); return o ? (o.fact ?? null) : null; })(),
 filledRows: filled, scope: s,
 calculated: { fact: calculatePnl(fact), plan: calculatePnl(plan) },
 };
@@ -1742,6 +1767,8 @@ await assertScopeAccess(req.user, {
 const cleanRows = body.rows.map(r => ({
 id: r.id || null,
 article: String(r.article).normalize('NFC').trim(),
+key: PNL_CATEGORY_KEYS.has(String(r.key || '').trim().toLowerCase()) ? String(r.key).trim().toLowerCase() : canonicalArticleKey(r.article),
+label: String(r.label || r.article).normalize('NFC').trim(),
 plan: r.plan ?? null, fact: r.fact ?? null,
 source: r.source || 'manual',
 }));
@@ -1829,7 +1856,7 @@ const revenue=metricValue(values,'revenue'), cash=metricValue(values,'cash'), ca
 const avgCheck=metricValue(values,'avgCheck') ?? (revenue!==null&&checks!==null&&checks>0?revenue/checks:null);
 const p=calculatePnl(rollupAgg(pnlData));
 const primeCost=(p.revenue!==null&&p.cogs!==null&&p.personnel!==null&&p.revenue!==0)?((p.cogs+p.personnel)/p.revenue)*100:null;
-const revenuePlan=pnlData.find(x=>canonicalArticleKey(x.article)==='revenue')?.plan;
+const revenuePlan=pnlData.find(x=>pnlRowKey(x)==='revenue')?.plan;
 const deviation=(p.revenue!==null&&revenuePlan!==null&&Number.isFinite(revenuePlan)&&revenuePlan!==0)?((p.revenue-revenuePlan)/revenuePlan)*100:null;
 const lines=['📊 STEN · Итоги смены за '+date];
 if(restaurant)lines.push('Ресторан: '+restaurant);
@@ -2890,7 +2917,7 @@ const existing = await safeQuery(
 'SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1',
 [req.user.organizationId, s.period, s.project_id || '', s.branch_id || '', s.restaurant_id || '', s.department_id || ''], []);
 let rows = []; try { rows = existing[0]?.rows ? JSON.parse(existing[0].rows) : []; } catch { rows = []; }
-const idx = rows.findIndex(r => canonicalArticleKey(r.article) === 'revenue');
+const idx = rows.findIndex(r => pnlRowKey(r) === 'revenue');
 if (idx >= 0) rows[idx] = { ...rows[idx], article: 'Выручка', fact: b.parsed.revenue, source: 'message-confirmed' };
 else rows.push({ id: null, article: 'Выручка', plan: null, fact: b.parsed.revenue, source: 'message-confirmed' });
 await queryWithRetry(

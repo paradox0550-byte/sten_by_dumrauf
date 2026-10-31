@@ -70,6 +70,27 @@ describe('buildFinanceInput', () => {
     expect(calculateFinance(input).ebitda).toBeUndefined();
   });
 
+  it('rolls detailed imported articles into confirmed P&L categories without losing their labels', () => {
+    const rows = [
+      { article: 'Выручка ресторана', key: 'revenue', fact: 100_000, plan: 110_000 },
+      { article: 'Аренда помещения', key: 'opex', fact: -10_000, plan: -11_000 },
+      { article: 'Коммунальные услуги', key: 'opex', fact: -2_000, plan: -2_500 },
+      { article: 'ФОТ кухни', key: 'payroll', fact: -20_000, plan: -21_000 },
+    ];
+    const input = buildFinanceInput(rows, true);
+    expect(input.revenue).toBe(100_000);
+    expect(input.opex).toBe(12_000);
+    expect(input.payroll).toBe(20_000);
+  });
+
+  it('does not calculate a category total when one mapped detail has a missing amount', () => {
+    const input = buildFinanceInput([
+      { article: 'Аренда помещения', key: 'opex', fact: -10_000 },
+      { article: 'Коммунальные услуги', key: 'opex', fact: null },
+    ], true);
+    expect(input.opex).toBeUndefined();
+  });
+
   it('keeps plan and fact isolated', () => {
     const input = buildFinanceInput([
       { article: 'Выручка', plan: 120_000, fact: 100_000 },

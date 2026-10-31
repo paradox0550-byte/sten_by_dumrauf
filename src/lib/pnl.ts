@@ -3,6 +3,8 @@ export type PnlScale='RUB'|'THOUSAND'|'MILLION';
 export type PnlDraftRow={
   id:string;
   article:string;
+  key?:string;
+  label?:string;
   plan?:number;
   fact?:number;
   source?:string;

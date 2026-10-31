@@ -1,16 +1,322 @@
-﻿import{useState}from'react';import{ArrowLeft,CheckCircle2,FileSpreadsheet,UploadCloud,X,Save,AlertTriangle,LayoutTemplate}from'lucide-react';import{useNavigate}from'react-router-dom';import{api}from'../lib/api';import{useScope}from'../lib/useScope';import{writePnlAndVerify}from'../lib/saveVerify';
-import{saveUserTemplate}from'../lib/pnlTemplate';
-import{PnlImportSchema,type PnlImportRequest,type PnlImportResponse}from'../lib/contracts/pnl';
+import { useMemo, useState } from 'react';
+import { ArrowLeft, AlertTriangle, CheckCircle2, FileSpreadsheet, Save, UploadCloud } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { writePnlAndVerify } from '../lib/saveVerify';
+import { saveUserTemplate } from '../lib/pnlTemplate';
+import { useScope } from '../lib/useScope';
+import {
+  buildPnlImportRows,
+  guessPnlColumns,
+  PNL_CATEGORY_LABELS,
+  parsePnlWorkbook,
+  type PnlColumnMap,
+  type PnlExcelSheet,
+  type PnlImportedRow,
+  type PnlCategory,
+  type PnlExcelWorkbook,
+} from '../lib/pnlExcelImport';
 
-type Row={id:string;article:string;label:string;plan:number|null;fact:number|null;source:string;sheet?:string;sourceRow?:number;sourceCellPlan?:string|null;sourceCellFact?:string|null;confidence?:number;requiresReview?:boolean};
-function read64(f:File){return new Promise<string>((ok,no)=>{const r=new FileReader();r.onload=()=>{const s=String(r.result);ok(s.split(',')[1]||s)};r.onerror=()=>no(r.error);r.readAsDataURL(f)})}
-type Preview={headers:string[];rows:(string|number|null)[][];sheet:string};
-async function preview(f:File):Promise<Preview>{const XLSX=await import('xlsx');const data=await f.arrayBuffer();const wb=XLSX.read(data,{type:'array',cellDates:true});if(!wb.SheetNames.length)throw new Error('В Excel нет листов.');const sheet=wb.SheetNames[0];const rows=XLSX.utils.sheet_to_json<(string|number|null)[]>(wb.Sheets[sheet],{header:1,defval:null,raw:true}) as (string|number|null)[][];return{sheet,headers:(rows[0]||[]).map(x=>String(x??'')),rows:rows.slice(1,8)}}
-const money=(n:number|null|undefined)=>typeof n==='number'&&Number.isFinite(n)?new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(n):'—';
-export default function PnLImport(){const nav=useNavigate(),[file,setFile]=useState<File|null>(null),[p,setP]=useState<Preview|null>(null),[rows,setRows]=useState<Row[]>([]),[busy,setBusy]=useState(false),[saving,setSaving]=useState(false),[msg,setMsg]=useState(''),[msgKind,setMsgKind]=useState<'info'|'ok'|'warn'>('info'),[scope]=useScope(),[requiresConfirmation,setRequiresConfirmation]=useState(false),[confirmed,setConfirmed]=useState(false);
-async function choose(f:File|undefined){if(!f)return;if(!/\.(xlsx|xlsm|xls)$/i.test(f.name)){setMsg('Нужен файл Excel: XLSX, XLS или XLSM.');setMsgKind('warn');return}if(f.size>15*1024*1024){setMsg('Файл больше 15 МБ.');setMsgKind('warn');return}try{setFile(f);setRows([]);setRequiresConfirmation(false);setConfirmed(false);setMsg('');setMsgKind('info');setP(await preview(f))}catch(e){setMsg(e instanceof Error?e.message:'Не удалось прочитать Excel.');setMsgKind('warn')}}
-async function importFile(){if(!file||busy)return;setBusy(true);setMsg('');setMsgKind('info');try{const importBody:PnlImportRequest={period:scope.period,project_id:scope.projectId??null,branch_id:scope.branchId??null,restaurant_id:scope.restaurantId??null,department_id:scope.departmentId??null,name:file.name,mimeType:file.type,dataBase64:await read64(file)};const r=await api.post<PnlImportResponse>('/api/pnl/import',PnlImportSchema.parse(importBody));const d=r&&typeof r==='object'?r:{};setRequiresConfirmation(d.requiresConfirmation===true);setConfirmed(false);
-const list=Array.isArray(d.rows)?d.rows.filter((row)=>typeof row.article==='string').map((row,index)=>({...row,id:row.id||`import-${index}`} as Row)):[];setRows(list);if(list.length){const review=list.filter(r=>r.requiresReview);setMsg(review.length?('Excel разобран: '+list.length+' строк, из них '+review.length+' требуют уточнения. Исправьте статьи ниже — после исправления строку можно записать в P&L.'):('Excel разобран: '+list.length+' статей. Это ещё НЕ записанные данные — проверьте План/Факт и подтвердите запись в P&L.'));setMsgKind('info')}else{setMsg('В файле не найдены статьи P&L. Проверьте названия строк (Выручка, Себестоимость, ФОТ, OPEX…) и подписи колонок (План / Факт).');setMsgKind('warn')}}catch(e){setMsg(e instanceof Error?e.message:'Импорт не выполнен');setMsgKind('warn')}finally{setBusy(false)}}
-function useAsTemplate(){const articles=rows.map(r=>r.article).filter(Boolean);if(!articles.length){setMsg('Нет распознанных статей для сохранения в шаблон.');setMsgKind('warn');return}try{saveUserTemplate(articles);setMsg('Сохранено '+articles.length+' статей в пользовательский шаблон. Откройте P&L и нажмите «Мой шаблон».');setMsgKind('ok')}catch(e){setMsg(e instanceof Error?e.message:'Не удалось сохранить шаблон.');setMsgKind('warn')}}
-async function save(){if(!rows.length||saving||rows.some(r=>r.requiresReview)||(requiresConfirmation&&!confirmed))return;setSaving(true);setMsg('');setMsgKind('info');/* Явное подтверждение пользователя → POST → серверный readback → повторное чтение GET → сравнение строк. */const result=await writePnlAndVerify(scope,rows.map(r=>({article:r.article,plan:r.plan??null,fact:r.fact??null})));setMsg(result.ok?'Импортированные строки записаны в P&L и подтверждены повторным чтением сервера.':result.message);setMsgKind(result.ok?'ok':'warn');setSaving(false)}
-return <div className="page"><div className="page-head"><div><span className="eyebrow">P&L · ИМПОРТ</span><h1>Загрузка Excel</h1><p>Preview → распознавание → явное подтверждение → P&L → повторная проверка сохранения.</p></div><button className="secondary-button"onClick={()=>nav('/pnl')}><ArrowLeft size={16}/> P&L</button></div><section className="panel import-panel"><button className="modal-close"onClick={()=>nav('/pnl')}aria-label="Закрыть"><X/></button><div className="import-icon"><FileSpreadsheet size={30}/></div><h2>{file?file.name:'Загрузить Excel'}</h2><p>Поддерживаются XLS/XLSX/XLSM · до 15 МБ.</p><label className="upload-box"><UploadCloud size={25}/><b>Выбрать файл</b><small>Строки P&L → План / Факт</small><input hidden type="file"accept=".xlsx,.xls,.xlsm"onChange={e=>{void choose(e.target.files?.[0]);e.currentTarget.value=''}}/></label>{p&&<div className="preview"><b>Предпросмотр исходного листа: {p.sheet}</b><div className="table-scroll"><table><thead><tr>{p.headers.slice(0,10).map((h,i)=><th key={i}>{h||'—'}</th>)}</tr></thead><tbody>{p.rows.map((row,i)=><tr key={i}>{p.headers.slice(0,10).map((_,j)=><td key={j}>{String(row[j]??'')}</td>)}</tr>)}</tbody></table></div></div>}{rows.length>0&&<div className="import-mapping"><div className="panel-title"><CheckCircle2 size={17}/> Распознанные строки <span>{rows.length}</span></div><div className="mapping-table"><div className="mapping-row mapping-head"><span>Статья</span><span>План</span><span>Факт</span><span>Источник</span></div>{rows.map(r=><div className="mapping-row"key={r.id}><div>{r.requiresReview?<input className="settings-field" value={r.article} onChange={e=>setRows(prev=>prev.map(x=>x.id===r.id?{...x,article:e.target.value,label:e.target.value,requiresReview:false}:x))} aria-label={`Исправить статью ${r.label||r.article}`}/>:<b>{r.label||r.article}</b>}<small>{r.sheet||r.source} · строка {r.sourceRow||'—'} · {r.requiresReview?'Требует уточнения':`confidence ${Math.round((r.confidence??0)*100)}%`}</small></div><strong>{money(r.plan)}</strong><strong>{money(r.fact)}</strong><small>{r.sourceCellPlan||'—'} / {r.sourceCellFact||'—'}</small></div>)}</div>{requiresConfirmation&&<label className="import-confirmation"><input type="checkbox" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)}/><span><b>Подтверждаю проверку распознанных данных</b><small>До установки флажка запись в P&amp;L заблокирована.</small></span></label>}<button className="primary-button wide"disabled={saving||rows.some(r=>r.requiresReview)||(requiresConfirmation&&!confirmed)}onClick={()=>void save()}><Save size={16}/>{saving?'Сохраняем…':'Подтвердить и записать в P&L'}</button><button className="secondary-button wide"onClick={useAsTemplate}><LayoutTemplate size={16}/>Использовать как шаблон в P&L</button></div>}{msg&&<div className={'import-result '+(msgKind==='warn'?'warn':msgKind==='ok'?'ok':'')}><AlertTriangle size={16}/>{msg}</div>}<button className="secondary-button wide"disabled={!file||busy}onClick={()=>void importFile()}>{busy?'Разбираем Excel…':'Разобрать Excel'}</button></section></div>}
+const columnName = (index: number) => {
+  let n = index + 1;
+  let label = '';
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    label = String.fromCharCode(65 + rem) + label;
+    n = Math.floor((n - 1) / 26);
+  }
+  return label;
+};
+const headerLabel = (sheet: PnlExcelSheet, headerRow: number, index: number) => {
+  const value = sheet.rows[headerRow]?.[index];
+  return `${columnName(index)} · ${String(value ?? '').trim() || 'Без названия'}`;
+};
+const blockingWarnings = (row: PnlImportedRow) => row.warnings.filter(warning =>
+  warning !== 'Похоже на итоговую строку — исключена из импорта во избежание двойного счёта'
+  && warning !== 'Похоже на итоговую строку — включена вручную; проверьте, что она не дублирует составляющие'
+  && !warning.startsWith('Формула План (')
+  && !warning.startsWith('Формула Факт (')
+);
+
+export default function PnLImport() {
+  const nav = useNavigate();
+  const [scope] = useScope();
+  const [file, setFile] = useState<File | null>(null);
+  const [workbook, setWorkbook] = useState<PnlExcelWorkbook | null>(null);
+  const [sheetName, setSheetName] = useState('');
+  const [headerRow, setHeaderRow] = useState(0);
+  const [columns, setColumns] = useState<PnlColumnMap>({ article: -1, plan: null, fact: null });
+  const [rows, setRows] = useState<PnlImportedRow[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageKind, setMessageKind] = useState<'info' | 'ok' | 'warn'>('info');
+
+  const selectedSheet = useMemo(
+    () => workbook?.sheets.find(sheet => sheet.name === sheetName) ?? null,
+    [workbook, sheetName],
+  );
+  const usableRows = rows.filter(row => !row.skipped);
+  const blockers = usableRows.flatMap(row => blockingWarnings(row).map(warning => `${row.source}: ${warning}`));
+  const emptyAmountRows = usableRows.filter(row => row.plan === null && row.fact === null);
+  const canSave = usableRows.length > 0 && !saving && confirmed && blockers.length === 0 && emptyAmountRows.length === 0;
+
+  function setNotice(text: string, kind: 'info' | 'ok' | 'warn' = 'info') {
+    setMessage(text);
+    setMessageKind(kind);
+  }
+
+  async function chooseFile(nextFile?: File) {
+    if (!nextFile) return;
+    if (!/\.(xlsx|xlsm|xls)$/i.test(nextFile.name)) {
+      setNotice('Выберите Excel-файл XLS, XLSX или XLSM.', 'warn');
+      return;
+    }
+    if (nextFile.size > 15 * 1024 * 1024) {
+      setNotice('Файл больше 15 МБ. Разделите его на части и повторите импорт.', 'warn');
+      return;
+    }
+    try {
+      const parsed = parsePnlWorkbook(await nextFile.arrayBuffer());
+      const first = parsed.sheets.find(sheet => sheet.rows.length > 0);
+      if (!first) throw new Error('В книге нет листов с читаемыми ячейками.');
+      const detectedHeader = first.headerRow >= 0 ? first.headerRow : 0;
+      setFile(nextFile);
+      setWorkbook(parsed);
+      setSheetName(first.name);
+      setHeaderRow(detectedHeader);
+      setColumns(guessPnlColumns(first.rows[detectedHeader] ?? []));
+      setRows([]);
+      setConfirmed(false);
+      setNotice(`Книга прочитана: листов ${parsed.sheets.length}. Выберите лист, строку заголовков и проверьте столбцы до импорта.`);
+    } catch (error) {
+      setFile(null);
+      setWorkbook(null);
+      setRows([]);
+      setNotice(error instanceof Error ? error.message : 'Не удалось прочитать Excel.', 'warn');
+    }
+  }
+
+  function changeSheet(name: string) {
+    if (!workbook) return;
+    const next = workbook.sheets.find(sheet => sheet.name === name);
+    if (!next) return;
+    const nextHeader = next.headerRow >= 0 ? next.headerRow : 0;
+    setSheetName(name);
+    setHeaderRow(nextHeader);
+    setColumns(guessPnlColumns(next.rows[nextHeader] ?? []));
+    setRows([]);
+    setConfirmed(false);
+  }
+
+  function changeHeaderRow(value: number) {
+    if (!selectedSheet) return;
+    setHeaderRow(value);
+    setColumns(guessPnlColumns(selectedSheet.rows[value] ?? []));
+    setRows([]);
+    setConfirmed(false);
+  }
+
+  function prepareRows() {
+    if (!selectedSheet) return;
+    try {
+      const parsed = buildPnlImportRows(selectedSheet, headerRow, columns);
+      setRows(parsed);
+      setConfirmed(false);
+      const excluded = parsed.filter(row => row.skipped).length;
+      const warnings = parsed.filter(row => !row.skipped && blockingWarnings(row).length > 0).length;
+      setNotice(
+        `Подготовлено ${parsed.length} строк; итоговые строки исключены: ${excluded}; требуют исправления: ${warnings}. Исходные названия статей сохранены.`,
+        warnings ? 'warn' : 'info',
+      );
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Не удалось подготовить строки.', 'warn');
+    }
+  }
+
+  function updateRow(id: string, patch: Partial<PnlImportedRow>) {
+    setRows(previous => previous.map(row => {
+      if (row.id !== id) return row;
+      const next = { ...row, ...patch };
+      const warnings = next.warnings.filter(warning => {
+        if (warning === 'Нет названия статьи' && next.article.trim()) return false;
+        if (warning === 'Требует выбора категории P&L') return false;
+        if (warning === 'Не удалось прочитать сумму План/Факт' && (next.plan !== null || next.fact !== null)) return false;
+        if (warning === 'Формула План не содержит сохранённого результата' && patch.plan !== undefined) return false;
+        if (warning === 'Формула Факт не содержит сохранённого результата' && patch.fact !== undefined) return false;
+        if (warning.startsWith('Похоже на итоговую строку')) return false;
+        return true;
+      });
+      if (!next.article.trim()) warnings.push('Нет названия статьи');
+      if (next.category === 'unclassified') warnings.push('Требует выбора категории P&L');
+      if (next.plan === null && next.fact === null
+        && !warnings.some(warning => warning.includes('Формула'))) warnings.push('Не удалось прочитать сумму План/Факт');
+      if (/^(?:итого|всего|общий итог|итог|total|grand total|subtotal|промежуточный итог)(?:\s|$|[:—-])/iu.test(next.article.trim())) {
+        warnings.push(next.skipped
+          ? 'Похоже на итоговую строку — исключена из импорта во избежание двойного счёта'
+          : 'Похоже на итоговую строку — включена вручную; проверьте, что она не дублирует составляющие');
+      }
+      return { ...next, warnings };
+    }));
+    setConfirmed(false);
+  }
+
+  function useAsTemplate() {
+    const articles = usableRows.map(row => row.article.trim()).filter(Boolean);
+    if (!articles.length) {
+      setNotice('Нет названий статей для шаблона.', 'warn');
+      return;
+    }
+    try {
+      saveUserTemplate(articles);
+      setNotice(`Сохранено названий статей: ${articles.length}. Шаблон доступен в P&L.`, 'ok');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Не удалось сохранить шаблон.', 'warn');
+    }
+  }
+
+  async function save() {
+    if (!canSave || saving) return;
+    setSaving(true);
+    setNotice('Сохраняем и проверяем данные на сервере…');
+    try {
+      const result = await writePnlAndVerify(scope, usableRows.map(row => ({
+        article: row.article.trim(),
+        label: row.article.trim(),
+        source: row.source,
+        key: row.category === 'unclassified' ? undefined : row.category,
+        plan: row.plan,
+        fact: row.fact,
+      })));
+      setNotice(result.message, result.ok ? 'ok' : 'warn');
+      if (result.ok) setConfirmed(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <main className="page">
+      <header className="page-head">
+        <div>
+          <span className="eyebrow">ФИНАНСЫ · P&amp;L</span>
+          <h1>Импорт финансового отчёта</h1>
+          <p>Excel → проверка структуры и сумм → подтверждение → запись → проверка сохранения.</p>
+        </div>
+        <button className="secondary-button" onClick={() => nav('/pnl')}><ArrowLeft size={16} /> К P&amp;L</button>
+      </header>
+
+      <section className="panel import-panel">
+        <div className="import-icon"><FileSpreadsheet size={28} /></div>
+        <h2>{file?.name ?? 'Загрузить Excel'}</h2>
+        <p>STEN не будет придумывать статью или подменять отсутствующую сумму нулём.</p>
+        <label className="upload-box">
+          <UploadCloud size={24} />
+          <b>Выбрать файл</b>
+          <small>XLS, XLSX или XLSM · до 15 МБ</small>
+          <input hidden type="file" accept=".xlsx,.xls,.xlsm" onChange={event => {
+            void chooseFile(event.target.files?.[0]);
+            event.currentTarget.value = '';
+          }} />
+        </label>
+
+        {workbook && selectedSheet && (
+          <div className="pnl-import-config" style={{ display: 'grid', gap: 14, marginTop: 20 }}>
+            <div className="panel-title"><CheckCircle2 size={17} /> Структура книги <span>{workbook.sheets.length} листов</span></div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12 }}>
+              <label className="settings-label">Лист Excel
+                <select className="settings-field" value={sheetName} onChange={event => changeSheet(event.target.value)}>
+                  {workbook.sheets.map(sheet => <option key={sheet.name} value={sheet.name}>{sheet.name}</option>)}
+                </select>
+              </label>
+              <label className="settings-label">Строка заголовков
+                <select className="settings-field" value={headerRow} onChange={event => changeHeaderRow(Number(event.target.value))}>
+                  {selectedSheet.rows.slice(0, 50).map((row, index) => (
+                    <option key={index} value={index}>Строка {index + 1}: {row.slice(0, 4).map(cell => String(cell ?? '').trim()).filter(Boolean).join(' · ').slice(0, 70) || 'пустая'}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="panel-title">Сопоставление столбцов</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12 }}>
+              <label className="settings-label">Название статьи *
+                <select className="settings-field" value={columns.article} onChange={event => { setColumns(current => ({ ...current, article: Number(event.target.value) })); setRows([]); setConfirmed(false); }}>
+                  {selectedSheet.rows[headerRow]?.map((_, index) => <option key={index} value={index}>{headerLabel(selectedSheet, headerRow, index)}</option>)}
+                </select>
+              </label>
+              <label className="settings-label">План
+                <select className="settings-field" value={columns.plan ?? -1} onChange={event => { setColumns(current => ({ ...current, plan: Number(event.target.value) < 0 ? null : Number(event.target.value) })); setRows([]); setConfirmed(false); }}>
+                  <option value={-1}>Не использовать</option>
+                  {selectedSheet.rows[headerRow]?.map((_, index) => <option key={index} value={index}>{headerLabel(selectedSheet, headerRow, index)}</option>)}
+                </select>
+              </label>
+              <label className="settings-label">Факт
+                <select className="settings-field" value={columns.fact ?? -1} onChange={event => { setColumns(current => ({ ...current, fact: Number(event.target.value) < 0 ? null : Number(event.target.value) })); setRows([]); setConfirmed(false); }}>
+                  <option value={-1}>Не использовать</option>
+                  {selectedSheet.rows[headerRow]?.map((_, index) => <option key={index} value={index}>{headerLabel(selectedSheet, headerRow, index)}</option>)}
+                </select>
+              </label>
+            </div>
+
+            <div className="table-scroll">
+              <table>
+                <thead><tr>{(selectedSheet.rows[headerRow] ?? []).slice(0, 12).map((cell, index) => <th key={index}>{columnName(index)} · {String(cell ?? '—')}</th>)}</tr></thead>
+                <tbody>{selectedSheet.rows.slice(headerRow + 1, headerRow + 6).map((row, index) => (
+                  <tr key={index}>{(selectedSheet.rows[headerRow] ?? []).slice(0, 12).map((_, col) => <td key={col}>{String(row[col] ?? '')}</td>)}</tr>
+                ))}</tbody>
+              </table>
+            </div>
+            <button className="primary-button wide" onClick={prepareRows}>Распознать строки для P&amp;L</button>
+          </div>
+        )}
+
+        {rows.length > 0 && (
+          <div className="import-mapping" style={{ marginTop: 22 }}>
+            <div className="panel-title"><CheckCircle2 size={17} /> Проверка перед записью <span>{usableRows.length} строк к импорту</span></div>
+            <p>Исходные названия сохраняются. Измените название или суммы только если проверили исходную ячейку.</p>
+            <div className="table-scroll">
+              <table>
+                <thead><tr><th>Включить</th><th>Статья из Excel</th><th>Категория P&amp;L</th><th>План</th><th>Факт</th><th>Источник и предупреждения</th></tr></thead>
+                <tbody>
+                  {rows.map(row => (
+                    <tr key={row.id} style={{ opacity: row.skipped ? 0.55 : 1 }}>
+                      <td><input type="checkbox" checked={!row.skipped} aria-label={`Включить ${row.article || row.source}`} onChange={event => updateRow(row.id, { skipped: !event.target.checked })} /></td>
+                      <td style={{ minWidth: 190 }}>
+                        <input className="settings-field" value={row.article} aria-label="Название статьи" onChange={event => updateRow(row.id, { article: event.target.value })} />
+                        <small>{row.source}</small>
+                      </td>
+                      <td style={{ minWidth: 175 }}>
+                        <select className="settings-field" value={row.category} aria-label={`Категория P&L для ${row.article}`} onChange={event => updateRow(row.id, { category: event.target.value as PnlCategory })}>
+                          {Object.entries(PNL_CATEGORY_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                        </select>
+                      </td>
+                      <td><input className="settings-field" type="number" step="any" value={row.plan ?? ''} aria-label={`План ${row.article}`} onChange={event => updateRow(row.id, { plan: event.target.value === '' || !Number.isFinite(Number(event.target.value)) ? null : Number(event.target.value) })} /></td>
+                      <td><input className="settings-field" type="number" step="any" value={row.fact ?? ''} aria-label={`Факт ${row.article}`} onChange={event => updateRow(row.id, { fact: event.target.value === '' || !Number.isFinite(Number(event.target.value)) ? null : Number(event.target.value) })} /></td>
+                      <td style={{ minWidth: 230 }}>
+                        <small>{row.sourceCellPlan ? `План: ${row.sourceCellPlan}` : 'План: не выбран'} · {row.sourceCellFact ? `Факт: ${row.sourceCellFact}` : 'Факт: не выбран'}</small>
+                        {row.warnings.filter(warning => warning !== 'Похоже на итоговую строку — исключена из импорта во избежание двойного счёта').map(warning => <small key={warning} style={{ display: 'block', color: 'var(--sten-risk, #A62D2D)' }}>{warning}</small>)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {blockers.length > 0 && <div className="import-result warn"><AlertTriangle size={16} />Нужно исправить обязательные ошибки: {blockers.length}. Суммы без результата формулы не заменяются нулём.</div>}
+            <label className="import-confirmation">
+              <input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />
+              <span><b>Я проверил статьи и суммы</b><small>Текущие строки P&amp;L выбранного периода будут заменены. Запишутся только включённые строки; итоги исключены по умолчанию.</small></span>
+            </label>
+            <button className="primary-button wide" disabled={!canSave} onClick={() => void save()}>
+              <Save size={16} /> {saving ? 'Сохраняем…' : 'Подтвердить и записать в P&amp;L'}
+            </button>
+            <button className="secondary-button wide" onClick={useAsTemplate}>Сохранить названия статей как шаблон</button>
+          </div>
+        )}
+
+        {message && <div className={`import-result ${messageKind === 'warn' ? 'warn' : messageKind === 'ok' ? 'ok' : ''}`}>
+          {messageKind !== 'ok' && <AlertTriangle size={16} />}{message}
+        </div>}
+      </section>
+    </main>
+  );
+}
