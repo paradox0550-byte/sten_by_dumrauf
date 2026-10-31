@@ -186,9 +186,10 @@ export function buildPnlImportRows(
     result.push({
       id: `${sheet.name}-${rowIndex + 1}`,
       article,
+      category,
       plan,
       fact,
-      source: `Excel: ${sheet.name}, строка ${rowIndex + 1}`,
+      source: `Excel: ${sheet.name}, строка ${rowIndex + sheet.startRow + 1}`,
       sheet: sheet.name,
       sourceRow: rowIndex + sheet.startRow + 1,
       sourceCellPlan: planAddress,
