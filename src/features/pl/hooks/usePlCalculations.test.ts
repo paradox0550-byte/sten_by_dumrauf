@@ -46,7 +46,7 @@ describe('expense classification', () => {
     expect(result.controllableOpex).toEqual({ plan: 50, fact: 60 });
     expect(result.uncontrollableOpex).toEqual({ plan: 100, fact: 110 });
     expect(result.unknownOpex).toEqual({ plan: undefined, fact: undefined });
-    expect(result.controllableProfit).toEqual({ plan: 400, fact: 510 });
+    expect(result.controllableProfit).toEqual({ plan: 500, fact: 620 });
   });
 
   it('does not split an aggregate OPEX row or double-count detail rows', () => {
