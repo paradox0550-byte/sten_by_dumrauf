@@ -74,7 +74,7 @@ describe('P&L Excel import', () => {
     const worksheet = XLSX.utils.aoa_to_sheet([
       ['Статья', 'План', 'Факт'],
       ['Выручка', 100, 90],
-      ['Аренда', { t: 'n', f: 'B2*0.1' }, 10],
+      ['Аренда', { t: 'n', v: 9, f: 'B2*0.1' }, 10],
     ]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'P&L');
@@ -82,6 +82,6 @@ describe('P&L Excel import', () => {
     const data = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
     const parsed = parsePnlWorkbook(data);
     expect(parsed.sheets.map(sheet => sheet.name)).toEqual(['P&L', 'Notes']);
-    expect(parsed.sheets[0].formulaCells.B3).toMatchObject({ formula: 'B2*0.1', hasCachedValue: false });
+    expect(parsed.sheets[0].formulaCells.B3).toMatchObject({ formula: 'B2*0.1', hasCachedValue: true });
   });
 });
