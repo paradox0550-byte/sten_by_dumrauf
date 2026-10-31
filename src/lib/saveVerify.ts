@@ -16,7 +16,7 @@ export interface ComparableRow {
 
 const norm = (v?: number | null) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const normalizedArticle = (value: string) => {
-  const text = value.normalize('NFKC').trim().toLocaleLowerCase('ru-RU').replace(/[–—-]+/g, ' ').replace(/\\s+/g, ' ');
+  const text = value.normalize('NFKC').trim().toLocaleLowerCase('ru-RU').replace(/[–—-]+/g, ' ').replace(/\s+/g, ' ');
   const aliases: Record<string, string> = { revenue: 'revenue', выручка: 'revenue', cogs: 'cogs', себестоимость: 'cogs', payroll: 'payroll', personnel: 'payroll', фот: 'payroll', opex: 'opex', 'операционные расходы': 'opex', 'операционные затраты': 'opex', depreciation: 'depreciation', амортизация: 'depreciation', interest: 'interest', проценты: 'interest', tax: 'tax', налоги: 'tax', other: 'other', прочее: 'other' };
   return aliases[text] || text;
 };
@@ -25,7 +25,7 @@ function comparableMap(rows: ComparableRow[]) {
   for (const row of rows) {
     const article = normalizedArticle(String(row.article ?? ''));
     const key = String(row.key || normalizedArticle(String(row.article ?? '')));
-    const composite = key + '\\u001f' + article;
+    const composite = key + '|' + article;
     const current = grouped.get(composite) ?? { article, key, plan: null, fact: null, planMissing: false, factMissing: false, planSeen: false, factSeen: false };
     if (norm(row.plan) === null) current.planMissing = true;
     else { current.plan = (current.plan ?? 0) + norm(row.plan)!; current.planSeen = true; }
@@ -73,6 +73,8 @@ export async function writePnlAndVerify(scope: Scope, rows: ComparableRow[]): Pr
       department_id: scope.departmentId ?? null,
       rows: rows.map(r => ({
         article: r.article,
+        key: r.key,
+        label: r.label,
         plan: r.plan ?? null,
         fact: r.fact ?? null,
       })),
