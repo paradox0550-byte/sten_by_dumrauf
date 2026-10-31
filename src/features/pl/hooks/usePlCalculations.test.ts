@@ -33,6 +33,21 @@ describe('expense classification', () => {
     expect(result.hasUnclassifiedArticles).toBe(true);
   });
 
+  it('includes positive-valued OPEX details and reports controllable/uncontrollable totals', () => {
+    const rows = [
+      { ...row('rev', 'Выручка', 1000, 1200), key: 'revenue' },
+      { ...row('cogs', 'Себестоимость', -250, -300), key: 'cogs' },
+      { ...row('payroll', 'ФОТ', -200, -220), key: 'payroll' },
+      { ...row('marketing', 'Маркетинг', 50, 60), key: 'opex' },
+      { ...row('rent', 'Аренда помещения', 100, 110), key: 'opex' },
+    ];
+    const result = calculateClassifiedPlData(rows);
+    expect(result.articlesWithTypes.map((article) => article.name)).toEqual(['Маркетинг', 'Аренда помещения']);
+    expect(result.controllableOpex).toEqual({ plan: 50, fact: 60 });
+    expect(result.uncontrollableOpex).toEqual({ plan: 100, fact: 110 });
+    expect(result.unknownOpex).toEqual({ plan: undefined, fact: undefined });
+  });
+
   it('does not split an aggregate OPEX row or double-count detail rows', () => {
     const result = calculateClassifiedPlData([
       row('rev', 'Выручка', 1000, 1200),
