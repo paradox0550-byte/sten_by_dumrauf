@@ -15,6 +15,7 @@ export type PnlColumnMap = { article: number; plan: number | null; fact: number 
 export type PnlImportedRow = {
   id: string;
   article: string;
+  category: PnlCategory;
   plan: number | null;
   fact: number | null;
   source: string;
@@ -32,6 +33,38 @@ const HEADER_ALIASES = {
   fact: ['факт', 'факт руб', 'фактическая сумма', 'actual', 'fact', 'сумма факт'],
 };
 const TOTAL_LABEL = /^(?:итого|всего|общий итог|итог|total|grand total|subtotal|промежуточный итог)(?:\s|$|[:—-])/iu;
+export const PNL_CATEGORY_LABELS: Record<PnlCategory, string> = {
+  revenue: 'Выручка',
+  cogs: 'Себестоимость',
+  payroll: 'ФОТ',
+  overtime: 'Переработки',
+  opex: 'OPEX',
+  other_operating: 'Прочие операционные',
+  depreciation: 'Амортизация',
+  interest: 'Проценты',
+  tax: 'Налоги',
+  other: 'Прочее',
+  unclassified: 'Не распределено',
+};
+const CATEGORY_ALIASES: Record<Exclude<PnlCategory, 'unclassified'>, string[]> = {
+  revenue: ['выручка', 'выручка итого', 'доход', 'оборот', 'revenue', 'sales'],
+  cogs: ['себестоимость', 'себестоимость итого', 'cogs', 'фудкост', 'food cost'],
+  payroll: ['фот', 'фонд оплаты труда', 'зарплата', 'payroll', 'personnel'],
+  overtime: ['переработки', 'сверхурочные', 'overtime'],
+  opex: ['opex', 'операционные расходы', 'операционные затраты', 'аренда', 'аренда помещения', 'коммунальные услуги', 'эквайринг', 'ремонт', 'хозрасходы'],
+  other_operating: ['прочие операционные', 'прочее операционные', 'other operating'],
+  depreciation: ['амортизация', 'depreciation'],
+  interest: ['проценты', 'процентные расходы', 'interest'],
+  tax: ['налоги', 'налог', 'tax'],
+  other: ['прочее', 'другое', 'other'],
+};
+export function suggestPnlCategory(article: string): PnlCategory {
+  const normalized = normalizePnlText(article);
+  for (const [category, aliases] of Object.entries(CATEGORY_ALIASES) as [Exclude<PnlCategory, 'unclassified'>, string[]][]) {
+    if (aliases.some(alias => normalized === normalizePnlText(alias))) return category;
+  }
+  return 'unclassified';
+}
 
 export function normalizePnlText(value: unknown): string {
   return String(value ?? '').normalize('NFKC').replace(/[\u00a0\u202f]/g, ' ').trim().toLocaleLowerCase('ru-RU')
