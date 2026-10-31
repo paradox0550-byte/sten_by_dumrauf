@@ -7,7 +7,6 @@ import { useScope } from '../lib/useScope';
 import {
   buildPnlImportRows,
   guessPnlColumns,
-  parsePnlAmount,
   parsePnlWorkbook,
   type PnlColumnMap,
   type PnlExcelSheet,
