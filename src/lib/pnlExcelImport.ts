@@ -65,9 +65,13 @@ export function detectPnlHeaderRow(rows: PnlCellValue[][]): number {
   let bestScore = 0;
   for (let index = 0; index < Math.min(rows.length, 50); index += 1) {
     const cells = (rows[index] ?? []).map(normalizePnlText);
-    const hasArticle = HEADER_ALIASES.article.some(alias => cells.some(cell => cell === normalizePnlText(alias)));
-    const hasPlan = HEADER_ALIASES.plan.some(alias => cells.some(cell => cell === normalizePnlText(alias)));
-    const hasFact = HEADER_ALIASES.fact.some(alias => cells.some(cell => cell === normalizePnlText(alias)));
+    const matches = (cell: string, aliases: string[]) => aliases.some(alias => {
+      const normalized = normalizePnlText(alias);
+      return cell === normalized || cell.startsWith(normalized + ' ');
+    });
+    const hasArticle = HEADER_ALIASES.article.some(alias => cells.some(cell => matches(cell, [alias])));
+    const hasPlan = HEADER_ALIASES.plan.some(alias => cells.some(cell => matches(cell, [alias])));
+    const hasFact = HEADER_ALIASES.fact.some(alias => cells.some(cell => matches(cell, [alias])));
     const hasAmount = cells.some(cell => /^(сумма|amount|значение|value|руб|рубли|amount rub)$/.test(cell));
     const score = Number(hasArticle) * 3 + Number(hasPlan) * 2 + Number(hasFact) * 2 + Number(hasAmount);
     if (score > bestScore) {
@@ -80,7 +84,10 @@ export function detectPnlHeaderRow(rows: PnlCellValue[][]): number {
 
 export function guessPnlColumns(header: PnlCellValue[]): PnlColumnMap {
   const labels = header.map(normalizePnlText);
-  const find = (aliases: string[]) => labels.findIndex(label => aliases.some(alias => label === normalizePnlText(alias)));
+  const find = (aliases: string[]) => labels.findIndex(label => aliases.some(alias => {
+    const normalized = normalizePnlText(alias);
+    return label === normalized || label.startsWith(normalized + ' ');
+  }));
   const article = find(HEADER_ALIASES.article);
   const plan = find(HEADER_ALIASES.plan);
   let fact = find(HEADER_ALIASES.fact);
@@ -119,7 +126,6 @@ export function buildPnlImportRows(
   if (headerRow < 0 || headerRow >= sheet.rows.length) throw new Error('Выберите строку с заголовками столбцов.');
   if (columns.article < 0) throw new Error('Не выбран столбец с названием статьи.');
   if (columns.plan === null && columns.fact === null) throw new Error('Не выбраны столбцы План и/или Факт.');
-  const header = sheet.rows[headerRow] ?? [];
   const result: PnlImportedRow[] = [];
   for (let rowIndex = headerRow + 1; rowIndex < sheet.rows.length; rowIndex += 1) {
     const row = sheet.rows[rowIndex] ?? [];
@@ -155,6 +161,5 @@ export function buildPnlImportRows(
       skipped: skip,
     });
   }
-  void header;
   return result;
 }
