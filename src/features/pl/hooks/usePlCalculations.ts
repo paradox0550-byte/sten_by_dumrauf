@@ -89,7 +89,9 @@ export function calculateClassifiedPlData(
   const sumByType = (type: ExpenseControlType, field: 'plan' | 'fact'): number | undefined => {
     const selected = articlesWithTypes.filter((row) => row.controlType === type);
     if (selected.length === 0) {
-      // Zero is valid only when a detailed list exists and every listed article is classified.
+      // An empty unknown bucket means there are no unknown expenses; keep it absent.
+      // Known buckets may be zero when a complete detailed list proves the category is empty.
+      if (type === 'unknown') return undefined;
       return articlesWithTypes.length > 0 && !articlesWithTypes.some((row) => row.controlType === 'unknown')
         ? 0
         : undefined;
