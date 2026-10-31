@@ -19,16 +19,16 @@ function dateFromHeader(value: unknown): string | null {
     if(parsed?.y&&parsed.m&&parsed.d)return [parsed.y,String(parsed.m).padStart(2,'0'),String(parsed.d).padStart(2,'0')].join('-');
   }
   const text=String(value??'').trim();
-  let m=text.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/);
+  let m=text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if(m)return [Number(m[1]),Number(m[2]),Number(m[3])].map((v,i)=>String(v).padStart(i===0?4:2,'0')).join('-');
-  m=text.match(/^(\\d{1,2})[./-](\\d{1,2})[./-](\\d{4})$/);
+  m=text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
   if(!m)return null;
   const day=Number(m[1]),month=Number(m[2]),year=Number(m[3]),d=new Date(Date.UTC(year,month-1,day));
   return d.getUTCFullYear()===year&&d.getUTCMonth()===month-1&&d.getUTCDate()===day
     ? [year,String(month).padStart(2,'0'),String(day).padStart(2,'0')].join('-'):null;
 }
 function normalize(value: unknown): string {
-  return String(value??'').normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/[.]/g,'').replace(/[\\s_-]+/g,' ').trim();
+  return String(value??'').normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/[.]/g,'').replace(/[\s_-]+/g,' ').trim();
 }
 function parseShiftValue(value: unknown): { hours: number | null; startTime: string | null; endTime: string | null; ambiguous: boolean } {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -36,7 +36,7 @@ function parseShiftValue(value: unknown): { hours: number | null; startTime: str
       : { hours: null, startTime: null, endTime: null, ambiguous: true };
   }
   const raw=String(value??'').trim();
-  const range=raw.match(/(\\d{1,2}):([0-5]\\d)\\s*[-–—]\s*(\\d{1,2}):([0-5]\\d)/);
+  const range=raw.match(/(\d{1,2}):([0-5]\d)\s*[-–—]\s*(\d{1,2}):([0-5]\d)/);
   if(range){
     const sh=Number(range[1]),sm=Number(range[2]),eh=Number(range[3]),em=Number(range[4]);
     if(sh>23||eh>23)return {hours:null,startTime:null,endTime:null,ambiguous:true};
@@ -44,7 +44,7 @@ function parseShiftValue(value: unknown): { hours: number | null; startTime: str
     let minutes=eh*60+em-(sh*60+sm);if(minutes<=0)minutes+=1440;
     return {hours:minutes/60,startTime,endTime,ambiguous:false};
   }
-  const numeric=raw.match(/^(\\d{1,2}(?:[.,]\\d+)?)\\s*(?:ч|час(?:а|ов)?|h|hrs?)?$/i);
+  const numeric=raw.match(/^(\d{1,2}(?:[.,]\d+)?)\s*(?:ч|час(?:а|ов)?|h|hrs?)?$/i);
   if(numeric){
     const hours=Number(numeric[1].replace(',','.'));
     if(hours>0&&hours<=24)return {hours,startTime:null,endTime:null,ambiguous:false};
