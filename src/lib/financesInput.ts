@@ -2,6 +2,8 @@ import type { FinanceInput } from './financeCalculator';
 
 export type FinanceRow = {
   article: string;
+  key?: string;
+  label?: string;
   plan?: number | null;
   fact?: number | null;
   source?: string;
@@ -45,23 +47,32 @@ export function buildFinanceInput(rows: FinanceRow[], useFact: boolean): Finance
   const choose = (keys: string[], preferred: string[] = [], exclude: string[] = []) =>
     exactOrStartsWith(rows, preferred) ?? includesAny(rows, keys, exclude);
 
-  const value = (keys: string[], preferred: string[] = [], exclude: string[] = []): number | undefined => {
+  const categoryValue = (category: string): { found: boolean; value: number | undefined } => {
+    const matches = rows.filter(row => row.key === category);
+    if (!matches.length) return { found: false, value: undefined };
+    const values = matches.map(row => row[useFact ? 'fact' : 'plan']);
+    if (values.some(value => !finite(value))) return { found: true, value: undefined };
+    return { found: true, value: (values as number[]).reduce((sum, value) => sum + value, 0) };
+  };
+  const value = (category: string, keys: string[], preferred: string[] = [], exclude: string[] = []): number | undefined => {
+    const mapped = categoryValue(category);
+    if (mapped.found) return mapped.value;
     const raw = choose(keys, preferred, exclude)?.[useFact ? 'fact' : 'plan'];
     return finite(raw) ? raw : undefined;
   };
-  const expense = (keys: string[], preferred: string[] = [], exclude: string[] = []): number | undefined => {
-    const raw = value(keys, preferred, exclude);
+  const expense = (category: string, keys: string[], preferred: string[] = [], exclude: string[] = []): number | undefined => {
+    const raw = value(category, keys, preferred, exclude);
     return raw === undefined ? undefined : Math.abs(raw);
   };
 
   return {
-    revenue: value(['выруч', 'revenue'], ['выручка итого', 'revenue']),
-    cogs: expense(['себесто', 'cogs', 'фудкост'], ['себестоимость итого', 'cogs', 'фудкост']),
-    payroll: expense(['фот', 'payroll', 'зарплат'], ['фот', 'payroll'], ['не фот']),
-    opex: expense(['opex', 'операцион'], ['opex (без фот)', 'opex'], ['аренд', 'прочие операционные']),
-    depreciation: expense(['амортиза', 'depreciation']),
-    interest: expense(['процент', 'interest']),
-    tax: expense(['налог', 'tax']),
-    other: expense(['проч', 'other'], ['прочее', 'other'], ['операцион']),
+    revenue: value('revenue', ['выруч', 'revenue'], ['выручка итого', 'revenue']),
+    cogs: expense('cogs', ['себесто', 'cogs', 'фудкост'], ['себестоимость итого', 'cogs', 'фудкост']),
+    payroll: expense('payroll', ['фот', 'payroll', 'зарплат'], ['фот', 'payroll'], ['не фот']),
+    opex: expense('opex', ['opex', 'операцион'], ['opex (без фот)', 'opex'], ['аренд', 'прочие операционные']),
+    depreciation: expense('depreciation', ['амортиза', 'depreciation']),
+    interest: expense('interest', ['процент', 'interest']),
+    tax: expense('tax', ['налог', 'tax']),
+    other: expense('other', ['проч', 'other'], ['прочее', 'other'], ['операцион']),
   };
 }
