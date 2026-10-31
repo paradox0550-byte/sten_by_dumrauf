@@ -8,20 +8,47 @@ import { PnlWriteSchema, type PnlWriteRequest } from './contracts/pnl';
 
 export interface ComparableRow {
   article: string;
+  key?: string;
+  label?: string;
   plan?: number | null;
   fact?: number | null;
 }
 
 const norm = (v?: number | null) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
-
+const normalizedArticle = (value: string) => {
+  const text = value.normalize('NFKC').trim().toLocaleLowerCase('ru-RU').replace(/[ё]/g, 'е').replace(/[–—-]+/g, ' ').replace(/\\s+/g, ' ');
+  const aliases: Record<string, string> = { revenue: 'revenue', выручка: 'revenue', cogs: 'cogs', себестоимость: 'cogs', payroll: 'payroll', personnel: 'payroll', фот: 'payroll', opex: 'opex', 'операционные расходы': 'opex', 'операционные затраты': 'opex', depreciation: 'depreciation', амортизация: 'depreciation', interest: 'interest', проценты: 'interest', tax: 'tax', налоги: 'tax', other: 'other', прочее: 'other' };
+  return aliases[text] || text;
+};
+function comparableMap(rows: ComparableRow[]) {
+  const grouped = new Map<string, { article: string; key: string; plan: number | null; fact: number | null; planMissing: boolean; factMissing: boolean; planSeen: boolean; factSeen: boolean }>();
+  for (const row of rows) {
+    const article = normalizedArticle(String(row.article ?? ''));
+    const key = String(row.key || normalizedArticle(String(row.article ?? '')));
+    const composite = key + '\\u001f' + article;
+    const current = grouped.get(composite) ?? { article, key, plan: null, fact: null, planMissing: false, factMissing: false, planSeen: false, factSeen: false };
+    if (norm(row.plan) === null) current.planMissing = true;
+    else { current.plan = (current.plan ?? 0) + norm(row.plan)!; current.planSeen = true; }
+    if (norm(row.fact) === null) current.factMissing = true;
+    else { current.fact = (current.fact ?? 0) + norm(row.fact)!; current.factSeen = true; }
+    grouped.set(composite, current);
+  }
+  return [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, row]) => ({
+    key,
+    article: row.article,
+    plan: row.planMissing || !row.planSeen ? null : row.plan,
+    fact: row.factMissing || !row.factSeen ? null : row.fact,
+  }));
+}
 export function rowsMatch(expected: ComparableRow[], actual: ComparableRow[]): boolean {
-  if (!Array.isArray(actual) || actual.length !== expected.length) return false;
-  return expected.every((e, i) => {
-    const a = actual[i] as Partial<ComparableRow> | undefined;
-    return !!a && String(a.article ?? '') === String(e.article ?? '')
-      && norm(a.plan) === norm(e.plan ?? null)
-      && norm(a.fact) === norm(e.fact ?? null);
-  });
+  if (!Array.isArray(actual)) return false;
+  const left = comparableMap(expected);
+  const right = comparableMap(actual);
+  if (left.length !== right.length) return false;
+  return left.every((row, index) => row.key === right[index].key
+    && row.article === right[index].article
+    && row.plan === right[index].plan
+    && row.fact === right[index].fact);
 }
 
 export type PnlWriteResult =
