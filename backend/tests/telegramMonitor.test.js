@@ -30,6 +30,7 @@ test('normalizes edited group messages and captions', () => {
     update_id: 102,
     edited_message: {
       ...base.message,
+      text: undefined,
       caption: 'Исправленный текст',
       edit_date: 1793550100,
     },
