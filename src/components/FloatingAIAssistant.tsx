@@ -45,7 +45,7 @@ export default function FloatingAIAssistant() {
   const longPress = useRef<number | null>(null);
   const longPressed = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const hidden = ['/sten', '/ai', '/drive', '/unlock', '/auth', '/login'].includes(location.pathname);
+  const hidden = ['/sten', '/ai', '/unlock', '/auth', '/login'].includes(location.pathname);
 
   const contextualActions = useMemo(() => {
     const current = ACTIONS.filter(action => action.paths.some(path => location.pathname === path || location.pathname.startsWith(path + '/')));
