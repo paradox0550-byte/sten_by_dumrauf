@@ -1,7 +1,6 @@
 import React from 'react';
 import Layout from '../Layout';
 import InlineGuide from '../InlineGuide';
-import LadarLauncher from '../../features/ladar/LadarLauncher';
 
 /**
  * Canonical application shell. Contextual onboarding lives inside the existing
@@ -12,7 +11,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <Layout>
       <InlineGuide />
       {children}
-      <LadarLauncher />
     </Layout>
   );
 }
