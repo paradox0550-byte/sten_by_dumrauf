@@ -52,7 +52,7 @@ async function persistTelegramUpdate(query, update) {
          (chat_id, message_id, update_id, sender_id, sender_name, sender_username,
           message_text, message_date, edited_at, raw_json, received_at)
        SELECT $3, $6, $1, $7, NULLIF($8, ''), $9, $10, $11, $12, $2::jsonb, now()
-       FROM inserted_update
+       FROM inserted_update CROSS JOIN upserted_chat
        ON CONFLICT (chat_id, message_id) DO UPDATE SET
          update_id = EXCLUDED.update_id,
          sender_id = EXCLUDED.sender_id,
