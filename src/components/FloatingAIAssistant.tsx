@@ -129,11 +129,11 @@ export default function FloatingAIAssistant() {
   return (
     <div className="sten-floating-ai" ref={rootRef}>
       {menuOpen && (
-        <section className="sten-floating-ai__menu" role="dialog" aria-label="Быстрые действия ЛАДАР">
+        <section className="sten-floating-ai__menu" role="dialog" aria-label="Быстрые действия">
           <header className="sten-floating-ai__menu-header">
             <div>
               <span className="sten-floating-ai__eyebrow">STEN · УМНЫЙ ДОСТУП</span>
-              <strong>ЛАДАР</strong>
+              <strong>Быстрые действия</strong>
               <small>Рабочее пространство и период сохраняются</small>
             </div>
             <button type="button" className="sten-floating-ai__dismiss" onClick={() => setMenuOpen(false)} aria-label="Закрыть меню"><X size={17} /></button>
@@ -158,7 +158,7 @@ export default function FloatingAIAssistant() {
       <button
         type="button"
         className={`sten-floating-ai__button is-${status}${menuOpen ? ' is-open' : ''}`}
-        aria-label="ЛАДАР: открыть STEN AI"
+        aria-label="Открыть STEN AI"
         aria-haspopup="dialog"
         aria-expanded={menuOpen}
         onPointerDown={onPointerDown}
