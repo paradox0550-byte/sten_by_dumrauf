@@ -171,7 +171,7 @@ export default function FloatingAIAssistant() {
           openChat();
         }}
       >
-        <Ladar size={42} />
+        <Ladar size={48} />
         <span className="sten-floating-ai__status" aria-hidden="true" />
       </button>
     </div>
