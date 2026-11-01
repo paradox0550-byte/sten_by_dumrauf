@@ -59,9 +59,9 @@ export default function STENDrive() {
   const speakingRef = useRef(false);
   const mutedRef = useRef(false);
   const answerRef = useRef('');
-  const scopeRef = useRef(scope);
+  const scopeRef = useRef(scope);\n  const askRef = useRef<(question: string) => Promise<void>>(async () => {});
 
-  useEffect(() => { scopeRef.current = scope; }, [scope]);
+  useEffect(() => { scopeRef.current = scope; }, [scope]);\n  useEffect(() => { askRef.current = ask; }, [ask]);\n  useEffect(() => {\n    document.body.classList.add('sten-drive-active');\n    return () => document.body.classList.remove('sten-drive-active');\n  }, []);
   useEffect(() => { mutedRef.current = muted; }, [muted]);
   useEffect(() => {
     const available = Boolean(getRecognitionConstructor()) && 'speechSynthesis' in window;
@@ -105,7 +105,7 @@ export default function STENDrive() {
       if (value) setTranscript(value);
       if (finalText.trim()) {
         stopListening();
-        void ask(finalText.trim());
+        void askRef.current(finalText.trim());
       }
     };
     recognition.onerror = (event) => {
