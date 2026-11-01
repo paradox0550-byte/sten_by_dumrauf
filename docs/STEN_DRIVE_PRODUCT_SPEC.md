@@ -216,3 +216,26 @@ STEN Drive — голосовой собеседник и автомобильн
 
 Совместимость с автомобилем подтверждена пользователем на уровне фактического подключения CarPlay. Точная аппаратная ревизия Bolero и её ограничения пока не установлены; не считать модельный год достаточным доказательством поддержки всех CarPlay-функций.
 
+## 10. Подтверждённая категория CarPlay для голосового ИИ
+
+Проверка актуальной документации Apple на 2026-11-01 уточнила ранее открытый вопрос:
+- Apple официально перечисляет voice-based conversational apps среди категорий CarPlay.
+- Для этой категории указан entitlement `com.apple.developer.carplay-voice-based-conversation`; минимальная версия — iOS 26.4 (по актуальному CarPlay Developer Guide).
+- Голос должен быть основным способом взаимодействия при запуске; приложение должно отвечать на вопросы/запросы и выполнять действия, оптимизированные для управления голосом в автомобиле.
+- CarPlay-приложение обязано использовать предусмотренный Apple voice control screen и соответствовать CarPlay UX/review требованиям.
+- Наличие категории не означает автоматическую выдачу entitlement: Apple требует отдельный запрос, проверку приложения и одобрение. После выдачи entitlement его нужно настроить в App ID, provisioning profile и Xcode target.
+- Для voice-based conversational apps нельзя проектировать произвольный wake word как гарантированный системный сценарий. Базовый UX: водитель открывает приложение STEN Drive на CarPlay, запускает голосовой сеанс и ведёт продолжительный разговор; остановка/пауза доступны в системно разрешённом интерфейсе.
+- Это делает iOS 26.4 минимальной технической базой для полноценной CarPlay-версии STEN Drive. На iOS 26.0–26.3 CarPlay voice conversation entitlement недоступен по опубликованной матрице; iPhone-прототип без CarPlay можно исследовать отдельно.
+- iOS 27 включить в матрицу регрессионной совместимости после выхода публичного SDK и проверки изменений Apple.
+
+Официальные источники:
+- Apple CarPlay developer overview: https://developer.apple.com/carplay/
+- Apple: Requesting CarPlay Entitlements: https://developer.apple.com/documentation/carplay/requesting-carplay-entitlements
+- Apple WWDC26 session: https://developer-rno.apple.com/videos/play/wwdc2026/212/
+
+Решение по реализации:
+1. Не делать временный CarPlay workaround через аудио-категорию: это не соответствует назначению entitlement.
+2. Вынести запрос entitlement в раннюю внешнюю зависимость проекта, до вложений в полный CarPlay UI.
+3. Параллельно можно создать нативный iPhone voice prototype и проверить звук на Kodiaq через существующий Bluetooth/USB, не заявляя это как CarPlay app.
+4. Перед созданием Xcode target подтвердить Apple Developer Program team, Bundle ID и доступ владельца аккаунта для отправки entitlement request.
+
