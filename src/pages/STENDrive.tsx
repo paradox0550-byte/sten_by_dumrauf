@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Mic, MicOff, PhoneOff, Volume2, VolumeX } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api';
 import { useScope } from '../lib/useScope';
 import { AskRequestSchema, type AskResponse } from '../lib/contracts/ask';
@@ -43,7 +42,6 @@ function cleanSpeech(text: string) {
 }
 
 export default function STENDrive() {
-  const { user } = useAuth();
   const [scope] = useScope();
   const navigate = useNavigate();
   const [state, setState] = useState<VoiceState>('idle');
@@ -58,7 +56,6 @@ export default function STENDrive() {
   const busyRef = useRef(false);
   const speakingRef = useRef(false);
   const mutedRef = useRef(false);
-  const answerRef = useRef('');
   const scopeRef = useRef(scope);
   const askRef = useRef<(question: string) => Promise<void>>(async () => {});
 
@@ -165,7 +162,6 @@ export default function STENDrive() {
       if (activeRef.current) window.setTimeout(() => listen(), 350);
       else setState('idle');
     };
-    answerRef.current = text;
     window.speechSynthesis.speak(utterance);
   }, [listen]);
 
