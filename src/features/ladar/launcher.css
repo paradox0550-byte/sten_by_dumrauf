@@ -1,0 +1,71 @@
+.sten-ladar-launcher {
+  position: fixed;
+  z-index: 1000;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(22px, env(safe-area-inset-bottom));
+  font-family: inherit;
+}
+.sten-ladar-launcher__trigger {
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--color-brand, #126b67) 45%, transparent);
+  border-radius: 50%;
+  background: var(--bg-surface, #fff);
+  color: var(--color-brand, #126b67);
+  box-shadow: 0 8px 28px rgb(15 35 40 / 18%);
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+.sten-ladar-launcher__trigger .sten-ladar { gap: 0; }
+.sten-ladar-launcher__trigger .sten-ladar__label { display: none; }
+.sten-ladar-launcher__trigger:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgb(15 35 40 / 22%); }
+.sten-ladar-launcher__trigger:focus-visible,
+.sten-ladar-launcher__close:focus-visible,
+.sten-ladar-launcher__action:focus-visible,
+.sten-ladar-launcher__footer button:focus-visible { outline: 2px solid var(--color-brand, #126b67); outline-offset: 3px; }
+.sten-ladar-launcher__trigger.is-open { background: var(--bg-surface-muted, #edf3f2); }
+.sten-ladar-launcher__panel {
+  position: absolute;
+  right: 0;
+  bottom: 78px;
+  width: min(390px, calc(100vw - 32px));
+  max-height: min(680px, calc(100dvh - 130px));
+  overflow: auto;
+  padding: 20px;
+  border: 1px solid var(--border-default, #dce3e4);
+  border-radius: 24px;
+  background: var(--bg-surface, #fff);
+  color: var(--text-primary, #17212b);
+  box-shadow: 0 18px 60px rgb(12 30 36 / 20%);
+  animation: sten-ladar-enter 160ms ease-out;
+}
+.sten-ladar-launcher__header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; padding-bottom: 14px; }
+.sten-ladar-launcher__eyebrow { display: block; color: var(--text-secondary, #65747d); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
+.sten-ladar-launcher__heading h2 { margin: 5px 0 3px; font-size: 22px; line-height: 1.2; }
+.sten-ladar-launcher__heading p { margin: 0; color: var(--text-secondary, #65747d); font-size: 13px; line-height: 1.4; }
+.sten-ladar-launcher__close { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 auto; border: 0; border-radius: 50%; background: var(--bg-surface-muted, #edf1f2); color: inherit; cursor: pointer; }
+.sten-ladar-launcher__list { display: grid; gap: 5px; }
+.sten-ladar-launcher__action { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 9px; border: 0; border-radius: 14px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.sten-ladar-launcher__action:hover, .sten-ladar-launcher__action[aria-current="page"] { background: var(--bg-surface-muted, #f0f4f4); }
+.sten-ladar-launcher__action-icon { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 40px; border-radius: 12px; background: var(--bg-brand-subtle, #e4f1ef); color: var(--color-brand, #126b67); }
+.sten-ladar-launcher__action-copy { display: grid; gap: 3px; flex: 1; min-width: 0; }
+.sten-ladar-launcher__action-copy strong { font-size: 14px; font-weight: 650; }
+.sten-ladar-launcher__action-copy small { color: var(--text-secondary, #65747d); font-size: 12px; line-height: 1.35; }
+.sten-ladar-launcher__empty { padding: 12px 8px; color: var(--text-secondary, #65747d); font-size: 13px; }
+.sten-ladar-launcher__footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--border-default, #dce3e4); color: var(--text-secondary, #65747d); font-size: 11px; }
+.sten-ladar-launcher__footer span, .sten-ladar-launcher__footer button { display: inline-flex; align-items: center; gap: 6px; }
+.sten-ladar-launcher__footer button { padding: 5px 0; border: 0; background: transparent; color: var(--text-primary, #17212b); font: inherit; cursor: pointer; }
+@keyframes sten-ladar-enter { from { opacity: 0; transform: translateY(6px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (max-width: 600px) {
+  .sten-ladar-launcher { right: max(14px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); }
+  .sten-ladar-launcher__trigger { width: 56px; height: 56px; }
+  .sten-ladar-launcher__panel { position: fixed; right: 12px; bottom: calc(82px + env(safe-area-inset-bottom)); width: auto; left: 12px; max-height: min(72dvh, 620px); padding: 17px; border-radius: 20px; }
+  .sten-ladar-launcher__action { padding: 10px 7px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sten-ladar-launcher__trigger { transition: none; }
+  .sten-ladar-launcher__panel { animation: none; }
+}
