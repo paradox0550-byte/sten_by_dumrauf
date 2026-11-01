@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  Activity, Bot, CalendarCheck, ChartNoAxesCombined, ChevronRight, Clock3,
+  Activity, Bot, CalendarCheck, BarChart3, ChevronRight, Clock3,
   FileText, Users, Wallet, X, Zap,
 } from 'lucide-react';
 import { Ladar } from './Ladar';
@@ -18,7 +18,7 @@ type LauncherAction = {
 
 const ACTIONS: LauncherAction[] = [
   { id: 'ai', label: 'Спросить STEN', description: 'Разобрать ситуацию и следующий шаг', to: '/sten', icon: Bot, contexts: ['*'] },
-  { id: 'analysis', label: 'Аналитика', description: 'Показатели и динамика', to: '/analytics', icon: ChartNoAxesCombined, contexts: ['/dashboard', '/analytics', '/pnl', '/budget', '/finances'] },
+  { id: 'analysis', label: 'Аналитика', description: 'Показатели и динамика', to: '/analytics', icon: BarChart3, contexts: ['/dashboard', '/analytics', '/pnl', '/budget', '/finances'] },
   { id: 'deviations', label: 'Проверить отклонения', description: 'План-факт и финансовые риски', to: '/pnl', icon: Activity, contexts: ['/pnl', '/budget', '/finances', '/analytics'] },
   { id: 'day', label: 'Мой день', description: 'Операционная работа и контроль', to: '/ops', icon: CalendarCheck, contexts: ['/ops', '/plan'] },
   { id: 'team', label: 'Команда и ФОТ', description: 'Персонал и затраты на труд', to: '/staff', icon: Users, contexts: ['/staff'] },
