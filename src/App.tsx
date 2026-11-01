@@ -8,6 +8,7 @@ import CookieBanner from './components/CookieBanner';
 import SystemStatusBanner from './components/SystemStatusBanner';
 
 const AI = lazy(() => import('./pages/AI'));
+const STENDrive = lazy(() => import('./pages/STENDrive'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Finances = lazy(() => import('./pages/Finances'));
 const PnL = lazy(() => import('./pages/PnL'));
@@ -28,6 +29,12 @@ const Consent = lazy(() => import('./pages/legal/Consent'));
 const Cookies = lazy(() => import('./pages/legal/Cookies'));
 const Contacts = lazy(() => import('./pages/legal/Contacts'));
 const LegalPage = lazy(() => import('./pages/LegalPage'));
+
+function ProtectedStandalone({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <main className="sten-loading" aria-busy="true"><span className="sten-loading-message">Подключаем STEN…</span></main>;
+  return user ? <>{children}</> : <Navigate to="/unlock" replace />;
+}
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -66,6 +73,7 @@ export default function App() {
             <Route path="/legal/contacts" element={<Contacts />} />
             <Route path="/" element={<Protected><Dashboard /></Protected>} />
             <Route path="/sten" element={<Protected><AI /></Protected>} />
+            <Route path="/drive" element={<ProtectedStandalone><STENDrive /></ProtectedStandalone>} />
             <Route path="/ai" element={<Protected><AI /></Protected>} />
             <Route path="/ai-quality" element={<Protected><AIQualityLab /></Protected>} />
             <Route path="/memory" element={<Protected><Memory /></Protected>} />
