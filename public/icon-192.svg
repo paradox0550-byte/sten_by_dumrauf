@@ -1,1 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" fill="none"><defs><linearGradient id="frame" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFFFFF"/><stop offset=".38" stop-color="#AEB9C2"/><stop offset=".62" stop-color="#F9FBFC"/><stop offset="1" stop-color="#778692"/></linearGradient><linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#19E3EE"/><stop offset="1" stop-color="#078FBD"/></linearGradient><linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#187DEB"/><stop offset="1" stop-color="#123FAE"/></linearGradient><linearGradient id="face" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FAFCFD"/><stop offset=".55" stop-color="#E8EDF1"/><stop offset="1" stop-color="#F9FBFC"/></linearGradient></defs><rect x="8.64" y="8.64" width="174.72" height="174.72" rx="42" fill="url(#face)" stroke="url(#frame)" stroke-width="6.720000000000001"/><rect x="16.32" y="16.32" width="159.35999999999999" height="159.35999999999999" rx="31.92" stroke="#7B8994" stroke-opacity=".7" stroke-width="1.536"/><g transform="translate(23.04 23.04) scale(0.57)"><path d="M183 41 Q186 42 187 45 Q187 48 184 50 L108 91 Q104 93 104 97 L104 120 Q104 127 99 131 Q94 135 88 132 L55 115 Q48 112 48 104 L49 69 Q49 66 53 64 L124 23 Q133 18 142 21 Z" fill="url(#cyan)" stroke="url(#frame)" stroke-width="5" stroke-linejoin="round"/><path d="M202 105 Q202 100 197 97 L165 82 Q159 79 153 83 L143 88 L140 120 Q140 125 135 128 L59 169 Q53 172 58 176 L105 198 Q112 201 119 197 L196 153 Q202 149 202 143 Z" fill="url(#blue)" stroke="url(#frame)" stroke-width="5" stroke-linejoin="round"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="42" y1="20" x2="470" y2="492" gradientUnits="userSpaceOnUse"><stop stop-color="#073D3B"/><stop offset=".48" stop-color="#031D20"/><stop offset="1" stop-color="#020D12"/></linearGradient>
+    <linearGradient id="rim" x1="54" y1="48" x2="464" y2="470" gradientUnits="userSpaceOnUse"><stop stop-color="#58E5D4" stop-opacity=".82"/><stop offset=".45" stop-color="#0A766F" stop-opacity=".2"/><stop offset="1" stop-color="#25D8C3" stop-opacity=".75"/></linearGradient>
+    <linearGradient id="barA" x1="178" y1="220" x2="224" y2="316" gradientUnits="userSpaceOnUse"><stop stop-color="#61E7D5"/><stop offset="1" stop-color="#00A99A"/></linearGradient>
+    <linearGradient id="barB" x1="244" y1="180" x2="290" y2="316" gradientUnits="userSpaceOnUse"><stop stop-color="#43DCCB"/><stop offset="1" stop-color="#087F78"/></linearGradient>
+    <linearGradient id="barC" x1="310" y1="128" x2="356" y2="316" gradientUnits="userSpaceOnUse"><stop stop-color="#FFFFFF"/><stop offset="1" stop-color="#9CBDBB"/></linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="matrix(0 220 -220 0 260 258)" gradientUnits="userSpaceOnUse"><stop stop-color="#0C8E83" stop-opacity=".25"/><stop offset="1" stop-color="#06191D" stop-opacity="0"/></radialGradient>
+    <filter id="shadow" x="116" y="108" width="280" height="244" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="12"/></filter>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <rect width="512" height="512" fill="url(#glow)"/>
+  <path d="M-18 120C92 42 171 39 267 62c101 24 169 6 269-49v112c-91 57-161 71-260 44C160 143 81 163-18 232V120Z" fill="#0D746E" fill-opacity=".13"/>
+  <path d="M-30 414c117-99 203-84 297-66 96 19 159 5 275-74v118c-106 76-193 100-293 79-94-20-161-20-279 69V414Z" fill="#0B8D82" fill-opacity=".12"/>
+  <rect x="18" y="18" width="476" height="476" rx="112" stroke="url(#rim)" stroke-width="3"/>
+  <rect x="29" y="29" width="454" height="454" rx="101" stroke="#A8F5E8" stroke-opacity=".09" stroke-width="1.5"/>
+  <g filter="url(#shadow)" opacity=".32"><path d="M168 315V249c0-8 4-15 11-19l27-16c10-6 23 1 23 13v88h-61Z" fill="#1ED8C3"/><path d="M244 315V204c0-8 4-15 11-19l27-16c10-6 23 1 23 13v133h-61Z" fill="#1ED8C3"/><path d="M320 315V151c0-8 4-15 11-19l27-16c10-6 23 1 23 13v186h-61Z" fill="#fff"/></g>
+  <path d="M168 315V249c0-8 4-15 11-19l27-16c10-6 23 1 23 13v88h-61Z" fill="url(#barA)"/>
+  <path d="M244 315V204c0-8 4-15 11-19l27-16c10-6 23 1 23 13v133h-61Z" fill="url(#barB)"/>
+  <path d="M320 315V151c0-8 4-15 11-19l27-16c10-6 23 1 23 13v186h-61Z" fill="url(#barC)"/>
+  <path d="M168 315h206" stroke="#D8F8F2" stroke-opacity=".35" stroke-width="2" stroke-linecap="round"/>
+  <text x="256" y="390" text-anchor="middle" fill="#F5FBFA" font-family="Inter,Arial,sans-serif" font-size="76" font-weight="650" letter-spacing="13">STEN</text>
+  <path d="M170 414h172" stroke="#2CCDBB" stroke-opacity=".58" stroke-width="2" stroke-linecap="round"/>
+</svg>
