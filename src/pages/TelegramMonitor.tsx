@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MessageSquareText, RefreshCw, Search, Link2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { api, ApiError } from '../lib/api';
+import '../styles/telegram-monitor.css';
 
 type TelegramChat = {
   chat_id: string;
