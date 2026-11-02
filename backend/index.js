@@ -3303,7 +3303,7 @@ async function handleOperationalTelegramUpdate(update) {
 
 app.post('/api/ingest/message', async (req, res) => {
 try {
-const isTelegram = Boolean(req.body?.message || req.body?.edited_message);
+const isTelegram = Boolean(req.body?.message || req.body?.edited_message || req.body?.callback_query);
 if (isTelegram) {
 const expected = String(process.env.TELEGRAM_WEBHOOK_SECRET || '');
 const provided = String(req.headers['x-telegram-bot-api-secret-token'] || '');
@@ -3312,11 +3312,24 @@ const a = Buffer.from(provided), b = Buffer.from(expected);
 if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.status(403).json({ ok: false, error: 'forbidden' });
 if (!ENV.DB_HOST) return res.status(503).json({ ok: false, error: 'database_not_configured' });
 try {
-  const stored = await persistTelegramUpdate(query, req.body);
+  let stored;
+  if (req.body?.callback_query) {
+    const claim = await queryWithRetry(
+      'INSERT INTO telegram_updates(update_id,received_at,update_json) VALUES($1,now(),$2::jsonb) ON CONFLICT(update_id) DO NOTHING RETURNING update_id',
+      [req.body.update_id, JSON.stringify(req.body)], {});
+    if (!claim.rows?.length) return res.status(200).json({ ok: true, accepted: true, stored: false, duplicate: true });
+    const operational = await handleOperationalTelegramUpdate(req.body);
+    return res.status(200).json({ ok: true, accepted: true, stored: true, operational: operational.handled });
+  }
+  stored = await persistTelegramUpdate(query, req.body);
+  if (stored.stored && !req.body?.edited_message) {
+    const operational = await handleOperationalTelegramUpdate(req.body);
+    return res.status(200).json({ ok: true, ...stored, operational: operational.handled });
+  }
   return res.status(200).json({ ok: true, ...stored });
 } catch (e) {
   console.error('[sten] telegram ingest failed:', e?.code || e?.message || 'UNKNOWN');
-  return res.status(503).json({ ok: false, error: 'telegram_persistence_failed' });
+  return res.status(503).json({ ok: false, error: 'telegram_processing_failed' });
 }
 }
 const isWhatsApp = Boolean(req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]);
