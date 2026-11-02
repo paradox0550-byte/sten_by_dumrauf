@@ -2926,13 +2926,22 @@ app.get('/api/telegram-monitor/messages', requireAuth, requireOrg, async (req, r
     const search = String(req.query.q || '').trim().slice(0, 200);
     const limit = Math.max(1, Math.min(100, Number.parseInt(String(req.query.limit || '50'), 10) || 50));
     if (!chatId) throw httpError(400, 'Выберите Telegram-чат.', 'CHAT_REQUIRED');
-    const rows = await strictQuery(`SELECT m.chat_id, m.message_id, m.sender_name, m.sender_username,
-        m.message_text, m.message_date, m.edited_at, m.received_at
-      FROM telegram_messages m
-      JOIN telegram_chat_bindings b ON b.chat_id=m.chat_id AND b.organization_id=$1::uuid
-      WHERE m.chat_id=$2 AND ($3::text='' OR m.message_text ILIKE '%' || $3 || '%')
-      ORDER BY m.message_date DESC NULLS LAST LIMIT $4`,
-      [req.user.organizationId, chatId, search, limit]);
+    const isAdmin = req.user.role === 'super_admin';
+    const rows = isAdmin
+      ? await strictQuery(`SELECT m.chat_id, m.message_id, m.sender_name, m.sender_username,
+          m.message_text, m.message_date, m.edited_at, m.received_at
+        FROM telegram_messages m
+        JOIN telegram_chat_bindings b ON b.chat_id=m.chat_id
+        WHERE m.chat_id=$1 AND ($2::text='' OR m.message_text ILIKE '%' || $2 || '%')
+        ORDER BY m.message_date DESC NULLS LAST LIMIT $3`,
+        [chatId, search, limit])
+      : await strictQuery(`SELECT m.chat_id, m.message_id, m.sender_name, m.sender_username,
+          m.message_text, m.message_date, m.edited_at, m.received_at
+        FROM telegram_messages m
+        JOIN telegram_chat_bindings b ON b.chat_id=m.chat_id AND b.organization_id=$1::uuid
+        WHERE m.chat_id=$2 AND ($3::text='' OR m.message_text ILIKE '%' || $3 || '%')
+        ORDER BY m.message_date DESC NULLS LAST LIMIT $4`,
+        [req.user.organizationId, chatId, search, limit]);
     ok(res, { messages: rows });
   } catch (e) { next(e); }
 });
