@@ -269,6 +269,7 @@ await query(`CREATE TABLE IF NOT EXISTS telegram_chat_bindings (
 await query(`CREATE INDEX IF NOT EXISTS idx_telegram_bindings_org_restaurant
   ON telegram_chat_bindings(organization_id, restaurant_id);`);
 
+
 await query(`CREATE TABLE IF NOT EXISTS telegram_updates (
   update_id BIGINT PRIMARY KEY,
   received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -2890,13 +2891,6 @@ total_ms,
 }
 });
 
-/* ---- ingest webhook ---- */
-app.get('/api/ingest/message', (req, res) => {
-const token = process.env.WHATSAPP_VERIFY_TOKEN;
-if (token && String(req.query['hub.verify_token'] || '') === token) return res.status(200).send(String(req.query['hub.challenge'] || ''));
-return res.status(403).json({ error: { message: 'Webhook verification failed', code: 'WEBHOOK_VERIFY_FAILED' } });
-});
-
 /* ---- Telegram Monitor: organization-bound chat/message access ---- */
 app.get('/api/telegram-monitor/chats', requireAuth, requireOrg, async (req, res, next) => {
   try {
@@ -2966,6 +2960,14 @@ app.post('/api/telegram-monitor/chats/:chatId/bind', requireAuth, requireOrg, as
       [chatId, organizationId, restaurantId, String(req.user.id)], {});
     ok(res, { bound: true, chat_id: chatId, organization_id: organizationId, restaurant_id: restaurantId });
   } catch (e) { next(e); }
+});
+
+
+/* ---- ingest webhook ---- */
+app.get('/api/ingest/message', (req, res) => {
+const token = process.env.WHATSAPP_VERIFY_TOKEN;
+if (token && String(req.query['hub.verify_token'] || '') === token) return res.status(200).send(String(req.query['hub.challenge'] || ''));
+return res.status(403).json({ error: { message: 'Webhook verification failed', code: 'WEBHOOK_VERIFY_FAILED' } });
 });
 
 app.post('/api/ingest/message', async (req, res) => {
