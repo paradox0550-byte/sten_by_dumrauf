@@ -258,6 +258,17 @@ await query(`CREATE TABLE IF NOT EXISTS telegram_chats (
   first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );`);
+await query(`CREATE TABLE IF NOT EXISTS operational_telegram_sessions (
+  chat_id TEXT NOT NULL,
+  telegram_user_id TEXT NOT NULL,
+  organization_id UUID NOT NULL,
+  restaurant_id UUID NOT NULL,
+  checkpoint_key TEXT,
+  status TEXT CHECK (status IS NULL OR status IN ('problem','needs_help')),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (chat_id, telegram_user_id)
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_operational_telegram_sessions_org ON operational_telegram_sessions(organization_id, restaurant_id);`);
 await query(`CREATE TABLE IF NOT EXISTS operational_observations (
   id UUID PRIMARY KEY,
   organization_id UUID NOT NULL,
@@ -3180,6 +3191,115 @@ const token = process.env.WHATSAPP_VERIFY_TOKEN;
 if (token && String(req.query['hub.verify_token'] || '') === token) return res.status(200).send(String(req.query['hub.challenge'] || ''));
 return res.status(403).json({ error: { message: 'Webhook verification failed', code: 'WEBHOOK_VERIFY_FAILED' } });
 });
+
+async function telegramBotRequest(method, payload) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) throw httpError(503, 'Telegram Bot API не настроен', 'MESSENGER_NOT_CONFIGURED');
+  const response = await fetch('https://api.telegram.org/bot' + token + '/' + method, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result.ok === false) throw httpError(502, 'Telegram Bot API отклонил запрос', 'TELEGRAM_UPSTREAM_ERROR');
+  return result.result;
+}
+async function sendOperationalTelegramMessage(chatId, text, replyMarkup) {
+  return telegramBotRequest('sendMessage', { chat_id: chatId, text, ...(replyMarkup ? { reply_markup: replyMarkup } : {}) });
+}
+async function handleOperationalTelegramUpdate(update) {
+  const message = update?.message || update?.edited_message;
+  const callback = update?.callback_query;
+  const chatId = String(callback?.message?.chat?.id ?? message?.chat?.id ?? '');
+  const sender = callback?.from ?? message?.from;
+  if (!chatId || !sender || sender.is_bot) return { handled: false };
+  const binding = await safeQuery(
+    'SELECT b.organization_id, b.restaurant_id, u.name AS restaurant_name FROM telegram_chat_bindings b JOIN org_units u ON u.id=b.restaurant_id AND u.organization_id=b.organization_id WHERE b.chat_id=$1 LIMIT 1',
+    [chatId], null);
+  if (!binding) throw httpError(503, 'Привязка Telegram-чата временно недоступна', 'DB_UNAVAILABLE');
+  if (!binding[0]) return { handled: false };
+  const scope = binding[0];
+  const telegramUserId = String(sender.id);
+  const senderName = [sender.first_name, sender.last_name].filter(Boolean).join(' ').trim() || 'Сотрудник';
+  if (callback) {
+    await telegramBotRequest('answerCallbackQuery', { callback_query_id: callback.id });
+    const data = String(callback.data || '');
+    if (data === 'oc:start') {
+      await sendOperationalTelegramMessage(chatId, 'Выберите контрольную точку · ' + scope.restaurant_name, { inline_keyboard: [
+        [{text:'Доступность блюд / стоп-лист',callback_data:'oc:cp:availability'}],
+        [{text:'Санитария и журналы',callback_data:'oc:cp:sanitation'}],
+        [{text:'Касса и готовность команды',callback_data:'oc:cp:cash_team'}],
+        [{text:'Чистота зала и санузлов',callback_data:'oc:cp:hall'}],
+      ]});
+      return { handled: true };
+    }
+    const cp = data.match(/^oc:cp:(availability|sanitation|cash_team|hall)$/u);
+    if (cp) {
+      await queryWithRetry(
+        `INSERT INTO operational_telegram_sessions(chat_id,telegram_user_id,organization_id,restaurant_id,checkpoint_key,status,updated_at)
+         VALUES($1,$2,$3::uuid,$4::uuid,$5,NULL,now())
+         ON CONFLICT(chat_id,telegram_user_id) DO UPDATE SET organization_id=excluded.organization_id,restaurant_id=excluded.restaurant_id,checkpoint_key=excluded.checkpoint_key,status=NULL,updated_at=now()`,
+        [chatId,telegramUserId,scope.organization_id,scope.restaurant_id,cp[1]], {orgId:scope.organization_id});
+      await sendOperationalTelegramMessage(chatId, 'Результат проверки: ' + OPERATIONAL_CHECKPOINTS[cp[1]], { inline_keyboard: [[
+        {text:'В порядке',callback_data:'oc:status:ok'},
+        {text:'Есть отклонение',callback_data:'oc:status:problem'},
+        {text:'Нужна помощь',callback_data:'oc:status:needs_help'},
+      ]]});
+      return { handled: true };
+    }
+    const st = data.match(/^oc:status:(ok|problem|needs_help)$/u);
+    if (st) {
+      if (st[1] === 'ok') {
+        const session = await safeQuery('SELECT checkpoint_key FROM operational_telegram_sessions WHERE chat_id=$1 AND telegram_user_id=$2 AND organization_id=$3::uuid AND restaurant_id=$4::uuid LIMIT 1',
+          [chatId,telegramUserId,scope.organization_id,scope.restaurant_id], null);
+        if (!session) throw httpError(503, 'Состояние проверки временно недоступно', 'DB_UNAVAILABLE');
+        if (!session[0]?.checkpoint_key) {
+          await sendOperationalTelegramMessage(chatId, 'Сначала выберите контрольную точку: /sten_check');
+          return { handled: true };
+        }
+        const id=uuid();
+        await queryWithRetry(
+          `INSERT INTO operational_observations(id,organization_id,restaurant_id,checkpoint_key,checkpoint_title,status,note,reporter_id,reporter_name,source_chat_id)
+           VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5,'ok','',$6,$7,$8)`,
+          [id,scope.organization_id,scope.restaurant_id,session[0].checkpoint_key,OPERATIONAL_CHECKPOINTS[session[0].checkpoint_key],'telegram:'+telegramUserId,senderName,chatId],
+          {orgId:scope.organization_id});
+        await queryWithRetry('DELETE FROM operational_telegram_sessions WHERE chat_id=$1 AND telegram_user_id=$2',[chatId,telegramUserId],{orgId:scope.organization_id});
+        await sendOperationalTelegramMessage(chatId, 'Зафиксировано: «В порядке». Это сообщение сохранено в STEN, но не заменяет независимую перепроверку.');
+      } else {
+        await queryWithRetry(
+          'UPDATE operational_telegram_sessions SET status=$1,updated_at=now() WHERE chat_id=$2 AND telegram_user_id=$3 AND organization_id=$4::uuid AND restaurant_id=$5::uuid',
+          [st[1],chatId,telegramUserId,scope.organization_id,scope.restaurant_id], {orgId:scope.organization_id});
+        await sendOperationalTelegramMessage(chatId, st[1] === 'problem'
+          ? 'Опишите конкретное отклонение следующим сообщением. STEN сохранит его как непроверенное наблюдение.'
+          : 'Напишите, какая помощь нужна. STEN сохранит запрос как непроверенное наблюдение.');
+      }
+      return { handled: true };
+    }
+    return { handled: false };
+  }
+  const text = String(message?.text || message?.caption || '').trim();
+  if (/^\/sten_check(?:@\w+)?$/iu.test(text)) {
+    await sendOperationalTelegramMessage(chatId, 'Запустить короткую проверку готовности ресторана?', { inline_keyboard: [[{text:'Начать проверку',callback_data:'oc:start'}]] });
+    return { handled: true };
+  }
+  if (text) {
+    const session = await safeQuery(
+      'SELECT checkpoint_key,status FROM operational_telegram_sessions WHERE chat_id=$1 AND telegram_user_id=$2 AND organization_id=$3::uuid AND restaurant_id=$4::uuid LIMIT 1',
+      [chatId,telegramUserId,scope.organization_id,scope.restaurant_id], null);
+    if (!session) throw httpError(503, 'Состояние проверки временно недоступно', 'DB_UNAVAILABLE');
+    if (session[0]?.status && session[0]?.checkpoint_key) {
+      const note = text.slice(0,1000);
+      const id=uuid();
+      await queryWithRetry(
+        `INSERT INTO operational_observations(id,organization_id,restaurant_id,checkpoint_key,checkpoint_title,status,note,reporter_id,reporter_name,source_chat_id,source_message_id)
+         VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        [id,scope.organization_id,scope.restaurant_id,session[0].checkpoint_key,OPERATIONAL_CHECKPOINTS[session[0].checkpoint_key],session[0].status,note,'telegram:'+telegramUserId,senderName,chatId,String(message.message_id)],
+        {orgId:scope.organization_id});
+      await queryWithRetry('DELETE FROM operational_telegram_sessions WHERE chat_id=$1 AND telegram_user_id=$2',[chatId,telegramUserId],{orgId:scope.organization_id});
+      await sendOperationalTelegramMessage(chatId, 'Наблюдение сохранено в STEN. Статус: «' + (session[0].status === 'problem' ? 'Есть отклонение' : 'Нужна помощь') + '». Руководителю нужно назначить исправление и отдельно проверить результат.');
+      return { handled: true };
+    }
+  }
+  return { handled: false };
+}
 
 app.post('/api/ingest/message', async (req, res) => {
 try {
