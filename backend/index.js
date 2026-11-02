@@ -258,6 +258,48 @@ await query(`CREATE TABLE IF NOT EXISTS telegram_chats (
   first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );`);
+await query(`CREATE TABLE IF NOT EXISTS operational_observations (
+  id UUID PRIMARY KEY,
+  organization_id UUID NOT NULL,
+  restaurant_id UUID NOT NULL,
+  checkpoint_key TEXT NOT NULL,
+  checkpoint_title TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('ok','problem','needs_help')),
+  note TEXT NOT NULL DEFAULT '',
+  reporter_id TEXT NOT NULL,
+  reporter_name TEXT NOT NULL DEFAULT '',
+  reported_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  verification_status TEXT NOT NULL DEFAULT 'reported' CHECK (verification_status IN ('reported','verified')),
+  verified_by TEXT,
+  verified_at TIMESTAMPTZ,
+  source_chat_id TEXT,
+  source_message_id TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_operational_observations_scope ON operational_observations(organization_id, restaurant_id, reported_at DESC);`);
+await query(`CREATE TABLE IF NOT EXISTS operational_actions (
+  id UUID PRIMARY KEY,
+  organization_id UUID NOT NULL,
+  restaurant_id UUID NOT NULL,
+  observation_id UUID NOT NULL REFERENCES operational_observations(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  assignee_id TEXT NOT NULL,
+  assignee_name TEXT NOT NULL DEFAULT '',
+  due_at TIMESTAMPTZ NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','overdue','awaiting_verification','verified','cancelled')),
+  created_by TEXT NOT NULL,
+  completed_by TEXT,
+  completed_at TIMESTAMPTZ,
+  verified_by TEXT,
+  verified_at TIMESTAMPTZ,
+  reopened_by TEXT,
+  reopened_at TIMESTAMPTZ,
+  reopen_reason TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_operational_actions_scope ON operational_actions(organization_id, restaurant_id, status, due_at);`);
 await query(`CREATE TABLE IF NOT EXISTS telegram_chat_bindings (
   chat_id TEXT PRIMARY KEY REFERENCES telegram_chats(chat_id) ON DELETE CASCADE,
   organization_id UUID NOT NULL,
@@ -2885,6 +2927,162 @@ total_ms,
   }
   next(e);
 }
+});
+
+/* ---- STEN Operational Control: persistent checks and corrective actions ---- */
+const OperationalObservationSchema = z.object({
+  restaurant_id: z.string().uuid(),
+  checkpoint_key: z.enum(['availability','sanitation','cash_team','hall']),
+  status: z.enum(['ok','problem','needs_help']),
+  note: z.string().trim().max(1000).default(''),
+}).strict();
+const OperationalActionSchema = z.object({
+  restaurant_id: z.string().uuid(),
+  observation_id: z.string().uuid(),
+  title: z.string().trim().min(1).max(180),
+  description: z.string().trim().max(1000).default(''),
+  assignee_id: z.string().trim().min(1).max(120),
+  assignee_name: z.string().trim().max(120).default(''),
+  due_at: z.string().datetime({ offset: true }),
+}).strict();
+const OperationalActionTransitionSchema = z.object({
+  type: z.enum(['complete','verify','reopen','cancel']),
+  reason: z.string().trim().max(500).optional(),
+}).strict();
+const OPERATIONAL_CHECKPOINTS = Object.freeze({
+  availability: 'Раздача и доступность ключевых блюд',
+  sanitation: 'Санитария и обязательные журналы',
+  cash_team: 'Готовность кассы и команды',
+  hall: 'Чистота зала и санузлов',
+});
+async function assertOperationalRestaurant(user, restaurantId) {
+  await assertRestaurantAccess(user, restaurantId);
+  const rows = await safeQuery(
+    "SELECT id, name FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind='restaurant' LIMIT 1",
+    [restaurantId, user.organizationId], null);
+  if (!rows) throw httpError(503, 'Справочник ресторанов временно недоступен', 'DB_UNAVAILABLE');
+  if (!rows[0]) throw httpError(404, 'Ресторан не найден или недоступен', 'RESTAURANT_NOT_FOUND');
+  return rows[0];
+}
+app.get('/api/operational-control', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const restaurantId = String(req.query.restaurant_id || '');
+    if (!UUID_RE.test(restaurantId)) throw httpError(400, 'Выберите ресторан', 'RESTAURANT_REQUIRED');
+    await assertOperationalRestaurant(req.user, restaurantId);
+    const observations = await safeQuery(
+      `SELECT id, restaurant_id, checkpoint_key, checkpoint_title, status, note, reporter_id, reporter_name,
+              reported_at, verification_status, verified_by, verified_at
+       FROM operational_observations WHERE organization_id=$1::uuid AND restaurant_id=$2::uuid
+       ORDER BY reported_at DESC LIMIT 100`,
+      [req.user.organizationId, restaurantId], null);
+    const actions = await safeQuery(
+      `SELECT a.id, a.restaurant_id, a.observation_id, a.title, a.description, a.assignee_id, a.assignee_name,
+              a.due_at, a.status, a.created_by, a.completed_by, a.completed_at, a.verified_by, a.verified_at,
+              a.reopen_reason, a.created_at, o.checkpoint_title, o.note AS observation_note
+       FROM operational_actions a JOIN operational_observations o ON o.id=a.observation_id
+       WHERE a.organization_id=$1::uuid AND a.restaurant_id=$2::uuid
+       ORDER BY CASE WHEN a.status IN ('open','overdue','awaiting_verification') THEN 0 ELSE 1 END,
+                a.due_at ASC LIMIT 200`,
+      [req.user.organizationId, restaurantId], null);
+    if (!observations || !actions) throw httpError(503, 'Операционный контроль временно недоступен', 'DB_UNAVAILABLE');
+    ok(res, { checkpoints: Object.entries(OPERATIONAL_CHECKPOINTS).map(([key,title]) => ({key,title})), observations, actions });
+  } catch (e) { next(e); }
+});
+app.post('/api/operational-control/observations', requireAuth, requireOrg, requireRole(...WRITE_ROLES), async (req, res, next) => {
+  try {
+    const body = parseOr400(OperationalObservationSchema, req.body ?? {});
+    const restaurant = await assertOperationalRestaurant(req.user, body.restaurant_id);
+    if (body.status !== 'ok' && !body.note) throw httpError(400, 'Опишите отклонение или запрос помощи', 'OBSERVATION_NOTE_REQUIRED');
+    const id = uuid();
+    const inserted = await queryWithRetry(
+      `INSERT INTO operational_observations
+       (id, organization_id, restaurant_id, checkpoint_key, checkpoint_title, status, note, reporter_id, reporter_name)
+       VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8,$9)
+       RETURNING id, restaurant_id, checkpoint_key, checkpoint_title, status, note, reporter_id, reporter_name, reported_at, verification_status`,
+      [id, req.user.organizationId, restaurant.id, body.checkpoint_key, OPERATIONAL_CHECKPOINTS[body.checkpoint_key],
+       body.status, body.note, req.user.id, [req.user.firstName, req.user.lastName].filter(Boolean).join(' ')], {orgId:req.user.organizationId});
+    const observation = inserted.rows?.[0];
+    if (!observation) throw httpError(500, 'Сохранение проверки не подтверждено', 'SAVE_NOT_CONFIRMED');
+    await audit(req.user, 'operational.observation.created', 'operational_observations', id, { restaurant_id: restaurant.id, checkpoint_key: body.checkpoint_key, status: body.status });
+    ok(res, { observation, confirmed: true }, 201);
+  } catch (e) { next(e); }
+});
+app.post('/api/operational-control/actions', requireAuth, requireOrg, requireRole(...WRITE_ROLES), async (req, res, next) => {
+  try {
+    const body = parseOr400(OperationalActionSchema, req.body ?? {});
+    const restaurant = await assertOperationalRestaurant(req.user, body.restaurant_id);
+    const obs = await safeQuery(
+      'SELECT id FROM operational_observations WHERE id=$1::uuid AND organization_id=$2::uuid AND restaurant_id=$3::uuid LIMIT 1',
+      [body.observation_id, req.user.organizationId, restaurant.id], null);
+    if (!obs) throw httpError(503, 'Не удалось проверить исходное отклонение', 'DB_UNAVAILABLE');
+    if (!obs[0]) throw httpError(404, 'Отклонение не найдено в выбранном ресторане', 'OBSERVATION_NOT_FOUND');
+    const assignee = await safeQuery(
+      'SELECT id, first_name, last_name FROM users WHERE id::text=$1 AND organization_id=$2::uuid AND is_active=true LIMIT 1',
+      [body.assignee_id, req.user.organizationId], null);
+    if (!assignee) throw httpError(503, 'Список сотрудников временно недоступен', 'DB_UNAVAILABLE');
+    if (!assignee[0]) throw httpError(400, 'Исполнитель не найден в вашей организации', 'ASSIGNEE_NOT_FOUND');
+    const dueAt = new Date(body.due_at);
+    if (dueAt.getTime() <= Date.now()) throw httpError(400, 'Срок задачи должен быть в будущем', 'DUE_DATE_INVALID');
+    const id = uuid();
+    const inserted = await queryWithRetry(
+      `INSERT INTO operational_actions
+       (id,organization_id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,created_by)
+       VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5,$6,$7,$8,$9::timestamptz,$10)
+       RETURNING id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,status,created_by,created_at`,
+      [id, req.user.organizationId, restaurant.id, body.observation_id, body.title, body.description,
+       assignee[0].id, [assignee[0].first_name, assignee[0].last_name].filter(Boolean).join(' '), dueAt.toISOString(), req.user.id],
+      {orgId:req.user.organizationId});
+    const action = inserted.rows?.[0];
+    if (!action) throw httpError(500, 'Создание задачи не подтверждено', 'SAVE_NOT_CONFIRMED');
+    await audit(req.user, 'operational.action.created', 'operational_actions', id, { restaurant_id: restaurant.id, observation_id: body.observation_id, assignee_id: assignee[0].id });
+    ok(res, { action, confirmed: true }, 201);
+  } catch (e) { next(e); }
+});
+app.patch('/api/operational-control/actions/:id', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный id задачи', 'BAD_ID');
+    const body = parseOr400(OperationalActionTransitionSchema, req.body ?? {});
+    const rows = await safeQuery(
+      'SELECT * FROM operational_actions WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
+      [req.params.id, req.user.organizationId], null);
+    if (!rows) throw httpError(503, 'Задачи временно недоступны', 'DB_UNAVAILABLE');
+    const current = rows[0];
+    if (!current) throw httpError(404, 'Задача не найдена', 'NOT_FOUND');
+    await assertOperationalRestaurant(req.user, current.restaurant_id);
+    const actorId = String(req.user.id);
+    let nextStatus = current.status;
+    let completedBy = current.completed_by, completedAt = current.completed_at;
+    let verifiedBy = current.verified_by, verifiedAt = current.verified_at;
+    let reopenedBy = current.reopened_by, reopenedAt = current.reopened_at, reopenReason = current.reopen_reason;
+    if (body.type === 'complete') {
+      if (actorId !== String(current.assignee_id)) throw httpError(403, 'Отметить выполнение может только назначенный исполнитель', 'ASSIGNEE_REQUIRED');
+      if (!['open','overdue'].includes(current.status)) throw httpError(409, 'Задача не ожидает выполнения', 'INVALID_TRANSITION');
+      nextStatus='awaiting_verification'; completedBy=actorId; completedAt=new Date();
+    } else if (body.type === 'verify') {
+      if (current.status !== 'awaiting_verification') throw httpError(409, 'Задача не ожидает проверки', 'INVALID_TRANSITION');
+      if (actorId === String(current.completed_by)) throw httpError(403, 'Исполнитель не может подтвердить собственную работу', 'SELF_VERIFICATION_FORBIDDEN');
+      nextStatus='verified'; verifiedBy=actorId; verifiedAt=new Date();
+    } else if (body.type === 'reopen') {
+      if (!['awaiting_verification','verified'].includes(current.status)) throw httpError(409, 'Задачу нельзя открыть повторно из текущего статуса', 'INVALID_TRANSITION');
+      if (!body.reason) throw httpError(400, 'Укажите причину повторного открытия', 'REOPEN_REASON_REQUIRED');
+      nextStatus='open'; completedBy=null; completedAt=null; verifiedBy=null; verifiedAt=null; reopenedBy=actorId; reopenedAt=new Date(); reopenReason=body.reason;
+    } else if (body.type === 'cancel') {
+      if (!['open','overdue'].includes(current.status)) throw httpError(409, 'Можно отменить только открытую задачу', 'INVALID_TRANSITION');
+      if (!['owner','admin','super_admin','director','manager'].includes(String(req.user.role))) throw httpError(403, 'Недостаточно прав для отмены задачи', 'FORBIDDEN');
+      nextStatus='cancelled';
+    }
+    const updated = await queryWithRetry(
+      `UPDATE operational_actions SET status=$1,completed_by=$2,completed_at=$3,verified_by=$4,verified_at=$5,
+       reopened_by=$6,reopened_at=$7,reopen_reason=$8,updated_at=now()
+       WHERE id=$9::uuid AND organization_id=$10::uuid AND status=$11
+       RETURNING id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,status,created_by,
+                 completed_by,completed_at,verified_by,verified_at,reopen_reason,updated_at`,
+      [nextStatus,completedBy,completedAt,verifiedBy,verifiedAt,reopenedBy,reopenedAt,reopenReason,
+       current.id,req.user.organizationId,current.status], {orgId:req.user.organizationId});
+    if (!updated.rows?.[0]) throw httpError(409, 'Задача уже изменилась. Обновите список и повторите действие.', 'CONCURRENT_UPDATE');
+    await audit(req.user, 'operational.action.'+body.type, 'operational_actions', current.id, { from:current.status, to:nextStatus });
+    ok(res, { action: updated.rows[0], confirmed: true });
+  } catch (e) { next(e); }
 });
 
 /* ---- Telegram Monitor: organization-bound chat/message access ---- */
