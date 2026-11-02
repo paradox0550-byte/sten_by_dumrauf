@@ -260,8 +260,8 @@ await query(`CREATE TABLE IF NOT EXISTS telegram_chats (
 );`);
 await query(`CREATE TABLE IF NOT EXISTS telegram_chat_bindings (
   chat_id TEXT PRIMARY KEY REFERENCES telegram_chats(chat_id) ON DELETE CASCADE,
-  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  restaurant_id UUID NOT NULL REFERENCES org_units(id) ON DELETE RESTRICT,
+  organization_id UUID NOT NULL,
+  restaurant_id UUID NOT NULL,
   bound_by TEXT,
   bound_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (chat_id, organization_id)
