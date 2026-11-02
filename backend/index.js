@@ -2985,7 +2985,11 @@ app.get('/api/operational-control', requireAuth, requireOrg, async (req, res, ne
                 a.due_at ASC LIMIT 200`,
       [req.user.organizationId, restaurantId], null);
     if (!observations || !actions) throw httpError(503, 'Операционный контроль временно недоступен', 'DB_UNAVAILABLE');
-    ok(res, { checkpoints: Object.entries(OPERATIONAL_CHECKPOINTS).map(([key,title]) => ({key,title})), observations, actions });
+    const employees = await safeQuery(
+      'SELECT id, first_name, last_name, position FROM users WHERE organization_id=$1::uuid AND is_active=true ORDER BY first_name, last_name LIMIT 200',
+      [req.user.organizationId], null);
+    if (!employees) throw httpError(503, 'Список сотрудников временно недоступен', 'DB_UNAVAILABLE');
+    ok(res, { checkpoints: Object.entries(OPERATIONAL_CHECKPOINTS).map(([key,title]) => ({key,title})), observations, actions, employees });
   } catch (e) { next(e); }
 });
 app.post('/api/operational-control/observations', requireAuth, requireOrg, requireRole(...WRITE_ROLES), async (req, res, next) => {
