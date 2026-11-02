@@ -3109,6 +3109,23 @@ app.patch('/api/operational-control/actions/:id', requireAuth, requireOrg, async
       [nextStatus,completedBy,completedAt,verifiedBy,verifiedAt,reopenedBy,reopenedAt,reopenReason,
        current.id,req.user.organizationId,current.status], {orgId:req.user.organizationId});
     if (!updated.rows?.[0]) throw httpError(409, 'Задача уже изменилась. Обновите список и повторите действие.', 'CONCURRENT_UPDATE');
+    if (body.type === 'verify') {
+      await queryWithRetry(
+        `UPDATE operational_observations o
+         SET verification_status='verified', verified_by=$1, verified_at=now()
+         WHERE o.id=$2::uuid AND o.organization_id=$3::uuid
+           AND NOT EXISTS (
+             SELECT 1 FROM operational_actions a
+             WHERE a.observation_id=o.id AND a.id<>$4::uuid AND a.status NOT IN ('verified','cancelled')
+           )`,
+        [actorId,current.observation_id,req.user.organizationId,current.id], {orgId:req.user.organizationId});
+    } else if (body.type === 'reopen') {
+      await queryWithRetry(
+        `UPDATE operational_observations
+         SET verification_status='reported', verified_by=NULL, verified_at=NULL
+         WHERE id=$1::uuid AND organization_id=$2::uuid`,
+        [current.observation_id,req.user.organizationId], {orgId:req.user.organizationId});
+    }
     await audit(req.user, 'operational.action.'+body.type, 'operational_actions', current.id, { from:current.status, to:nextStatus });
     ok(res, { action: updated.rows[0], confirmed: true });
   } catch (e) { next(e); }
