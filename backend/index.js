@@ -2992,7 +2992,7 @@ app.get('/api/operational-control', requireAuth, requireOrg, async (req, res, ne
     ok(res, { checkpoints: Object.entries(OPERATIONAL_CHECKPOINTS).map(([key,title]) => ({key,title})), observations, actions, employees });
   } catch (e) { next(e); }
 });
-app.post('/api/operational-control/observations', requireAuth, requireOrg, requireRole(...WRITE_ROLES), async (req, res, next) => {
+app.post('/api/operational-control/observations', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const body = parseOr400(OperationalObservationSchema, req.body ?? {});
     const restaurant = await assertOperationalRestaurant(req.user, body.restaurant_id);
@@ -3011,7 +3011,7 @@ app.post('/api/operational-control/observations', requireAuth, requireOrg, requi
     ok(res, { observation, confirmed: true }, 201);
   } catch (e) { next(e); }
 });
-app.post('/api/operational-control/actions', requireAuth, requireOrg, requireRole(...WRITE_ROLES), async (req, res, next) => {
+app.post('/api/operational-control/actions', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const body = parseOr400(OperationalActionSchema, req.body ?? {});
     const restaurant = await assertOperationalRestaurant(req.user, body.restaurant_id);
