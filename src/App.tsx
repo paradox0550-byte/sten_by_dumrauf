@@ -8,6 +8,7 @@ import CookieBanner from './components/CookieBanner';
 import SystemStatusBanner from './components/SystemStatusBanner';
 
 const AI = lazy(() => import('./pages/AI'));
+const TelegramMonitor = lazy(() => import('./pages/TelegramMonitor'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Finances = lazy(() => import('./pages/Finances'));
 const PnL = lazy(() => import('./pages/PnL'));
@@ -66,6 +67,7 @@ export default function App() {
             <Route path="/legal/contacts" element={<Contacts />} />
             <Route path="/" element={<Protected><Dashboard /></Protected>} />
             <Route path="/sten" element={<Protected><AI /></Protected>} />
+            <Route path="/telegram-monitor" element={<Protected><TelegramMonitor /></Protected>} />
             <Route path="/ai" element={<Protected><AI /></Protected>} />
             <Route path="/ai-quality" element={<Protected><AIQualityLab /></Protected>} />
             <Route path="/memory" element={<Protected><Memory /></Protected>} />

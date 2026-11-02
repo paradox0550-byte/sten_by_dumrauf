@@ -6,20 +6,10 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#031D20",
-  "theme_color": "#073D3B",
+  "background_color": "#0B0D10",
+  "theme_color": "#0B0D10",
   "icons": [
-    {
-      "src": "./icon-192.svg?v=7.0.0",
-      "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "./icon-512.svg?v=7.0.0",
-      "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
+    { "src": "./icon-192.svg?v=8.0.0", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./icon-512.svg?v=8.0.0", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable" }
   ]
 }

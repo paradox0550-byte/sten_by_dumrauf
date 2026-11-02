@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
-  BarChart3, Bot, Brain, CalendarDays, Menu, Moon, PanelLeft, PanelLeftClose, FlaskConical,
+  BarChart3, Bot, Brain, CalendarDays, Menu, Moon, PanelLeft, PanelLeftClose, FlaskConical, MessageSquareText,
   LogOut, Scale, Sun, WalletCards, X, ChevronDown, ClipboardList, Gauge, Monitor, Users, FileText, Settings2, Building2,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -125,6 +125,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const items = useMemo(() => [
     ['/dashboard', 'Главная', 'overview'],
     ['/sten', 'STEN AI', Bot],
+    ['/telegram-monitor', 'Мониторинг Telegram', MessageSquareText],
     ['/ai-quality', 'Лаборатория AI', FlaskConical],
     ['/ops', 'Отчёт смены', 'report'],
     ['/plan', 'План руководителя', CalendarDays],
@@ -157,6 +158,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const mobileItems = [
     ['/dashboard', 'Обзор', 'overview'],
     ['/sten', 'STEN AI', Bot],
+    ['/telegram-monitor', 'Мониторинг', MessageSquareText],
     ['/pnl', 'Финансы', 'pnl'],
     ['/ops', 'Операции', ClipboardList],
   ] as const;
@@ -182,6 +184,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <NavLink to="/sten" onClick={() => setMobileMenu(false)}>
               <Bot size={17} aria-hidden="true" />
               <span>STEN AI</span>
+            </NavLink>
+            <NavLink to="/telegram-monitor" onClick={() => setMobileMenu(false)}>
+              <MessageSquareText size={17} aria-hidden="true" />
+              <span>Мониторинг Telegram</span>
             </NavLink>
 
             <button className={`nav-group-toggle ${matchesPath(financePaths) ? 'is-current' : ''}`} type="button" aria-label="Финансы" title={sidebarCollapsed ? 'Финансы' : undefined} aria-expanded={!!expandedGroups.finance} onClick={() => toggleGroup('finance')}>
