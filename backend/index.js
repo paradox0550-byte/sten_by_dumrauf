@@ -266,10 +266,6 @@ await query(`CREATE TABLE IF NOT EXISTS telegram_chat_bindings (
   bound_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (chat_id, organization_id)
 );`);
-await query(`CREATE INDEX IF NOT EXISTS idx_telegram_bindings_org_restaurant
-  ON telegram_chat_bindings(organization_id, restaurant_id);`);
-
-
 await query(`CREATE TABLE IF NOT EXISTS telegram_updates (
   update_id BIGINT PRIMARY KEY,
   received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -2961,7 +2957,6 @@ app.post('/api/telegram-monitor/chats/:chatId/bind', requireAuth, requireOrg, as
     ok(res, { bound: true, chat_id: chatId, organization_id: organizationId, restaurant_id: restaurantId });
   } catch (e) { next(e); }
 });
-
 
 /* ---- ingest webhook ---- */
 app.get('/api/ingest/message', (req, res) => {
