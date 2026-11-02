@@ -251,6 +251,16 @@ await query(`CREATE TABLE IF NOT EXISTS messenger_settings (organization_id UUID
 await query(`CREATE TABLE IF NOT EXISTS ai_skill_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
 await query(`CREATE TABLE IF NOT EXISTS analytics_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
 await query(`CREATE TABLE IF NOT EXISTS auth_unlock_attempts (ip TEXT PRIMARY KEY, window_started_at TIMESTAMPTZ NOT NULL DEFAULT now(), failed_attempts INTEGER NOT NULL DEFAULT 0, blocked_until TIMESTAMPTZ);`);
+await query(`CREATE TABLE IF NOT EXISTS telegram_chat_bindings (
+  chat_id TEXT PRIMARY KEY REFERENCES telegram_chats(chat_id) ON DELETE CASCADE,
+  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  restaurant_id UUID NOT NULL REFERENCES org_units(id) ON DELETE RESTRICT,
+  bound_by TEXT,
+  bound_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (chat_id, organization_id)
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_bindings_org_restaurant
+  ON telegram_chat_bindings(organization_id, restaurant_id);`);
 await query(`CREATE TABLE IF NOT EXISTS telegram_chats (
   chat_id TEXT PRIMARY KEY,
   chat_type TEXT NOT NULL,
@@ -2884,6 +2894,68 @@ app.get('/api/ingest/message', (req, res) => {
 const token = process.env.WHATSAPP_VERIFY_TOKEN;
 if (token && String(req.query['hub.verify_token'] || '') === token) return res.status(200).send(String(req.query['hub.challenge'] || ''));
 return res.status(403).json({ error: { message: 'Webhook verification failed', code: 'WEBHOOK_VERIFY_FAILED' } });
+});
+
+/* ---- Telegram Monitor: organization-bound chat/message access ---- */
+app.get('/api/telegram-monitor/chats', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const isAdmin = req.user.role === 'super_admin';
+    const rows = isAdmin
+      ? await strictQuery(`SELECT c.chat_id, c.chat_type, c.title, c.first_seen_at, c.last_seen_at,
+          b.organization_id, b.restaurant_id, ou.name AS restaurant_name,
+          (SELECT count(*)::int FROM telegram_messages m WHERE m.chat_id=c.chat_id) AS message_count
+        FROM telegram_chats c
+        LEFT JOIN telegram_chat_bindings b ON b.chat_id=c.chat_id
+        LEFT JOIN org_units ou ON ou.id=b.restaurant_id
+        ORDER BY c.last_seen_at DESC LIMIT 200`)
+      : await strictQuery(`SELECT c.chat_id, c.chat_type, c.title, c.first_seen_at, c.last_seen_at,
+          b.organization_id, b.restaurant_id, ou.name AS restaurant_name,
+          (SELECT count(*)::int FROM telegram_messages m WHERE m.chat_id=c.chat_id) AS message_count
+        FROM telegram_chats c
+        JOIN telegram_chat_bindings b ON b.chat_id=c.chat_id AND b.organization_id=$1::uuid
+        LEFT JOIN org_units ou ON ou.id=b.restaurant_id
+        ORDER BY c.last_seen_at DESC LIMIT 200`, [req.user.organizationId]);
+    ok(res, { chats: rows, canBind: isAdmin });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/telegram-monitor/messages', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const chatId = String(req.query.chat_id || '').trim();
+    const search = String(req.query.q || '').trim().slice(0, 200);
+    const limit = Math.max(1, Math.min(100, Number.parseInt(String(req.query.limit || '50'), 10) || 50));
+    if (!chatId) throw httpError(400, 'Выберите Telegram-чат.', 'CHAT_REQUIRED');
+    const rows = await strictQuery(`SELECT m.chat_id, m.message_id, m.sender_name, m.sender_username,
+        m.message_text, m.message_date, m.edited_at, m.received_at
+      FROM telegram_messages m
+      JOIN telegram_chat_bindings b ON b.chat_id=m.chat_id AND b.organization_id=$1::uuid
+      WHERE m.chat_id=$2 AND ($3::text='' OR m.message_text ILIKE '%' || $3 || '%')
+      ORDER BY m.message_date DESC NULLS LAST LIMIT $4`,
+      [req.user.organizationId, chatId, search, limit]);
+    ok(res, { messages: rows });
+  } catch (e) { next(e); }
+});
+
+app.post('/api/telegram-monitor/chats/:chatId/bind', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (req.user.role !== 'super_admin') throw httpError(403, 'Привязку Telegram-чата выполняет администратор STEN.', 'FORBIDDEN');
+    const chatId = String(req.params.chatId || '').trim().slice(0, 100);
+    const organizationId = String(req.body?.organization_id || '').trim();
+    const restaurantId = String(req.body?.restaurant_id || '').trim();
+    if (!chatId || !UUID_RE.test(organizationId) || !UUID_RE.test(restaurantId)) {
+      throw httpError(400, 'Укажите чат, организацию и ресторан.', 'BAD_BINDING');
+    }
+    const exists = await strictQuery('SELECT chat_id FROM telegram_chats WHERE chat_id=$1 LIMIT 1', [chatId]);
+    if (!exists.length) throw httpError(404, 'Telegram-чат не найден.', 'CHAT_NOT_FOUND');
+    const restaurant = await strictQuery('SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' LIMIT 1', [restaurantId, organizationId]);
+    if (!restaurant.length) throw httpError(404, 'Ресторан не найден в выбранной организации.', 'RESTAURANT_NOT_FOUND');
+    await queryWithRetry(`INSERT INTO telegram_chat_bindings(chat_id, organization_id, restaurant_id, bound_by, bound_at)
+      VALUES($1,$2::uuid,$3::uuid,$4,now())
+      ON CONFLICT(chat_id) DO UPDATE SET organization_id=EXCLUDED.organization_id,
+        restaurant_id=EXCLUDED.restaurant_id, bound_by=EXCLUDED.bound_by, bound_at=now()`,
+      [chatId, organizationId, restaurantId, String(req.user.id)], {});
+    ok(res, { bound: true, chat_id: chatId, organization_id: organizationId, restaurant_id: restaurantId });
+  } catch (e) { next(e); }
 });
 
 app.post('/api/ingest/message', async (req, res) => {
