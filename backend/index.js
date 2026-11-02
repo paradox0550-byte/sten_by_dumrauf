@@ -14,6 +14,7 @@ const documentProcessor = require('./documentProcessor');
 const { convertWithMarkItDown } = require('./markitdownClient');
 const { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { buildSkillPrompt } = require('./core/skills');
+const { persistTelegramUpdate } = require('./telegramMonitor');
 const { resolveAgent, toolsForAgent, agentAllowsTool } = require('./core/agents');
 const { TOOLS, executeTool } = require('./core/tools');
 const { createMemory, listMemory, updateMemoryConfidence, deleteMemory, loadMemoryContext } = require('./core/memory');
@@ -250,6 +251,33 @@ await query(`CREATE TABLE IF NOT EXISTS messenger_settings (organization_id UUID
 await query(`CREATE TABLE IF NOT EXISTS ai_skill_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
 await query(`CREATE TABLE IF NOT EXISTS analytics_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
 await query(`CREATE TABLE IF NOT EXISTS auth_unlock_attempts (ip TEXT PRIMARY KEY, window_started_at TIMESTAMPTZ NOT NULL DEFAULT now(), failed_attempts INTEGER NOT NULL DEFAULT 0, blocked_until TIMESTAMPTZ);`);
+await query(`CREATE TABLE IF NOT EXISTS telegram_chats (
+  chat_id TEXT PRIMARY KEY,
+  chat_type TEXT NOT NULL,
+  title TEXT,
+  first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`);
+await query(`CREATE TABLE IF NOT EXISTS telegram_updates (
+  update_id BIGINT PRIMARY KEY,
+  received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  update_json JSONB NOT NULL
+);`);
+await query(`CREATE TABLE IF NOT EXISTS telegram_messages (
+  chat_id TEXT NOT NULL REFERENCES telegram_chats(chat_id) ON DELETE CASCADE,
+  message_id TEXT NOT NULL,
+  update_id BIGINT NOT NULL,
+  sender_id TEXT NOT NULL,
+  sender_name TEXT,
+  sender_username TEXT,
+  message_text TEXT NOT NULL DEFAULT '',
+  message_date TIMESTAMPTZ,
+  edited_at TIMESTAMPTZ,
+  raw_json JSONB NOT NULL,
+  received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (chat_id, message_id)
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_messages_chat_date ON telegram_messages(chat_id, message_date DESC);`);
 await query(`CREATE TABLE IF NOT EXISTS payroll_records (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id UUID NOT NULL, user_id UUID, period TEXT NOT NULL, department TEXT, hours NUMERIC(10,2), amount NUMERIC(18,2), created_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
 await query(`ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS project_id    TEXT NOT NULL DEFAULT '';`);
 await query(`ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS branch_id     TEXT NOT NULL DEFAULT '';`);
@@ -2867,6 +2895,14 @@ const provided = String(req.headers['x-telegram-bot-api-secret-token'] || '');
 if (!expected) return res.status(503).json({ ok: false, error: 'webhook_secret_not_configured' });
 const a = Buffer.from(provided), b = Buffer.from(expected);
 if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.status(403).json({ ok: false, error: 'forbidden' });
+if (!ENV.DB_HOST) return res.status(503).json({ ok: false, error: 'database_not_configured' });
+try {
+  const stored = await persistTelegramUpdate(query, req.body);
+  return res.status(200).json({ ok: true, ...stored });
+} catch (e) {
+  console.error('[sten] telegram ingest failed:', e?.code || e?.message || 'UNKNOWN');
+  return res.status(503).json({ ok: false, error: 'telegram_persistence_failed' });
+}
 }
 const isWhatsApp = Boolean(req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]);
 if (isWhatsApp) {
