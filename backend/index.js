@@ -3265,9 +3265,13 @@ async function handleOperationalTelegramUpdate(update) {
         await queryWithRetry('DELETE FROM operational_telegram_sessions WHERE chat_id=$1 AND telegram_user_id=$2',[chatId,telegramUserId],{orgId:scope.organization_id});
         await sendOperationalTelegramMessage(chatId, 'Зафиксировано: «В порядке». Это сообщение сохранено в STEN, но не заменяет независимую перепроверку.');
       } else {
-        await queryWithRetry(
-          'UPDATE operational_telegram_sessions SET status=$1,updated_at=now() WHERE chat_id=$2 AND telegram_user_id=$3 AND organization_id=$4::uuid AND restaurant_id=$5::uuid',
+        const sessionUpdate = await queryWithRetry(
+          'UPDATE operational_telegram_sessions SET status=$1,updated_at=now() WHERE chat_id=$2 AND telegram_user_id=$3 AND organization_id=$4::uuid AND restaurant_id=$5::uuid AND checkpoint_key IS NOT NULL RETURNING checkpoint_key',
           [st[1],chatId,telegramUserId,scope.organization_id,scope.restaurant_id], {orgId:scope.organization_id});
+        if (!sessionUpdate.rows?.[0]) {
+          await sendOperationalTelegramMessage(chatId, 'Сессия проверки устарела. Запустите новую: /sten_check');
+          return { handled: true };
+        }
         await sendOperationalTelegramMessage(chatId, st[1] === 'problem'
           ? 'Опишите конкретное отклонение следующим сообщением. STEN сохранит его как непроверенное наблюдение.'
           : 'Напишите, какая помощь нужна. STEN сохранит запрос как непроверенное наблюдение.');
