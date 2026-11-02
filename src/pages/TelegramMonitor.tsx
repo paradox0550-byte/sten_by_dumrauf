@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MessageSquareText, RefreshCw, Search, Link2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { MessageSquareText, RefreshCw, Search, Link2, AlertCircle, CheckCircle2, Building2 } from 'lucide-react';
 import { api, ApiError } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 import '../styles/telegram-monitor.css';
 
 type TelegramChat = {
@@ -24,8 +25,12 @@ type TelegramMessage = {
   edited_at: string | null;
   received_at: string;
 };
+type Restaurant = { id: string; name: string };
 type ChatResponse = { chats: TelegramChat[]; canBind: boolean };
 type MessageResponse = { messages: TelegramMessage[] };
+
+// Personal workspace limit is centralized so it can be raised without changing UI logic.
+const MAX_MANAGED_RESTAURANTS = 3;
 
 const dateTime = (value?: string | null) => {
   if (!value) return 'Время не указано';
@@ -37,18 +42,44 @@ const dateTime = (value?: string | null) => {
 
 const isBound = (chat: TelegramChat) => Boolean(chat.organization_id && chat.restaurant_id);
 
+function extractRestaurants(input: unknown): Restaurant[] {
+  const found = new Map<string, Restaurant>();
+  const visit = (value: unknown) => {
+    if (Array.isArray(value)) { value.forEach(visit); return; }
+    if (!value || typeof value !== 'object') return;
+    const node = value as Record<string, unknown>;
+    const id = typeof node.id === 'string' ? node.id : typeof node.uuid === 'string' ? node.uuid : '';
+    const name = typeof node.name === 'string' ? node.name : typeof node.title === 'string' ? node.title : '';
+    const kind = String(node.kind || node.type || '').toLowerCase();
+    if (id && name && (kind === 'restaurant' || kind === 'unit')) found.set(id, { id, name });
+    for (const key of ['tree', 'children', 'projects', 'branches', 'restaurants', 'departments', 'units']) {
+      if (node[key]) visit(node[key]);
+    }
+  };
+  visit(input);
+  return [...found.values()].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+}
+
+type ChatFilter = 'all' | 'bound' | 'unbound';
+type FeedScope = 'all' | 'selected';
+
 export default function TelegramMonitor() {
+  const { user } = useAuth();
   const [chats, setChats] = useState<TelegramChat[]>([]);
   const [messages, setMessages] = useState<TelegramMessage[]>([]);
+  const [feedScope, setFeedScope] = useState<FeedScope>('all');
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [selectedChat, setSelectedChat] = useState('');
   const [search, setSearch] = useState('');
+  const [chatSearch, setChatSearch] = useState('');
+  const [chatFilter, setChatFilter] = useState<ChatFilter>('all');
   const [loadingChats, setLoadingChats] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [loadingRestaurants, setLoadingRestaurants] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [canBind, setCanBind] = useState(false);
   const [bindingChat, setBindingChat] = useState('');
-  const [organizationId, setOrganizationId] = useState('');
   const [restaurantId, setRestaurantId] = useState('');
   const [binding, setBinding] = useState(false);
   const chatRequest = useRef(0);
@@ -66,7 +97,7 @@ export default function TelegramMonitor() {
       setCanBind(Boolean(response.canBind));
       setSelectedChat(current => {
         if (keepSelection && nextChats.some(chat => chat.chat_id === current)) return current;
-        return nextChats.find(isBound)?.chat_id || '';
+        return nextChats.find(isBound)?.chat_id || nextChats[0]?.chat_id || '';
       });
       setNotice('');
     } catch (e) {
@@ -83,6 +114,56 @@ export default function TelegramMonitor() {
     [chats, selectedChat],
   );
 
+  const boundRestaurantIds = useMemo(
+    () => new Set(chats.filter(isBound).map(chat => chat.restaurant_id as string)),
+    [chats],
+  );
+  const managedRestaurantCount = boundRestaurantIds.size;
+  const canAddRestaurant = managedRestaurantCount < MAX_MANAGED_RESTAURANTS
+    || Boolean(restaurantId && boundRestaurantIds.has(restaurantId));
+
+  const visibleChats = useMemo(() => chats.filter(chat => {
+    const matchesFilter = chatFilter === 'all'
+      || (chatFilter === 'bound' ? isBound(chat) : !isBound(chat));
+    const query = chatSearch.trim().toLocaleLowerCase('ru');
+    const matchesSearch = !query || (chat.title || '').toLocaleLowerCase('ru').includes(query)
+      || (chat.restaurant_name || '').toLocaleLowerCase('ru').includes(query);
+    return matchesFilter && matchesSearch;
+  }), [chats, chatFilter, chatSearch]);
+
+  const loadAllMessages = useCallback(async (query: string) => {
+    const request = ++messageRequest.current;
+    const boundChats = chats.filter(isBound);
+    if (!boundChats.length) {
+      setMessages([]);
+      setLoadingMessages(false);
+      return;
+    }
+    setLoadingMessages(true);
+    setError('');
+    try {
+      const batches = await Promise.all(boundChats.map(async chat => {
+        const params = new URLSearchParams({ chat_id: chat.chat_id, limit: '30' });
+        if (query.trim()) params.set('q', query.trim());
+        const response = await api.get<MessageResponse>('/api/telegram-monitor/messages?' + params.toString());
+        return Array.isArray(response.messages) ? response.messages : [];
+      }));
+      if (request !== messageRequest.current) return;
+      const unique = new Map<string, TelegramMessage>();
+      batches.flat().forEach(message => unique.set(message.chat_id + ':' + message.message_id, message));
+      setMessages([...unique.values()].sort((a, b) =>
+        new Date(b.message_date || b.received_at).getTime() - new Date(a.message_date || a.received_at).getTime()
+      ));
+    } catch (e) {
+      if (request === messageRequest.current) {
+        setError(e instanceof ApiError ? e.message : 'Не удалось загрузить общую ленту сообщений.');
+        setMessages([]);
+      }
+    } finally {
+      if (request === messageRequest.current) setLoadingMessages(false);
+    }
+  }, [chats]);
+
   const loadMessages = useCallback(async (chatId: string, query: string) => {
     const request = ++messageRequest.current;
     const chat = chats.find(item => item.chat_id === chatId);
@@ -91,7 +172,6 @@ export default function TelegramMonitor() {
       setLoadingMessages(false);
       return;
     }
-
     setLoadingMessages(true);
     setError('');
     try {
@@ -113,21 +193,38 @@ export default function TelegramMonitor() {
   useEffect(() => { void loadChats(false); }, [loadChats]);
 
   useEffect(() => {
+    if (!canBind || !user?.organizationId) return;
+    let cancelled = false;
+    setLoadingRestaurants(true);
+    api.get<unknown>('/api/b2b/org/tree')
+      .then(tree => { if (!cancelled) setRestaurants(extractRestaurants(tree)); })
+      .catch(e => { if (!cancelled) setError(e instanceof ApiError ? e.message : 'Не удалось загрузить список ресторанов.'); })
+      .finally(() => { if (!cancelled) setLoadingRestaurants(false); });
+    return () => { cancelled = true; };
+  }, [canBind, user?.organizationId]);
+
+  useEffect(() => {
+    if (feedScope === 'all') {
+      const timer = window.setTimeout(() => { void loadAllMessages(search); }, 250);
+      return () => window.clearTimeout(timer);
+    }
     if (!selectedChat || !selected || !isBound(selected)) {
       messageRequest.current += 1;
       setMessages([]);
       setLoadingMessages(false);
       return;
     }
-    const timer = window.setTimeout(() => {
-      void loadMessages(selectedChat, search);
-    }, 250);
+    const timer = window.setTimeout(() => { void loadMessages(selectedChat, search); }, 250);
     return () => window.clearTimeout(timer);
-  }, [selectedChat, selected, search, loadMessages]);
+  }, [feedScope, selectedChat, selected, search, loadMessages, loadAllMessages]);
 
   const bindChat = async () => {
-    if (!bindingChat || !organizationId.trim() || !restaurantId.trim()) {
-      setError('Для привязки укажите чат, ID организации и ID ресторана.');
+    if (!bindingChat || !restaurantId || !user?.organizationId) {
+      setError('Выберите чат и ресторан.');
+      return;
+    }
+    if (!canAddRestaurant) {
+      setError('Для личного контура можно подключить не более трёх ресторанов. Сначала отвяжите чат от другого ресторана.');
       return;
     }
     setBinding(true);
@@ -135,11 +232,13 @@ export default function TelegramMonitor() {
     setNotice('');
     try {
       await api.post('/api/telegram-monitor/chats/' + encodeURIComponent(bindingChat) + '/bind', {
-        organization_id: organizationId.trim(),
-        restaurant_id: restaurantId.trim(),
+        organization_id: user.organizationId,
+        restaurant_id: restaurantId,
       });
       setNotice('Чат привязан к ресторану.');
       setSelectedChat(bindingChat);
+      setBindingChat('');
+      setRestaurantId('');
       await loadChats(true);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Не удалось привязать чат.');
@@ -153,7 +252,7 @@ export default function TelegramMonitor() {
       <div>
         <span className="sten-state-eyebrow">STEN · ОПЕРАЦИОННЫЙ КОНТРОЛЬ</span>
         <h1>Мониторинг Telegram</h1>
-        <p>Сообщения из рабочих групп — в одном месте, с привязкой к ресторану.</p>
+        <p>Рабочие сообщения твоих ресторанов — в одном месте.</p>
       </div>
       <button className="secondary-button" type="button" onClick={() => void loadChats()} disabled={loadingChats}>
         <RefreshCw size={16} aria-hidden="true" /> Обновить
@@ -163,23 +262,35 @@ export default function TelegramMonitor() {
     {error && <div className="dashboard-note" role="alert"><AlertCircle size={16} />{error}</div>}
     {notice && <div className="dashboard-note" role="status"><CheckCircle2 size={16} />{notice}</div>}
 
+    <section className="telegram-monitor-summary" aria-label="Состояние мониторинга">
+      <div><strong>{chats.filter(isBound).length}</strong><span>Подключено чатов</span></div>
+      <div><strong>{managedRestaurantCount}/{MAX_MANAGED_RESTAURANTS}</strong><span>Рестораны в контуре</span></div>
+      <div><strong>{chats.reduce((sum, chat) => sum + Number(chat.message_count || 0), 0)}</strong><span>Сохранено сообщений</span></div>
+    </section>
+
     <div className="telegram-monitor-grid">
       <section className="telegram-monitor-panel" aria-label="Рабочие Telegram-чаты">
         <div className="telegram-monitor-panel__head">
           <div><MessageSquareText size={18} /><strong>Рабочие чаты</strong></div>
-          <span>{chats.filter(isBound).length} подключено</span>
+          <span>{visibleChats.length} из {chats.length}</span>
         </div>
-        {loadingChats ? <p className="empty" role="status">Загружаем чаты…</p> : chats.length === 0
-          ? <div className="empty">Пока нет доступных чатов. Новые групповые сообщения появятся здесь после поступления на сервер.</div>
-          : <div className="telegram-chat-list">{chats.map(chat => {
+        <label className="telegram-search telegram-chat-search">
+          <Search size={16} aria-hidden="true" />
+          <input value={chatSearch} onChange={event => setChatSearch(event.target.value)} placeholder="Найти чат" aria-label="Поиск чатов" />
+        </label>
+        <div className="telegram-filter-tabs" role="group" aria-label="Фильтр чатов">
+          <button type="button" className={chatFilter === 'all' ? 'is-active' : ''} onClick={() => setChatFilter('all')}>Все</button>
+          <button type="button" className={chatFilter === 'bound' ? 'is-active' : ''} onClick={() => setChatFilter('bound')}>Подключённые</button>
+          <button type="button" className={chatFilter === 'unbound' ? 'is-active' : ''} onClick={() => setChatFilter('unbound')}>Нужна привязка</button>
+        </div>
+        {loadingChats ? <p className="empty" role="status">Загружаем чаты…</p> : visibleChats.length === 0
+          ? <div className="empty">{chats.length ? 'По этому фильтру чатов нет.' : 'Пока нет доступных чатов. Новые групповые сообщения появятся здесь после поступления на сервер.'}</div>
+          : <div className="telegram-chat-list">{visibleChats.map(chat => {
             const bound = isBound(chat);
             return <button key={chat.chat_id} type="button"
               className={'telegram-chat-item' + (selectedChat === chat.chat_id ? ' is-active' : '')}
               aria-pressed={selectedChat === chat.chat_id}
-              onClick={() => {
-                setSelectedChat(chat.chat_id);
-                if (!bound) setBindingChat(chat.chat_id);
-              }}>
+              onClick={() => { setSelectedChat(chat.chat_id); if (!bound) setBindingChat(chat.chat_id); }}>
               <span className="telegram-chat-item__icon"><MessageSquareText size={17} /></span>
               <span className="telegram-chat-item__copy">
                 <strong>{chat.title || 'Telegram-группа'}</strong>
@@ -194,16 +305,19 @@ export default function TelegramMonitor() {
 
         {canBind && chats.some(chat => !isBound(chat)) && <div className="telegram-bind-box">
           <strong><Link2 size={16} /> Привязка чата</strong>
-          <p>Привязку выполняет администратор STEN. После неё сообщения станут доступны пользователям соответствующей организации.</p>
+          <p>Выбери ресторан из своего рабочего контура. Идентификаторы система подставит сама.</p>
           <label>Чат<select value={bindingChat} onChange={event => setBindingChat(event.target.value)}>
             <option value="">Выберите чат</option>
             {chats.filter(chat => !isBound(chat)).map(chat =>
-              <option key={chat.chat_id} value={chat.chat_id}>{chat.title || 'Telegram-группа'} · {chat.chat_id}</option>
+              <option key={chat.chat_id} value={chat.chat_id}>{chat.title || 'Telegram-группа'}</option>
             )}
           </select></label>
-          <label>ID организации<input value={organizationId} onChange={event => setOrganizationId(event.target.value)} placeholder="UUID организации" autoComplete="off" /></label>
-          <label>ID ресторана<input value={restaurantId} onChange={event => setRestaurantId(event.target.value)} placeholder="UUID ресторана" autoComplete="off" /></label>
-          <button className="primary-button" type="button" onClick={() => void bindChat()} disabled={binding || !bindingChat || !organizationId.trim() || !restaurantId.trim()}>
+          <label><span><Building2 size={14} /> Ресторан</span><select value={restaurantId} onChange={event => setRestaurantId(event.target.value)} disabled={loadingRestaurants || restaurants.length === 0}>
+            <option value="">{loadingRestaurants ? 'Загружаем рестораны…' : 'Выберите ресторан'}</option>
+            {restaurants.map(restaurant => <option key={restaurant.id} value={restaurant.id}>{restaurant.name}</option>)}
+          </select></label>
+          <small className="telegram-bind-limit">{managedRestaurantCount >= MAX_MANAGED_RESTAURANTS ? 'Лимит трёх ресторанов достигнут. Можно подключать дополнительные чаты к уже используемым ресторанам.' : 'Личный контур: до трёх ресторанов.'}</small>
+          <button className="primary-button" type="button" onClick={() => void bindChat()} disabled={binding || !bindingChat || !restaurantId || !canAddRestaurant}>
             {binding ? 'Привязываем…' : 'Привязать к ресторану'}
           </button>
         </div>}
@@ -211,18 +325,23 @@ export default function TelegramMonitor() {
 
       <section className="telegram-monitor-panel telegram-monitor-feed" aria-label="Лента сообщений">
         <div className="telegram-monitor-panel__head">
-          <div><MessageSquareText size={18} /><strong>{selected?.title || 'Лента сообщений'}</strong></div>
-          {selected && <span>{selected.restaurant_name || 'Без привязки'}</span>}
+          <div><MessageSquareText size={18} /><strong>{feedScope === 'all' ? 'Все рабочие сообщения' : selected?.title || 'Лента сообщений'}</strong></div>
+          <span>{feedScope === 'all' ? 'Все рестораны' : selected?.restaurant_name || 'Без привязки'}</span>
+        </div>
+        <div className="telegram-feed-tabs" role="group" aria-label="Область ленты">
+          <button type="button" className={feedScope === 'all' ? 'is-active' : ''} onClick={() => setFeedScope('all')}>Все чаты</button>
+          <button type="button" className={feedScope === 'selected' ? 'is-active' : ''} onClick={() => setFeedScope('selected')} disabled={!selected || !isBound(selected)}>Выбранный чат</button>
         </div>
         <label className="telegram-search">
           <Search size={16} aria-hidden="true" />
           <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Поиск по тексту сообщений" aria-label="Поиск по сообщениям" />
         </label>
-        {!selectedChat ? <div className="empty">Выберите привязанный чат, чтобы открыть сообщения.</div>
-          : selected && !isBound(selected) ? <div className="empty">Этот чат ещё не привязан к ресторану. После привязки его сообщения появятся в ленте.</div>
+        {feedScope === 'selected' && !selectedChat ? <div className="empty">Выберите привязанный чат, чтобы открыть сообщения.</div>
+          : feedScope === 'selected' && selected && !isBound(selected) ? <div className="empty">Этот чат ещё не привязан к ресторану. Выберите ресторан в блоке привязки.</div>
           : loadingMessages ? <div className="empty" role="status">Загружаем сообщения…</div>
           : messages.length === 0 ? <div className="empty">Сообщений по этому запросу нет.</div>
           : <div className="telegram-message-list" aria-live="polite">{messages.map(message => <article className="telegram-message" key={message.chat_id + ':' + message.message_id}>
+            {feedScope === 'all' && <span className="telegram-message__chat">{chats.find(chat => chat.chat_id === message.chat_id)?.restaurant_name || 'Ресторан'} · {chats.find(chat => chat.chat_id === message.chat_id)?.title || 'Telegram-группа'}</span>}
             <div className="telegram-message__meta">
               <strong>{message.sender_name || (message.sender_username ? '@' + message.sender_username : 'Участник группы')}</strong>
               <time>{dateTime(message.message_date || message.received_at)}</time>
@@ -230,7 +349,7 @@ export default function TelegramMonitor() {
             <p>{message.message_text || 'Сообщение без текста'}</p>
             {message.edited_at && <small>Изменено: {dateTime(message.edited_at)}</small>}
           </article>)}</div>}
-        <div className="telegram-monitor-footnote">Здесь отображаются сохранённые сообщения Telegram. Они не изменяют P&amp;L и другие финансовые данные автоматически.</div>
+        <div className="telegram-monitor-footnote">{feedScope === 'all' ? 'Общая лента загружает последние 30 сообщений из каждого привязанного чата. ' : ''}Здесь отображаются сохранённые сообщения Telegram. Они не изменяют P&amp;L и другие финансовые данные автоматически.</div>
       </section>
     </div>
   </div>;
