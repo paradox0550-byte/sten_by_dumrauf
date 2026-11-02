@@ -3336,11 +3336,12 @@ if (!ENV.DB_HOST) return res.status(503).json({ ok: false, error: 'database_not_
 try {
   let stored;
   if (req.body?.callback_query) {
-    const claim = await queryWithRetry(
-      'INSERT INTO telegram_updates(update_id,received_at,update_json) VALUES($1,now(),$2::jsonb) ON CONFLICT(update_id) DO NOTHING RETURNING update_id',
-      [req.body.update_id, JSON.stringify(req.body)], {});
+    stored = await persistTelegramUpdate(query, req.body);
+    if (!stored.stored || stored.duplicate || !stored.callback) {
+      return res.status(200).json({ ok: true, ...stored, operational: false });
+    }
     const operational = await handleOperationalTelegramUpdate(req.body);
-    return res.status(200).json({ ok: true, accepted: true, stored: Boolean(claim.rows?.length), duplicate: !claim.rows?.length, operational: operational.handled });
+    return res.status(200).json({ ok: true, ...stored, operational: operational.handled });
   }
   stored = await persistTelegramUpdate(query, req.body);
   if (!req.body?.edited_message) {
