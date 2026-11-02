@@ -2986,8 +2986,15 @@ app.get('/api/operational-control', requireAuth, requireOrg, async (req, res, ne
       [req.user.organizationId, restaurantId], null);
     if (!observations || !actions) throw httpError(503, 'Операционный контроль временно недоступен', 'DB_UNAVAILABLE');
     const employees = await safeQuery(
-      'SELECT id, first_name, last_name, position FROM users WHERE organization_id=$1::uuid AND is_active=true ORDER BY first_name, last_name LIMIT 200',
-      [req.user.organizationId], null);
+      `SELECT u.id, u.first_name, u.last_name, u.position
+       FROM users u
+       WHERE u.organization_id=$1::uuid AND u.is_active=true
+         AND (lower(u.role) IN ('super_admin','owner') OR EXISTS (
+           SELECT 1 FROM org_unit_access a
+           WHERE a.organization_id=$1::uuid AND a.user_id=u.id::text AND a.unit_id=$2::uuid
+         ))
+       ORDER BY u.first_name, u.last_name LIMIT 200`,
+      [req.user.organizationId, restaurantId], null);
     if (!employees) throw httpError(503, 'Список сотрудников временно недоступен', 'DB_UNAVAILABLE');
     ok(res, { checkpoints: Object.entries(OPERATIONAL_CHECKPOINTS).map(([key,title]) => ({key,title})), observations, actions, employees });
   } catch (e) { next(e); }
@@ -3021,10 +3028,16 @@ app.post('/api/operational-control/actions', requireAuth, requireOrg, async (req
     if (!obs) throw httpError(503, 'Не удалось проверить исходное отклонение', 'DB_UNAVAILABLE');
     if (!obs[0]) throw httpError(404, 'Отклонение не найдено в выбранном ресторане', 'OBSERVATION_NOT_FOUND');
     const assignee = await safeQuery(
-      'SELECT id, first_name, last_name FROM users WHERE id::text=$1 AND organization_id=$2::uuid AND is_active=true LIMIT 1',
-      [body.assignee_id, req.user.organizationId], null);
+      `SELECT u.id, u.first_name, u.last_name
+       FROM users u
+       WHERE u.id::text=$1 AND u.organization_id=$2::uuid AND u.is_active=true
+         AND (lower(u.role) IN ('super_admin','owner') OR EXISTS (
+           SELECT 1 FROM org_unit_access a
+           WHERE a.organization_id=$2::uuid AND a.user_id=u.id::text AND a.unit_id=$3::uuid
+         )) LIMIT 1`,
+      [body.assignee_id, req.user.organizationId, restaurant.id], null);
     if (!assignee) throw httpError(503, 'Список сотрудников временно недоступен', 'DB_UNAVAILABLE');
-    if (!assignee[0]) throw httpError(400, 'Исполнитель не найден в вашей организации', 'ASSIGNEE_NOT_FOUND');
+    if (!assignee[0]) throw httpError(400, 'Исполнитель не найден или не имеет доступа к выбранному ресторану', 'ASSIGNEE_NOT_FOUND');
     const dueAt = new Date(body.due_at);
     if (dueAt.getTime() <= Date.now()) throw httpError(400, 'Срок задачи должен быть в будущем', 'DUE_DATE_INVALID');
     const id = uuid();
