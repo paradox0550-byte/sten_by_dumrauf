@@ -251,6 +251,13 @@ await query(`CREATE TABLE IF NOT EXISTS messenger_settings (organization_id UUID
 await query(`CREATE TABLE IF NOT EXISTS ai_skill_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
 await query(`CREATE TABLE IF NOT EXISTS analytics_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
 await query(`CREATE TABLE IF NOT EXISTS auth_unlock_attempts (ip TEXT PRIMARY KEY, window_started_at TIMESTAMPTZ NOT NULL DEFAULT now(), failed_attempts INTEGER NOT NULL DEFAULT 0, blocked_until TIMESTAMPTZ);`);
+await query(`CREATE TABLE IF NOT EXISTS telegram_chats (
+  chat_id TEXT PRIMARY KEY,
+  chat_type TEXT NOT NULL,
+  title TEXT,
+  first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`);
 await query(`CREATE TABLE IF NOT EXISTS telegram_chat_bindings (
   chat_id TEXT PRIMARY KEY REFERENCES telegram_chats(chat_id) ON DELETE CASCADE,
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -261,13 +268,7 @@ await query(`CREATE TABLE IF NOT EXISTS telegram_chat_bindings (
 );`);
 await query(`CREATE INDEX IF NOT EXISTS idx_telegram_bindings_org_restaurant
   ON telegram_chat_bindings(organization_id, restaurant_id);`);
-await query(`CREATE TABLE IF NOT EXISTS telegram_chats (
-  chat_id TEXT PRIMARY KEY,
-  chat_type TEXT NOT NULL,
-  title TEXT,
-  first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);`);
+
 await query(`CREATE TABLE IF NOT EXISTS telegram_updates (
   update_id BIGINT PRIMARY KEY,
   received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
