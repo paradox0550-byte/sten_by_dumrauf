@@ -3211,14 +3211,26 @@ return res.status(403).json({ error: { message: 'Webhook verification failed', c
 });
 
 async function telegramBotRequest(method, payload) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) throw httpError(503, 'Telegram Bot API не настроен', 'MESSENGER_NOT_CONFIGURED');
-  const response = await fetch('https://api.telegram.org/bot' + token + '/' + method, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-  });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok || result.ok === false) throw httpError(502, 'Telegram Bot API отклонил запрос', 'TELEGRAM_UPSTREAM_ERROR');
-  return result.result;
+  const token = process.env.TELEGRAM_MONITOR_BOT_TOKEN;
+  if (!token) throw httpError(503, 'Монитор-бот Telegram не настроен', 'TELEGRAM_MONITOR_NOT_CONFIGURED');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4500);
+  try {
+    const response = await fetch('https://api.telegram.org/bot' + token + '/' + method, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.ok === false) throw httpError(502, 'Telegram Bot API отклонил запрос', 'TELEGRAM_UPSTREAM_ERROR');
+    return result.result;
+  } catch (error) {
+    if (error?.name === 'AbortError') throw httpError(504, 'Telegram Bot API не ответил вовремя', 'TELEGRAM_TIMEOUT');
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 async function sendOperationalTelegramMessage(chatId, text, replyMarkup) {
   return telegramBotRequest('sendMessage', { chat_id: chatId, text, ...(replyMarkup ? { reply_markup: replyMarkup } : {}) });
@@ -3237,8 +3249,24 @@ async function handleOperationalTelegramUpdate(update) {
   const scope = binding[0];
   const telegramUserId = String(sender.id);
   const senderName = [sender.first_name, sender.last_name].filter(Boolean).join(' ').trim() || 'Сотрудник';
+  const actorRows = await safeQuery(
+    'SELECT id, role, organization_id AS "organizationId" FROM users WHERE telegram_chat_id=$1 AND organization_id=$2::uuid AND is_active=true LIMIT 1',
+    [telegramUserId, scope.organization_id], null);
+  if (!actorRows) throw httpError(503, 'Проверка доступа временно недоступна', 'DB_UNAVAILABLE');
+  const actor = actorRows[0];
+  if (!actor) {
+    if (callback) await telegramBotRequest('answerCallbackQuery', { callback_query_id: callback.id, text: 'Нет доступа к STEN. Привяжите Telegram ID в профиле.' });
+    return { handled: true, denied: true };
+  }
+  try {
+    await assertRestaurantAccess(actor, scope.restaurant_id);
+  } catch (error) {
+    if (callback) await telegramBotRequest('answerCallbackQuery', { callback_query_id: callback.id, text: 'Нет доступа к этому ресторану.' });
+    if (error?.status === 403 || error?.status === 404) return { handled: true, denied: true };
+    throw error;
+  }
   if (callback) {
-    await telegramBotRequest('answerCallbackQuery', { callback_query_id: callback.id });
+    await telegramBotRequest('answerCallbackQuery', { callback_query_id: callback.id, text: 'Принято' });
     const data = String(callback.data || '');
     if (data === 'oc:start') {
       await sendOperationalTelegramMessage(chatId, 'Выберите контрольную точку · ' + scope.restaurant_name, { inline_keyboard: [
