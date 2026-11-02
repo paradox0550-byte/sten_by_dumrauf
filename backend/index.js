@@ -288,6 +288,7 @@ await query(`CREATE TABLE IF NOT EXISTS operational_observations (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );`);
 await query(`CREATE INDEX IF NOT EXISTS idx_operational_observations_scope ON operational_observations(organization_id, restaurant_id, reported_at DESC);`);
+await query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_operational_observations_telegram_event ON operational_observations(source_chat_id, source_message_id, reporter_id) WHERE source_chat_id IS NOT NULL AND source_message_id IS NOT NULL;`);
 await query(`CREATE TABLE IF NOT EXISTS operational_actions (
   id UUID PRIMARY KEY,
   organization_id UUID NOT NULL,
@@ -3257,9 +3258,9 @@ async function handleOperationalTelegramUpdate(update) {
         }
         const id=uuid();
         await queryWithRetry(
-          `INSERT INTO operational_observations(id,organization_id,restaurant_id,checkpoint_key,checkpoint_title,status,note,reporter_id,reporter_name,source_chat_id)
-           VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5,'ok','',$6,$7,$8)`,
-          [id,scope.organization_id,scope.restaurant_id,session[0].checkpoint_key,OPERATIONAL_CHECKPOINTS[session[0].checkpoint_key],'telegram:'+telegramUserId,senderName,chatId],
+          `INSERT INTO operational_observations(id,organization_id,restaurant_id,checkpoint_key,checkpoint_title,status,note,reporter_id,reporter_name,source_chat_id,source_message_id)
+           VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5,'ok','',$6,$7,$8,$9) ON CONFLICT DO NOTHING`,
+          [id,scope.organization_id,scope.restaurant_id,session[0].checkpoint_key,OPERATIONAL_CHECKPOINTS[session[0].checkpoint_key],'telegram:'+telegramUserId,senderName,chatId,String(callback.message?.message_id || callback.id)],
           {orgId:scope.organization_id});
         await queryWithRetry('DELETE FROM operational_telegram_sessions WHERE chat_id=$1 AND telegram_user_id=$2',[chatId,telegramUserId],{orgId:scope.organization_id});
         await sendOperationalTelegramMessage(chatId, 'Зафиксировано: «В порядке». Это сообщение сохранено в STEN, но не заменяет независимую перепроверку.');
@@ -3290,7 +3291,7 @@ async function handleOperationalTelegramUpdate(update) {
       const id=uuid();
       await queryWithRetry(
         `INSERT INTO operational_observations(id,organization_id,restaurant_id,checkpoint_key,checkpoint_title,status,note,reporter_id,reporter_name,source_chat_id,source_message_id)
-         VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8,$9,$10,$11)`,
+         VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING`,
         [id,scope.organization_id,scope.restaurant_id,session[0].checkpoint_key,OPERATIONAL_CHECKPOINTS[session[0].checkpoint_key],session[0].status,note,'telegram:'+telegramUserId,senderName,chatId,String(message.message_id)],
         {orgId:scope.organization_id});
       await queryWithRetry('DELETE FROM operational_telegram_sessions WHERE chat_id=$1 AND telegram_user_id=$2',[chatId,telegramUserId],{orgId:scope.organization_id});
@@ -3317,12 +3318,11 @@ try {
     const claim = await queryWithRetry(
       'INSERT INTO telegram_updates(update_id,received_at,update_json) VALUES($1,now(),$2::jsonb) ON CONFLICT(update_id) DO NOTHING RETURNING update_id',
       [req.body.update_id, JSON.stringify(req.body)], {});
-    if (!claim.rows?.length) return res.status(200).json({ ok: true, accepted: true, stored: false, duplicate: true });
     const operational = await handleOperationalTelegramUpdate(req.body);
-    return res.status(200).json({ ok: true, accepted: true, stored: true, operational: operational.handled });
+    return res.status(200).json({ ok: true, accepted: true, stored: Boolean(claim.rows?.length), duplicate: !claim.rows?.length, operational: operational.handled });
   }
   stored = await persistTelegramUpdate(query, req.body);
-  if (stored.stored && !req.body?.edited_message) {
+  if (!req.body?.edited_message) {
     const operational = await handleOperationalTelegramUpdate(req.body);
     return res.status(200).json({ ok: true, ...stored, operational: operational.handled });
   }
