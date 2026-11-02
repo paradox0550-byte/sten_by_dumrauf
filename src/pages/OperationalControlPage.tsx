@@ -7,6 +7,7 @@ import { ReportWriteSchema, type ReportWrite } from '../lib/contracts/reports';
 import { PnlTransactionSchema, type PnlTransactionRequest } from '../lib/contracts/pnl';
 import FlashIncomeInput from '../components/FlashIncomeInput';
 import './OperationalControlPage.css';
+import OperationalChecks from './OperationalChecks';
 
 type Calc = {
   revenue: number | null; cogs: number | null; labor: number | null;
@@ -239,6 +240,7 @@ export default function OperationalControlPage() {
         </section>}
       </section>
 
+      <OperationalChecks restaurantId={scope.restaurantId} />
     </div>
   );
 }
