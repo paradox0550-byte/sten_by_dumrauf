@@ -16,6 +16,7 @@ function fakeDb(initial=[]) {
   const rows = [...initial];
   return {
     rows,
+    async assertScopeAccess() { return true; },
     async queryWithRetry(sql, params) {
       if (sql.startsWith('INSERT INTO ai_memory')) {
         const row = {
@@ -111,4 +112,46 @@ test('listMemory accepts limits above 50 up to 200', async () => {
   const db = fakeDb(initial);
   const result = await listMemory(user, { confidence: 'confirmed', limit: 100 }, db);
   assert.equal(result.memories.length, 75);
+});
+
+test('createMemory validates a requested restaurant scope before persistence', async () => {
+  let checked = null;
+  const db = fakeDb();
+  db.assertScopeAccess = async (_user, scope) => { checked = scope; };
+  await createMemory(user, { scope: { restaurant_id: restaurant }, kind: 'fact', title: 'x', content: 'y' }, db);
+  assert.equal(checked.restaurant_id, restaurant);
+});
+
+test('createMemory fails closed when scope validation is unavailable', async () => {
+  const db = fakeDb();
+  delete db.assertScopeAccess;
+  await assert.rejects(
+    () => createMemory(user, { scope: { restaurant_id: restaurant }, kind: 'fact', title: 'x', content: 'y' }, db),
+    error => error.code === 'MEMORY_SCOPE_CHECK_MISSING'
+  );
+});
+
+test('loadMemoryContext validates a requested scope before reading context', async () => {
+  let checked = null;
+  const db = fakeDb();
+  db.assertScopeAccess = async (_user, scope) => { checked = scope; };
+  await loadMemoryContext(user, { restaurant_id: restaurant }, 15, db);
+  assert.equal(checked.restaurant_id, restaurant);
+});
+
+test('listMemory validates a requested restaurant scope', async () => {
+  let checked = null;
+  const db = fakeDb();
+  db.assertScopeAccess = async (_user, scope) => { checked = scope; };
+  await listMemory(user, { restaurant_id: restaurant }, db);
+  assert.equal(checked.restaurant_id, restaurant);
+});
+
+test('listMemory fails closed when scope validation is unavailable', async () => {
+  const db = fakeDb();
+  delete db.assertScopeAccess;
+  await assert.rejects(
+    () => listMemory(user, { restaurant_id: restaurant }, db),
+    error => error.code === 'MEMORY_SCOPE_CHECK_MISSING'
+  );
 });

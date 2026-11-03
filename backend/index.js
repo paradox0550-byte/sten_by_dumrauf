@@ -36,7 +36,7 @@ NODE_ENV: process.env.NODE_ENV || 'production',
 JWT_SECRET: process.env.JWT_SECRET || INSECURE_JWT_FALLBACK,
 JWT_TTL_SEC: parseInt(process.env.JWT_TTL_SECONDS || String(30 * 24 * 3600), 10),
 UNLOCK_CODE_HASH: process.env.UNLOCK_CODE_HASH || process.env.UNLOCK_CODE || process.env.STEN_UNLOCK_CODE || '',
-ALLOWED_ORIGINS: (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN || '*').split(',').map(s => s.trim()).filter(Boolean),
+ALLOWED_ORIGINS: (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? '' : '*')).split(',').map(s => s.trim()).filter(Boolean),
 ADMIN_ID: process.env.ADMIN_ID || 'admin',
 ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@sten.local',
 ADMIN_ROLE: process.env.ADMIN_ROLE || 'super_admin',
@@ -80,6 +80,11 @@ const err = new Error('[sten] FATAL: JWT_SECRET is not set. Refusing to start in
 console.error(err.message);
 throw err;
 }
+if (ENV.NODE_ENV === 'production' && ENV.ALLOWED_ORIGINS.length === 0) {
+const err = new Error('[sten] FATAL: ALLOWED_ORIGINS не задан в production. Укажите домены фронтенда через запятую.');
+console.error(err.message);
+throw err;
+}
 }
 assertProductionSecrets();
 
@@ -113,15 +118,21 @@ return e;
 
 /* ----------------------------- database ----------------------------------- */
 function resolveDbSsl() {
-if (process.env.DB_SSL_MODE === 'disable') return false;
+const allowInsecure = process.env.DB_SSL_ALLOW_INSECURE === 'true';
+if (process.env.DB_SSL_MODE === 'disable') {
+  if (ENV.NODE_ENV === 'production' && !allowInsecure) {
+    throw new Error('[sten] FATAL: DB_SSL_MODE=disable в production запрещён без DB_SSL_ALLOW_INSECURE=true.');
+  }
+  return false;
+}
 if (process.env.DB_SSL_CA_BASE64) {
 return {
 ca: Buffer.from(process.env.DB_SSL_CA_BASE64, 'base64').toString('utf8'),
 rejectUnauthorized: true,
 };
 }
-if (ENV.NODE_ENV === 'production') {
-console.warn('[sten] WARN: DB_SSL_CA_BASE64 не задан — проверка сертификата БД отключена');
+if (ENV.NODE_ENV === 'production' && !allowInsecure) {
+  throw new Error('[sten] FATAL: DB_SSL_CA_BASE64 не задан в production. Установите CA или явно разрешите DB_SSL_ALLOW_INSECURE=true.');
 }
 return { rejectUnauthorized: false };
 }
@@ -1545,45 +1556,98 @@ return safeQuery(`SELECT id,name,parent_id,kind FROM org_units WHERE organizatio
 return [];
 }
 
+async function scopeQuery(sql, params, targetLabel) {
+  try {
+    return await strictQuery(sql, params);
+  } catch (e) {
+    throw httpError(
+      503,
+      `Не удалось проверить доступ к ${targetLabel} (БД временно недоступна)`,
+      'SCOPE_ACCESS_CHECK_FAILED'
+    );
+  }
+}
+
 async function assertRestaurantAccess(user, restaurantId) {
-if (!restaurantId) return true;
-const r = await safeQuery('SELECT id, parent_id, kind FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' LIMIT 1', [restaurantId, user.organizationId], null);
-if (!r?.[0]) throw httpError(404, 'Ресторан не найден в текущей организации.', 'RESTAURANT_NOT_FOUND');
-const explicit = await safeQuery('SELECT 1 FROM org_unit_access WHERE organization_id=$1::uuid AND user_id=$2 AND unit_id=$3::uuid LIMIT 1', [user.organizationId, user.id, restaurantId], []);
-if (explicit.length || ['super_admin','owner'].includes(String(user.role || '').toLowerCase())) return true;
-throw httpError(403, 'Нет доступа к выбранному ресторану.', 'RESTAURANT_FORBIDDEN');
+  if (!restaurantId) return true;
+  const isAdmin = ['super_admin', 'owner'].includes(String(user.role || '').toLowerCase());
+  const rows = await scopeQuery(
+    "SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind='restaurant' LIMIT 1",
+    [restaurantId, user.organizationId], 'ресторану'
+  );
+  if (!rows[0]) throw httpError(404, 'Ресторан не найден в текущей организации.', 'RESTAURANT_NOT_FOUND');
+  if (isAdmin) return true;
+  const access = await scopeQuery(
+    'SELECT 1 FROM org_unit_access WHERE organization_id=$1::uuid AND user_id=$2 AND unit_id=$3::uuid LIMIT 1',
+    [user.organizationId, user.id, restaurantId], 'ресторану'
+  );
+  if (access.length) return true;
+  throw httpError(403, 'Нет доступа к выбранному ресторану.', 'RESTAURANT_FORBIDDEN');
 }
 
 async function assertScopeAccess(user, scope = {}) {
-const restaurantIds = new Set();
-if (scope.restaurant_id) restaurantIds.add(String(scope.restaurant_id));
-if (scope.department_id) {
-const rows = await safeQuery('SELECT parent_id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'department\' LIMIT 1', [scope.department_id,user.organizationId], null);
-if (!rows?.[0]) throw httpError(404,'Отдел не найден в текущей организации.','DEPARTMENT_NOT_FOUND');
-if (rows[0].parent_id) restaurantIds.add(String(rows[0].parent_id));
-}
-if (scope.branch_id) {
-const branchExists = await safeQuery('SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'branch\' LIMIT 1', [scope.branch_id,user.organizationId], null);
-if (!branchExists) throw httpError(503,'Не удалось проверить доступ к филиалу.','SCOPE_ACCESS_CHECK_FAILED');
-if (!branchExists[0]) throw httpError(404,'Филиал не найден в текущей организации.','BRANCH_NOT_FOUND');
-const rows = await safeQuery('SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' ORDER BY id', [scope.branch_id,user.organizationId], null);
-if (!rows) throw httpError(503,'Не удалось проверить доступ к филиалу.','SCOPE_ACCESS_CHECK_FAILED');
-rows.forEach(r => restaurantIds.add(String(r.id)));
-}
-if (scope.project_id) {
-const projExists = await safeQuery('SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'project\' LIMIT 1', [scope.project_id,user.organizationId], null);
-if (!projExists) throw httpError(503,'Не удалось проверить доступ к проекту.','SCOPE_ACCESS_CHECK_FAILED');
-if (!projExists[0]) throw httpError(404,'Проект не найден в текущей организации.','PROJECT_NOT_FOUND');
-const branches = await safeQuery('SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'branch\' ORDER BY id', [scope.project_id,user.organizationId], null);
-if (!branches) throw httpError(503,'Не удалось проверить доступ к проекту.','SCOPE_ACCESS_CHECK_FAILED');
-for (const b of branches) {
-const restaurants = await safeQuery('SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' ORDER BY id', [b.id,user.organizationId], null);
-if (!restaurants) throw httpError(503,'Не удалось проверить доступ к проекту.','SCOPE_ACCESS_CHECK_FAILED');
-restaurants.forEach(r => restaurantIds.add(String(r.id)));
-}
-}
-for (const id of restaurantIds) await assertRestaurantAccess(user,id);
-return true;
+  const selected = {};
+  const readUnit = async (id, kind, label, code) => {
+    if (!id) return null;
+    const rows = await scopeQuery(
+      'SELECT id, parent_id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=$3 LIMIT 1',
+      [id, user.organizationId, kind], label
+    );
+    if (!rows[0]) throw httpError(404, `${label[0].toUpperCase() + label.slice(1)} не найден(а) в текущей организации.`, code);
+    return rows[0];
+  };
+
+  selected.project = await readUnit(scope.project_id, 'project', 'проект', 'PROJECT_NOT_FOUND');
+  selected.branch = await readUnit(scope.branch_id, 'branch', 'филиал', 'BRANCH_NOT_FOUND');
+  selected.restaurant = await readUnit(scope.restaurant_id, 'restaurant', 'ресторан', 'RESTAURANT_NOT_FOUND');
+  selected.department = await readUnit(scope.department_id, 'department', 'отдел', 'DEPARTMENT_NOT_FOUND');
+
+  if (selected.branch && selected.project && String(selected.branch.parent_id || '') !== String(selected.project.id)) {
+    throw httpError(404, 'Филиал не относится к выбранному проекту.', 'SCOPE_HIERARCHY_MISMATCH');
+  }
+  if (selected.restaurant && selected.branch && String(selected.restaurant.parent_id || '') !== String(selected.branch.id)) {
+    throw httpError(404, 'Ресторан не относится к выбранному филиалу.', 'SCOPE_HIERARCHY_MISMATCH');
+  }
+  if (selected.department && selected.restaurant && String(selected.department.parent_id || '') !== String(selected.restaurant.id)) {
+    throw httpError(404, 'Отдел не относится к выбранному ресторану.', 'SCOPE_HIERARCHY_MISMATCH');
+  }
+  if (selected.department && !selected.restaurant) {
+    const parent = await readUnit(selected.department.parent_id, 'restaurant', 'ресторан отдела', 'RESTAURANT_NOT_FOUND');
+    selected.restaurant = parent;
+  }
+  if (selected.restaurant && selected.branch && String(selected.restaurant.parent_id || '') !== String(selected.branch.id)) {
+    throw httpError(404, 'Ресторан не относится к выбранному филиалу.', 'SCOPE_HIERARCHY_MISMATCH');
+  }
+  if (selected.restaurant && selected.project && !selected.branch) {
+    const branch = await readUnit(selected.restaurant.parent_id, 'branch', 'филиал ресторана', 'BRANCH_NOT_FOUND');
+    if (String(branch.parent_id || '') !== String(selected.project.id)) {
+      throw httpError(404, 'Ресторан не относится к выбранному проекту.', 'SCOPE_HIERARCHY_MISMATCH');
+    }
+    selected.branch = branch;
+  }
+  if (selected.restaurant && selected.branch && selected.project && String(selected.branch.parent_id || '') !== String(selected.project.id)) {
+    throw httpError(404, 'Ресторан не относится к выбранному проекту.', 'SCOPE_HIERARCHY_MISMATCH');
+  }
+
+  let restaurantIds = [];
+  if (selected.restaurant) {
+    restaurantIds = [String(selected.restaurant.id)];
+  } else if (selected.branch) {
+    const rows = await scopeQuery(
+      "SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind='restaurant' ORDER BY id",
+      [selected.branch.id, user.organizationId], 'филиалу'
+    );
+    restaurantIds = rows.map(row => String(row.id));
+  } else if (selected.project) {
+    const rows = await scopeQuery(
+      "SELECT restaurant.id FROM org_units branch JOIN org_units restaurant ON restaurant.parent_id=branch.id AND restaurant.organization_id=branch.organization_id AND restaurant.kind='restaurant' WHERE branch.parent_id=$1::uuid AND branch.organization_id=$2::uuid AND branch.kind='branch' ORDER BY restaurant.id",
+      [selected.project.id, user.organizationId], 'проекту'
+    );
+    restaurantIds = rows.map(row => String(row.id));
+  }
+
+  for (const id of restaurantIds) await assertRestaurantAccess(user, id);
+  return true;
 }
 
 async function resolveWorkspaceContext(user, supplied = {}, persist = false) {
@@ -1801,11 +1865,11 @@ const APPROVER_ROLES = new Set((process.env.PNL_APPROVER_ROLES || 'super_admin,a
 app.get('/api/pnl/approval', requireAuth, requireOrg, async (req, res, next) => {
 try {
 const s = scopeFromQuery(req.query);
-if (s.restaurant_id) await assertRestaurantAccess(req.user, s.restaurant_id);
+await assertScopeAccess(req.user, s);
 if (!YM_RE.test(s.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
-const rows = await safeQuery(
+const rows = await strictQuery(
 `SELECT status, approved_by, approved_at FROM pnl_approvals WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1`,
-[req.user.organizationId, s.period, s.project_id, s.branch_id, s.restaurant_id, s.department_id], []);
+[req.user.organizationId, s.period, s.project_id, s.branch_id, s.restaurant_id, s.department_id]);
 ok(res, { status: rows[0]?.status || 'draft', approvedAt: rows[0]?.approved_at || null, canApprove: APPROVER_ROLES.has(String(req.user.role || '').toLowerCase()), scope: s });
 } catch (e) { next(e); }
 });
@@ -1814,7 +1878,6 @@ app.post('/api/pnl/approve', requireAuth, requireOrg, async (req, res, next) => 
 try {
 if (!APPROVER_ROLES.has(String(req.user.role || '').toLowerCase())) throw httpError(403, 'У Вас нет права утверждать план.', 'FORBIDDEN_APPROVAL');
 const s = parseOr400(PnlApproveSchema, req.body ?? {});
-if (s.restaurant_id) await assertRestaurantAccess(req.user, s.restaurant_id);
 await assertScopeAccess(req.user, s);
 const exists = await strictQuery(
 `SELECT 1 FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1`,
@@ -1836,7 +1899,6 @@ app.post('/api/pnl/unapprove', requireAuth, requireOrg, async (req, res, next) =
 try {
 if (!APPROVER_ROLES.has(String(req.user.role || '').toLowerCase())) throw httpError(403, 'У Вас нет права возвращать утверждённый план в черновик.', 'FORBIDDEN_APPROVAL');
 const s = parseOr400(PnlApproveSchema, req.body ?? {});
-if (s.restaurant_id) await assertRestaurantAccess(req.user, s.restaurant_id);
 await assertScopeAccess(req.user, s);
 const result = await strictQuery(
 `DELETE FROM pnl_approvals WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 AND status='approved' RETURNING status`,
@@ -1940,6 +2002,9 @@ ok(res,{saved:true,confirmed:true,settings:config});
 
 app.get('/api/ai/memory', requireAuth, requireOrg, async (req, res, next) => {
 try {
+if (req.query.restaurant_id) {
+  await assertScopeAccess(req.user, { restaurant_id: String(req.query.restaurant_id) });
+}
 const result = await listMemory(req.user, {
 kind: req.query.kind ? String(req.query.kind) : undefined,
 restaurant_id: req.query.restaurant_id ? String(req.query.restaurant_id) : undefined,
@@ -1955,6 +2020,10 @@ ok(res, result);
 app.post('/api/ai/memory', requireAuth, requireOrg, async (req, res, next) => {
 try {
 const body = parseOr400(AiMemoryCreateSchema, req.body ?? {});
+const memoryScope = body.scope || {};
+if (memoryScope.project_id || memoryScope.branch_id || memoryScope.restaurant_id || memoryScope.department_id) {
+  await assertScopeAccess(req.user, memoryScope);
+}
 const memory = await createMemory(req.user, body, intelligenceContext());
 ok(res, { memory, confirmed: true }, 201);
 } catch (e) { next(e); }
@@ -3542,10 +3611,15 @@ const b = parseOr400(IngestConfirmSchema, req.body ?? {});
 const explicit = b.scope || {};
 const s = { period: b.date.slice(0, 7), project_id: explicit.project_id || '', branch_id: explicit.branch_id || '', restaurant_id: explicit.restaurant_id || '', department_id: explicit.department_id || '' };
 if (!s.restaurant_id) throw httpError(422, 'Для подтверждения отчёта необходимо выбрать ресторан.', 'RESTAURANT_CONTEXT_REQUIRED');
-await assertRestaurantAccess(req.user, s.restaurant_id);
-const existing = await safeQuery(
+await assertScopeAccess(req.user, s);
+let existing;
+try {
+existing = await strictQuery(
 'SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1',
-[req.user.organizationId, s.period, s.project_id || '', s.branch_id || '', s.restaurant_id || '', s.department_id || ''], []);
+[req.user.organizationId, s.period, s.project_id || '', s.branch_id || '', s.restaurant_id || '', s.department_id || '']);
+} catch (e) {
+throw httpError(503, 'БД временно недоступна', 'DB_UNAVAILABLE');
+}
 let rows = []; try { rows = existing[0]?.rows ? JSON.parse(existing[0].rows) : []; } catch { rows = []; }
 const idx = rows.findIndex(r => pnlRowKey(r) === 'revenue');
 if (idx >= 0) rows[idx] = { ...rows[idx], article: 'Выручка', fact: b.parsed.revenue, source: 'message-confirmed' };
