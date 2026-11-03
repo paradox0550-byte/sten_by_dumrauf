@@ -3245,6 +3245,16 @@ async function telegramBotRequest(method, payload) {
     clearTimeout(timeout);
   }
 }
+async function answerTelegramCallback(callbackId, text) {
+  try {
+    await telegramBotRequest('answerCallbackQuery', { callback_query_id: callbackId, text });
+    return true;
+  } catch (error) {
+    // Callback acknowledgements expire independently of durable update processing.
+    log('telegram callback acknowledgement skipped:', error?.code || error?.message || 'UNKNOWN');
+    return false;
+  }
+}
 async function sendOperationalTelegramMessage(chatId, text, replyMarkup) {
   return telegramBotRequest('sendMessage', { chat_id: chatId, text, ...(replyMarkup ? { reply_markup: replyMarkup } : {}) });
 }
@@ -3268,18 +3278,18 @@ async function handleOperationalTelegramUpdate(update) {
   if (!actorRows) throw httpError(503, 'Проверка доступа временно недоступна', 'DB_UNAVAILABLE');
   const actor = actorRows[0];
   if (!actor) {
-    if (callback) await telegramBotRequest('answerCallbackQuery', { callback_query_id: callback.id, text: 'Нет доступа к STEN. Привяжите Telegram ID в профиле.' });
+    if (callback) await answerTelegramCallback(callback.id, 'Нет доступа к STEN. Привяжите Telegram ID в профиле.');
     return { handled: true, denied: true };
   }
   try {
     await assertRestaurantAccess(actor, scope.restaurant_id);
   } catch (error) {
-    if (callback) await telegramBotRequest('answerCallbackQuery', { callback_query_id: callback.id, text: 'Нет доступа к этому ресторану.' });
+    if (callback) await answerTelegramCallback(callback.id, 'Нет доступа к этому ресторану.');
     if (error?.status === 403 || error?.status === 404) return { handled: true, denied: true };
     throw error;
   }
   if (callback) {
-    await telegramBotRequest('answerCallbackQuery', { callback_query_id: callback.id, text: 'Принято' });
+    await answerTelegramCallback(callback.id, 'Принято');
     const data = String(callback.data || '');
     if (data === 'oc:start') {
       await sendOperationalTelegramMessage(chatId, 'Выберите контрольную точку · ' + scope.restaurant_name, { inline_keyboard: [
