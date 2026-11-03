@@ -35,8 +35,10 @@ function classifyArticle(name) {
 function parseNumberCell(value) {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value !== 'string') return null;
-  let text = value.replace(/\u00a0/g, '').replace(/\s+/g, '').replace(/₽/gu, '').replace(/%$/u, '');
+  let text = value.replace(/\u00a0/g, '').replace(/\s+/g, '').replace(/₽/gu, '').replace(/%$/u, '').replace(/[−–—]/g, '-');
   if (!text) return null;
+  const parenthesized = /^\(.*\)$/.test(text);
+  if (parenthesized) text = text.slice(1, -1);
   const hasComma = text.includes(',');
   const hasDot = text.includes('.');
   if (hasComma && hasDot) {
@@ -51,7 +53,7 @@ function parseNumberCell(value) {
     if (parts.length === 2 && parts[1].length === 3) text = text.replace('.', '');
   }
   if (!/^-?\d+(?:\.\d+)?$/u.test(text)) return null;
-  const parsed = Number(text);
+  const parsed = Number(text) * (parenthesized ? -1 : 1);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
