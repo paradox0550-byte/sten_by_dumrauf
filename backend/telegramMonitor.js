@@ -78,24 +78,26 @@ async function claimTelegramUpdate(query, updateId, leaseSeconds = 45) {
   return { claimed: false, processed: status === 'processed', busy: status === 'processing', status };
 }
 
-async function completeTelegramUpdate(query, updateId) {
+async function completeTelegramUpdate(query, updateId, attempts) {
+  if (!Number.isSafeInteger(attempts) || attempts < 1) throw new TypeError('Invalid Telegram processing lease');
   const result = await query(
     `UPDATE telegram_updates SET processing_status='processed', processed_at=now(),
        processing_started_at=NULL, last_error=NULL
-     WHERE update_id=$1 AND processing_status='processing' RETURNING update_id`,
-    [updateId]
+     WHERE update_id=$1 AND processing_status='processing' AND processing_attempts=$2 RETURNING update_id`,
+    [updateId, attempts]
   );
-  if (!result.rows?.length) throw new Error('Telegram update completion was not confirmed');
+  if (!result.rows?.length) throw new Error('Telegram update lease was lost before completion');
   return { processed: true };
 }
 
-async function failTelegramUpdate(query, updateId, error) {
+async function failTelegramUpdate(query, updateId, attempts, error) {
+  if (!Number.isSafeInteger(attempts) || attempts < 1) throw new TypeError('Invalid Telegram processing lease');
   const message = String(error?.code || error?.message || error || 'processing_failed').slice(0, 500);
   await query(
     `UPDATE telegram_updates SET processing_status='pending', processing_started_at=NULL,
        next_attempt_at=now(), last_error=$2
-     WHERE update_id=$1 AND processing_status='processing'`,
-    [updateId, message]
+     WHERE update_id=$1 AND processing_status='processing' AND processing_attempts=$3`,
+    [updateId, message, attempts]
   );
 }
 async function persistTelegramUpdate(query, update) {
