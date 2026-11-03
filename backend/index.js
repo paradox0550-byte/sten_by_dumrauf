@@ -3645,11 +3645,16 @@ return { statusCode: 400, headers: { 'Content-Type': 'application/json; charset=
 if (isTimerEvent(event)) {
 try {
 const suspended = await suspendExpiredOrganizations();
-const telegramAnalysis = await processTelegramMessageBatch({
-  queryWithRetry,
-  analyze: prompt => callYandexGPT([{ role: 'user', text: prompt }]),
-  limit: 20,
-});
+let telegramAnalysis = { scanned: 0, analyzed: 0, skipped: 0, failed: 0 };
+try {
+  telegramAnalysis = await processTelegramMessageBatch({
+    queryWithRetry,
+    analyze: prompt => callYandexGPT([{ role: 'user', text: prompt }]),
+    limit: 20,
+  });
+} catch (analysisError) {
+  log('telegram secretary batch failed:', analysisError?.code || analysisError?.message || 'UNKNOWN');
+}
 return { ok: true, suspended, telegramAnalysis };
 } catch (e) {
 console.error('[sten] subscription expiry failed:', e && e.stack ? e.stack : e);
