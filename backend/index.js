@@ -3173,7 +3173,7 @@ app.get('/api/telegram-bot/settings', requireAuth, requireOrg, async (req, res, 
     const chatId = String(req.query.chat_id || '').trim().slice(0, 100);
     if (!chatId) throw httpError(400, 'Выберите Telegram-группу.', 'CHAT_REQUIRED');
     const rows = await strictQuery(
-      `SELECT s.mode,s.notification_level,
+      `SELECT b.restaurant_id, s.mode,s.notification_level,
               to_char(s.morning_report_time,'HH24:MI') AS morning_report_time,
               to_char(s.evening_report_time,'HH24:MI') AS evening_report_time,
               s.escalation_minutes
@@ -3182,8 +3182,9 @@ app.get('/api/telegram-bot/settings', requireAuth, requireOrg, async (req, res, 
         WHERE b.chat_id=$1 AND b.organization_id=$2::uuid LIMIT 1`,
       [chatId, req.user.organizationId], { orgId: req.user.organizationId });
     if (!rows.length) throw httpError(404, 'Группа не привязана к вашему рабочему контуру.', 'CHAT_NOT_FOUND');
-    const row = rows[0];
-    ok(res, { settings: row.mode ? row : null });
+    const { restaurant_id: restaurantId, ...settings } = rows[0];
+    await assertRestaurantAccess(req.user, restaurantId);
+    ok(res, { settings: settings.mode ? settings : null });
   } catch (e) { next(e); }
 });
 
@@ -3194,6 +3195,7 @@ app.put('/api/telegram-bot/settings', requireAuth, requireOrg, requirePrivileged
       'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
       [body.chat_id, req.user.organizationId], { orgId: req.user.organizationId });
     if (!binding.length) throw httpError(404, 'Группа не привязана к вашему рабочему контуру.', 'CHAT_NOT_FOUND');
+    await assertRestaurantAccess(req.user, binding[0].restaurant_id);
     await queryWithRetry(
       `INSERT INTO telegram_bot_settings
         (chat_id,organization_id,restaurant_id,mode,notification_level,morning_report_time,evening_report_time,escalation_minutes,created_by,updated_by)
@@ -3213,22 +3215,29 @@ app.put('/api/telegram-bot/settings', requireAuth, requireOrg, requirePrivileged
 
 app.get('/api/telegram-monitor/chats', requireAuth, requireOrg, async (req, res, next) => {
   try {
-    const isAdmin = req.user.role === 'super_admin';
+    const role = String(req.user.role || '').toLowerCase();
+    const isAdmin = role === 'super_admin';
+    const isOrgOwner = role === 'owner';
     const rows = isAdmin
       ? await strictQuery(`SELECT c.chat_id, c.chat_type, c.title, c.first_seen_at, c.last_seen_at,
           b.organization_id, b.restaurant_id, ou.name AS restaurant_name,
           (SELECT count(*)::int FROM telegram_messages m WHERE m.chat_id=c.chat_id) AS message_count
         FROM telegram_chats c
         LEFT JOIN telegram_chat_bindings b ON b.chat_id=c.chat_id
-        LEFT JOIN org_units ou ON ou.id=b.restaurant_id
+        LEFT JOIN org_units ou ON ou.id=b.restaurant_id AND ou.organization_id=b.organization_id
         ORDER BY c.last_seen_at DESC LIMIT 200`)
       : await strictQuery(`SELECT c.chat_id, c.chat_type, c.title, c.first_seen_at, c.last_seen_at,
           b.organization_id, b.restaurant_id, ou.name AS restaurant_name,
           (SELECT count(*)::int FROM telegram_messages m WHERE m.chat_id=c.chat_id) AS message_count
         FROM telegram_chats c
         JOIN telegram_chat_bindings b ON b.chat_id=c.chat_id AND b.organization_id=$1::uuid
-        LEFT JOIN org_units ou ON ou.id=b.restaurant_id
-        ORDER BY c.last_seen_at DESC LIMIT 200`, [req.user.organizationId]);
+        JOIN org_units ou ON ou.id=b.restaurant_id AND ou.organization_id=b.organization_id AND ou.kind='restaurant'
+        WHERE ($2::boolean OR EXISTS (
+          SELECT 1 FROM org_unit_access access
+          WHERE access.organization_id=b.organization_id
+            AND access.user_id=$3 AND access.unit_id=b.restaurant_id
+        ))
+        ORDER BY c.last_seen_at DESC LIMIT 200`, [req.user.organizationId, isOrgOwner, String(req.user.id)]);
     ok(res, { chats: rows, canBind: isAdmin });
   } catch (e) { next(e); }
 });
@@ -3239,7 +3248,14 @@ app.get('/api/telegram-monitor/messages', requireAuth, requireOrg, async (req, r
     const search = String(req.query.q || '').trim().slice(0, 200);
     const limit = Math.max(1, Math.min(100, Number.parseInt(String(req.query.limit || '50'), 10) || 50));
     if (!chatId) throw httpError(400, 'Выберите Telegram-чат.', 'CHAT_REQUIRED');
-    const isAdmin = req.user.role === 'super_admin';
+    const isAdmin = String(req.user.role || '').toLowerCase() === 'super_admin';
+    if (!isAdmin) {
+      const binding = await strictQuery(
+        'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
+        [chatId, req.user.organizationId], { orgId: req.user.organizationId });
+      if (!binding[0]) throw httpError(404, 'Группа не привязана к вашему рабочему контуру.', 'CHAT_NOT_FOUND');
+      await assertRestaurantAccess(req.user, binding[0].restaurant_id);
+    }
     const rows = isAdmin
       ? await strictQuery(`SELECT m.chat_id, m.message_id, m.sender_name, m.sender_username,
           m.message_text, m.message_date, m.edited_at, m.received_at
