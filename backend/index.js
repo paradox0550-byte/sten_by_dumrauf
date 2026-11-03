@@ -578,6 +578,7 @@ const n = Number(v);
 return Number.isFinite(n) ? n : null;
 }
 const { calculatePnl } = require('./finance/pnlCalculator');
+const { xlsxToRows } = require('./finance/pnlImport');
 function delta(actual, plan) {
 const a = numOrNull(actual), p = numOrNull(plan);
 return {
@@ -1043,52 +1044,6 @@ return { answer: source.slice(0, match.index).trim(), proposed_memory: clean };
 }
 
 /* ----------------------------- XLSX / P&L import ---------------------------- */
-const ARTICLE_ALIASES = {
-revenue:       ['выручка', 'доход', 'revenue', 'оборот', 'выручкавсего'],
-cogs:          ['себестоимость', 'sebestoimost', 'cogs', 'фудкост', 'foodcost', 'закупки', 'продукты'],
-personnel:     ['фот', 'personnel', 'payroll', 'зарплата', 'ФОТ', 'персонал', 'фондооплаты'],
-opex:          ['opex', 'расходы', 'аренда', 'коммунальные', 'эксплуатационные'],
-depreciation:  ['амортизация', 'depreciation'],
-interest:      ['проценты', 'interest', 'кредиты'],
-tax:           ['налоги', 'tax', 'налог'],
-other:         ['прочее', 'other', 'ишеe', 'другое'],
-};
-function classifyArticle(name) {
-const k = normKey(name);
-if (!k) return 'other_operating';
-for (const [key, aliases] of Object.entries(ARTICLE_ALIASES)) {
-if (aliases.some(a => normKey(a) === k)) return key;
-}
-for (const [key, aliases] of Object.entries(ARTICLE_ALIASES)) {
-if (aliases.some(a => { const na = normKey(a); return na && k.includes(na); })) return key;
-}
-return 'other_operating';
-}
-function parseNumberCell(v) {
-if (typeof v === 'number' && Number.isFinite(v)) return v;
-if (typeof v !== 'string') return null;
-let s = v.replace(/\u00a0/g, '').replace(/\s+/g, '').replace(/₽/gu, '').replace(/%$/u, '');
-if (!s) return null;
-const hasComma = s.includes(',');
-const hasDot = s.includes('.');
-if (hasComma && hasDot) {
-s = s.lastIndexOf(',') > s.lastIndexOf('.')
-? s.replace(/\./g, '').replace(',', '.')
-: s.replace(/,/g, '');
-} else if (hasComma) {
-const parts = s.split(',');
-s = (parts.length === 2 && parts[1].length !== 3) ? s.replace(',', '.') : s.replace(/,/g, '');
-}
-if (!/^-?\d+(?:\.\d+)?$/u.test(s)) return null;
-const n = Number(s);
-return Number.isFinite(n) ? n : null;
-}
-function headerIndex(headers, words) {
-return headers.findIndex(v => {
-const k = normKey(v);
-return words.some(w => k === normKey(w) || k.includes(normKey(w)));
-});
-}
 function parseBankStatement(buffer) {
 let wb;
 try { wb = XLSX.read(buffer, { type: 'buffer' }); }
@@ -1137,61 +1092,6 @@ result.push(...sheetLines);
 }
 return result.join('\n');
 }
-function xlsxToRows(buffer) {
-const wb = XLSX.read(buffer, { type: 'buffer', cellDates: false, cellNF: false, cellText: false });
-const out = [];
-for (const sheetName of wb.SheetNames) {
-const ws = wb.Sheets[sheetName];
-if (!ws) continue;
-const grid = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
-if (!Array.isArray(grid) || !grid.length) continue;
-let labelCol = 0, planCol = -1, factCol = -1, headerRow = -1;
-for (let ri = 0; ri < Math.min(grid.length, 12); ri++) {
-const row = Array.isArray(grid[ri]) ? grid[ri] : [];
-const texts = row.map(v => String(v ?? ''));
-const p = headerIndex(texts, ['план','plan','бюджет']);
-const f = headerIndex(texts, ['факт','fact','actual']);
-if (p >= 0 || f >= 0) {
-headerRow = ri; planCol = p; factCol = f;
-const l = headerIndex(texts, ['статья','наименование','показатель','article','name']);
-if (l >= 0) labelCol = l;
-break;
-}
-}
-const start = headerRow >= 0 ? headerRow + 1 : 0;
-for (let ri = start; ri < grid.length; ri++) {
-const line = Array.isArray(grid[ri]) ? grid[ri] : [];
-if (!line.length) continue;
-let foundLabelCol = labelCol;
-if (typeof line[foundLabelCol] !== 'string' || !String(line[foundLabelCol]).trim()) {
-foundLabelCol = line.findIndex(v => typeof v === 'string' && String(v).trim().length);
-}
-if (foundLabelCol < 0) continue;
-const label = String(line[foundLabelCol]).trim();
-const article = classifyArticle(label);
-if (!article) continue;
-let plan = planCol >= 0 ? parseNumberCell(line[planCol]) : null;
-let fact = factCol >= 0 ? parseNumberCell(line[factCol]) : null;
-if (planCol < 0 || factCol < 0) {
-const numeric = [];
-for (let ci = foundLabelCol + 1; ci < line.length; ci++) {
-const n = parseNumberCell(line[ci]);
-if (n !== null) numeric.push({ ci, n });
-}
-if (planCol < 0) plan = numeric[0]?.n ?? null;
-if (factCol < 0) fact = numeric[1]?.n ?? numeric[0]?.n ?? null;
-}
-out.push({
-id: crypto.randomUUID(), article, label, plan, fact,
-source: `xlsx:${sheetName}`, sheet: sheetName, sourceRow: ri + 1,
-sourceCellPlan: planCol >= 0 ? XLSX.utils.encode_cell({ r: ri, c: planCol }) : null,
-sourceCellFact: factCol >= 0 ? XLSX.utils.encode_cell({ r: ri, c: factCol }) : null,
-});
-}
-}
-return out;
-}
-
 /* ----------------------------- express app ---------------------------------- */
 const app = express();
 app.disable('x-powered-by');
