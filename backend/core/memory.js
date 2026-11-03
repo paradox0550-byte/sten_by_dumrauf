@@ -61,7 +61,12 @@ async function createMemory(user, payload, ctx = {}) {
     const issue = body.error.issues[0];
     throw httpError(400, `Ошибка валидации: ${issue.path.join('.') || 'body'} — ${issue.message}`, 'VALIDATION_ERROR');
   }
-  const scope = normalizeScope(body.data.scope);
+  const requestedScope = body.data.scope || {};
+  if (requestedScope.project_id || requestedScope.branch_id || requestedScope.restaurant_id || requestedScope.department_id) {
+    if (typeof ctx.assertScopeAccess !== 'function') throw httpError(500, 'Проверка рабочего контура памяти не настроена', 'MEMORY_SCOPE_CHECK_MISSING');
+    await ctx.assertScopeAccess(user, requestedScope);
+  }
+  const scope = normalizeScope(requestedScope);
   const id = randomUUID();
   const result = await ctx.queryWithRetry(
     `INSERT INTO ai_memory
@@ -93,7 +98,8 @@ async function listMemory(user, filter = {}, ctx = {}) {
     throw httpError(400, `Ошибка фильтра: ${issue.path.join('.') || 'filter'} — ${issue.message}`, 'VALIDATION_ERROR');
   }
   const f = parsed.data;
-  if (f.restaurant_id && typeof ctx.assertScopeAccess === 'function') {
+  if (f.restaurant_id) {
+    if (typeof ctx.assertScopeAccess !== 'function') throw httpError(500, 'Проверка рабочего контура памяти не настроена', 'MEMORY_SCOPE_CHECK_MISSING');
     await ctx.assertScopeAccess(user, { restaurant_id: f.restaurant_id });
   }
   const params = [user.organizationId];
@@ -172,7 +178,12 @@ async function loadMemoryContext(user, scope, limit = 15, ctx = {}) {
   const safeLimit = Math.max(1, Math.min(50, Number(limit) || 15));
   const confirmedLimit = Math.min(10, safeLimit);
   const unconfirmedLimit = Math.min(5, Math.max(0, safeLimit - confirmedLimit));
-  const s = normalizeScope(scope || {});
+  const requestedScope = scope || {};
+  if (requestedScope.project_id || requestedScope.branch_id || requestedScope.restaurant_id || requestedScope.department_id) {
+    if (typeof ctx.assertScopeAccess !== 'function') throw httpError(500, 'Проверка рабочего контура памяти не настроена', 'MEMORY_SCOPE_CHECK_MISSING');
+    await ctx.assertScopeAccess(user, requestedScope);
+  }
+  const s = normalizeScope(requestedScope);
   const params = [user.organizationId];
   const where = ['organization_id=$1::uuid'];
   for (const [key, value] of Object.entries(s)) {
