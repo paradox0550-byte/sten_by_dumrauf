@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Bot, Save, ShieldCheck, Clock3, Bell, RefreshCw } from 'lucide-react';
-import { api, ApiError } from '../lib/api';
+import { api, ApiError } from '../../lib/api';
 import '../styles/telegram-bot-control.css';
 
 type Chat = { chat_id: string; title: string | null; restaurant_id: string | null; restaurant_name: string | null; organization_id: string | null };
@@ -68,7 +68,7 @@ export default function TelegramBotControl() {
         <label className="telegram-bot-control__field"><span>Режим работы</span><select value={settings.mode} onChange={e => setSettings(v => ({ ...v, mode: e.target.value as Settings['mode'] }))}>
           <option value="observer">Наблюдатель — анализирует, не предлагает поручения</option>
           <option value="secretary">Секретарь — готовит предложения на подтверждение</option>
-          <option value="controller">Операционный контролёр — контроль утверждённых поручений</option>
+          <option value="controller" disabled>Операционный контролёр — будет доступен после запуска контура исполнения</option>
         </select></label>
         <label className="telegram-bot-control__field"><span>Какие события показывать</span><select value={settings.notification_level} onChange={e => setSettings(v => ({ ...v, notification_level: e.target.value as Settings['notification_level'] }))}>
           <option value="urgent_only">Только срочные</option><option value="deviations">Срочные и отклонения</option><option value="all">Все рабочие события</option>
@@ -79,7 +79,7 @@ export default function TelegramBotControl() {
           <option value={60}>1 час</option><option value={120}>2 часа</option><option value={240}>4 часа</option><option value={480}>8 часов</option><option value={1440}>24 часа</option>
         </select></label>
       </div>
-      <div className="telegram-bot-control__approval"><ShieldCheck size={17} /><span><strong>Подтверждение руководителя обязательно.</strong> Бот не назначает задачи, не отправляет команды и не закрывает поручения самостоятельно. Эти действия будут доступны после подключения соответствующего контура исполнения.</span></div>
+      <div className="telegram-bot-control__approval"><ShieldCheck size={17} /><span><strong>Подтверждение руководителя обязательно.</strong> В режиме «Секретарь» STEN готовит предложения. Автоматическая отправка команд, контроль исполнения и закрытие поручений пока не включены — они требуют отдельного контура утверждения и проверки.</span></div><p className="telegram-bot-control__hint">В этой версии сохраняются режим анализа, уровень событий и желаемое время сводок. Автоматическая рассылка сводок и эскалация по расписанию ещё не активированы.</p>
       <div className="telegram-bot-control__footer">{error && <p role="alert" className="telegram-bot-control__error">{error}</p>}{notice && <p role="status" className="telegram-bot-control__success">{notice}</p>}<button type="button" className="primary-button" onClick={() => void save()} disabled={saving || !chatId}><Save size={16} /> {saving ? 'Сохраняем…' : 'Сохранить правила'}</button></div>
     </>}
   </section>;
