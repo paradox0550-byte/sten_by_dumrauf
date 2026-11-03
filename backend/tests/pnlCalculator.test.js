@@ -24,12 +24,12 @@ test('does not publish partial EBITDA when a required cost block is missing', ()
   assert.equal(result.ebitdaMargin, null);
 });
 
-test('does not treat missing overtime as zero labor cost', () => {
+test('keeps the existing payroll aggregation when overtime is not a separate imported article', () => {
   const result = calculatePnl({ revenue: 1000, cogs: -250, personnel: -200, opex: -100 });
-  assert.equal(result.labor, null);
-  assert.equal(result.primeCostPercent, null);
-  assert.equal(result.ebitda, null);
-  assert.ok(result.ebitdaMissingBlocks.includes('labor'));
+  assert.equal(result.labor, 200);
+  assert.equal(result.primeCostPercent, 45);
+  assert.equal(result.ebitda, 450);
+  assert.equal(result.ebitdaMissingBlocks.length, 0);
 });
 test('does not publish EBITDA when revenue is missing', () => {
   const result = calculatePnl({ cogs: -250, personnel: -200, overtime: -20, opex: -100 });
