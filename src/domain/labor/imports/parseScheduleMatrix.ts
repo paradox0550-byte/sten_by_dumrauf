@@ -30,7 +30,55 @@ function dateFromHeader(value: unknown): string | null {
 function normalize(value: unknown): string {
   return String(value??'').normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/[.]/g,'').replace(/[\s_-]+/g,' ').trim();
 }
+export type ScheduleCell =
+  | { kind: 'hours'; hours: number; raw: string }
+  | { kind: 'shift'; hours: 12; raw: string }
+  | { kind: 'dayOff'; raw: string }
+  | { kind: 'salary'; raw: string }
+  | { kind: 'empty'; raw: '' }
+  | { kind: 'unknown'; raw: string };
+
+export function parseScheduleCell(value: unknown): ScheduleCell {
+  if (value == null || String(value).trim() === '') return { kind: 'empty', raw: '' };
+  const raw = String(value).trim();
+  const text = normalize(raw);
+  if (/^(в|вых|выходной|выходн|off|day off)$/.test(text)) return { kind: 'dayOff', raw };
+  if (/^(оклад|salary)$/.test(text)) return { kind: 'salary', raw };
+  if (/^(смена|см|shift)$/.test(text)) return { kind: 'shift', hours: 12, raw };
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value > 0 && value <= 24 ? { kind: 'hours', hours: value, raw }
+      : { kind: 'unknown', raw };
+  }
+  const numeric = raw.match(/^(\\d{1,2}(?:[.,]\\d+)?)\\s*(?:ч|час(?:а|ов)?|h|hrs?)?$/i);
+  if (numeric) {
+    const hours = Number(numeric[1].replace(',', '.'));
+    if (hours > 0 && hours <= 24) return { kind: 'hours', hours, raw };
+  }
+  const range = raw.match(/(\\d{1,2}):(\\d{2})\\s*[-–—]\\s*(\\d{1,2}):(\\d{2})/);
+  if (range) {
+    const sh = Number(range[1]), sm = Number(range[2]), eh = Number(range[3]), em = Number(range[4]);
+    if (sh <= 23 && eh <= 23 && sm <= 59 && em <= 59) {
+      let minutes = eh * 60 + em - (sh * 60 + sm);
+      if (minutes <= 0) minutes += 1440;
+      return { kind: 'hours', hours: minutes / 60, raw };
+    }
+  }
+  return { kind: 'unknown', raw };
+}
+
 function parseShiftValue(value: unknown): { hours: number | null; startTime: string | null; endTime: string | null; ambiguous: boolean } {
+  const common = parseScheduleCell(value);
+  if (common.kind === 'hours') {
+    const range = common.raw.match(/(\\d{1,2}):(\\d{2})\\s*[-–—]\\s*(\\d{1,2}):(\\d{2})/);
+    if (range) return { hours: common.hours, startTime: `${String(Number(range[1])).padStart(2,'0')}:${range[2]}`, endTime: `${String(Number(range[3])).padStart(2,'0')}:${range[4]}`, ambiguous: false };
+    return { hours: common.hours, startTime: null, endTime: null, ambiguous: false };
+  }
+  if (common.kind === 'shift') return { hours: common.hours, startTime: null, endTime: null, ambiguous: false };
+  if (common.kind === 'empty' || common.kind === 'dayOff' || common.kind === 'salary') return { hours: null, startTime: null, endTime: null, ambiguous: false };
+  return { hours: null, startTime: null, endTime: null, ambiguous: true };
+}
+
+
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value > 0 && value <= 24 ? { hours: value, startTime: null, endTime: null, ambiguous: false }
       : { hours: null, startTime: null, endTime: null, ambiguous: true };
