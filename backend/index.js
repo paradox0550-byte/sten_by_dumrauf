@@ -15,6 +15,7 @@ const { convertWithMarkItDown } = require('./markitdownClient');
 const { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { buildSkillPrompt } = require('./core/skills');
 const { persistTelegramUpdate, claimTelegramUpdate, completeTelegramUpdate, failTelegramUpdate } = require('./telegramMonitor');
+const { processTelegramMessageBatch } = require('./telegramSecretaryWorker');
 const { resolveAgent, toolsForAgent, agentAllowsTool } = require('./core/agents');
 const { TOOLS, executeTool } = require('./core/tools');
 const { createMemory, listMemory, updateMemoryConfidence, deleteMemory, loadMemoryContext } = require('./core/memory');
@@ -354,6 +355,18 @@ await query(`CREATE TABLE IF NOT EXISTS telegram_messages (
   PRIMARY KEY (chat_id, message_id)
 );`);
 await query(`CREATE INDEX IF NOT EXISTS idx_telegram_messages_chat_date ON telegram_messages(chat_id, message_date DESC);`);
+await query(`CREATE TABLE IF NOT EXISTS telegram_message_analyses (
+  chat_id TEXT NOT NULL,
+  message_id TEXT NOT NULL,
+  organization_id UUID NOT NULL,
+  restaurant_id UUID NOT NULL,
+  sender_id TEXT NOT NULL,
+  analysis_json JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (chat_id, message_id),
+  FOREIGN KEY (chat_id, message_id) REFERENCES telegram_messages(chat_id, message_id) ON DELETE CASCADE
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_message_analyses_scope ON telegram_message_analyses(organization_id, restaurant_id, created_at DESC);`);
 await query(`CREATE TABLE IF NOT EXISTS payroll_records (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id UUID NOT NULL, user_id UUID, period TEXT NOT NULL, department TEXT, hours NUMERIC(10,2), amount NUMERIC(18,2), created_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
 await query(`ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS project_id    TEXT NOT NULL DEFAULT '';`);
 await query(`ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS branch_id     TEXT NOT NULL DEFAULT '';`);
@@ -3632,7 +3645,12 @@ return { statusCode: 400, headers: { 'Content-Type': 'application/json; charset=
 if (isTimerEvent(event)) {
 try {
 const suspended = await suspendExpiredOrganizations();
-return { ok: true, suspended };
+const telegramAnalysis = await processTelegramMessageBatch({
+  queryWithRetry,
+  analyze: prompt => callYandexGPT([{ role: 'user', text: prompt }]),
+  limit: 20,
+});
+return { ok: true, suspended, telegramAnalysis };
 } catch (e) {
 console.error('[sten] subscription expiry failed:', e && e.stack ? e.stack : e);
 throw e;
