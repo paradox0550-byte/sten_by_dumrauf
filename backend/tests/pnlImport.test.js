@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const XLSX = require('xlsx');
+const XLSX = require('@e965/xlsx');
 const { classifyArticle, parseNumberCell, xlsxToRows } = require('../finance/pnlImport');
 
 function workbookBuffer(rows, mutate) {
