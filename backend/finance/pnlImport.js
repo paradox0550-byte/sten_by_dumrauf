@@ -13,7 +13,7 @@ const ARTICLE_ALIASES = {
   interest: ['проценты', 'interest', 'кредиты'],
   tax: ['налоги', 'tax', 'налог'],
   other: ['прочее', 'other', 'другое'],
-  other_operating: ['прочее операционные', 'прочие операционные расходы', 'other operating'],
+  other_operating: ['прочее операционные', 'прочие операционные', 'прочие операционные расходы', 'other operating'],
 };
 
 function normalizeKey(value) {
@@ -93,7 +93,7 @@ function xlsxToRows(buffer) {
       }
       if (foundLabelColumn < 0) continue;
       const label = String(line[foundLabelColumn] ?? '').trim();
-      if (!label) continue;
+      if (!label || ['статья', 'наименование', 'показатель', 'article', 'name'].includes(normalizeKey(label))) continue;
       const category = classifyArticle(label);
       const article = label;
       let plan = planColumn >= 0 ? parseNumberCell(line[planColumn]) : null;
@@ -104,7 +104,7 @@ function xlsxToRows(buffer) {
       const planFormula = planCell ? sheet[planCell]?.f || null : null;
       const factFormula = factCell ? sheet[factCell]?.f || null : null;
       const warnings = [];
-      if (planColumn < 0 && factColumn < 0) warnings.push('Не найдены заголовки «План» и «Факт»: значения не распределены автоматически.');
+      if (planColumn < 0 || factColumn < 0) warnings.push('Не все заголовки «План» и «Факт» найдены: отсутствующее значение оставлено пустым.');
       if (planFormula && plan === null) warnings.push('Формула в плане не содержит сохранённого результата Excel.');
       if (factFormula && fact === null) warnings.push('Формула в факте не содержит сохранённого результата Excel.');
       output.push({
