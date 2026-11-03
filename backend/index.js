@@ -1547,9 +1547,9 @@ return [];
 
 async function assertRestaurantAccess(user, restaurantId) {
 if (!restaurantId) return true;
-const r = await safeQuery('SELECT id, parent_id, kind FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' LIMIT 1', [restaurantId, user.organizationId], null);
-if (!r?.[0]) throw httpError(404, 'Ресторан не найден в текущей организации.', 'RESTAURANT_NOT_FOUND');
-const explicit = await safeQuery('SELECT 1 FROM org_unit_access WHERE organization_id=$1::uuid AND user_id=$2 AND unit_id=$3::uuid LIMIT 1', [user.organizationId, user.id, restaurantId], []);
+const r = await strictQuery('SELECT id, parent_id, kind FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' LIMIT 1', [restaurantId, user.organizationId], { orgId: user.organizationId });
+if (!r[0]) throw httpError(404, 'Ресторан не найден в текущей организации.', 'RESTAURANT_NOT_FOUND');
+const explicit = await safeQuery('SELECT 1 FROM org_unit_access WHERE organization_id=$1::uuid AND user_id=$2 AND unit_id=$3::uuid LIMIT 1', [user.organizationId, user.id, restaurantId], { orgId: user.organizationId });
 if (explicit.length || ['super_admin','owner'].includes(String(user.role || '').toLowerCase())) return true;
 throw httpError(403, 'Нет доступа к выбранному ресторану.', 'RESTAURANT_FORBIDDEN');
 }
@@ -1558,27 +1558,27 @@ async function assertScopeAccess(user, scope = {}) {
 const restaurantIds = new Set();
 if (scope.restaurant_id) restaurantIds.add(String(scope.restaurant_id));
 if (scope.department_id) {
-const rows = await safeQuery('SELECT parent_id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'department\' LIMIT 1', [scope.department_id,user.organizationId], null);
+const rows = await safeQuery('SELECT parent_id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'department\' LIMIT 1', [scope.department_id,user.organizationId], { orgId: user.organizationId });
 if (!rows?.[0]) throw httpError(404,'Отдел не найден в текущей организации.','DEPARTMENT_NOT_FOUND');
 if (rows[0].parent_id) restaurantIds.add(String(rows[0].parent_id));
 }
 if (scope.branch_id) {
-const branchExists = await safeQuery('SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'branch\' LIMIT 1', [scope.branch_id,user.organizationId], null);
-if (!branchExists) throw httpError(503,'Не удалось проверить доступ к филиалу.','SCOPE_ACCESS_CHECK_FAILED');
+const branchExists = await safeQuery('SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'branch\' LIMIT 1', [scope.branch_id,user.organizationId], { orgId: user.organizationId });
+
 if (!branchExists[0]) throw httpError(404,'Филиал не найден в текущей организации.','BRANCH_NOT_FOUND');
-const rows = await safeQuery('SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' ORDER BY id', [scope.branch_id,user.organizationId], null);
-if (!rows) throw httpError(503,'Не удалось проверить доступ к филиалу.','SCOPE_ACCESS_CHECK_FAILED');
+const rows = await safeQuery('SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' ORDER BY id', [scope.branch_id,user.organizationId], { orgId: user.organizationId });
+
 rows.forEach(r => restaurantIds.add(String(r.id)));
 }
 if (scope.project_id) {
-const projExists = await safeQuery('SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'project\' LIMIT 1', [scope.project_id,user.organizationId], null);
-if (!projExists) throw httpError(503,'Не удалось проверить доступ к проекту.','SCOPE_ACCESS_CHECK_FAILED');
+const projExists = await safeQuery('SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'project\' LIMIT 1', [scope.project_id,user.organizationId], { orgId: user.organizationId });
+
 if (!projExists[0]) throw httpError(404,'Проект не найден в текущей организации.','PROJECT_NOT_FOUND');
-const branches = await safeQuery('SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'branch\' ORDER BY id', [scope.project_id,user.organizationId], null);
-if (!branches) throw httpError(503,'Не удалось проверить доступ к проекту.','SCOPE_ACCESS_CHECK_FAILED');
+const branches = await safeQuery('SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'branch\' ORDER BY id', [scope.project_id,user.organizationId], { orgId: user.organizationId });
+
 for (const b of branches) {
-const restaurants = await safeQuery('SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' ORDER BY id', [b.id,user.organizationId], null);
-if (!restaurants) throw httpError(503,'Не удалось проверить доступ к проекту.','SCOPE_ACCESS_CHECK_FAILED');
+const restaurants = await safeQuery('SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' ORDER BY id', [b.id,user.organizationId], { orgId: user.organizationId });
+
 restaurants.forEach(r => restaurantIds.add(String(r.id)));
 }
 }
@@ -3007,10 +3007,9 @@ const OPERATIONAL_CHECKPOINTS = Object.freeze({
 });
 async function assertOperationalRestaurant(user, restaurantId) {
   await assertRestaurantAccess(user, restaurantId);
-  const rows = await safeQuery(
+  const rows = await strictQuery(
     "SELECT id, name FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind='restaurant' LIMIT 1",
-    [restaurantId, user.organizationId], null);
-  if (!rows) throw httpError(503, 'Справочник ресторанов временно недоступен', 'DB_UNAVAILABLE');
+    [restaurantId, user.organizationId], { orgId: user.organizationId });
   if (!rows[0]) throw httpError(404, 'Ресторан не найден или недоступен', 'RESTAURANT_NOT_FOUND');
   return rows[0];
 }
@@ -3068,16 +3067,15 @@ app.post('/api/operational-control/observations', requireAuth, requireOrg, async
     ok(res, { observation, confirmed: true }, 201);
   } catch (e) { next(e); }
 });
-app.post('/api/operational-control/actions', requireAuth, requireOrg, async (req, res, next) => {
+app.post('/api/operational-control/actions', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
   try {
     const body = parseOr400(OperationalActionSchema, req.body ?? {});
     const restaurant = await assertOperationalRestaurant(req.user, body.restaurant_id);
-    const obs = await safeQuery(
+    const obs = await strictQuery(
       'SELECT id FROM operational_observations WHERE id=$1::uuid AND organization_id=$2::uuid AND restaurant_id=$3::uuid LIMIT 1',
-      [body.observation_id, req.user.organizationId, restaurant.id], null);
-    if (!obs) throw httpError(503, 'Не удалось проверить исходное отклонение', 'DB_UNAVAILABLE');
+      [body.observation_id, req.user.organizationId, restaurant.id], { orgId: req.user.organizationId });
     if (!obs[0]) throw httpError(404, 'Отклонение не найдено в выбранном ресторане', 'OBSERVATION_NOT_FOUND');
-    const assignee = await safeQuery(
+    const assignee = await strictQuery(
       `SELECT u.id, u.first_name, u.last_name
        FROM users u
        WHERE u.id::text=$1 AND u.organization_id=$2::uuid AND u.is_active=true
@@ -3085,8 +3083,7 @@ app.post('/api/operational-control/actions', requireAuth, requireOrg, async (req
            SELECT 1 FROM org_unit_access a
            WHERE a.organization_id=$2::uuid AND a.user_id=u.id::text AND a.unit_id=$3::uuid
          )) LIMIT 1`,
-      [body.assignee_id, req.user.organizationId, restaurant.id], null);
-    if (!assignee) throw httpError(503, 'Список сотрудников временно недоступен', 'DB_UNAVAILABLE');
+      [body.assignee_id, req.user.organizationId, restaurant.id], { orgId: req.user.organizationId });
     if (!assignee[0]) throw httpError(400, 'Исполнитель не найден или не имеет доступа к выбранному ресторану', 'ASSIGNEE_NOT_FOUND');
     const dueAt = new Date(body.due_at);
     if (dueAt.getTime() <= Date.now()) throw httpError(400, 'Срок задачи должен быть в будущем', 'DUE_DATE_INVALID');
@@ -3109,10 +3106,9 @@ app.patch('/api/operational-control/actions/:id', requireAuth, requireOrg, async
   try {
     if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный id задачи', 'BAD_ID');
     const body = parseOr400(OperationalActionTransitionSchema, req.body ?? {});
-    const rows = await safeQuery(
+    const rows = await strictQuery(
       'SELECT * FROM operational_actions WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
-      [req.params.id, req.user.organizationId], null);
-    if (!rows) throw httpError(503, 'Задачи временно недоступны', 'DB_UNAVAILABLE');
+      [req.params.id, req.user.organizationId], { orgId: req.user.organizationId });
     const current = rows[0];
     if (!current) throw httpError(404, 'Задача не найдена', 'NOT_FOUND');
     await assertOperationalRestaurant(req.user, current.restaurant_id);
@@ -3126,10 +3122,12 @@ app.patch('/api/operational-control/actions/:id', requireAuth, requireOrg, async
       if (!['open','overdue'].includes(current.status)) throw httpError(409, 'Задача не ожидает выполнения', 'INVALID_TRANSITION');
       nextStatus='awaiting_verification'; completedBy=actorId; completedAt=new Date();
     } else if (body.type === 'verify') {
+      if (!PRIVILEGED_ROLES.has(String(req.user.role || '').toLowerCase())) throw httpError(403, 'Проверка результата доступна руководителю', 'FORBIDDEN_ROLE');
       if (current.status !== 'awaiting_verification') throw httpError(409, 'Задача не ожидает проверки', 'INVALID_TRANSITION');
       if (actorId === String(current.completed_by)) throw httpError(403, 'Исполнитель не может подтвердить собственную работу', 'SELF_VERIFICATION_FORBIDDEN');
       nextStatus='verified'; verifiedBy=actorId; verifiedAt=new Date();
     } else if (body.type === 'reopen') {
+      if (!PRIVILEGED_ROLES.has(String(req.user.role || '').toLowerCase())) throw httpError(403, 'Повторное открытие задачи доступно руководителю', 'FORBIDDEN_ROLE');
       if (!['awaiting_verification','verified'].includes(current.status)) throw httpError(409, 'Задачу нельзя открыть повторно из текущего статуса', 'INVALID_TRANSITION');
       if (!body.reason) throw httpError(400, 'Укажите причину повторного открытия', 'REOPEN_REASON_REQUIRED');
       nextStatus='open'; completedBy=null; completedAt=null; verifiedBy=null; verifiedAt=null; reopenedBy=actorId; reopenedAt=new Date(); reopenReason=body.reason;
