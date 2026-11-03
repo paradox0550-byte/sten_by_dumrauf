@@ -75,5 +75,7 @@ test('parses Russian and European thousands separators', () => {
   assert.equal(parseNumberCell('1 234,50'), 1234.5);
   assert.equal(parseNumberCell('1.234,50'), 1234.5);
   assert.equal(parseNumberCell('1.234'), 1234);
+  assert.equal(parseNumberCell('(1 234,50)'), -1234.5);
+  assert.equal(parseNumberCell('−1 234,50'), -1234.5);
   assert.equal(parseNumberCell('не число'), null);
 });
