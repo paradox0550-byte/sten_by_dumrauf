@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Bot, Save, ShieldCheck, Clock3, Bell, RefreshCw } from 'lucide-react';
 import { api, ApiError } from '../../lib/api';
-import '../styles/telegram-bot-control.css';
+import '../../styles/telegram-bot-control.css';
 
 type Chat = { chat_id: string; title: string | null; restaurant_id: string | null; restaurant_name: string | null; organization_id: string | null };
 type Settings = {
