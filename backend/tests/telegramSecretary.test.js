@@ -19,6 +19,27 @@ test('creates an approval-gated proposal from a high-confidence task', () => {
   assert.equal(result.source.messageId, '55');
 });
 
+
+test('observer mode never creates action proposals', () => {
+  const result = parseTelegramAnalysis({
+    intent: 'task', severity: 'high', confidence: 0.99,
+    summary: 'Проверить холодильник', title: 'Проверить холодильник',
+  }, { mode: 'observer', chatId: '-1001', messageId: '56' });
+
+  assert.equal(result.actionProposal, null);
+  assert.equal(result.source.mode, 'observer');
+});
+
+test('secretary mode keeps approval-gated action proposals', () => {
+  const result = parseTelegramAnalysis({
+    intent: 'task', severity: 'high', confidence: 0.91,
+    summary: 'Проверить холодильник', title: 'Проверить холодильник',
+  }, { mode: 'secretary', chatId: '-1001', messageId: '57' });
+
+  assert.equal(result.actionProposal.requiresManagerApproval, true);
+  assert.equal(result.source.mode, 'secretary');
+});
+
 test('does not create proposals for low confidence or ordinary information', () => {
   const low = parseTelegramAnalysis({
     intent: 'task', severity: 'medium', confidence: 0.4, summary: 'Возможно, нужно проверить',
