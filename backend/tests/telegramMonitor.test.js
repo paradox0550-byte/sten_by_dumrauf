@@ -77,7 +77,7 @@ test('failed persisted updates can be claimed again and completed exactly once',
   let state = 'pending';
   const query = async (sql, params) => {
     calls.push({ sql, params });
-    if (sql.includes('UPDATE telegram_updates') && sql.includes("processing_status='processing'")) {
+    if (sql.includes('UPDATE telegram_updates') && sql.includes("SET processing_status='processing'")) {
       if (state === 'pending') {
         state = 'processing';
         return { rows: [{ update_id: params[0], processing_attempts: 1 }] };
@@ -85,11 +85,11 @@ test('failed persisted updates can be claimed again and completed exactly once',
       return { rows: [] };
     }
     if (sql.includes('SELECT processing_status')) return { rows: [{ processing_status: state }] };
-    if (sql.includes("processing_status='pending'")) {
+    if (sql.includes("SET processing_status='pending'")) {
       state = 'pending';
       return { rows: [] };
     }
-    if (sql.includes("processing_status='processed'")) {
+    if (sql.includes("SET processing_status='processed'")) {
       state = 'processed';
       return { rows: [{ update_id: params[0] }] };
     }
@@ -106,7 +106,7 @@ test('failed persisted updates can be claimed again and completed exactly once',
   assert.equal(duplicateClaim.claimed, false);
   assert.equal(duplicateClaim.processed, true);
   assert.equal(state, 'processed');
-  assert.equal(calls.filter(call => call.sql.includes('UPDATE telegram_updates') && call.sql.includes("processing_status='processing'")).length, 3);
+  assert.equal(calls.filter(call => call.sql.includes('UPDATE telegram_updates') && call.sql.includes("SET processing_status='processing'")).length, 3);
 });
 
 test('an active processing lease is not claimed concurrently', async () => {
