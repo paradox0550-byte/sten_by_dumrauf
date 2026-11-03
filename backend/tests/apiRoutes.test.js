@@ -1,6 +1,6 @@
 'use strict';
 
-const test = require('node:test');
+const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 
 process.env.NODE_ENV = 'test';
@@ -11,7 +11,7 @@ const { app } = require('../index');
 let server;
 let baseUrl;
 
-test.before(async () => {
+before(async () => {
   server = app.listen(0, '127.0.0.1');
   await new Promise((resolve, reject) => {
     server.once('listening', resolve);
@@ -21,7 +21,7 @@ test.before(async () => {
   baseUrl = `http://127.0.0.1:${address.port}`;
 });
 
-test.after(async () => {
+after(async () => {
   if (server?.listening) {
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }
