@@ -48,6 +48,7 @@ These are source-verified dead/redundant declarations. This cleanup does not cla
 4. Remove only verified dead files or exact duplicates; then run typecheck, lint, tests, and production build.
 
 ## Status
-- No CSS stylesheet was deleted or moved in this pass.
-- No import order, tokens, page styles, business logic, API/backend, or deployment configuration was changed.
-- This is an initial audit/quarantine scaffold, not a completed CSS purge.
+- The three verified dead/redundant declaration groups above were removed on the cleanup branch.
+- No stylesheet was deleted, moved, or reordered.
+- Canonical theme token values and page/component styling were otherwise preserved.
+- Full stylesheet consolidation is not marked complete until the remaining import/reference map and browser-computed visual comparisons are finished.
