@@ -48,14 +48,13 @@ async function processTelegramMessageBatch({ queryWithRetry, analyze, limit = 20
         senderId: row.sender_id,
         senderName: row.sender_name,
         messageDate: row.message_date,
+        mode: row.bot_mode,
       });
       if (!parsedAnalysis) {
         results.skipped += 1;
         continue;
       }
-      const analysis = row.bot_mode === 'observer'
-        ? Object.freeze({ ...parsedAnalysis, actionProposal: null })
-        : parsedAnalysis;
+      const analysis = parsedAnalysis;
       const inserted = await queryWithRetry(
         `INSERT INTO telegram_message_analyses
           (chat_id,message_id,organization_id,restaurant_id,sender_id,analysis_json,created_at)
