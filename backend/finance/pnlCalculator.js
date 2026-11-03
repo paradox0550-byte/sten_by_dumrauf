@@ -36,8 +36,7 @@ function pnl({ revenue, cogs, personnel, overtime, opex, other, other_operating,
     tax: expenseValue(tax),
   };
 
-  const labor = result.personnel !== null && result.overtime !== null
-    ? result.personnel + result.overtime : null;
+  const labor = sumDefined([result.personnel, result.overtime]);
   const operatingOther = sumDefined([result.otherOperating, result.other]);
   const operatingExpenses = sumDefined([result.opex, operatingOther]);
   const costs = sumDefined([result.cogs, labor, operatingExpenses]);
