@@ -55,6 +55,11 @@ function parseNumberCell(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function readFormulaCell(cell) {
+  const formula = typeof cell?.f === 'string' ? cell.f : null;
+  const hasCachedValue = cell?.v !== undefined && cell?.v !== null && cell?.v !== '';
+  return { formula, hasCachedValue, missingCachedValue: Boolean(formula && !hasCachedValue) };
+}
 function headerIndex(headers, words) {
   return headers.findIndex(value => {
     const key = normalizeKey(value);
@@ -101,12 +106,14 @@ function xlsxToRows(buffer) {
       // Never copy one detected amount into both Plan and Fact when a column is absent.
       const planCell = planColumn >= 0 ? XLSX.utils.encode_cell({ r: rowIndex, c: planColumn }) : null;
       const factCell = factColumn >= 0 ? XLSX.utils.encode_cell({ r: rowIndex, c: factColumn }) : null;
-      const planFormula = planCell ? sheet[planCell]?.f || null : null;
-      const factFormula = factCell ? sheet[factCell]?.f || null : null;
+      const planFormulaInfo = planCell ? readFormulaCell(sheet[planCell]) : readFormulaCell(null);
+      const factFormulaInfo = factCell ? readFormulaCell(sheet[factCell]) : readFormulaCell(null);
+      const planFormula = planFormulaInfo.formula;
+      const factFormula = factFormulaInfo.formula;
       const warnings = [];
       if (planColumn < 0 || factColumn < 0) warnings.push('Не все заголовки «План» и «Факт» найдены: отсутствующее значение оставлено пустым.');
-      if (planFormula && plan === null) warnings.push('Формула в плане не содержит сохранённого результата Excel.');
-      if (factFormula && fact === null) warnings.push('Формула в факте не содержит сохранённого результата Excel.');
+      if (planFormulaInfo.missingCachedValue && plan === null) warnings.push('Формула в плане не содержит сохранённого результата Excel.');
+      if (factFormulaInfo.missingCachedValue && fact === null) warnings.push('Формула в факте не содержит сохранённого результата Excel.');
       output.push({
         id: crypto.randomUUID(), article, key: category || 'unmapped', label, plan, fact,
         source: `xlsx:${sheetName}`, sheet: sheetName, sourceRow: rowIndex + 1,
@@ -119,4 +126,4 @@ function xlsxToRows(buffer) {
   return output;
 }
 
-module.exports = { classifyArticle, parseNumberCell, xlsxToRows };
+module.exports = { classifyArticle, parseNumberCell, readFormulaCell, xlsxToRows };
