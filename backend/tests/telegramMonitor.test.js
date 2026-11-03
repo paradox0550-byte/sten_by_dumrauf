@@ -98,10 +98,10 @@ test('failed persisted updates can be claimed again and completed exactly once',
 
   const firstClaim = await claimTelegramUpdate(query, 901);
   assert.equal(firstClaim.claimed, true);
-  await failTelegramUpdate(query, 901, new Error('Telegram upstream timeout'));
+  await failTelegramUpdate(query, 901, firstClaim.attempts, new Error('Telegram upstream timeout'));
   const retryClaim = await claimTelegramUpdate(query, 901);
   assert.equal(retryClaim.claimed, true);
-  await completeTelegramUpdate(query, 901);
+  await completeTelegramUpdate(query, 901, retryClaim.attempts);
   const duplicateClaim = await claimTelegramUpdate(query, 901);
   assert.equal(duplicateClaim.claimed, false);
   assert.equal(duplicateClaim.processed, true);
@@ -109,6 +109,21 @@ test('failed persisted updates can be claimed again and completed exactly once',
   assert.equal(calls.filter(call => call.sql.includes('UPDATE telegram_updates') && call.sql.includes("SET processing_status='processing'")).length, 3);
 });
 
+test('stale processing attempts cannot complete or release a newer lease', async () => {
+  const statements = [];
+  const query = async (sql, params) => {
+    statements.push({ sql, params });
+    if (sql.includes("SET processing_status='processed'")) return { rows: [] };
+    if (sql.includes("SET processing_status='pending'")) return { rows: [] };
+    throw new Error('Unexpected query');
+  };
+  await assert.rejects(() => completeTelegramUpdate(query, 903, 1), /lease was lost/u);
+  await failTelegramUpdate(query, 903, 1, new Error('late failure'));
+  assert.match(statements[0].sql, /processing_attempts=\$2/u);
+  assert.deepEqual(statements[0].params, [903, 1]);
+  assert.match(statements[1].sql, /processing_attempts=\$3/u);
+  assert.deepEqual(statements[1].params, [903, 'late failure', 1]);
+});
 test('an active processing lease is not claimed concurrently', async () => {
   const query = async (sql) => {
     if (sql.includes('UPDATE telegram_updates')) return { rows: [] };
