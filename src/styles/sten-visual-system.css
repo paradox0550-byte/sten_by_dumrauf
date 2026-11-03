@@ -126,6 +126,3 @@ table tbody tr:hover td { background: var(--bg-surface-subtle); }
   .sten-ai-page .chat-body .message-actions button { width: 42px !important; min-width: 42px !important; min-height: 42px !important; }
   .mobile-bottom-nav a { min-height: 58px; }
 }
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
-}
