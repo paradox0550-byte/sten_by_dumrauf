@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { calculateEmployeeMonth, calculateTotalFOT, inferFotPayType, type FotPayType, type FotEmployeeCalculation } from '../lib/fotCalculator';
 import { AlertCircle, FileSpreadsheet, UploadCloud, FileDown, Printer } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { parseScheduleCell } from '../domain/labor/imports/parseScheduleMatrix';
 import './FotScheduleImport.css';
 
 type ShiftCell =
@@ -88,16 +89,16 @@ const headerDate = (value: unknown, period: string): { date: string; label: stri
   return null;
 };
 
-function parseShift(value: unknown): ShiftCell {
-  if (value == null || String(value).trim() === '') return { kind: 'empty', raw: '' };
-  const raw = String(value).trim();
-  const text = normalize(raw);
-  const hours = text.match(/^(\d+(?:[.,]\d+)?)\s*(?:ч|час(?:а|ов)?|h|hours?)$/i);
-  if (hours) return { kind: 'hours', hours: Number(hours[1].replace(',', '.')), raw };
-  if (/^(в|вых|выходной|выходн|off)$/i.test(text)) return { kind: 'dayOff', isDayOff: true, raw };
-  if (/^(оклад|salary)$/i.test(text)) return { kind: 'salary', isSalary: true, raw };
-  if (/^(смена|см|shift)$/i.test(text)) return { kind: 'shift', isShift: true, defaultHours: 12, raw };
-  return { kind: 'unknown', raw };
+function toShiftCell(value: unknown): ShiftCell {
+  const parsed = parseScheduleCell(value);
+  switch (parsed.kind) {
+    case 'hours': return { kind: 'hours', hours: parsed.hours, raw: parsed.raw };
+    case 'shift': return { kind: 'shift', isShift: true, defaultHours: parsed.hours, raw: parsed.raw };
+    case 'dayOff': return { kind: 'dayOff', isDayOff: true, raw: parsed.raw };
+    case 'salary': return { kind: 'salary', isSalary: true, raw: parsed.raw };
+    case 'empty': return { kind: 'empty', raw: '' };
+    case 'unknown': return { kind: 'unknown', raw: parsed.raw };
+  }
 }
 
 const findColumn = (headers: string[], words: string[]) =>
@@ -134,7 +135,7 @@ export default function FotScheduleImport({ period, historyScope = 'all' }: { pe
         position: String(row[columns.position] ?? '').trim(),
         rate: row[columns.rate] == null ? '' : String(row[columns.rate]).trim(),
         sourceRow: index + 2,
-        shifts: source.dateColumns.map(column => ({ ...column, value: parseShift(row[column.index]) })),
+        shifts: source.dateColumns.map(column => ({ ...column, value: toShiftCell(row[column.index]) })),
       }));
     if (!rows.length) {
       setError('Не найдено строк сотрудников. Проверьте выбранные столбцы и строку заголовков.');

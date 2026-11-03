@@ -137,6 +137,7 @@ export const PnlImportSchema: z.ZodType<PnlImportRequest> = z.object({
 export interface PnlImportRow {
   id?: string;
   article: string;
+  key?: string;
   label?: string;
   plan: number | null;
   fact: number | null;
@@ -145,6 +146,9 @@ export interface PnlImportRow {
   sourceRow?: number;
   sourceCellPlan?: string | null;
   sourceCellFact?: string | null;
+  sourceFormulaPlan?: string | null;
+  sourceFormulaFact?: string | null;
+  warnings?: string[];
   confidence?: number;
   requiresReview?: boolean;
 }

@@ -14,11 +14,12 @@ const documentProcessor = require('./documentProcessor');
 const { convertWithMarkItDown } = require('./markitdownClient');
 const { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { buildSkillPrompt } = require('./core/skills');
-const { persistTelegramUpdate } = require('./telegramMonitor');
+const { persistTelegramUpdate, claimTelegramUpdate, completeTelegramUpdate, failTelegramUpdate } = require('./telegramMonitor');
 const { resolveAgent, toolsForAgent, agentAllowsTool } = require('./core/agents');
 const { TOOLS, executeTool } = require('./core/tools');
 const { createMemory, listMemory, updateMemoryConfidence, deleteMemory, loadMemoryContext } = require('./core/memory');
 const { loadConversationContext, startConversationTurn, finishConversationTurn, failConversationTurn } = require('./core/conversationMemory');
+const { connectIikoCloud, encryptCredentials } = require('./integrations/iikoCloud');
 
 // Версия правил, встроенных в этот релиз функции; настройки фильтруются по схеме ниже.
 const SKILLS_VERSION = '5.4.0';
@@ -258,6 +259,60 @@ await query(`CREATE TABLE IF NOT EXISTS telegram_chats (
   first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );`);
+await query(`CREATE TABLE IF NOT EXISTS operational_telegram_sessions (
+  chat_id TEXT NOT NULL,
+  telegram_user_id TEXT NOT NULL,
+  organization_id UUID NOT NULL,
+  restaurant_id UUID NOT NULL,
+  checkpoint_key TEXT,
+  status TEXT CHECK (status IS NULL OR status IN ('problem','needs_help')),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (chat_id, telegram_user_id)
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_operational_telegram_sessions_org ON operational_telegram_sessions(organization_id, restaurant_id);`);
+await query(`CREATE TABLE IF NOT EXISTS operational_observations (
+  id UUID PRIMARY KEY,
+  organization_id UUID NOT NULL,
+  restaurant_id UUID NOT NULL,
+  checkpoint_key TEXT NOT NULL,
+  checkpoint_title TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('ok','problem','needs_help')),
+  note TEXT NOT NULL DEFAULT '',
+  reporter_id TEXT NOT NULL,
+  reporter_name TEXT NOT NULL DEFAULT '',
+  reported_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  verification_status TEXT NOT NULL DEFAULT 'reported' CHECK (verification_status IN ('reported','verified')),
+  verified_by TEXT,
+  verified_at TIMESTAMPTZ,
+  source_chat_id TEXT,
+  source_message_id TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_operational_observations_scope ON operational_observations(organization_id, restaurant_id, reported_at DESC);`);
+await query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_operational_observations_telegram_event ON operational_observations(source_chat_id, source_message_id, reporter_id) WHERE source_chat_id IS NOT NULL AND source_message_id IS NOT NULL;`);
+await query(`CREATE TABLE IF NOT EXISTS operational_actions (
+  id UUID PRIMARY KEY,
+  organization_id UUID NOT NULL,
+  restaurant_id UUID NOT NULL,
+  observation_id UUID NOT NULL REFERENCES operational_observations(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  assignee_id TEXT NOT NULL,
+  assignee_name TEXT NOT NULL DEFAULT '',
+  due_at TIMESTAMPTZ NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','overdue','awaiting_verification','verified','cancelled')),
+  created_by TEXT NOT NULL,
+  completed_by TEXT,
+  completed_at TIMESTAMPTZ,
+  verified_by TEXT,
+  verified_at TIMESTAMPTZ,
+  reopened_by TEXT,
+  reopened_at TIMESTAMPTZ,
+  reopen_reason TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_operational_actions_scope ON operational_actions(organization_id, restaurant_id, status, due_at);`);
 await query(`CREATE TABLE IF NOT EXISTS telegram_chat_bindings (
   chat_id TEXT PRIMARY KEY REFERENCES telegram_chats(chat_id) ON DELETE CASCADE,
   organization_id UUID NOT NULL,
@@ -269,8 +324,21 @@ await query(`CREATE TABLE IF NOT EXISTS telegram_chat_bindings (
 await query(`CREATE TABLE IF NOT EXISTS telegram_updates (
   update_id BIGINT PRIMARY KEY,
   received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  update_json JSONB NOT NULL
+  update_json JSONB NOT NULL,
+  processing_status TEXT NOT NULL DEFAULT 'pending',
+  processing_attempts INTEGER NOT NULL DEFAULT 0,
+  processing_started_at TIMESTAMPTZ,
+  processed_at TIMESTAMPTZ,
+  next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_error TEXT
 );`);
+await query(`ALTER TABLE telegram_updates ADD COLUMN IF NOT EXISTS processing_status TEXT NOT NULL DEFAULT 'pending';`);
+await query(`ALTER TABLE telegram_updates ADD COLUMN IF NOT EXISTS processing_attempts INTEGER NOT NULL DEFAULT 0;`);
+await query(`ALTER TABLE telegram_updates ADD COLUMN IF NOT EXISTS processing_started_at TIMESTAMPTZ;`);
+await query(`ALTER TABLE telegram_updates ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ;`);
+await query(`ALTER TABLE telegram_updates ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT now();`);
+await query(`ALTER TABLE telegram_updates ADD COLUMN IF NOT EXISTS last_error TEXT;`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_updates_retry ON telegram_updates(processing_status, next_attempt_at, received_at);`);
 await query(`CREATE TABLE IF NOT EXISTS telegram_messages (
   chat_id TEXT NOT NULL REFERENCES telegram_chats(chat_id) ON DELETE CASCADE,
   message_id TEXT NOT NULL,
@@ -324,6 +392,38 @@ await query(`DROP INDEX IF EXISTS daily_reports_org_date_uniq;`);
 await query(`CREATE UNIQUE INDEX IF NOT EXISTS daily_reports_org_scope_date_uniq ON daily_reports(organization_id, report_date, project_id, branch_id, restaurant_id, department_id);`);
 await query(`CREATE TABLE IF NOT EXISTS org_units (id UUID PRIMARY KEY, organization_id UUID NOT NULL, parent_id UUID, kind TEXT NOT NULL, name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
 await query(`CREATE INDEX IF NOT EXISTS idx_org_units_org ON org_units(organization_id);`);
+await query(`CREATE TABLE IF NOT EXISTS iiko_connections (
+  id UUID PRIMARY KEY,
+  organization_id UUID NOT NULL,
+  label TEXT NOT NULL,
+  app_id TEXT NOT NULL,
+  credential_fingerprint TEXT NOT NULL,
+  credentials_ciphertext TEXT NOT NULL,
+  credentials_iv TEXT NOT NULL,
+  credentials_tag TEXT NOT NULL,
+  organizations_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  correlation_id TEXT,
+  created_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_verified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (organization_id, credential_fingerprint)
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_iiko_connections_org ON iiko_connections(organization_id, created_at);`);
+await query(`CREATE TABLE IF NOT EXISTS iiko_organization_mappings (
+  id UUID PRIMARY KEY,
+  organization_id UUID NOT NULL,
+  connection_id UUID NOT NULL REFERENCES iiko_connections(id) ON DELETE CASCADE,
+  iiko_organization_id TEXT NOT NULL,
+  iiko_organization_name TEXT NOT NULL,
+  restaurant_id UUID NOT NULL,
+  updated_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (connection_id, iiko_organization_id),
+  UNIQUE (organization_id, restaurant_id)
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_iiko_mappings_org ON iiko_organization_mappings(organization_id, restaurant_id);`);
 await query(`CREATE TABLE IF NOT EXISTS workspace_contexts (organization_id UUID NOT NULL, user_id TEXT NOT NULL, restaurant_id UUID, project_id UUID, branch_id UUID, department_id UUID, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (organization_id, user_id));`);
 await query(`CREATE TABLE IF NOT EXISTS org_unit_access (organization_id UUID NOT NULL, user_id TEXT NOT NULL, unit_id UUID NOT NULL, access_level TEXT NOT NULL DEFAULT 'manage', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (organization_id, user_id, unit_id));`);
 await query(`CREATE INDEX IF NOT EXISTS idx_org_unit_access_user ON org_unit_access(organization_id, user_id, unit_id);`);
@@ -510,73 +610,8 @@ if (v === null || v === undefined || v === '') return null;
 const n = Number(v);
 return Number.isFinite(n) ? n : null;
 }
-function sumDefined(values) {
-const present = values.filter(v => v !== null && v !== undefined);
-if (!present.length) return null;
-return present.reduce((a, b) => a + b, 0);
-}
-function pctOf(v, base) {
-const b = numOrNull(base); const x = numOrNull(v);
-if (x === null || b === null || b === 0) return null;
-return (x / b) * 100;
-}
-function pnl({ revenue, cogs, personnel, overtime, opex, other, other_operating, depreciation, interest, tax } = {}) {
-const expenseValue = value => { const n = numOrNull(value); return n === null ? null : Math.abs(n); };
-const r = {
-revenue: numOrNull(revenue), cogs: expenseValue(cogs), personnel: expenseValue(personnel),
-overtime: expenseValue(overtime), opex: expenseValue(opex), other: expenseValue(other),
-otherOperating: expenseValue(other_operating), depreciation: expenseValue(depreciation),
-interest: expenseValue(interest), tax: expenseValue(tax),
-};
-const labor = sumDefined([r.personnel, r.overtime]);
-const operatingOther = sumDefined([r.otherOperating, r.other]);
-const operatingExpenses = sumDefined([r.opex, operatingOther]);
-const costs = sumDefined([r.cogs, labor, operatingExpenses]);
-r.labor = labor;
-r.grossProfit = (r.revenue !== null && r.cogs !== null) ? r.revenue - r.cogs : null;
-r.operatingExpenses = operatingExpenses;
-const ebitdaMissingBlocks = [];
-if (r.cogs === null) ebitdaMissingBlocks.push('cogs');
-if (labor === null) ebitdaMissingBlocks.push('labor');
-if (r.opex === null) ebitdaMissingBlocks.push('opex');
-r.ebitdaMissingBlocks = ebitdaMissingBlocks;
-r.ebitdaPartial = ebitdaMissingBlocks.length > 0;
-r.ebitda = (r.revenue !== null && costs !== null) ? r.revenue - costs : null;
-r.primeCostPercent = (r.revenue !== null && labor !== null && r.cogs !== null && r.revenue !== 0)
-? ((r.cogs + labor) / r.revenue) * 100 : null;
-r.primeCostStatus = r.primeCostPercent === null ? 'missing'
-: r.primeCostPercent <= 60 ? 'normal'
-: r.primeCostPercent <= 65 ? 'attention' : 'critical';
-r.otherOperatingPercent = pctOf(operatingOther, r.revenue);
-r.otherOperatingRequiresReview = r.otherOperatingPercent !== null && r.otherOperatingPercent > 5;
-r.overtimePercentOfLabor = pctOf(r.overtime, labor);
-const belowEbitda = sumDefined([r.depreciation, r.interest, r.tax]);
-r.belowEbitdaExpenses = belowEbitda;
-r.netProfit = (r.ebitda !== null && belowEbitda !== null) ? r.ebitda - belowEbitda : null;
-r.foodCostPercent = pctOf(r.cogs, r.revenue);
-r.personnelPercent = pctOf(labor, r.revenue);
-r.opexPercent = pctOf(operatingExpenses, r.revenue);
-r.ebitdaMargin = pctOf(r.ebitda, r.revenue);
-r.netMargin = pctOf(r.netProfit, r.revenue);
-r.formulaVersion = 'pnl-v4-signed-expenses-category-aware';
-r.provenance = 'deterministic-backend-calculator';
-return r;
-}
-function calculatePnl(input = {}) {
-const r = pnl(input);
-return {
-...r,
-foodCost: { revenue: r.revenue, cogs: r.cogs, amount: r.cogs, percent: r.foodCostPercent },
-personnelCost: { revenue: r.revenue, personnel: r.personnel, overtime: r.overtime, labor: r.labor, percent: r.personnelPercent },
-overtimeAmount: r.overtime,
-primeCost: { percent: r.primeCostPercent, status: r.primeCostStatus, formula: '(COGS + Labor) / Revenue * 100' },
-review: { otherOperatingRequiresReview: r.otherOperatingRequiresReview, otherOperatingPercent: r.otherOperatingPercent },
-margins: {
-foodCostPercent: r.foodCostPercent, personnelPercent: r.personnelPercent,
-opexPercent: r.opexPercent, ebitdaMargin: r.ebitdaMargin, netMargin: r.netMargin,
-},
-};
-}
+const { calculatePnl } = require('./finance/pnlCalculator');
+const { xlsxToRows } = require('./finance/pnlImport');
 function delta(actual, plan) {
 const a = numOrNull(actual), p = numOrNull(plan);
 return {
@@ -1042,52 +1077,6 @@ return { answer: source.slice(0, match.index).trim(), proposed_memory: clean };
 }
 
 /* ----------------------------- XLSX / P&L import ---------------------------- */
-const ARTICLE_ALIASES = {
-revenue:       ['выручка', 'доход', 'revenue', 'оборот', 'выручкавсего'],
-cogs:          ['себестоимость', 'sebestoimost', 'cogs', 'фудкост', 'foodcost', 'закупки', 'продукты'],
-personnel:     ['фот', 'personnel', 'payroll', 'зарплата', 'ФОТ', 'персонал', 'фондооплаты'],
-opex:          ['opex', 'расходы', 'аренда', 'коммунальные', 'эксплуатационные'],
-depreciation:  ['амортизация', 'depreciation'],
-interest:      ['проценты', 'interest', 'кредиты'],
-tax:           ['налоги', 'tax', 'налог'],
-other:         ['прочее', 'other', 'ишеe', 'другое'],
-};
-function classifyArticle(name) {
-const k = normKey(name);
-if (!k) return 'other_operating';
-for (const [key, aliases] of Object.entries(ARTICLE_ALIASES)) {
-if (aliases.some(a => normKey(a) === k)) return key;
-}
-for (const [key, aliases] of Object.entries(ARTICLE_ALIASES)) {
-if (aliases.some(a => { const na = normKey(a); return na && k.includes(na); })) return key;
-}
-return 'other_operating';
-}
-function parseNumberCell(v) {
-if (typeof v === 'number' && Number.isFinite(v)) return v;
-if (typeof v !== 'string') return null;
-let s = v.replace(/\u00a0/g, '').replace(/\s+/g, '').replace(/₽/gu, '').replace(/%$/u, '');
-if (!s) return null;
-const hasComma = s.includes(',');
-const hasDot = s.includes('.');
-if (hasComma && hasDot) {
-s = s.lastIndexOf(',') > s.lastIndexOf('.')
-? s.replace(/\./g, '').replace(',', '.')
-: s.replace(/,/g, '');
-} else if (hasComma) {
-const parts = s.split(',');
-s = (parts.length === 2 && parts[1].length !== 3) ? s.replace(',', '.') : s.replace(/,/g, '');
-}
-if (!/^-?\d+(?:\.\d+)?$/u.test(s)) return null;
-const n = Number(s);
-return Number.isFinite(n) ? n : null;
-}
-function headerIndex(headers, words) {
-return headers.findIndex(v => {
-const k = normKey(v);
-return words.some(w => k === normKey(w) || k.includes(normKey(w)));
-});
-}
 function parseBankStatement(buffer) {
 let wb;
 try { wb = XLSX.read(buffer, { type: 'buffer' }); }
@@ -1136,61 +1125,6 @@ result.push(...sheetLines);
 }
 return result.join('\n');
 }
-function xlsxToRows(buffer) {
-const wb = XLSX.read(buffer, { type: 'buffer', cellDates: false, cellNF: false, cellText: false });
-const out = [];
-for (const sheetName of wb.SheetNames) {
-const ws = wb.Sheets[sheetName];
-if (!ws) continue;
-const grid = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
-if (!Array.isArray(grid) || !grid.length) continue;
-let labelCol = 0, planCol = -1, factCol = -1, headerRow = -1;
-for (let ri = 0; ri < Math.min(grid.length, 12); ri++) {
-const row = Array.isArray(grid[ri]) ? grid[ri] : [];
-const texts = row.map(v => String(v ?? ''));
-const p = headerIndex(texts, ['план','plan','бюджет']);
-const f = headerIndex(texts, ['факт','fact','actual']);
-if (p >= 0 || f >= 0) {
-headerRow = ri; planCol = p; factCol = f;
-const l = headerIndex(texts, ['статья','наименование','показатель','article','name']);
-if (l >= 0) labelCol = l;
-break;
-}
-}
-const start = headerRow >= 0 ? headerRow + 1 : 0;
-for (let ri = start; ri < grid.length; ri++) {
-const line = Array.isArray(grid[ri]) ? grid[ri] : [];
-if (!line.length) continue;
-let foundLabelCol = labelCol;
-if (typeof line[foundLabelCol] !== 'string' || !String(line[foundLabelCol]).trim()) {
-foundLabelCol = line.findIndex(v => typeof v === 'string' && String(v).trim().length);
-}
-if (foundLabelCol < 0) continue;
-const label = String(line[foundLabelCol]).trim();
-const article = classifyArticle(label);
-if (!article) continue;
-let plan = planCol >= 0 ? parseNumberCell(line[planCol]) : null;
-let fact = factCol >= 0 ? parseNumberCell(line[factCol]) : null;
-if (planCol < 0 || factCol < 0) {
-const numeric = [];
-for (let ci = foundLabelCol + 1; ci < line.length; ci++) {
-const n = parseNumberCell(line[ci]);
-if (n !== null) numeric.push({ ci, n });
-}
-if (planCol < 0) plan = numeric[0]?.n ?? null;
-if (factCol < 0) fact = numeric[1]?.n ?? numeric[0]?.n ?? null;
-}
-out.push({
-id: crypto.randomUUID(), article, label, plan, fact,
-source: `xlsx:${sheetName}`, sheet: sheetName, sourceRow: ri + 1,
-sourceCellPlan: planCol >= 0 ? XLSX.utils.encode_cell({ r: ri, c: planCol }) : null,
-sourceCellFact: factCol >= 0 ? XLSX.utils.encode_cell({ r: ri, c: factCol }) : null,
-});
-}
-}
-return out;
-}
-
 /* ----------------------------- express app ---------------------------------- */
 const app = express();
 app.disable('x-powered-by');
@@ -2059,6 +1993,128 @@ await audit(req.user,'messenger.settings.updated','messenger_settings',req.user.
 ok(res,{saved:true,confirmed:true});
 }catch(e){next(e)}});
 
+
+const IikoConnectSchema = z.object({
+  app_id: z.string().trim().min(1).max(200),
+  client_secret: z.string().min(1).max(500),
+  api_key: z.string().min(1).max(500),
+  label: z.string().trim().min(1).max(120).optional(),
+}).strict();
+const IikoMappingSchema = z.object({
+  iiko_organization_id: z.string().trim().min(1).max(120),
+  restaurant_id: z.string().uuid(),
+}).strict();
+
+app.get('/api/integrations/iiko', requireAuth, requireOrg, async (req,res,next) => {
+  try {
+    const connections = await strictQuery(
+      `SELECT id,label,app_id,organizations_json,correlation_id,last_verified_at,created_at
+       FROM iiko_connections WHERE organization_id=$1::uuid ORDER BY created_at DESC`,
+      [req.user.organizationId],
+    );
+    const mappings = await strictQuery(
+      `SELECT connection_id,iiko_organization_id,iiko_organization_name,restaurant_id
+       FROM iiko_organization_mappings WHERE organization_id=$1::uuid`,
+      [req.user.organizationId],
+    );
+    const mapped = new Map(mappings.map(item => [item.connection_id + ':' + item.iiko_organization_id, item]));
+    ok(res, { connections: connections.map(connection => ({
+      id: connection.id,
+      label: connection.label,
+      app_id: connection.app_id,
+      correlation_id: connection.correlation_id,
+      last_verified_at: connection.last_verified_at,
+      created_at: connection.created_at,
+      organizations: (Array.isArray(connection.organizations_json) ? connection.organizations_json : []).map(item => {
+        const mapping = mapped.get(connection.id + ':' + item.id);
+        return { id: item.id, name: item.name, restaurant_id: mapping?.restaurant_id || null };
+      }),
+    })) });
+  } catch(e) { next(e); }
+});
+
+app.post('/api/integrations/iiko/connect', requireAuth, requireOrg, requirePrivilegedRole, async (req,res,next) => {
+  try {
+    const body = parseOr400(IikoConnectSchema, req.body ?? {});
+    const credentials = { appId: body.app_id, clientSecret: body.client_secret, apiKey: body.api_key };
+    const encrypted = encryptCredentials(credentials);
+    const result = await connectIikoCloud(credentials);
+    if (!result.organizations.length) {
+      throw httpError(422, 'iiko не вернула доступные организации. Проверьте, что API-ключ привязан к организации в iikoWeb.', 'IIKO_ORGANIZATIONS_EMPTY');
+    }
+    const id = uuid();
+    const saved = await queryWithRetry(
+      `INSERT INTO iiko_connections
+       (id,organization_id,label,app_id,credential_fingerprint,credentials_ciphertext,credentials_iv,credentials_tag,organizations_json,correlation_id,created_by,created_at,updated_at,last_verified_at)
+       VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,now(),now(),now())
+       ON CONFLICT (organization_id,credential_fingerprint) DO UPDATE SET
+         label=excluded.label,app_id=excluded.app_id,credentials_ciphertext=excluded.credentials_ciphertext,
+         credentials_iv=excluded.credentials_iv,credentials_tag=excluded.credentials_tag,
+         organizations_json=excluded.organizations_json,correlation_id=excluded.correlation_id,
+         updated_at=now(),last_verified_at=now()
+       RETURNING id`,
+      [id,req.user.organizationId,body.label || 'iiko Cloud',body.app_id,encrypted.fingerprint,
+       encrypted.ciphertext,encrypted.iv,encrypted.tag,JSON.stringify(result.organizations),result.correlationId,req.user.id],
+      { orgId: req.user.organizationId },
+    );
+    await audit(req.user,'integration.iiko.connected','iiko_connections',saved.rows[0].id,{
+      organizations_count: result.organizations.length,
+    });
+    ok(res,{connection:{id:saved.rows[0].id,label:body.label || 'iiko Cloud',app_id:body.app_id,
+      organizations:result.organizations.map(item=>({...item,restaurant_id:null})),
+      correlation_id:result.correlationId,last_verified_at:new Date().toISOString()}},201);
+  } catch(e) { next(e); }
+});
+
+app.put('/api/integrations/iiko/:connectionId/mapping', requireAuth, requireOrg, requirePrivilegedRole, async (req,res,next) => {
+  try {
+    const connectionId = parseOr400(z.string().uuid(), req.params.connectionId);
+    const body = parseOr400(IikoMappingSchema, req.body ?? {});
+    const rows = await strictQuery(
+      'SELECT id,organizations_json FROM iiko_connections WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
+      [connectionId,req.user.organizationId],
+    );
+    if (!rows[0]) throw httpError(404,'Подключение iiko не найдено.','IIKO_CONNECTION_NOT_FOUND');
+    const external = (Array.isArray(rows[0].organizations_json) ? rows[0].organizations_json : [])
+      .find(item => item.id === body.iiko_organization_id);
+    if (!external) throw httpError(404,'Организация не входит в подтверждённый список iiko.','IIKO_ORGANIZATION_NOT_FOUND');
+    await assertRestaurantAccess(req.user,body.restaurant_id);
+    const unit = await strictQuery(
+      "SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind='restaurant' LIMIT 1",
+      [body.restaurant_id,req.user.organizationId],
+    );
+    if (!unit[0]) throw httpError(404,'Ресторан STEN не найден.','RESTAURANT_NOT_FOUND');
+    const mappingId = uuid();
+    await queryWithRetry(
+      `INSERT INTO iiko_organization_mappings
+       (id,organization_id,connection_id,iiko_organization_id,iiko_organization_name,restaurant_id,updated_by,created_at,updated_at)
+       VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6::uuid,$7,now(),now())
+       ON CONFLICT (connection_id,iiko_organization_id) DO UPDATE SET
+         iiko_organization_name=excluded.iiko_organization_name,restaurant_id=excluded.restaurant_id,
+         updated_by=excluded.updated_by,updated_at=now()`,
+      [mappingId,req.user.organizationId,connectionId,external.id,external.name,body.restaurant_id,req.user.id],
+      { orgId: req.user.organizationId },
+    );
+    await audit(req.user,'integration.iiko.organization_mapped','iiko_organization_mappings',external.id,{
+      restaurant_id:body.restaurant_id,connection_id:connectionId,
+    });
+    ok(res,{saved:true,confirmed:true,mapping:{iiko_organization_id:external.id,restaurant_id:body.restaurant_id}});
+  } catch(e) { next(e); }
+});
+
+app.delete('/api/integrations/iiko/:connectionId', requireAuth, requireOrg, requirePrivilegedRole, async (req,res,next) => {
+  try {
+    const connectionId = parseOr400(z.string().uuid(), req.params.connectionId);
+    const gone = await queryWithRetry(
+      'DELETE FROM iiko_connections WHERE id=$1::uuid AND organization_id=$2::uuid RETURNING id',
+      [connectionId,req.user.organizationId],{orgId:req.user.organizationId},
+    );
+    if (!gone.rows[0]) throw httpError(404,'Подключение iiko не найдено.','IIKO_CONNECTION_NOT_FOUND');
+    await audit(req.user,'integration.iiko.disconnected','iiko_connections',connectionId,{});
+    ok(res,{deleted:true,confirmed:true});
+  } catch(e) { next(e); }
+});
+
 app.post('/api/reports/send',requireAuth,requireOrg,requireRole(...WRITE_ROLES),async(req,res,next)=>{try{
 const b=parseOr400(ReportsSendSchema,req.body??{});
 const settingsRows=await safeQuery('SELECT provider,scope_json,metrics_json,telegram_chat_id,whatsapp_phone FROM messenger_settings WHERE organization_id=$1::uuid LIMIT 1',[req.user.organizationId],[]);
@@ -2887,6 +2943,196 @@ total_ms,
 }
 });
 
+/* ---- STEN Operational Control: persistent checks and corrective actions ---- */
+const OperationalObservationSchema = z.object({
+  restaurant_id: z.string().uuid(),
+  checkpoint_key: z.enum(['availability','sanitation','cash_team','hall']),
+  status: z.enum(['ok','problem','needs_help']),
+  note: z.string().trim().max(1000).default(''),
+}).strict();
+const OperationalActionSchema = z.object({
+  restaurant_id: z.string().uuid(),
+  observation_id: z.string().uuid(),
+  title: z.string().trim().min(1).max(180),
+  description: z.string().trim().max(1000).default(''),
+  assignee_id: z.string().trim().min(1).max(120),
+  assignee_name: z.string().trim().max(120).default(''),
+  due_at: z.string().datetime({ offset: true }),
+}).strict();
+const OperationalActionTransitionSchema = z.object({
+  type: z.enum(['complete','verify','reopen','cancel']),
+  reason: z.string().trim().max(500).optional(),
+}).strict();
+const OPERATIONAL_CHECKPOINTS = Object.freeze({
+  availability: 'Раздача и доступность ключевых блюд',
+  sanitation: 'Санитария и обязательные журналы',
+  cash_team: 'Готовность кассы и команды',
+  hall: 'Чистота зала и санузлов',
+});
+async function assertOperationalRestaurant(user, restaurantId) {
+  await assertRestaurantAccess(user, restaurantId);
+  const rows = await safeQuery(
+    "SELECT id, name FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind='restaurant' LIMIT 1",
+    [restaurantId, user.organizationId], null);
+  if (!rows) throw httpError(503, 'Справочник ресторанов временно недоступен', 'DB_UNAVAILABLE');
+  if (!rows[0]) throw httpError(404, 'Ресторан не найден или недоступен', 'RESTAURANT_NOT_FOUND');
+  return rows[0];
+}
+app.get('/api/operational-control', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const restaurantId = String(req.query.restaurant_id || '');
+    if (!UUID_RE.test(restaurantId)) throw httpError(400, 'Выберите ресторан', 'RESTAURANT_REQUIRED');
+    await assertOperationalRestaurant(req.user, restaurantId);
+    const observations = await safeQuery(
+      `SELECT id, restaurant_id, checkpoint_key, checkpoint_title, status, note, reporter_id, reporter_name,
+              reported_at, verification_status, verified_by, verified_at
+       FROM operational_observations WHERE organization_id=$1::uuid AND restaurant_id=$2::uuid
+       ORDER BY reported_at DESC LIMIT 100`,
+      [req.user.organizationId, restaurantId], null);
+    const actions = await safeQuery(
+      `SELECT a.id, a.restaurant_id, a.observation_id, a.title, a.description, a.assignee_id, a.assignee_name,
+              a.due_at, a.status, a.created_by, a.completed_by, a.completed_at, a.verified_by, a.verified_at,
+              a.reopen_reason, a.created_at, o.checkpoint_title, o.note AS observation_note
+       FROM operational_actions a JOIN operational_observations o ON o.id=a.observation_id
+       WHERE a.organization_id=$1::uuid AND a.restaurant_id=$2::uuid
+       ORDER BY CASE WHEN a.status IN ('open','overdue','awaiting_verification') THEN 0 ELSE 1 END,
+                a.due_at ASC LIMIT 200`,
+      [req.user.organizationId, restaurantId], null);
+    if (!observations || !actions) throw httpError(503, 'Операционный контроль временно недоступен', 'DB_UNAVAILABLE');
+    const employees = await safeQuery(
+      `SELECT u.id, u.first_name, u.last_name, u.position
+       FROM users u
+       WHERE u.organization_id=$1::uuid AND u.is_active=true
+         AND (lower(u.role) IN ('super_admin','owner') OR EXISTS (
+           SELECT 1 FROM org_unit_access a
+           WHERE a.organization_id=$1::uuid AND a.user_id=u.id::text AND a.unit_id=$2::uuid
+         ))
+       ORDER BY u.first_name, u.last_name LIMIT 200`,
+      [req.user.organizationId, restaurantId], null);
+    if (!employees) throw httpError(503, 'Список сотрудников временно недоступен', 'DB_UNAVAILABLE');
+    ok(res, { checkpoints: Object.entries(OPERATIONAL_CHECKPOINTS).map(([key,title]) => ({key,title})), observations, actions, employees });
+  } catch (e) { next(e); }
+});
+app.post('/api/operational-control/observations', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const body = parseOr400(OperationalObservationSchema, req.body ?? {});
+    const restaurant = await assertOperationalRestaurant(req.user, body.restaurant_id);
+    if (body.status !== 'ok' && !body.note) throw httpError(400, 'Опишите отклонение или запрос помощи', 'OBSERVATION_NOTE_REQUIRED');
+    const id = uuid();
+    const inserted = await queryWithRetry(
+      `INSERT INTO operational_observations
+       (id, organization_id, restaurant_id, checkpoint_key, checkpoint_title, status, note, reporter_id, reporter_name)
+       VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8,$9)
+       RETURNING id, restaurant_id, checkpoint_key, checkpoint_title, status, note, reporter_id, reporter_name, reported_at, verification_status`,
+      [id, req.user.organizationId, restaurant.id, body.checkpoint_key, OPERATIONAL_CHECKPOINTS[body.checkpoint_key],
+       body.status, body.note, req.user.id, [req.user.firstName, req.user.lastName].filter(Boolean).join(' ')], {orgId:req.user.organizationId});
+    const observation = inserted.rows?.[0];
+    if (!observation) throw httpError(500, 'Сохранение проверки не подтверждено', 'SAVE_NOT_CONFIRMED');
+    await audit(req.user, 'operational.observation.created', 'operational_observations', id, { restaurant_id: restaurant.id, checkpoint_key: body.checkpoint_key, status: body.status });
+    ok(res, { observation, confirmed: true }, 201);
+  } catch (e) { next(e); }
+});
+app.post('/api/operational-control/actions', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const body = parseOr400(OperationalActionSchema, req.body ?? {});
+    const restaurant = await assertOperationalRestaurant(req.user, body.restaurant_id);
+    const obs = await safeQuery(
+      'SELECT id FROM operational_observations WHERE id=$1::uuid AND organization_id=$2::uuid AND restaurant_id=$3::uuid LIMIT 1',
+      [body.observation_id, req.user.organizationId, restaurant.id], null);
+    if (!obs) throw httpError(503, 'Не удалось проверить исходное отклонение', 'DB_UNAVAILABLE');
+    if (!obs[0]) throw httpError(404, 'Отклонение не найдено в выбранном ресторане', 'OBSERVATION_NOT_FOUND');
+    const assignee = await safeQuery(
+      `SELECT u.id, u.first_name, u.last_name
+       FROM users u
+       WHERE u.id::text=$1 AND u.organization_id=$2::uuid AND u.is_active=true
+         AND (lower(u.role) IN ('super_admin','owner') OR EXISTS (
+           SELECT 1 FROM org_unit_access a
+           WHERE a.organization_id=$2::uuid AND a.user_id=u.id::text AND a.unit_id=$3::uuid
+         )) LIMIT 1`,
+      [body.assignee_id, req.user.organizationId, restaurant.id], null);
+    if (!assignee) throw httpError(503, 'Список сотрудников временно недоступен', 'DB_UNAVAILABLE');
+    if (!assignee[0]) throw httpError(400, 'Исполнитель не найден или не имеет доступа к выбранному ресторану', 'ASSIGNEE_NOT_FOUND');
+    const dueAt = new Date(body.due_at);
+    if (dueAt.getTime() <= Date.now()) throw httpError(400, 'Срок задачи должен быть в будущем', 'DUE_DATE_INVALID');
+    const id = uuid();
+    const inserted = await queryWithRetry(
+      `INSERT INTO operational_actions
+       (id,organization_id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,created_by)
+       VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5,$6,$7,$8,$9::timestamptz,$10)
+       RETURNING id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,status,created_by,created_at`,
+      [id, req.user.organizationId, restaurant.id, body.observation_id, body.title, body.description,
+       assignee[0].id, [assignee[0].first_name, assignee[0].last_name].filter(Boolean).join(' '), dueAt.toISOString(), req.user.id],
+      {orgId:req.user.organizationId});
+    const action = inserted.rows?.[0];
+    if (!action) throw httpError(500, 'Создание задачи не подтверждено', 'SAVE_NOT_CONFIRMED');
+    await audit(req.user, 'operational.action.created', 'operational_actions', id, { restaurant_id: restaurant.id, observation_id: body.observation_id, assignee_id: assignee[0].id });
+    ok(res, { action, confirmed: true }, 201);
+  } catch (e) { next(e); }
+});
+app.patch('/api/operational-control/actions/:id', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный id задачи', 'BAD_ID');
+    const body = parseOr400(OperationalActionTransitionSchema, req.body ?? {});
+    const rows = await safeQuery(
+      'SELECT * FROM operational_actions WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
+      [req.params.id, req.user.organizationId], null);
+    if (!rows) throw httpError(503, 'Задачи временно недоступны', 'DB_UNAVAILABLE');
+    const current = rows[0];
+    if (!current) throw httpError(404, 'Задача не найдена', 'NOT_FOUND');
+    await assertOperationalRestaurant(req.user, current.restaurant_id);
+    const actorId = String(req.user.id);
+    let nextStatus = current.status;
+    let completedBy = current.completed_by, completedAt = current.completed_at;
+    let verifiedBy = current.verified_by, verifiedAt = current.verified_at;
+    let reopenedBy = current.reopened_by, reopenedAt = current.reopened_at, reopenReason = current.reopen_reason;
+    if (body.type === 'complete') {
+      if (actorId !== String(current.assignee_id)) throw httpError(403, 'Отметить выполнение может только назначенный исполнитель', 'ASSIGNEE_REQUIRED');
+      if (!['open','overdue'].includes(current.status)) throw httpError(409, 'Задача не ожидает выполнения', 'INVALID_TRANSITION');
+      nextStatus='awaiting_verification'; completedBy=actorId; completedAt=new Date();
+    } else if (body.type === 'verify') {
+      if (current.status !== 'awaiting_verification') throw httpError(409, 'Задача не ожидает проверки', 'INVALID_TRANSITION');
+      if (actorId === String(current.completed_by)) throw httpError(403, 'Исполнитель не может подтвердить собственную работу', 'SELF_VERIFICATION_FORBIDDEN');
+      nextStatus='verified'; verifiedBy=actorId; verifiedAt=new Date();
+    } else if (body.type === 'reopen') {
+      if (!['awaiting_verification','verified'].includes(current.status)) throw httpError(409, 'Задачу нельзя открыть повторно из текущего статуса', 'INVALID_TRANSITION');
+      if (!body.reason) throw httpError(400, 'Укажите причину повторного открытия', 'REOPEN_REASON_REQUIRED');
+      nextStatus='open'; completedBy=null; completedAt=null; verifiedBy=null; verifiedAt=null; reopenedBy=actorId; reopenedAt=new Date(); reopenReason=body.reason;
+    } else if (body.type === 'cancel') {
+      if (!['open','overdue'].includes(current.status)) throw httpError(409, 'Можно отменить только открытую задачу', 'INVALID_TRANSITION');
+      if (!['owner','admin','super_admin','director','manager'].includes(String(req.user.role))) throw httpError(403, 'Недостаточно прав для отмены задачи', 'FORBIDDEN');
+      nextStatus='cancelled';
+    }
+    const updated = await queryWithRetry(
+      `UPDATE operational_actions SET status=$1,completed_by=$2,completed_at=$3,verified_by=$4,verified_at=$5,
+       reopened_by=$6,reopened_at=$7,reopen_reason=$8,updated_at=now()
+       WHERE id=$9::uuid AND organization_id=$10::uuid AND status=$11
+       RETURNING id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,status,created_by,
+                 completed_by,completed_at,verified_by,verified_at,reopen_reason,updated_at`,
+      [nextStatus,completedBy,completedAt,verifiedBy,verifiedAt,reopenedBy,reopenedAt,reopenReason,
+       current.id,req.user.organizationId,current.status], {orgId:req.user.organizationId});
+    if (!updated.rows?.[0]) throw httpError(409, 'Задача уже изменилась. Обновите список и повторите действие.', 'CONCURRENT_UPDATE');
+    if (body.type === 'verify') {
+      await queryWithRetry(
+        `UPDATE operational_observations o
+         SET verification_status='verified', verified_by=$1, verified_at=now()
+         WHERE o.id=$2::uuid AND o.organization_id=$3::uuid
+           AND NOT EXISTS (
+             SELECT 1 FROM operational_actions a
+             WHERE a.observation_id=o.id AND a.id<>$4::uuid AND a.status NOT IN ('verified','cancelled')
+           )`,
+        [actorId,current.observation_id,req.user.organizationId,current.id], {orgId:req.user.organizationId});
+    } else if (body.type === 'reopen') {
+      await queryWithRetry(
+        `UPDATE operational_observations
+         SET verification_status='reported', verified_by=NULL, verified_at=NULL
+         WHERE id=$1::uuid AND organization_id=$2::uuid`,
+        [current.observation_id,req.user.organizationId], {orgId:req.user.organizationId});
+    }
+    await audit(req.user, 'operational.action.'+body.type, 'operational_actions', current.id, { from:current.status, to:nextStatus });
+    ok(res, { action: updated.rows[0], confirmed: true });
+  } catch (e) { next(e); }
+});
+
 /* ---- Telegram Monitor: organization-bound chat/message access ---- */
 app.get('/api/telegram-monitor/chats', requireAuth, requireOrg, async (req, res, next) => {
   try {
@@ -2966,9 +3212,160 @@ if (token && String(req.query['hub.verify_token'] || '') === token) return res.s
 return res.status(403).json({ error: { message: 'Webhook verification failed', code: 'WEBHOOK_VERIFY_FAILED' } });
 });
 
+async function telegramBotRequest(method, payload) {
+  const token = process.env.TELEGRAM_MONITOR_BOT_TOKEN;
+  if (!token) throw httpError(503, 'Монитор-бот Telegram не настроен', 'TELEGRAM_MONITOR_NOT_CONFIGURED');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4500);
+  try {
+    const response = await fetch('https://api.telegram.org/bot' + token + '/' + method, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.ok === false) throw httpError(502, 'Telegram Bot API отклонил запрос', 'TELEGRAM_UPSTREAM_ERROR');
+    return result.result;
+  } catch (error) {
+    if (error?.name === 'AbortError') throw httpError(504, 'Telegram Bot API не ответил вовремя', 'TELEGRAM_TIMEOUT');
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+async function answerTelegramCallback(callbackId, text) {
+  try {
+    await telegramBotRequest('answerCallbackQuery', { callback_query_id: callbackId, text });
+    return true;
+  } catch (error) {
+    // Callback acknowledgements expire independently of durable update processing.
+    log('telegram callback acknowledgement skipped:', error?.code || error?.message || 'UNKNOWN');
+    return false;
+  }
+}
+async function sendOperationalTelegramMessage(chatId, text, replyMarkup) {
+  return telegramBotRequest('sendMessage', { chat_id: chatId, text, ...(replyMarkup ? { reply_markup: replyMarkup } : {}) });
+}
+async function handleOperationalTelegramUpdate(update) {
+  const message = update?.message || update?.edited_message;
+  const callback = update?.callback_query;
+  const chatId = String(callback?.message?.chat?.id ?? message?.chat?.id ?? '');
+  const sender = callback?.from ?? message?.from;
+  if (!chatId || !sender || sender.is_bot) return { handled: false };
+  const binding = await safeQuery(
+    'SELECT b.organization_id, b.restaurant_id, u.name AS restaurant_name FROM telegram_chat_bindings b JOIN org_units u ON u.id=b.restaurant_id AND u.organization_id=b.organization_id WHERE b.chat_id=$1 LIMIT 1',
+    [chatId], null);
+  if (!binding) throw httpError(503, 'Привязка Telegram-чата временно недоступна', 'DB_UNAVAILABLE');
+  if (!binding[0]) return { handled: false };
+  const scope = binding[0];
+  const telegramUserId = String(sender.id);
+  const senderName = [sender.first_name, sender.last_name].filter(Boolean).join(' ').trim() || 'Сотрудник';
+  const actorRows = await safeQuery(
+    'SELECT id, role, organization_id AS "organizationId" FROM users WHERE telegram_chat_id=$1 AND organization_id=$2::uuid AND is_active=true LIMIT 1',
+    [telegramUserId, scope.organization_id], null);
+  if (!actorRows) throw httpError(503, 'Проверка доступа временно недоступна', 'DB_UNAVAILABLE');
+  const actor = actorRows[0];
+  if (!actor) {
+    if (callback) await answerTelegramCallback(callback.id, 'Нет доступа к STEN. Привяжите Telegram ID в профиле.');
+    return { handled: true, denied: true };
+  }
+  try {
+    await assertRestaurantAccess(actor, scope.restaurant_id);
+  } catch (error) {
+    if (callback) await answerTelegramCallback(callback.id, 'Нет доступа к этому ресторану.');
+    if (error?.status === 403 || error?.status === 404) return { handled: true, denied: true };
+    throw error;
+  }
+  if (callback) {
+    await answerTelegramCallback(callback.id, 'Принято');
+    const data = String(callback.data || '');
+    if (data === 'oc:start') {
+      await sendOperationalTelegramMessage(chatId, 'Выберите контрольную точку · ' + scope.restaurant_name, { inline_keyboard: [
+        [{text:'Доступность блюд / стоп-лист',callback_data:'oc:cp:availability'}],
+        [{text:'Санитария и журналы',callback_data:'oc:cp:sanitation'}],
+        [{text:'Касса и готовность команды',callback_data:'oc:cp:cash_team'}],
+        [{text:'Чистота зала и санузлов',callback_data:'oc:cp:hall'}],
+      ]});
+      return { handled: true };
+    }
+    const cp = data.match(/^oc:cp:(availability|sanitation|cash_team|hall)$/u);
+    if (cp) {
+      await queryWithRetry(
+        `INSERT INTO operational_telegram_sessions(chat_id,telegram_user_id,organization_id,restaurant_id,checkpoint_key,status,updated_at)
+         VALUES($1,$2,$3::uuid,$4::uuid,$5,NULL,now())
+         ON CONFLICT(chat_id,telegram_user_id) DO UPDATE SET organization_id=excluded.organization_id,restaurant_id=excluded.restaurant_id,checkpoint_key=excluded.checkpoint_key,status=NULL,updated_at=now()`,
+        [chatId,telegramUserId,scope.organization_id,scope.restaurant_id,cp[1]], {orgId:scope.organization_id});
+      await sendOperationalTelegramMessage(chatId, 'Результат проверки: ' + OPERATIONAL_CHECKPOINTS[cp[1]], { inline_keyboard: [[
+        {text:'В порядке',callback_data:'oc:status:ok'},
+        {text:'Есть отклонение',callback_data:'oc:status:problem'},
+        {text:'Нужна помощь',callback_data:'oc:status:needs_help'},
+      ]]});
+      return { handled: true };
+    }
+    const st = data.match(/^oc:status:(ok|problem|needs_help)$/u);
+    if (st) {
+      if (st[1] === 'ok') {
+        const session = await safeQuery('SELECT checkpoint_key FROM operational_telegram_sessions WHERE chat_id=$1 AND telegram_user_id=$2 AND organization_id=$3::uuid AND restaurant_id=$4::uuid LIMIT 1',
+          [chatId,telegramUserId,scope.organization_id,scope.restaurant_id], null);
+        if (!session) throw httpError(503, 'Состояние проверки временно недоступно', 'DB_UNAVAILABLE');
+        if (!session[0]?.checkpoint_key) {
+          await sendOperationalTelegramMessage(chatId, 'Сначала выберите контрольную точку: /sten_check');
+          return { handled: true };
+        }
+        const id=uuid();
+        await queryWithRetry(
+          `INSERT INTO operational_observations(id,organization_id,restaurant_id,checkpoint_key,checkpoint_title,status,note,reporter_id,reporter_name,source_chat_id,source_message_id)
+           VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5,'ok','',$6,$7,$8,$9) ON CONFLICT DO NOTHING`,
+          [id,scope.organization_id,scope.restaurant_id,session[0].checkpoint_key,OPERATIONAL_CHECKPOINTS[session[0].checkpoint_key],'telegram:'+telegramUserId,senderName,chatId,String(callback.message?.message_id || callback.id)],
+          {orgId:scope.organization_id});
+        await queryWithRetry('DELETE FROM operational_telegram_sessions WHERE chat_id=$1 AND telegram_user_id=$2',[chatId,telegramUserId],{orgId:scope.organization_id});
+        await sendOperationalTelegramMessage(chatId, 'Зафиксировано: «В порядке». Это сообщение сохранено в STEN, но не заменяет независимую перепроверку.');
+      } else {
+        const sessionUpdate = await queryWithRetry(
+          'UPDATE operational_telegram_sessions SET status=$1,updated_at=now() WHERE chat_id=$2 AND telegram_user_id=$3 AND organization_id=$4::uuid AND restaurant_id=$5::uuid AND checkpoint_key IS NOT NULL RETURNING checkpoint_key',
+          [st[1],chatId,telegramUserId,scope.organization_id,scope.restaurant_id], {orgId:scope.organization_id});
+        if (!sessionUpdate.rows?.[0]) {
+          await sendOperationalTelegramMessage(chatId, 'Сессия проверки устарела. Запустите новую: /sten_check');
+          return { handled: true };
+        }
+        await sendOperationalTelegramMessage(chatId, st[1] === 'problem'
+          ? 'Опишите конкретное отклонение следующим сообщением. STEN сохранит его как непроверенное наблюдение.'
+          : 'Напишите, какая помощь нужна. STEN сохранит запрос как непроверенное наблюдение.');
+      }
+      return { handled: true };
+    }
+    return { handled: false };
+  }
+  const text = String(message?.text || message?.caption || '').trim();
+  if (/^\/sten_check(?:@\w+)?$/iu.test(text)) {
+    await sendOperationalTelegramMessage(chatId, 'Запустить короткую проверку готовности ресторана?', { inline_keyboard: [[{text:'Начать проверку',callback_data:'oc:start'}]] });
+    return { handled: true };
+  }
+  if (text) {
+    const session = await safeQuery(
+      'SELECT checkpoint_key,status FROM operational_telegram_sessions WHERE chat_id=$1 AND telegram_user_id=$2 AND organization_id=$3::uuid AND restaurant_id=$4::uuid LIMIT 1',
+      [chatId,telegramUserId,scope.organization_id,scope.restaurant_id], null);
+    if (!session) throw httpError(503, 'Состояние проверки временно недоступно', 'DB_UNAVAILABLE');
+    if (session[0]?.status && session[0]?.checkpoint_key) {
+      const note = text.slice(0,1000);
+      const id=uuid();
+      await queryWithRetry(
+        `INSERT INTO operational_observations(id,organization_id,restaurant_id,checkpoint_key,checkpoint_title,status,note,reporter_id,reporter_name,source_chat_id,source_message_id)
+         VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING`,
+        [id,scope.organization_id,scope.restaurant_id,session[0].checkpoint_key,OPERATIONAL_CHECKPOINTS[session[0].checkpoint_key],session[0].status,note,'telegram:'+telegramUserId,senderName,chatId,String(message.message_id)],
+        {orgId:scope.organization_id});
+      await queryWithRetry('DELETE FROM operational_telegram_sessions WHERE chat_id=$1 AND telegram_user_id=$2',[chatId,telegramUserId],{orgId:scope.organization_id});
+      await sendOperationalTelegramMessage(chatId, 'Наблюдение сохранено в STEN. Статус: «' + (session[0].status === 'problem' ? 'Есть отклонение' : 'Нужна помощь') + '». Руководителю нужно назначить исправление и отдельно проверить результат.');
+      return { handled: true };
+    }
+  }
+  return { handled: false };
+}
+
 app.post('/api/ingest/message', async (req, res) => {
 try {
-const isTelegram = Boolean(req.body?.message || req.body?.edited_message);
+const isTelegram = Boolean(req.body?.message || req.body?.edited_message || req.body?.callback_query);
 if (isTelegram) {
 const expected = String(process.env.TELEGRAM_WEBHOOK_SECRET || '');
 const provided = String(req.headers['x-telegram-bot-api-secret-token'] || '');
@@ -2978,10 +3375,32 @@ if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.status(40
 if (!ENV.DB_HOST) return res.status(503).json({ ok: false, error: 'database_not_configured' });
 try {
   const stored = await persistTelegramUpdate(query, req.body);
-  return res.status(200).json({ ok: true, ...stored });
+  if (!stored.kind || !Number.isSafeInteger(req.body?.update_id)) {
+    return res.status(200).json({ ok: true, ...stored, operational: false });
+  }
+  const claim = await claimTelegramUpdate(query, req.body.update_id);
+  if (claim.processed) {
+    return res.status(200).json({ ok: true, duplicate: true, processed: true, operational: false });
+  }
+  if (!claim.claimed) {
+    return res.status(503).json({ ok: false, error: claim.busy ? 'telegram_update_in_progress' : 'telegram_update_not_claimed' });
+  }
+  try {
+    let operational = false;
+    if (stored.kind === 'callback_query' || (stored.kind === 'message' && !req.body?.edited_message)) {
+      const result = await handleOperationalTelegramUpdate(req.body);
+      operational = Boolean(result.handled);
+    }
+    await completeTelegramUpdate(query, req.body.update_id, claim.attempts);
+    return res.status(200).json({ ok: true, ...stored, operational, processed: true });
+  } catch (processingError) {
+    try { await failTelegramUpdate(query, req.body.update_id, claim.attempts, processingError); }
+    catch (releaseError) { console.error('[sten] telegram update release failed:', releaseError?.code || releaseError?.message || 'UNKNOWN'); }
+    throw processingError;
+  }
 } catch (e) {
   console.error('[sten] telegram ingest failed:', e?.code || e?.message || 'UNKNOWN');
-  return res.status(503).json({ ok: false, error: 'telegram_persistence_failed' });
+  return res.status(503).json({ ok: false, error: 'telegram_processing_failed' });
 }
 }
 const isWhatsApp = Boolean(req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]);
