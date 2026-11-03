@@ -32,6 +32,14 @@ This directory is the CSS trash/quarantine area. Move a stylesheet here only aft
 
 Do not put an active stylesheet in quarantine just to make the source tree look cleaner. Keep the original in place until a safe removal is demonstrated.
 
+## Cleanup completed in branch `fix/css-legacy-token-cleanup`
+
+1. Removed 13 obsolete palette aliases from `src/styles/sten-visual-system.css`. Repository code search found no references outside their own declarations; the active semantic palette remains in `visual-system/tokens.css`.
+2. Removed the redundant light-theme `color-scheme` rule from `sten-visual-system.css`; the canonical theme tokens already set it for the light theme.
+3. Removed the duplicate global reduced-motion override from `sten-visual-system.css`. The same global behavior remains in the later-loaded `visual-system/components.css` rule, so the active application import chain retains the behavior.
+
+These are source-verified dead/redundant declarations. This cleanup does not claim that the remaining legacy stylesheets are safe to delete.
+
 ## Next safe cleanup slice
 
 1. Build a complete import/reference map for every CSS file.
