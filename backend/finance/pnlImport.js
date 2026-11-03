@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const XLSX = require('xlsx');
+const XLSX = require('@e965/xlsx');
 
 const ARTICLE_ALIASES = {
   revenue: ['выручка', 'доход', 'revenue', 'оборот', 'выручка всего'],
