@@ -1549,7 +1549,7 @@ async function assertRestaurantAccess(user, restaurantId) {
 if (!restaurantId) return true;
 const r = await strictQuery('SELECT id, parent_id, kind FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' LIMIT 1', [restaurantId, user.organizationId], { orgId: user.organizationId });
 if (!r[0]) throw httpError(404, 'Ресторан не найден в текущей организации.', 'RESTAURANT_NOT_FOUND');
-const explicit = await safeQuery('SELECT 1 FROM org_unit_access WHERE organization_id=$1::uuid AND user_id=$2 AND unit_id=$3::uuid LIMIT 1', [user.organizationId, user.id, restaurantId], { orgId: user.organizationId });
+const explicit = await strictQuery('SELECT 1 FROM org_unit_access WHERE organization_id=$1::uuid AND user_id=$2 AND unit_id=$3::uuid LIMIT 1', [user.organizationId, user.id, restaurantId], { orgId: user.organizationId });
 if (explicit.length || ['super_admin','owner'].includes(String(user.role || '').toLowerCase())) return true;
 throw httpError(403, 'Нет доступа к выбранному ресторану.', 'RESTAURANT_FORBIDDEN');
 }
@@ -1558,26 +1558,26 @@ async function assertScopeAccess(user, scope = {}) {
 const restaurantIds = new Set();
 if (scope.restaurant_id) restaurantIds.add(String(scope.restaurant_id));
 if (scope.department_id) {
-const rows = await safeQuery('SELECT parent_id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'department\' LIMIT 1', [scope.department_id,user.organizationId], { orgId: user.organizationId });
+const rows = await strictQuery('SELECT parent_id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'department\' LIMIT 1', [scope.department_id,user.organizationId], { orgId: user.organizationId });
 if (!rows?.[0]) throw httpError(404,'Отдел не найден в текущей организации.','DEPARTMENT_NOT_FOUND');
 if (rows[0].parent_id) restaurantIds.add(String(rows[0].parent_id));
 }
 if (scope.branch_id) {
-const branchExists = await safeQuery('SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'branch\' LIMIT 1', [scope.branch_id,user.organizationId], { orgId: user.organizationId });
+const branchExists = await strictQuery('SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'branch\' LIMIT 1', [scope.branch_id,user.organizationId], { orgId: user.organizationId });
 
 if (!branchExists[0]) throw httpError(404,'Филиал не найден в текущей организации.','BRANCH_NOT_FOUND');
-const rows = await safeQuery('SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' ORDER BY id', [scope.branch_id,user.organizationId], { orgId: user.organizationId });
+const rows = await strictQuery('SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' ORDER BY id', [scope.branch_id,user.organizationId], { orgId: user.organizationId });
 
 rows.forEach(r => restaurantIds.add(String(r.id)));
 }
 if (scope.project_id) {
-const projExists = await safeQuery('SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'project\' LIMIT 1', [scope.project_id,user.organizationId], { orgId: user.organizationId });
+const projExists = await strictQuery('SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'project\' LIMIT 1', [scope.project_id,user.organizationId], { orgId: user.organizationId });
 
 if (!projExists[0]) throw httpError(404,'Проект не найден в текущей организации.','PROJECT_NOT_FOUND');
-const branches = await safeQuery('SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'branch\' ORDER BY id', [scope.project_id,user.organizationId], { orgId: user.organizationId });
+const branches = await strictQuery('SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'branch\' ORDER BY id', [scope.project_id,user.organizationId], { orgId: user.organizationId });
 
 for (const b of branches) {
-const restaurants = await safeQuery('SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' ORDER BY id', [b.id,user.organizationId], { orgId: user.organizationId });
+const restaurants = await strictQuery('SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' ORDER BY id', [b.id,user.organizationId], { orgId: user.organizationId });
 
 restaurants.forEach(r => restaurantIds.add(String(r.id)));
 }
