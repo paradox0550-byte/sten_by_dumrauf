@@ -24,6 +24,13 @@ test('does not publish partial EBITDA when a required cost block is missing', ()
   assert.equal(result.ebitdaMargin, null);
 });
 
+test('does not treat missing overtime as zero labor cost', () => {
+  const result = calculatePnl({ revenue: 1000, cogs: -250, personnel: -200, opex: -100 });
+  assert.equal(result.labor, null);
+  assert.equal(result.primeCostPercent, null);
+  assert.equal(result.ebitda, null);
+  assert.ok(result.ebitdaMissingBlocks.includes('labor'));
+});
 test('does not publish EBITDA when revenue is missing', () => {
   const result = calculatePnl({ cogs: -250, personnel: -200, overtime: -20, opex: -100 });
   assert.equal(result.ebitda, null);
