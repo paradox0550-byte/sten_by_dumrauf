@@ -5,6 +5,7 @@ import { api, ApiError } from '../lib/api';
 import WorkspaceSelector from '../components/WorkspaceSelector';
 import GoogleSheetsIntegration from '../features/google-sheets/GoogleSheetsIntegration';
 import GoogleCalendarIntegration from '../features/google-calendar/GoogleCalendarIntegration';
+import IikoIntegration from '../features/integrations/IikoIntegration';
 import { useScope } from '../lib/useScope';
 import { useAnalyticsSettings, type AnalyticsSettings } from '../lib/useAnalyticsSettings';
 import { useAppearance } from '../features/chat-appearance/useAppearance';
@@ -329,6 +330,7 @@ export default function Settings() {
           {scopeMessage && <div className="pnl-message error" role="alert">{scopeMessage}</div>}
         </section>
 
+        <IikoIntegration />
         <GoogleSheetsIntegration />
         <GoogleCalendarIntegration />
 
