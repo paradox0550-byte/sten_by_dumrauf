@@ -35,6 +35,7 @@ test('preserves each unknown P&L article instead of merging it into other operat
   assert.equal(rows[2].article, 'Банковская комиссия');
   assert.equal(rows[2].key, 'unmapped');
   assert.equal(rows[1].requiresReview, true);
+  assert.match(rows[1].warnings[0], /не сопоставлена с категорией P&L/u);
 });
 
 test('does not copy a single detected amount into both plan and fact', () => {
