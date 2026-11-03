@@ -1899,7 +1899,6 @@ app.post('/api/pnl/unapprove', requireAuth, requireOrg, async (req, res, next) =
 try {
 if (!APPROVER_ROLES.has(String(req.user.role || '').toLowerCase())) throw httpError(403, 'У Вас нет права возвращать утверждённый план в черновик.', 'FORBIDDEN_APPROVAL');
 const s = parseOr400(PnlApproveSchema, req.body ?? {});
-if (s.restaurant_id) await assertRestaurantAccess(req.user, s.restaurant_id);
 await assertScopeAccess(req.user, s);
 const result = await strictQuery(
 `DELETE FROM pnl_approvals WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 AND status='approved' RETURNING status`,
