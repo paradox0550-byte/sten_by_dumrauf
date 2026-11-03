@@ -14,7 +14,7 @@ const documentProcessor = require('./documentProcessor');
 const { convertWithMarkItDown } = require('./markitdownClient');
 const { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { buildSkillPrompt } = require('./core/skills');
-const { persistTelegramUpdate } = require('./telegramMonitor');
+const { persistTelegramUpdate, claimTelegramUpdate, completeTelegramUpdate, failTelegramUpdate } = require('./telegramMonitor');
 const { resolveAgent, toolsForAgent, agentAllowsTool } = require('./core/agents');
 const { TOOLS, executeTool } = require('./core/tools');
 const { createMemory, listMemory, updateMemoryConfidence, deleteMemory, loadMemoryContext } = require('./core/memory');
@@ -323,8 +323,21 @@ await query(`CREATE TABLE IF NOT EXISTS telegram_chat_bindings (
 await query(`CREATE TABLE IF NOT EXISTS telegram_updates (
   update_id BIGINT PRIMARY KEY,
   received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  update_json JSONB NOT NULL
+  update_json JSONB NOT NULL,
+  processing_status TEXT NOT NULL DEFAULT 'pending',
+  processing_attempts INTEGER NOT NULL DEFAULT 0,
+  processing_started_at TIMESTAMPTZ,
+  processed_at TIMESTAMPTZ,
+  next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_error TEXT
 );`);
+await query(`ALTER TABLE telegram_updates ADD COLUMN IF NOT EXISTS processing_status TEXT NOT NULL DEFAULT 'pending';`);
+await query(`ALTER TABLE telegram_updates ADD COLUMN IF NOT EXISTS processing_attempts INTEGER NOT NULL DEFAULT 0;`);
+await query(`ALTER TABLE telegram_updates ADD COLUMN IF NOT EXISTS processing_started_at TIMESTAMPTZ;`);
+await query(`ALTER TABLE telegram_updates ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ;`);
+await query(`ALTER TABLE telegram_updates ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT now();`);
+await query(`ALTER TABLE telegram_updates ADD COLUMN IF NOT EXISTS last_error TEXT;`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_updates_retry ON telegram_updates(processing_status, next_attempt_at, received_at);`);
 await query(`CREATE TABLE IF NOT EXISTS telegram_messages (
   chat_id TEXT NOT NULL REFERENCES telegram_chats(chat_id) ON DELETE CASCADE,
   message_id TEXT NOT NULL,
@@ -3362,21 +3375,30 @@ const a = Buffer.from(provided), b = Buffer.from(expected);
 if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.status(403).json({ ok: false, error: 'forbidden' });
 if (!ENV.DB_HOST) return res.status(503).json({ ok: false, error: 'database_not_configured' });
 try {
-  let stored;
-  if (req.body?.callback_query) {
-    stored = await persistTelegramUpdate(query, req.body);
-    if (!stored.stored || stored.duplicate || !stored.callback) {
-      return res.status(200).json({ ok: true, ...stored, operational: false });
+  const stored = await persistTelegramUpdate(query, req.body);
+  if (!stored.kind || !Number.isSafeInteger(req.body?.update_id)) {
+    return res.status(200).json({ ok: true, ...stored, operational: false });
+  }
+  const claim = await claimTelegramUpdate(query, req.body.update_id);
+  if (claim.processed) {
+    return res.status(200).json({ ok: true, duplicate: true, processed: true, operational: false });
+  }
+  if (!claim.claimed) {
+    return res.status(503).json({ ok: false, error: claim.busy ? 'telegram_update_in_progress' : 'telegram_update_not_claimed' });
+  }
+  try {
+    let operational = false;
+    if (stored.kind === 'callback_query' || (stored.kind === 'message' && !req.body?.edited_message)) {
+      const result = await handleOperationalTelegramUpdate(req.body);
+      operational = Boolean(result.handled);
     }
-    const operational = await handleOperationalTelegramUpdate(req.body);
-    return res.status(200).json({ ok: true, ...stored, operational: operational.handled });
+    await completeTelegramUpdate(query, req.body.update_id);
+    return res.status(200).json({ ok: true, ...stored, operational, processed: true });
+  } catch (processingError) {
+    try { await failTelegramUpdate(query, req.body.update_id, processingError); }
+    catch (releaseError) { console.error('[sten] telegram update release failed:', releaseError?.code || releaseError?.message || 'UNKNOWN'); }
+    throw processingError;
   }
-  stored = await persistTelegramUpdate(query, req.body);
-  if (!req.body?.edited_message) {
-    const operational = await handleOperationalTelegramUpdate(req.body);
-    return res.status(200).json({ ok: true, ...stored, operational: operational.handled });
-  }
-  return res.status(200).json({ ok: true, ...stored });
 } catch (e) {
   console.error('[sten] telegram ingest failed:', e?.code || e?.message || 'UNKNOWN');
   return res.status(503).json({ ok: false, error: 'telegram_processing_failed' });
