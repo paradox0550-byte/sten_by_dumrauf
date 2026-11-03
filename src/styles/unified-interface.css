@@ -4,7 +4,6 @@
   --sten-ease: cubic-bezier(.2,.7,.2,1);
   --sten-motion: 180ms;
   --sten-control-height: 44px;
-  --sten-content-width: 1480px;
 }
 html, body, #root { min-width: 320px; min-height: 100%; }
 body { font-family: var(--font-ui, 'IBM Plex Sans', system-ui, sans-serif) !important; font-size: 16px !important; line-height: 1.55; color: var(--text-primary) !important; background: var(--bg-base) !important; }
@@ -80,13 +79,6 @@ button, input, select, textarea { font-family: inherit; }
 .page h1, .page-head h1 { color: var(--text-primary) !important; font-size: clamp(23px, 2vw, 28px) !important; line-height: 1.22; letter-spacing: -.035em; font-weight: 680; }
 .page h2, .page h3, .panel-title { color: var(--text-primary) !important; }
 .page p, .page .muted, .muted, .field-hint, .helper-text { color: var(--text-secondary); }
-:where(.panel, .metric-card, .pnl-kpi, .budget-kpi, .analytics-summary, .analytics-gap-section, .director-attention, .director-prime, .director-metric, .flash-prime, .prime-card, .operational-day-summary, .operational-insight-panel, .operational-transaction-panel, .settings-card, .docs-panel, .memory-card, .insight-card, .deviations-widget__card) {
-  border: 1px solid var(--border-subtle) !important;
-  border-radius: var(--radius-md) !important;
-  background: var(--bg-surface) !important;
-  background-image: none !important;
-  box-shadow: none !important;
-}
 .page .panel { padding: clamp(14px, 1.5vw, 20px); }
 :where(.primary-button, .secondary-button, .danger-button, .quick-entry-save, .workspace-btn, .choice) {
   min-height: var(--sten-control-height); border-radius: 9px; font-size: 13px !important; font-weight: 600;
