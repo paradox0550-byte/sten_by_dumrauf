@@ -54,6 +54,7 @@
 
 :root {
   color-scheme: light;
+  --sten-content-width: 1560px;
   --sten-green: #0F766E;
   --primary-pressed: #115E59;
   --focus-outline: 2px solid var(--color-brand);

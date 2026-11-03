@@ -3,30 +3,12 @@
    Presentation only: no routing, data, API contracts, or business calculations. */
 
 :root {
-  --sten-ink: #111b22;
-  --sten-ink-raised: #17252d;
-  --sten-ink-soft: #21343d;
-  --sten-jade-sten: #126B67;
-  --sten-jade-bright: #2D857B;
-  --sten-jade-deep: #0E5956;
-  --sten-lime-sten: #D0D8D2;
-  --sten-coral: #A62D2D;
-  --sten-paper-sten: #F3F5F3;
-  --sten-white: #FBFCFA;
-  --sten-line: #D5DED8;
-  --sten-text: #25332F;
-  --sten-muted: #53645F;
   --sten-radius-sm: var(--radius-sm);
   --sten-radius-md: var(--radius-md);
   --sten-radius-lg: var(--radius-lg);
   --sten-radius-xl: var(--radius-xl);
   --sten-motion-fast: 140ms;
   --sten-motion: 220ms;
-  --sten-content-width: 1560px;
-}
-
-html[data-theme='light'], [data-theme='light'] {
-  color-scheme: light;
 }
 
 /* App frame: a confident dark navigation rail anchors the warmer workspace. */
@@ -142,7 +124,4 @@ table tbody tr:hover td { background: var(--bg-surface-subtle); }
   .sten-ai-page .chat-body { border-radius: 15px; }
   .sten-ai-page .chat-body .message-actions button { width: 42px !important; min-width: 42px !important; min-height: 42px !important; }
   .mobile-bottom-nav a { min-height: 58px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }

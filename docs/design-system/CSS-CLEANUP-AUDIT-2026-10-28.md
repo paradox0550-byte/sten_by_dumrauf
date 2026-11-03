@@ -32,6 +32,16 @@ This directory is the CSS trash/quarantine area. Move a stylesheet here only aft
 
 Do not put an active stylesheet in quarantine just to make the source tree look cleaner. Keep the original in place until a safe removal is demonstrated.
 
+## Cleanup completed in branch `fix/css-legacy-token-cleanup`
+
+1. Removed 13 obsolete palette aliases from `src/styles/sten-visual-system.css`. Repository code search found no references outside their own declarations; the active semantic palette remains in `visual-system/tokens.css`.
+2. Removed the redundant light-theme `color-scheme` rule from `sten-visual-system.css`; the canonical theme tokens already set it for the light theme.
+3. Removed the duplicate global reduced-motion override from `sten-visual-system.css`. The same global behavior remains in the later-loaded `visual-system/components.css` rule, so the active application import chain retains the behavior.
+4. Moved the effective `--sten-content-width: 1560px` value into the canonical `visual-system/tokens.css` root tokens and removed the conflicting `1480px` declaration from `unified-interface.css` plus its duplicate declaration from `sten-visual-system.css`. The resolved value remains 1560px, matching the previous last-wins cascade.
+5. Removed the shared surface rule block from `unified-interface.css`; the later-loaded `sten-visual-system.css` contains the same selector group and overrides all declarations from that block. The effective final surface declarations remain in place.
+
+These are source-verified dead/redundant declarations. This cleanup does not claim that the remaining legacy stylesheets are safe to delete.
+
 ## Next safe cleanup slice
 
 1. Build a complete import/reference map for every CSS file.
@@ -40,6 +50,7 @@ Do not put an active stylesheet in quarantine just to make the source tree look 
 4. Remove only verified dead files or exact duplicates; then run typecheck, lint, tests, and production build.
 
 ## Status
-- No CSS stylesheet was deleted or moved in this pass.
-- No import order, tokens, page styles, business logic, API/backend, or deployment configuration was changed.
-- This is an initial audit/quarantine scaffold, not a completed CSS purge.
+- The three verified dead/redundant declaration groups above were removed on the cleanup branch.
+- No stylesheet was deleted, moved, or reordered.
+- Canonical theme token values and page/component styling were otherwise preserved.
+- Full stylesheet consolidation is not marked complete until the remaining import/reference map and browser-computed visual comparisons are finished.
