@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeTelegramUpdate, persistTelegramUpdate } = require('../telegramMonitor');
+const { normalizeTelegramUpdate, persistTelegramUpdate, claimTelegramUpdate, completeTelegramUpdate, failTelegramUpdate } = require('../telegramMonitor');
 
 const callbackUpdate = (updateId = 101) => ({
   update_id: updateId,
@@ -70,4 +70,73 @@ test('ordinary group messages retain their existing persistence path', async () 
   assert.match(sqlSeen, /telegram_messages/);
   assert.equal(result.stored, true);
   assert.equal(result.duplicate, false);
+});
+
+test('failed persisted updates can be claimed again and completed exactly once', async () => {
+  const calls = [];
+  let state = 'pending';
+  const query = async (sql, params) => {
+    calls.push({ sql, params });
+    if (sql.includes('UPDATE telegram_updates') && sql.includes("processing_status='processing'")) {
+      if (state === 'pending') {
+        state = 'processing';
+        return { rows: [{ update_id: params[0], processing_attempts: 1 }] };
+      }
+      return { rows: [] };
+    }
+    if (sql.includes('SELECT processing_status')) return { rows: [{ processing_status: state }] };
+    if (sql.includes("processing_status='pending'")) {
+      state = 'pending';
+      return { rows: [] };
+    }
+    if (sql.includes("processing_status='processed'")) {
+      state = 'processed';
+      return { rows: [{ update_id: params[0] }] };
+    }
+    throw new Error('Unexpected query');
+  };
+
+  const firstClaim = await claimTelegramUpdate(query, 901);
+  assert.equal(firstClaim.claimed, true);
+  await failTelegramUpdate(query, 901, new Error('Telegram upstream timeout'));
+  const retryClaim = await claimTelegramUpdate(query, 901);
+  assert.equal(retryClaim.claimed, true);
+  await completeTelegramUpdate(query, 901);
+  const duplicateClaim = await claimTelegramUpdate(query, 901);
+  assert.equal(duplicateClaim.claimed, false);
+  assert.equal(duplicateClaim.processed, true);
+  assert.equal(state, 'processed');
+  assert.equal(calls.filter(call => call.sql.includes('UPDATE telegram_updates') && call.sql.includes("processing_status='processing'")).length, 3);
+});
+
+test('an active processing lease is not claimed concurrently', async () => {
+  const query = async (sql) => {
+    if (sql.includes('UPDATE telegram_updates')) return { rows: [] };
+    return { rows: [{ processing_status: 'processing' }] };
+  };
+  const result = await claimTelegramUpdate(query, 902);
+  assert.equal(result.claimed, false);
+  assert.equal(result.busy, true);
+});
+
+test('duplicate message persistence does not mutate chat activity and remains retryable', async () => {
+  let sqlSeen = '';
+  const query = async (sql) => {
+    sqlSeen = sql;
+    return { rows: [{ is_new: false, message_stored: false }] };
+  };
+  const result = await persistTelegramUpdate(query, {
+    update_id: 203,
+    message: {
+      message_id: 57,
+      date: 1793700000,
+      chat: { id: -100123, type: 'group', title: 'Смена' },
+      from: { id: 7002, first_name: 'Анна' },
+      text: 'Повторная доставка',
+    },
+  });
+  assert.match(sqlSeen, /FROM inserted_update/);
+  assert.equal(result.kind, 'message');
+  assert.equal(result.updateId, 203);
+  assert.equal(result.duplicate, true);
 });
