@@ -1615,6 +1615,9 @@ async function assertScopeAccess(user, scope = {}) {
     const parent = await readUnit(selected.department.parent_id, 'restaurant', 'ресторан отдела', 'RESTAURANT_NOT_FOUND');
     selected.restaurant = parent;
   }
+  if (selected.restaurant && selected.branch && String(selected.restaurant.parent_id || '') !== String(selected.branch.id)) {
+    throw httpError(404, 'Ресторан не относится к выбранному филиалу.', 'SCOPE_HIERARCHY_MISMATCH');
+  }
   if (selected.restaurant && selected.project && !selected.branch) {
     const branch = await readUnit(selected.restaurant.parent_id, 'branch', 'филиал ресторана', 'BRANCH_NOT_FOUND');
     if (String(branch.parent_id || '') !== String(selected.project.id)) {
@@ -1864,9 +1867,9 @@ try {
 const s = scopeFromQuery(req.query);
 await assertScopeAccess(req.user, s);
 if (!YM_RE.test(s.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
-const rows = await safeQuery(
+const rows = await strictQuery(
 `SELECT status, approved_by, approved_at FROM pnl_approvals WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1`,
-[req.user.organizationId, s.period, s.project_id, s.branch_id, s.restaurant_id, s.department_id], []);
+[req.user.organizationId, s.period, s.project_id, s.branch_id, s.restaurant_id, s.department_id]);
 ok(res, { status: rows[0]?.status || 'draft', approvedAt: rows[0]?.approved_at || null, canApprove: APPROVER_ROLES.has(String(req.user.role || '').toLowerCase()), scope: s });
 } catch (e) { next(e); }
 });
