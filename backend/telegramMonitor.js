@@ -60,6 +60,44 @@ function normalizeTelegramUpdate(update) {
   };
 }
 
+async function claimTelegramUpdate(query, updateId, leaseSeconds = 45) {
+  if (!Number.isSafeInteger(updateId)) throw new TypeError('Invalid Telegram update id');
+  const claimed = await query(
+    `UPDATE telegram_updates
+     SET processing_status='processing', processing_attempts=processing_attempts+1,
+         processing_started_at=now(), next_attempt_at=now(), last_error=NULL
+     WHERE update_id=$1 AND (
+       (processing_status='pending' AND next_attempt_at <= now())
+       OR (processing_status='processing' AND processing_started_at < now() - ($2::int * interval '1 second'))
+     ) RETURNING update_id, processing_attempts`,
+    [updateId, leaseSeconds]
+  );
+  if (claimed.rows?.[0]) return { claimed: true, attempts: claimed.rows[0].processing_attempts };
+  const rows = await query('SELECT processing_status FROM telegram_updates WHERE update_id=$1 LIMIT 1', [updateId]);
+  const status = rows.rows?.[0]?.processing_status || 'missing';
+  return { claimed: false, processed: status === 'processed', busy: status === 'processing', status };
+}
+
+async function completeTelegramUpdate(query, updateId) {
+  const result = await query(
+    `UPDATE telegram_updates SET processing_status='processed', processed_at=now(),
+       processing_started_at=NULL, last_error=NULL
+     WHERE update_id=$1 AND processing_status='processing' RETURNING update_id`,
+    [updateId]
+  );
+  if (!result.rows?.length) throw new Error('Telegram update completion was not confirmed');
+  return { processed: true };
+}
+
+async function failTelegramUpdate(query, updateId, error) {
+  const message = String(error?.code || error?.message || error || 'processing_failed').slice(0, 500);
+  await query(
+    `UPDATE telegram_updates SET processing_status='pending', processing_started_at=NULL,
+       next_attempt_at=now(), last_error=$2
+     WHERE update_id=$1 AND processing_status='processing'`,
+    [updateId, message]
+  );
+}
 async function persistTelegramUpdate(query, update) {
   const normalized = normalizeTelegramUpdate(update);
   if (normalized.kind === 'invalid') throw new Error('Invalid Telegram update');
@@ -103,7 +141,8 @@ async function persistTelegramUpdate(query, update) {
        RETURNING update_id
      ), upserted_chat AS (
        INSERT INTO telegram_chats (chat_id, chat_type, title, first_seen_at, last_seen_at)
-       VALUES ($3, $4, NULLIF($5, ''), now(), now())
+       SELECT $3, $4, NULLIF($5, ''), now(), now()
+       FROM inserted_update
        ON CONFLICT (chat_id) DO UPDATE SET
          chat_type = EXCLUDED.chat_type,
          title = COALESCE(EXCLUDED.title, telegram_chats.title),
@@ -133,7 +172,7 @@ async function persistTelegramUpdate(query, update) {
      normalized.text, normalized.messageDate, normalized.editedAt]
   );
   const row = result.rows?.[0] || {};
-  return { accepted: true, stored: Boolean(row.message_stored), duplicate: !row.is_new };
+  return { accepted: true, stored: Boolean(row.message_stored), duplicate: !row.is_new, kind: 'message', updateId: normalized.updateId };
 }
 
-module.exports = { normalizeTelegramUpdate, persistTelegramUpdate };
+module.exports = { normalizeTelegramUpdate, persistTelegramUpdate, claimTelegramUpdate, completeTelegramUpdate, failTelegramUpdate };
