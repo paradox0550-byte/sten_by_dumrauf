@@ -37,6 +37,8 @@ Do not put an active stylesheet in quarantine just to make the source tree look 
 1. Removed 13 obsolete palette aliases from `src/styles/sten-visual-system.css`. Repository code search found no references outside their own declarations; the active semantic palette remains in `visual-system/tokens.css`.
 2. Removed the redundant light-theme `color-scheme` rule from `sten-visual-system.css`; the canonical theme tokens already set it for the light theme.
 3. Removed the duplicate global reduced-motion override from `sten-visual-system.css`. The same global behavior remains in the later-loaded `visual-system/components.css` rule, so the active application import chain retains the behavior.
+4. Moved the effective `--sten-content-width: 1560px` value into the canonical `visual-system/tokens.css` root tokens and removed the conflicting `1480px` declaration from `unified-interface.css` plus its duplicate declaration from `sten-visual-system.css`. The resolved value remains 1560px, matching the previous last-wins cascade.
+5. Removed the shared surface rule block from `unified-interface.css`; the later-loaded `sten-visual-system.css` contains the same selector group and overrides all declarations from that block. The effective final surface declarations remain in place.
 
 These are source-verified dead/redundant declarations. This cleanup does not claim that the remaining legacy stylesheets are safe to delete.
 
