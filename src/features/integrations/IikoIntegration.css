@@ -1,0 +1,32 @@
+.iiko-integration { display:grid; gap:16px; min-width:0; }
+.iiko-integration__header { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; }
+.iiko-integration__header h2 { margin:7px 0 5px; font-size:20px; }
+.iiko-integration__header p { margin:0; max-width:680px; font-size:13px; }
+.iiko-integration__security,.iiko-integration__message { display:flex; align-items:flex-start; gap:9px; padding:11px 12px; border-radius:10px; background:var(--bg-surface-muted); font-size:13px; color:var(--text-secondary); }
+.iiko-integration__security svg { flex:0 0 auto; color:var(--color-success); }
+.iiko-integration__message { color:var(--color-success); }
+.iiko-integration__message.is-error { color:var(--color-danger); }
+.iiko-integration__form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; padding:15px; border:1px solid var(--border-subtle); border-radius:12px; }
+.iiko-integration__form h3 { grid-column:1/-1; display:flex; align-items:center; gap:7px; margin:0; font-size:15px; }
+.iiko-integration__form .settings-field { min-width:0; }
+.iiko-integration__form input,.iiko-integration__organization select { width:100%; min-width:0; }
+.iiko-integration__form > button { justify-self:start; align-self:end; }
+.iiko-integration__connections { display:grid; gap:12px; }
+.iiko-integration__connections > h3 { margin:0; font-size:15px; }
+.iiko-integration__connection { display:grid; gap:12px; padding:14px; border:1px solid var(--border-subtle); border-radius:12px; min-width:0; }
+.iiko-integration__connection-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.iiko-integration__connection-head > div,.iiko-integration__organization > div { display:grid; gap:4px; min-width:0; }
+.iiko-integration__connection small,.iiko-integration__organization small { color:var(--text-secondary); font-size:11px; overflow-wrap:anywhere; }
+.iiko-integration__disconnect { display:inline-flex; align-items:center; gap:6px; border:0; background:none; color:var(--text-secondary); font:inherit; font-size:12px; cursor:pointer; }
+.iiko-integration__organization { display:grid; grid-template-columns:minmax(0,1fr) minmax(180px,260px); gap:8px 14px; align-items:center; padding-top:12px; border-top:1px solid var(--border-subtle); }
+.iiko-integration__organization .settings-field { min-width:0; }
+.iiko-integration__status { grid-column:1/-1; color:var(--color-warning); font-size:11px; }
+.iiko-integration__status.is-mapped { color:var(--color-success); }
+.iiko-integration__footnote { margin:0; color:var(--text-secondary); font-size:12px; }
+@media(max-width:720px) {
+ .iiko-integration__form { grid-template-columns:minmax(0,1fr); }
+ .iiko-integration__form h3 { grid-column:auto; }
+ .iiko-integration__organization { grid-template-columns:minmax(0,1fr); }
+ .iiko-integration__status { grid-column:auto; }
+ .iiko-integration__connection-head { align-items:flex-start; }
+}
