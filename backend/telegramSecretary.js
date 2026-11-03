@@ -25,7 +25,9 @@ function parseTelegramAnalysis(value, source = {}) {
     ? new Date(parsed.due_at).toISOString() : null;
   const needsManagerAttention = intent === 'urgent' || severity === 'critical'
     || (intent === 'issue' && severity === 'high');
-  const canProposeAction = ['task', 'commitment', 'issue'].includes(intent)
+  const mode = source.mode === 'observer' ? 'observer' : 'secretary';
+  const canProposeAction = mode !== 'observer'
+    && ['task', 'commitment', 'issue'].includes(intent)
     && confidence >= 0.75;
 
   return Object.freeze({
@@ -48,6 +50,7 @@ function parseTelegramAnalysis(value, source = {}) {
       requiresManagerApproval: true,
     }) : null,
     source: Object.freeze({
+      mode,
       chatId: clean(String(source.chatId || ''), 100),
       messageId: clean(String(source.messageId || ''), 100),
       senderId: clean(String(source.senderId || ''), 100),

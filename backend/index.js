@@ -3076,10 +3076,9 @@ const OPERATIONAL_CHECKPOINTS = Object.freeze({
 });
 async function assertOperationalRestaurant(user, restaurantId) {
   await assertRestaurantAccess(user, restaurantId);
-  const rows = await safeQuery(
+  const rows = await strictQuery(
     "SELECT id, name FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind='restaurant' LIMIT 1",
-    [restaurantId, user.organizationId], null);
-  if (!rows) throw httpError(503, 'Справочник ресторанов временно недоступен', 'DB_UNAVAILABLE');
+    [restaurantId, user.organizationId], { orgId: user.organizationId });
   if (!rows[0]) throw httpError(404, 'Ресторан не найден или недоступен', 'RESTAURANT_NOT_FOUND');
   return rows[0];
 }
@@ -3137,16 +3136,15 @@ app.post('/api/operational-control/observations', requireAuth, requireOrg, async
     ok(res, { observation, confirmed: true }, 201);
   } catch (e) { next(e); }
 });
-app.post('/api/operational-control/actions', requireAuth, requireOrg, async (req, res, next) => {
+app.post('/api/operational-control/actions', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
   try {
     const body = parseOr400(OperationalActionSchema, req.body ?? {});
     const restaurant = await assertOperationalRestaurant(req.user, body.restaurant_id);
-    const obs = await safeQuery(
+    const obs = await strictQuery(
       'SELECT id FROM operational_observations WHERE id=$1::uuid AND organization_id=$2::uuid AND restaurant_id=$3::uuid LIMIT 1',
-      [body.observation_id, req.user.organizationId, restaurant.id], null);
-    if (!obs) throw httpError(503, 'Не удалось проверить исходное отклонение', 'DB_UNAVAILABLE');
+      [body.observation_id, req.user.organizationId, restaurant.id], { orgId: req.user.organizationId });
     if (!obs[0]) throw httpError(404, 'Отклонение не найдено в выбранном ресторане', 'OBSERVATION_NOT_FOUND');
-    const assignee = await safeQuery(
+    const assignee = await strictQuery(
       `SELECT u.id, u.first_name, u.last_name
        FROM users u
        WHERE u.id::text=$1 AND u.organization_id=$2::uuid AND u.is_active=true
@@ -3154,8 +3152,7 @@ app.post('/api/operational-control/actions', requireAuth, requireOrg, async (req
            SELECT 1 FROM org_unit_access a
            WHERE a.organization_id=$2::uuid AND a.user_id=u.id::text AND a.unit_id=$3::uuid
          )) LIMIT 1`,
-      [body.assignee_id, req.user.organizationId, restaurant.id], null);
-    if (!assignee) throw httpError(503, 'Список сотрудников временно недоступен', 'DB_UNAVAILABLE');
+      [body.assignee_id, req.user.organizationId, restaurant.id], { orgId: req.user.organizationId });
     if (!assignee[0]) throw httpError(400, 'Исполнитель не найден или не имеет доступа к выбранному ресторану', 'ASSIGNEE_NOT_FOUND');
     const dueAt = new Date(body.due_at);
     if (dueAt.getTime() <= Date.now()) throw httpError(400, 'Срок задачи должен быть в будущем', 'DUE_DATE_INVALID');
@@ -3178,10 +3175,9 @@ app.patch('/api/operational-control/actions/:id', requireAuth, requireOrg, async
   try {
     if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный id задачи', 'BAD_ID');
     const body = parseOr400(OperationalActionTransitionSchema, req.body ?? {});
-    const rows = await safeQuery(
+    const rows = await strictQuery(
       'SELECT * FROM operational_actions WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
-      [req.params.id, req.user.organizationId], null);
-    if (!rows) throw httpError(503, 'Задачи временно недоступны', 'DB_UNAVAILABLE');
+      [req.params.id, req.user.organizationId], { orgId: req.user.organizationId });
     const current = rows[0];
     if (!current) throw httpError(404, 'Задача не найдена', 'NOT_FOUND');
     await assertOperationalRestaurant(req.user, current.restaurant_id);
@@ -3195,10 +3191,12 @@ app.patch('/api/operational-control/actions/:id', requireAuth, requireOrg, async
       if (!['open','overdue'].includes(current.status)) throw httpError(409, 'Задача не ожидает выполнения', 'INVALID_TRANSITION');
       nextStatus='awaiting_verification'; completedBy=actorId; completedAt=new Date();
     } else if (body.type === 'verify') {
+      if (!PRIVILEGED_ROLES.has(String(req.user.role || '').toLowerCase())) throw httpError(403, 'Проверка результата доступна руководителю', 'FORBIDDEN_ROLE');
       if (current.status !== 'awaiting_verification') throw httpError(409, 'Задача не ожидает проверки', 'INVALID_TRANSITION');
       if (actorId === String(current.completed_by)) throw httpError(403, 'Исполнитель не может подтвердить собственную работу', 'SELF_VERIFICATION_FORBIDDEN');
       nextStatus='verified'; verifiedBy=actorId; verifiedAt=new Date();
     } else if (body.type === 'reopen') {
+      if (!PRIVILEGED_ROLES.has(String(req.user.role || '').toLowerCase())) throw httpError(403, 'Повторное открытие задачи доступно руководителю', 'FORBIDDEN_ROLE');
       if (!['awaiting_verification','verified'].includes(current.status)) throw httpError(409, 'Задачу нельзя открыть повторно из текущего статуса', 'INVALID_TRANSITION');
       if (!body.reason) throw httpError(400, 'Укажите причину повторного открытия', 'REOPEN_REASON_REQUIRED');
       nextStatus='open'; completedBy=null; completedAt=null; verifiedBy=null; verifiedAt=null; reopenedBy=actorId; reopenedAt=new Date(); reopenReason=body.reason;
@@ -3208,31 +3206,35 @@ app.patch('/api/operational-control/actions/:id', requireAuth, requireOrg, async
       nextStatus='cancelled';
     }
     const updated = await queryWithRetry(
-      `UPDATE operational_actions SET status=$1,completed_by=$2,completed_at=$3,verified_by=$4,verified_at=$5,
-       reopened_by=$6,reopened_at=$7,reopen_reason=$8,updated_at=now()
-       WHERE id=$9::uuid AND organization_id=$10::uuid AND status=$11
-       RETURNING id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,status,created_by,
-                 completed_by,completed_at,verified_by,verified_at,reopen_reason,updated_at`,
+      `WITH updated_action AS (
+         UPDATE operational_actions SET status=$1,completed_by=$2,completed_at=$3,verified_by=$4,verified_at=$5,
+           reopened_by=$6,reopened_at=$7,reopen_reason=$8,updated_at=now()
+          WHERE id=$9::uuid AND organization_id=$10::uuid AND status=$11
+          RETURNING id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,status,created_by,
+                    completed_by,completed_at,verified_by,verified_at,reopen_reason,updated_at
+       ), updated_observation AS (
+         UPDATE operational_observations o
+            SET verification_status=CASE WHEN $12='reopen' THEN 'reported' ELSE 'verified' END,
+                verified_by=CASE WHEN $12='verify' THEN $13 ELSE NULL END,
+                verified_at=CASE WHEN $12='verify' THEN now() ELSE NULL END
+          WHERE o.id=$14::uuid AND o.organization_id=$10::uuid
+            AND EXISTS (SELECT 1 FROM updated_action)
+            AND (
+              $12='reopen'
+              OR ($12='verify' AND NOT EXISTS (
+                SELECT 1 FROM operational_actions a
+                 WHERE a.observation_id=o.id AND a.id<>$9::uuid
+                   AND a.status NOT IN ('verified','cancelled')
+              ))
+            )
+          RETURNING o.id
+       )
+       SELECT ua.*, (SELECT count(*)::int FROM updated_observation) AS observation_updated
+         FROM updated_action ua`,
       [nextStatus,completedBy,completedAt,verifiedBy,verifiedAt,reopenedBy,reopenedAt,reopenReason,
-       current.id,req.user.organizationId,current.status], {orgId:req.user.organizationId});
+       current.id,req.user.organizationId,current.status,body.type,actorId,current.observation_id],
+      {orgId:req.user.organizationId});
     if (!updated.rows?.[0]) throw httpError(409, 'Задача уже изменилась. Обновите список и повторите действие.', 'CONCURRENT_UPDATE');
-    if (body.type === 'verify') {
-      await queryWithRetry(
-        `UPDATE operational_observations o
-         SET verification_status='verified', verified_by=$1, verified_at=now()
-         WHERE o.id=$2::uuid AND o.organization_id=$3::uuid
-           AND NOT EXISTS (
-             SELECT 1 FROM operational_actions a
-             WHERE a.observation_id=o.id AND a.id<>$4::uuid AND a.status NOT IN ('verified','cancelled')
-           )`,
-        [actorId,current.observation_id,req.user.organizationId,current.id], {orgId:req.user.organizationId});
-    } else if (body.type === 'reopen') {
-      await queryWithRetry(
-        `UPDATE operational_observations
-         SET verification_status='reported', verified_by=NULL, verified_at=NULL
-         WHERE id=$1::uuid AND organization_id=$2::uuid`,
-        [current.observation_id,req.user.organizationId], {orgId:req.user.organizationId});
-    }
     await audit(req.user, 'operational.action.'+body.type, 'operational_actions', current.id, { from:current.status, to:nextStatus });
     ok(res, { action: updated.rows[0], confirmed: true });
   } catch (e) { next(e); }
@@ -3244,7 +3246,7 @@ app.get('/api/telegram-bot/settings', requireAuth, requireOrg, async (req, res, 
     const chatId = String(req.query.chat_id || '').trim().slice(0, 100);
     if (!chatId) throw httpError(400, 'Выберите Telegram-группу.', 'CHAT_REQUIRED');
     const rows = await strictQuery(
-      `SELECT s.mode,s.notification_level,
+      `SELECT b.restaurant_id, s.mode,s.notification_level,
               to_char(s.morning_report_time,'HH24:MI') AS morning_report_time,
               to_char(s.evening_report_time,'HH24:MI') AS evening_report_time,
               s.escalation_minutes
@@ -3253,8 +3255,9 @@ app.get('/api/telegram-bot/settings', requireAuth, requireOrg, async (req, res, 
         WHERE b.chat_id=$1 AND b.organization_id=$2::uuid LIMIT 1`,
       [chatId, req.user.organizationId], { orgId: req.user.organizationId });
     if (!rows.length) throw httpError(404, 'Группа не привязана к вашему рабочему контуру.', 'CHAT_NOT_FOUND');
-    const row = rows[0];
-    ok(res, { settings: row.mode ? row : null });
+    const { restaurant_id: restaurantId, ...settings } = rows[0];
+    await assertRestaurantAccess(req.user, restaurantId);
+    ok(res, { settings: settings.mode ? settings : null });
   } catch (e) { next(e); }
 });
 
@@ -3265,6 +3268,7 @@ app.put('/api/telegram-bot/settings', requireAuth, requireOrg, requirePrivileged
       'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
       [body.chat_id, req.user.organizationId], { orgId: req.user.organizationId });
     if (!binding.length) throw httpError(404, 'Группа не привязана к вашему рабочему контуру.', 'CHAT_NOT_FOUND');
+    await assertRestaurantAccess(req.user, binding[0].restaurant_id);
     await queryWithRetry(
       `INSERT INTO telegram_bot_settings
         (chat_id,organization_id,restaurant_id,mode,notification_level,morning_report_time,evening_report_time,escalation_minutes,created_by,updated_by)
@@ -3304,22 +3308,29 @@ app.post('/api/telegram-monitor/analyze', requireAuth, requireOrg, requirePrivil
 
 app.get('/api/telegram-monitor/chats', requireAuth, requireOrg, async (req, res, next) => {
   try {
-    const isAdmin = req.user.role === 'super_admin';
+    const role = String(req.user.role || '').toLowerCase();
+    const isAdmin = role === 'super_admin';
+    const isOrgOwner = role === 'owner';
     const rows = isAdmin
       ? await strictQuery(`SELECT c.chat_id, c.chat_type, c.title, c.first_seen_at, c.last_seen_at,
           b.organization_id, b.restaurant_id, ou.name AS restaurant_name,
           (SELECT count(*)::int FROM telegram_messages m WHERE m.chat_id=c.chat_id) AS message_count
         FROM telegram_chats c
         LEFT JOIN telegram_chat_bindings b ON b.chat_id=c.chat_id
-        LEFT JOIN org_units ou ON ou.id=b.restaurant_id
+        LEFT JOIN org_units ou ON ou.id=b.restaurant_id AND ou.organization_id=b.organization_id
         ORDER BY c.last_seen_at DESC LIMIT 200`)
       : await strictQuery(`SELECT c.chat_id, c.chat_type, c.title, c.first_seen_at, c.last_seen_at,
           b.organization_id, b.restaurant_id, ou.name AS restaurant_name,
           (SELECT count(*)::int FROM telegram_messages m WHERE m.chat_id=c.chat_id) AS message_count
         FROM telegram_chats c
         JOIN telegram_chat_bindings b ON b.chat_id=c.chat_id AND b.organization_id=$1::uuid
-        LEFT JOIN org_units ou ON ou.id=b.restaurant_id
-        ORDER BY c.last_seen_at DESC LIMIT 200`, [req.user.organizationId]);
+        JOIN org_units ou ON ou.id=b.restaurant_id AND ou.organization_id=b.organization_id AND ou.kind='restaurant'
+        WHERE ($2::boolean OR EXISTS (
+          SELECT 1 FROM org_unit_access access
+          WHERE access.organization_id=b.organization_id
+            AND access.user_id=$3 AND access.unit_id=b.restaurant_id
+        ))
+        ORDER BY c.last_seen_at DESC LIMIT 200`, [req.user.organizationId, isOrgOwner, String(req.user.id)]);
     ok(res, { chats: rows, canBind: isAdmin });
   } catch (e) { next(e); }
 });
@@ -3330,7 +3341,14 @@ app.get('/api/telegram-monitor/messages', requireAuth, requireOrg, async (req, r
     const search = String(req.query.q || '').trim().slice(0, 200);
     const limit = Math.max(1, Math.min(100, Number.parseInt(String(req.query.limit || '50'), 10) || 50));
     if (!chatId) throw httpError(400, 'Выберите Telegram-чат.', 'CHAT_REQUIRED');
-    const isAdmin = req.user.role === 'super_admin';
+    const isAdmin = String(req.user.role || '').toLowerCase() === 'super_admin';
+    if (!isAdmin) {
+      const binding = await strictQuery(
+        'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
+        [chatId, req.user.organizationId], { orgId: req.user.organizationId });
+      if (!binding[0]) throw httpError(404, 'Группа не привязана к вашему рабочему контуру.', 'CHAT_NOT_FOUND');
+      await assertRestaurantAccess(req.user, binding[0].restaurant_id);
+    }
     const rows = isAdmin
       ? await strictQuery(`SELECT m.chat_id, m.message_id, m.sender_name, m.sender_username,
           m.message_text, m.message_date, m.edited_at, m.received_at
