@@ -367,6 +367,21 @@ await query(`CREATE TABLE IF NOT EXISTS telegram_message_analyses (
   FOREIGN KEY (chat_id, message_id) REFERENCES telegram_messages(chat_id, message_id) ON DELETE CASCADE
 );`);
 await query(`CREATE INDEX IF NOT EXISTS idx_telegram_message_analyses_scope ON telegram_message_analyses(organization_id, restaurant_id, created_at DESC);`);
+await query(`CREATE TABLE IF NOT EXISTS telegram_bot_settings (
+  chat_id TEXT PRIMARY KEY REFERENCES telegram_chat_bindings(chat_id) ON DELETE CASCADE,
+  organization_id UUID NOT NULL,
+  restaurant_id UUID NOT NULL,
+  mode TEXT NOT NULL DEFAULT 'secretary' CHECK (mode IN ('observer','secretary','controller')),
+  notification_level TEXT NOT NULL DEFAULT 'deviations' CHECK (notification_level IN ('urgent_only','deviations','all')),
+  morning_report_time TIME NOT NULL DEFAULT '10:00',
+  evening_report_time TIME NOT NULL DEFAULT '21:00',
+  escalation_minutes INTEGER NOT NULL DEFAULT 120 CHECK (escalation_minutes BETWEEN 60 AND 1440),
+  created_by TEXT NOT NULL,
+  updated_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_bot_settings_scope ON telegram_bot_settings(organization_id, restaurant_id);`);
 await query(`CREATE TABLE IF NOT EXISTS payroll_records (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id UUID NOT NULL, user_id UUID, period TEXT NOT NULL, department TEXT, hours NUMERIC(10,2), amount NUMERIC(18,2), created_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
 await query(`ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS project_id    TEXT NOT NULL DEFAULT '';`);
 await query(`ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS branch_id     TEXT NOT NULL DEFAULT '';`);
@@ -802,6 +817,14 @@ primeCost:z.boolean(),ebitda:z.boolean(),deviation:z.boolean(),
 }).strict(),
 telegram_chat_id: z.string().max(120).nullable().optional(),
 whatsapp_phone: z.string().max(40).nullable().optional(),
+}).strict();
+const TelegramBotSettingsSchema = z.object({
+  chat_id: z.string().trim().min(1).max(100),
+  mode: z.enum(['observer','secretary','controller']),
+  notification_level: z.enum(['urgent_only','deviations','all']),
+  morning_report_time: z.string().regex(TIME_RE),
+  evening_report_time: z.string().regex(TIME_RE),
+  escalation_minutes: z.number().int().min(60).max(1440),
 }).strict();
 const ReportsSendSchema = z.object({
 date: z.string().regex(DATE_RE),
@@ -3147,6 +3170,49 @@ app.patch('/api/operational-control/actions/:id', requireAuth, requireOrg, async
 });
 
 /* ---- Telegram Monitor: organization-bound chat/message access ---- */
+app.get('/api/telegram-bot/settings', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const chatId = String(req.query.chat_id || '').trim().slice(0, 100);
+    if (!chatId) throw httpError(400, 'Выберите Telegram-группу.', 'CHAT_REQUIRED');
+    const rows = await strictQuery(
+      `SELECT s.mode,s.notification_level,
+              to_char(s.morning_report_time,'HH24:MI') AS morning_report_time,
+              to_char(s.evening_report_time,'HH24:MI') AS evening_report_time,
+              s.escalation_minutes
+         FROM telegram_chat_bindings b
+         LEFT JOIN telegram_bot_settings s ON s.chat_id=b.chat_id AND s.organization_id=b.organization_id
+        WHERE b.chat_id=$1 AND b.organization_id=$2::uuid LIMIT 1`,
+      [chatId, req.user.organizationId], { orgId: req.user.organizationId });
+    if (!rows.length) throw httpError(404, 'Группа не привязана к вашему рабочему контуру.', 'CHAT_NOT_FOUND');
+    const row = rows[0];
+    ok(res, { settings: row.mode ? row : null });
+  } catch (e) { next(e); }
+});
+
+app.put('/api/telegram-bot/settings', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
+  try {
+    const body = parseOr400(TelegramBotSettingsSchema, req.body ?? {});
+    const binding = await strictQuery(
+      'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
+      [body.chat_id, req.user.organizationId], { orgId: req.user.organizationId });
+    if (!binding.length) throw httpError(404, 'Группа не привязана к вашему рабочему контуру.', 'CHAT_NOT_FOUND');
+    await queryWithRetry(
+      `INSERT INTO telegram_bot_settings
+        (chat_id,organization_id,restaurant_id,mode,notification_level,morning_report_time,evening_report_time,escalation_minutes,created_by,updated_by)
+       VALUES($1,$2::uuid,$3::uuid,$4,$5,$6::time,$7::time,$8,$9,$9)
+       ON CONFLICT(chat_id) DO UPDATE SET organization_id=EXCLUDED.organization_id,
+         restaurant_id=EXCLUDED.restaurant_id,mode=EXCLUDED.mode,notification_level=EXCLUDED.notification_level,
+         morning_report_time=EXCLUDED.morning_report_time,evening_report_time=EXCLUDED.evening_report_time,
+         escalation_minutes=EXCLUDED.escalation_minutes,updated_by=EXCLUDED.updated_by,updated_at=now()`,
+      [body.chat_id,req.user.organizationId,binding[0].restaurant_id,body.mode,body.notification_level,
+       body.morning_report_time,body.evening_report_time,body.escalation_minutes,String(req.user.id)],
+      { orgId: req.user.organizationId });
+    await audit(req.user,'telegram.bot.settings.updated','telegram_bot_settings',body.chat_id,
+      { mode: body.mode, notification_level: body.notification_level });
+    ok(res, { saved: true, confirmed: true });
+  } catch (e) { next(e); }
+});
+
 app.get('/api/telegram-monitor/chats', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const isAdmin = req.user.role === 'super_admin';
