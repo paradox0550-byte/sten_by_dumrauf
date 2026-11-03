@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const XLSX = require('@e965/xlsx');
-const { classifyArticle, parseNumberCell, xlsxToRows } = require('../finance/pnlImport');
+const { classifyArticle, parseNumberCell, readFormulaCell, xlsxToRows } = require('../finance/pnlImport');
 
 function workbookBuffer(rows, mutate) {
   const workbook = XLSX.utils.book_new();
@@ -59,20 +59,17 @@ test('does not infer plan or fact when neither column is labelled', () => {
   assert.equal(rows[0].requiresReview, true);
 });
 
-test('retains formula provenance and warns when Excel has not stored a formula result', () => {
-  const rows = xlsxToRows(workbookBuffer([
-    ['Статья', 'План', 'Факт'],
-    ['Выручка', null, 900],
-  ], sheet => {
-    sheet.B2 = { t: 'n', f: 'SUM(B3:B4)' };
-  }));
-  assert.equal(rows[0].plan, null);
-  assert.equal(rows[0].sourceFormulaPlan, 'SUM(B3:B4)');
-  assert.equal(rows[0].fact, 900);
-  assert.equal(rows[0].requiresReview, true);
-  assert.match(rows[0].warnings[0], /не содержит сохранённого результата/u);
+test('detects formula cells without cached Excel results', () => {
+  assert.deepEqual(readFormulaCell({ t: 'n', f: 'SUM(B3:B4)' }), {
+    formula: 'SUM(B3:B4)', hasCachedValue: false, missingCachedValue: true,
+  });
+  assert.deepEqual(readFormulaCell({ t: 'n', f: 'SUM(C3:C4)', v: 900 }), {
+    formula: 'SUM(C3:C4)', hasCachedValue: true, missingCachedValue: false,
+  });
+  assert.deepEqual(readFormulaCell({ t: 'n', v: 900 }), {
+    formula: null, hasCachedValue: true, missingCachedValue: false,
+  });
 });
-
 test('parses Russian and European thousands separators', () => {
   assert.equal(parseNumberCell('1 234,50'), 1234.5);
   assert.equal(parseNumberCell('1.234,50'), 1234.5);
