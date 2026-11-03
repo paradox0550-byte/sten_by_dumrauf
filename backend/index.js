@@ -3282,6 +3282,26 @@ app.put('/api/telegram-bot/settings', requireAuth, requireOrg, requirePrivileged
   } catch (e) { next(e); }
 });
 
+app.post('/api/telegram-monitor/analyze', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
+  try {
+    const body = parseOr400(
+      z.object({ limit: z.number().int().min(1).max(50).default(20) }).strict(),
+      req.body ?? {}
+    );
+    const organizationId = String(req.user.organizationId || '');
+    if (!UUID_RE.test(organizationId)) {
+      throw httpError(403, 'Рабочий контур организации не определён.', 'NO_ORG_SCOPE');
+    }
+    const analysis = await processTelegramMessageBatch({
+      queryWithRetry,
+      analyze: prompt => callYandexGPT([{ role: 'user', text: prompt }]),
+      limit: body.limit,
+      orgId: organizationId,
+    });
+    ok(res, { analysis });
+  } catch (e) { next(e); }
+});
+
 app.get('/api/telegram-monitor/chats', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const isAdmin = req.user.role === 'super_admin';
@@ -3361,7 +3381,7 @@ return res.status(403).json({ error: { message: 'Webhook verification failed', c
 });
 
 async function telegramBotRequest(method, payload) {
-  const token = process.env.TELEGRAM_MONITOR_BOT_TOKEN;
+  const token = process.env.TELEGRAM_MONITOR_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
   if (!token) throw httpError(503, 'Монитор-бот Telegram не настроен', 'TELEGRAM_MONITOR_NOT_CONFIGURED');
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 4500);

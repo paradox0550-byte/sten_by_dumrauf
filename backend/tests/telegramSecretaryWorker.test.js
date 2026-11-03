@@ -48,3 +48,21 @@ test('worker does not store malformed model output and continues safely', async 
   assert.equal(result.skipped, 1);
   assert.equal(inserts, 0);
 });
+
+test('worker scopes manual analysis to the authenticated organization', async () => {
+  let firstCall;
+  const queryWithRetry = async (sql, params, options) => {
+    if (!firstCall) firstCall = { sql, params, options };
+    return { rows: [] };
+  };
+  const result = await processTelegramMessageBatch({
+    queryWithRetry,
+    analyze: async () => { throw new Error('No pending messages should be analyzed'); },
+    limit: 20,
+    orgId: 'org-123',
+  });
+  assert.deepEqual(result, { scanned: 0, analyzed: 0, skipped: 0, failed: 0 });
+  assert.match(firstCall.sql, /b\.organization_id=\$1::uuid/u);
+  assert.deepEqual(firstCall.params, ['org-123', 20]);
+  assert.equal(firstCall.options.orgId, 'org-123');
+});
