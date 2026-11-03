@@ -577,73 +577,7 @@ if (v === null || v === undefined || v === '') return null;
 const n = Number(v);
 return Number.isFinite(n) ? n : null;
 }
-function sumDefined(values) {
-const present = values.filter(v => v !== null && v !== undefined);
-if (!present.length) return null;
-return present.reduce((a, b) => a + b, 0);
-}
-function pctOf(v, base) {
-const b = numOrNull(base); const x = numOrNull(v);
-if (x === null || b === null || b === 0) return null;
-return (x / b) * 100;
-}
-function pnl({ revenue, cogs, personnel, overtime, opex, other, other_operating, depreciation, interest, tax } = {}) {
-const expenseValue = value => { const n = numOrNull(value); return n === null ? null : Math.abs(n); };
-const r = {
-revenue: numOrNull(revenue), cogs: expenseValue(cogs), personnel: expenseValue(personnel),
-overtime: expenseValue(overtime), opex: expenseValue(opex), other: expenseValue(other),
-otherOperating: expenseValue(other_operating), depreciation: expenseValue(depreciation),
-interest: expenseValue(interest), tax: expenseValue(tax),
-};
-const labor = sumDefined([r.personnel, r.overtime]);
-const operatingOther = sumDefined([r.otherOperating, r.other]);
-const operatingExpenses = sumDefined([r.opex, operatingOther]);
-const costs = sumDefined([r.cogs, labor, operatingExpenses]);
-r.labor = labor;
-r.grossProfit = (r.revenue !== null && r.cogs !== null) ? r.revenue - r.cogs : null;
-r.operatingExpenses = operatingExpenses;
-const ebitdaMissingBlocks = [];
-if (r.cogs === null) ebitdaMissingBlocks.push('cogs');
-if (labor === null) ebitdaMissingBlocks.push('labor');
-if (r.opex === null) ebitdaMissingBlocks.push('opex');
-r.ebitdaMissingBlocks = ebitdaMissingBlocks;
-r.ebitdaPartial = ebitdaMissingBlocks.length > 0;
-r.ebitda = (r.revenue !== null && costs !== null) ? r.revenue - costs : null;
-r.primeCostPercent = (r.revenue !== null && labor !== null && r.cogs !== null && r.revenue !== 0)
-? ((r.cogs + labor) / r.revenue) * 100 : null;
-r.primeCostStatus = r.primeCostPercent === null ? 'missing'
-: r.primeCostPercent <= 60 ? 'normal'
-: r.primeCostPercent <= 65 ? 'attention' : 'critical';
-r.otherOperatingPercent = pctOf(operatingOther, r.revenue);
-r.otherOperatingRequiresReview = r.otherOperatingPercent !== null && r.otherOperatingPercent > 5;
-r.overtimePercentOfLabor = pctOf(r.overtime, labor);
-const belowEbitda = sumDefined([r.depreciation, r.interest, r.tax]);
-r.belowEbitdaExpenses = belowEbitda;
-r.netProfit = (r.ebitda !== null && belowEbitda !== null) ? r.ebitda - belowEbitda : null;
-r.foodCostPercent = pctOf(r.cogs, r.revenue);
-r.personnelPercent = pctOf(labor, r.revenue);
-r.opexPercent = pctOf(operatingExpenses, r.revenue);
-r.ebitdaMargin = pctOf(r.ebitda, r.revenue);
-r.netMargin = pctOf(r.netProfit, r.revenue);
-r.formulaVersion = 'pnl-v4-signed-expenses-category-aware';
-r.provenance = 'deterministic-backend-calculator';
-return r;
-}
-function calculatePnl(input = {}) {
-const r = pnl(input);
-return {
-...r,
-foodCost: { revenue: r.revenue, cogs: r.cogs, amount: r.cogs, percent: r.foodCostPercent },
-personnelCost: { revenue: r.revenue, personnel: r.personnel, overtime: r.overtime, labor: r.labor, percent: r.personnelPercent },
-overtimeAmount: r.overtime,
-primeCost: { percent: r.primeCostPercent, status: r.primeCostStatus, formula: '(COGS + Labor) / Revenue * 100' },
-review: { otherOperatingRequiresReview: r.otherOperatingRequiresReview, otherOperatingPercent: r.otherOperatingPercent },
-margins: {
-foodCostPercent: r.foodCostPercent, personnelPercent: r.personnelPercent,
-opexPercent: r.opexPercent, ebitdaMargin: r.ebitdaMargin, netMargin: r.netMargin,
-},
-};
-}
+const { calculatePnl } = require('./finance/pnlCalculator');
 function delta(actual, plan) {
 const a = numOrNull(actual), p = numOrNull(plan);
 return {
