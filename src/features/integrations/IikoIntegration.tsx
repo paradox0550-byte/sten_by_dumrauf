@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
 import { AlertCircle, CheckCircle2, Link2, Plus, RefreshCw, ShieldCheck, Unlink } from 'lucide-react';
 import { api, ApiError } from '../../lib/api';
 import './IikoIntegration.css';
@@ -48,7 +49,7 @@ export default function IikoIntegration() {
 
   useEffect(() => { void load(); }, [load]);
 
-  async function connect(event: React.FormEvent<HTMLFormElement>) {
+  async function connect(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!appId.trim() || !clientSecret || !apiKey) return;
     setSaving(true);
