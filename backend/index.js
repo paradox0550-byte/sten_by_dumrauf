@@ -19,6 +19,7 @@ const { resolveAgent, toolsForAgent, agentAllowsTool } = require('./core/agents'
 const { TOOLS, executeTool } = require('./core/tools');
 const { createMemory, listMemory, updateMemoryConfidence, deleteMemory, loadMemoryContext } = require('./core/memory');
 const { loadConversationContext, startConversationTurn, finishConversationTurn, failConversationTurn } = require('./core/conversationMemory');
+const { connectIikoCloud, encryptCredentials } = require('./integrations/iikoCloud');
 
 // Версия правил, встроенных в этот релиз функции; настройки фильтруются по схеме ниже.
 const SKILLS_VERSION = '5.4.0';
@@ -391,6 +392,38 @@ await query(`DROP INDEX IF EXISTS daily_reports_org_date_uniq;`);
 await query(`CREATE UNIQUE INDEX IF NOT EXISTS daily_reports_org_scope_date_uniq ON daily_reports(organization_id, report_date, project_id, branch_id, restaurant_id, department_id);`);
 await query(`CREATE TABLE IF NOT EXISTS org_units (id UUID PRIMARY KEY, organization_id UUID NOT NULL, parent_id UUID, kind TEXT NOT NULL, name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
 await query(`CREATE INDEX IF NOT EXISTS idx_org_units_org ON org_units(organization_id);`);
+await query(`CREATE TABLE IF NOT EXISTS iiko_connections (
+  id UUID PRIMARY KEY,
+  organization_id UUID NOT NULL,
+  label TEXT NOT NULL,
+  app_id TEXT NOT NULL,
+  credential_fingerprint TEXT NOT NULL,
+  credentials_ciphertext TEXT NOT NULL,
+  credentials_iv TEXT NOT NULL,
+  credentials_tag TEXT NOT NULL,
+  organizations_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  correlation_id TEXT,
+  created_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_verified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (organization_id, credential_fingerprint)
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_iiko_connections_org ON iiko_connections(organization_id, created_at);`);
+await query(`CREATE TABLE IF NOT EXISTS iiko_organization_mappings (
+  id UUID PRIMARY KEY,
+  organization_id UUID NOT NULL,
+  connection_id UUID NOT NULL REFERENCES iiko_connections(id) ON DELETE CASCADE,
+  iiko_organization_id TEXT NOT NULL,
+  iiko_organization_name TEXT NOT NULL,
+  restaurant_id UUID NOT NULL,
+  updated_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (connection_id, iiko_organization_id),
+  UNIQUE (organization_id, restaurant_id)
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_iiko_mappings_org ON iiko_organization_mappings(organization_id, restaurant_id);`);
 await query(`CREATE TABLE IF NOT EXISTS workspace_contexts (organization_id UUID NOT NULL, user_id TEXT NOT NULL, restaurant_id UUID, project_id UUID, branch_id UUID, department_id UUID, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (organization_id, user_id));`);
 await query(`CREATE TABLE IF NOT EXISTS org_unit_access (organization_id UUID NOT NULL, user_id TEXT NOT NULL, unit_id UUID NOT NULL, access_level TEXT NOT NULL DEFAULT 'manage', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (organization_id, user_id, unit_id));`);
 await query(`CREATE INDEX IF NOT EXISTS idx_org_unit_access_user ON org_unit_access(organization_id, user_id, unit_id);`);
@@ -1959,6 +1992,128 @@ await queryWithRetry(
 await audit(req.user,'messenger.settings.updated','messenger_settings',req.user.organizationId,{provider:b.provider});
 ok(res,{saved:true,confirmed:true});
 }catch(e){next(e)}});
+
+
+const IikoConnectSchema = z.object({
+  app_id: z.string().trim().min(1).max(200),
+  client_secret: z.string().min(1).max(500),
+  api_key: z.string().min(1).max(500),
+  label: z.string().trim().min(1).max(120).optional(),
+}).strict();
+const IikoMappingSchema = z.object({
+  iiko_organization_id: z.string().trim().min(1).max(120),
+  restaurant_id: z.string().uuid(),
+}).strict();
+
+app.get('/api/integrations/iiko', requireAuth, requireOrg, async (req,res,next) => {
+  try {
+    const connections = await strictQuery(
+      `SELECT id,label,app_id,organizations_json,correlation_id,last_verified_at,created_at
+       FROM iiko_connections WHERE organization_id=$1::uuid ORDER BY created_at DESC`,
+      [req.user.organizationId],
+    );
+    const mappings = await strictQuery(
+      `SELECT connection_id,iiko_organization_id,iiko_organization_name,restaurant_id
+       FROM iiko_organization_mappings WHERE organization_id=$1::uuid`,
+      [req.user.organizationId],
+    );
+    const mapped = new Map(mappings.map(item => [item.connection_id + ':' + item.iiko_organization_id, item]));
+    ok(res, { connections: connections.map(connection => ({
+      id: connection.id,
+      label: connection.label,
+      app_id: connection.app_id,
+      correlation_id: connection.correlation_id,
+      last_verified_at: connection.last_verified_at,
+      created_at: connection.created_at,
+      organizations: (Array.isArray(connection.organizations_json) ? connection.organizations_json : []).map(item => {
+        const mapping = mapped.get(connection.id + ':' + item.id);
+        return { id: item.id, name: item.name, restaurant_id: mapping?.restaurant_id || null };
+      }),
+    })) });
+  } catch(e) { next(e); }
+});
+
+app.post('/api/integrations/iiko/connect', requireAuth, requireOrg, requirePrivilegedRole, async (req,res,next) => {
+  try {
+    const body = parseOr400(IikoConnectSchema, req.body ?? {});
+    const credentials = { appId: body.app_id, clientSecret: body.client_secret, apiKey: body.api_key };
+    const encrypted = encryptCredentials(credentials);
+    const result = await connectIikoCloud(credentials);
+    if (!result.organizations.length) {
+      throw httpError(422, 'iiko не вернула доступные организации. Проверьте, что API-ключ привязан к организации в iikoWeb.', 'IIKO_ORGANIZATIONS_EMPTY');
+    }
+    const id = uuid();
+    const saved = await queryWithRetry(
+      `INSERT INTO iiko_connections
+       (id,organization_id,label,app_id,credential_fingerprint,credentials_ciphertext,credentials_iv,credentials_tag,organizations_json,correlation_id,created_by,created_at,updated_at,last_verified_at)
+       VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,now(),now(),now())
+       ON CONFLICT (organization_id,credential_fingerprint) DO UPDATE SET
+         label=excluded.label,app_id=excluded.app_id,credentials_ciphertext=excluded.credentials_ciphertext,
+         credentials_iv=excluded.credentials_iv,credentials_tag=excluded.credentials_tag,
+         organizations_json=excluded.organizations_json,correlation_id=excluded.correlation_id,
+         updated_at=now(),last_verified_at=now()
+       RETURNING id`,
+      [id,req.user.organizationId,body.label || 'iiko Cloud',body.app_id,encrypted.fingerprint,
+       encrypted.ciphertext,encrypted.iv,encrypted.tag,JSON.stringify(result.organizations),result.correlationId,req.user.id],
+      { orgId: req.user.organizationId },
+    );
+    await audit(req.user,'integration.iiko.connected','iiko_connections',saved.rows[0].id,{
+      organizations_count: result.organizations.length,
+    });
+    ok(res,{connection:{id:saved.rows[0].id,label:body.label || 'iiko Cloud',app_id:body.app_id,
+      organizations:result.organizations.map(item=>({...item,restaurant_id:null})),
+      correlation_id:result.correlationId,last_verified_at:new Date().toISOString()}},201);
+  } catch(e) { next(e); }
+});
+
+app.put('/api/integrations/iiko/:connectionId/mapping', requireAuth, requireOrg, requirePrivilegedRole, async (req,res,next) => {
+  try {
+    const connectionId = parseOr400(z.string().uuid(), req.params.connectionId);
+    const body = parseOr400(IikoMappingSchema, req.body ?? {});
+    const rows = await strictQuery(
+      'SELECT id,organizations_json FROM iiko_connections WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
+      [connectionId,req.user.organizationId],
+    );
+    if (!rows[0]) throw httpError(404,'Подключение iiko не найдено.','IIKO_CONNECTION_NOT_FOUND');
+    const external = (Array.isArray(rows[0].organizations_json) ? rows[0].organizations_json : [])
+      .find(item => item.id === body.iiko_organization_id);
+    if (!external) throw httpError(404,'Организация не входит в подтверждённый список iiko.','IIKO_ORGANIZATION_NOT_FOUND');
+    await assertRestaurantAccess(req.user,body.restaurant_id);
+    const unit = await strictQuery(
+      "SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind='restaurant' LIMIT 1",
+      [body.restaurant_id,req.user.organizationId],
+    );
+    if (!unit[0]) throw httpError(404,'Ресторан STEN не найден.','RESTAURANT_NOT_FOUND');
+    const mappingId = uuid();
+    await queryWithRetry(
+      `INSERT INTO iiko_organization_mappings
+       (id,organization_id,connection_id,iiko_organization_id,iiko_organization_name,restaurant_id,updated_by,created_at,updated_at)
+       VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6::uuid,$7,now(),now())
+       ON CONFLICT (connection_id,iiko_organization_id) DO UPDATE SET
+         iiko_organization_name=excluded.iiko_organization_name,restaurant_id=excluded.restaurant_id,
+         updated_by=excluded.updated_by,updated_at=now()`,
+      [mappingId,req.user.organizationId,connectionId,external.id,external.name,body.restaurant_id,req.user.id],
+      { orgId: req.user.organizationId },
+    );
+    await audit(req.user,'integration.iiko.organization_mapped','iiko_organization_mappings',external.id,{
+      restaurant_id:body.restaurant_id,connection_id:connectionId,
+    });
+    ok(res,{saved:true,confirmed:true,mapping:{iiko_organization_id:external.id,restaurant_id:body.restaurant_id}});
+  } catch(e) { next(e); }
+});
+
+app.delete('/api/integrations/iiko/:connectionId', requireAuth, requireOrg, requirePrivilegedRole, async (req,res,next) => {
+  try {
+    const connectionId = parseOr400(z.string().uuid(), req.params.connectionId);
+    const gone = await queryWithRetry(
+      'DELETE FROM iiko_connections WHERE id=$1::uuid AND organization_id=$2::uuid RETURNING id',
+      [connectionId,req.user.organizationId],{orgId:req.user.organizationId},
+    );
+    if (!gone.rows[0]) throw httpError(404,'Подключение iiko не найдено.','IIKO_CONNECTION_NOT_FOUND');
+    await audit(req.user,'integration.iiko.disconnected','iiko_connections',connectionId,{});
+    ok(res,{deleted:true,confirmed:true});
+  } catch(e) { next(e); }
+});
 
 app.post('/api/reports/send',requireAuth,requireOrg,requireRole(...WRITE_ROLES),async(req,res,next)=>{try{
 const b=parseOr400(ReportsSendSchema,req.body??{});
