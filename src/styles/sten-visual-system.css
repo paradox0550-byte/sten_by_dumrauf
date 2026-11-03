@@ -9,7 +9,6 @@
   --sten-radius-xl: var(--radius-xl);
   --sten-motion-fast: 140ms;
   --sten-motion: 220ms;
-  --sten-content-width: 1560px;
 }
 
 /* App frame: a confident dark navigation rail anchors the warmer workspace. */
