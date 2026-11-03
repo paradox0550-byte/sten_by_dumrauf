@@ -36,7 +36,7 @@ NODE_ENV: process.env.NODE_ENV || 'production',
 JWT_SECRET: process.env.JWT_SECRET || INSECURE_JWT_FALLBACK,
 JWT_TTL_SEC: parseInt(process.env.JWT_TTL_SECONDS || String(30 * 24 * 3600), 10),
 UNLOCK_CODE_HASH: process.env.UNLOCK_CODE_HASH || process.env.UNLOCK_CODE || process.env.STEN_UNLOCK_CODE || '',
-ALLOWED_ORIGINS: (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN || '*').split(',').map(s => s.trim()).filter(Boolean),
+ALLOWED_ORIGINS: (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? '' : '*')).split(',').map(s => s.trim()).filter(Boolean),
 ADMIN_ID: process.env.ADMIN_ID || 'admin',
 ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@sten.local',
 ADMIN_ROLE: process.env.ADMIN_ROLE || 'super_admin',
@@ -80,6 +80,11 @@ const err = new Error('[sten] FATAL: JWT_SECRET is not set. Refusing to start in
 console.error(err.message);
 throw err;
 }
+if (ENV.NODE_ENV === 'production' && ENV.ALLOWED_ORIGINS.length === 0) {
+const err = new Error('[sten] FATAL: ALLOWED_ORIGINS не задан в production. Укажите домены фронтенда через запятую.');
+console.error(err.message);
+throw err;
+}
 }
 assertProductionSecrets();
 
@@ -113,15 +118,21 @@ return e;
 
 /* ----------------------------- database ----------------------------------- */
 function resolveDbSsl() {
-if (process.env.DB_SSL_MODE === 'disable') return false;
+const allowInsecure = process.env.DB_SSL_ALLOW_INSECURE === 'true';
+if (process.env.DB_SSL_MODE === 'disable') {
+  if (ENV.NODE_ENV === 'production' && !allowInsecure) {
+    throw new Error('[sten] FATAL: DB_SSL_MODE=disable в production запрещён без DB_SSL_ALLOW_INSECURE=true.');
+  }
+  return false;
+}
 if (process.env.DB_SSL_CA_BASE64) {
 return {
 ca: Buffer.from(process.env.DB_SSL_CA_BASE64, 'base64').toString('utf8'),
 rejectUnauthorized: true,
 };
 }
-if (ENV.NODE_ENV === 'production') {
-console.warn('[sten] WARN: DB_SSL_CA_BASE64 не задан — проверка сертификата БД отключена');
+if (ENV.NODE_ENV === 'production' && !allowInsecure) {
+  throw new Error('[sten] FATAL: DB_SSL_CA_BASE64 не задан в production. Установите CA или явно разрешите DB_SSL_ALLOW_INSECURE=true.');
 }
 return { rejectUnauthorized: false };
 }
