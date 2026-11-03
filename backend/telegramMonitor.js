@@ -165,6 +165,11 @@ async function persistTelegramUpdate(query, update) {
          edited_at = EXCLUDED.edited_at,
          raw_json = EXCLUDED.raw_json
        RETURNING message_id
+     ), invalidated_analysis AS (
+       DELETE FROM telegram_message_analyses a
+        USING upserted_message m
+        WHERE a.chat_id=$3 AND a.message_id=m.message_id
+        RETURNING a.message_id
      )
      SELECT EXISTS(SELECT 1 FROM inserted_update) AS is_new,
             EXISTS(SELECT 1 FROM upserted_message) AS message_stored`,

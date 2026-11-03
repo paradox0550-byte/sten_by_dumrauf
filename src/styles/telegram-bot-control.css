@@ -1,0 +1,20 @@
+.telegram-bot-control { margin: 0 0 18px; padding: 20px; }
+.telegram-bot-control__header,.telegram-bot-control__header>div,.telegram-bot-control__footer,.telegram-bot-control__scope,.telegram-bot-control__approval { display:flex; align-items:center; gap:12px; }
+.telegram-bot-control__header { justify-content:space-between; margin-bottom:18px; }
+.telegram-bot-control__header>div { align-items:flex-start; min-width:0; }
+.telegram-bot-control__icon { display:grid; place-items:center; flex:0 0 40px; height:40px; border-radius:12px; background:var(--bg-surface-muted); color:var(--color-brand); }
+.telegram-bot-control__header h2 { margin:3px 0 5px; font-size:20px; }
+.telegram-bot-control__header p,.telegram-bot-control__empty { margin:0; color:var(--text-secondary); font-size:13px; }
+.telegram-bot-control__field { display:grid; gap:7px; min-width:0; color:var(--text-secondary); font-size:13px; }
+.telegram-bot-control__field>span { display:flex; align-items:center; gap:6px; }
+.telegram-bot-control__field select,.telegram-bot-control__field input { width:100%; min-height:42px; padding:9px 11px; border:1px solid var(--border-default); border-radius:10px; background:var(--bg-surface); color:var(--text-primary); font:inherit; }
+.telegram-bot-control__grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-top:16px; }
+.telegram-bot-control__scope { margin-top:12px; color:var(--color-success); font-size:12px; }
+.telegram-bot-control__approval { align-items:flex-start; margin-top:16px; padding:12px; border:1px solid var(--border-subtle); border-radius:10px; background:var(--bg-surface-muted); color:var(--text-secondary); font-size:12px; line-height:1.5; }
+.telegram-bot-control__approval svg { flex:0 0 auto; color:var(--color-success); }
+.telegram-bot-control__approval strong { color:var(--text-primary); }
+.telegram-bot-control__footer { justify-content:flex-end; flex-wrap:wrap; margin-top:16px; }
+.telegram-bot-control__footer p { margin:0 auto 0 0; font-size:13px; }
+.telegram-bot-control__error { color:var(--color-danger); }.telegram-bot-control__success { color:var(--color-success); }
+.telegram-bot-control__empty { padding:16px; border-radius:10px; background:var(--bg-surface-muted); }
+@media(max-width:680px){.telegram-bot-control{padding:15px}.telegram-bot-control__grid{grid-template-columns:1fr}.telegram-bot-control__header{align-items:flex-start;flex-direction:column}.telegram-bot-control__footer{align-items:stretch}.telegram-bot-control__footer button{width:100%}}
