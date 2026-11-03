@@ -1,0 +1,52 @@
+name: Backend WIF Verify
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  YC_FOLDER_ID: b1glljl1mm7jdlgpkked
+  YC_FEDERATION_ID: ajepd07sf24pa5lfcgum
+  YC_SA_ID: ajeru518lnk3t3rc935k
+  YC_AUDIENCE: https://github.com/paradox0550-byte
+  YC_FUNCTION_ID: d4epijnhj7h9sd5ppa66
+
+jobs:
+  verify-identity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get IAM token via Workload Identity Federation
+        id: iam
+        uses: docker://ghcr.io/yc-actions/yc-iam-token-fed:1.0.0
+        with:
+          yc-sa-id: ${{ env.YC_SA_ID }}
+
+      - name: Verify service account identity
+        env:
+          IAM_TOKEN: ${{ steps.iam.outputs.token }}
+        run: |
+          set -euo pipefail
+          test -n "$IAM_TOKEN"
+          echo "IAM token obtained."
+          echo "Verifying service account:"
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $IAM_TOKEN" \
+            "https://iam.api.cloud.yandex.net/iam/v1/serviceAccounts/$YC_SA_ID" \
+            | jq -er '"\(.name) (\(.id))"'
+
+      - name: Verify function is reachable (read-only)
+        env:
+          IAM_TOKEN: ${{ steps.iam.outputs.token }}
+        run: |
+          set -euo pipefail
+          echo "Checking function: $YC_FUNCTION_ID"
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $IAM_TOKEN" \
+            "https://serverless-functions.api.cloud.yandex.net/functions/v1/functions/$YC_FUNCTION_ID" \
+            | jq -er '"\(.name) | status: \(.status)"'
