@@ -138,3 +138,20 @@ test('loadMemoryContext validates a requested scope before reading context', asy
   await loadMemoryContext(user, { restaurant_id: restaurant }, 15, db);
   assert.equal(checked.restaurant_id, restaurant);
 });
+
+test('listMemory validates a requested restaurant scope', async () => {
+  let checked = null;
+  const db = fakeDb();
+  db.assertScopeAccess = async (_user, scope) => { checked = scope; };
+  await listMemory(user, { restaurant_id: restaurant }, db);
+  assert.equal(checked.restaurant_id, restaurant);
+});
+
+test('listMemory fails closed when scope validation is unavailable', async () => {
+  const db = fakeDb();
+  delete db.assertScopeAccess;
+  await assert.rejects(
+    () => listMemory(user, { restaurant_id: restaurant }, db),
+    error => error.code === 'MEMORY_SCOPE_CHECK_MISSING'
+  );
+});
