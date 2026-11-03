@@ -3137,31 +3137,35 @@ app.patch('/api/operational-control/actions/:id', requireAuth, requireOrg, async
       nextStatus='cancelled';
     }
     const updated = await queryWithRetry(
-      `UPDATE operational_actions SET status=$1,completed_by=$2,completed_at=$3,verified_by=$4,verified_at=$5,
-       reopened_by=$6,reopened_at=$7,reopen_reason=$8,updated_at=now()
-       WHERE id=$9::uuid AND organization_id=$10::uuid AND status=$11
-       RETURNING id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,status,created_by,
-                 completed_by,completed_at,verified_by,verified_at,reopen_reason,updated_at`,
+      `WITH updated_action AS (
+         UPDATE operational_actions SET status=$1,completed_by=$2,completed_at=$3,verified_by=$4,verified_at=$5,
+           reopened_by=$6,reopened_at=$7,reopen_reason=$8,updated_at=now()
+          WHERE id=$9::uuid AND organization_id=$10::uuid AND status=$11
+          RETURNING id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,status,created_by,
+                    completed_by,completed_at,verified_by,verified_at,reopen_reason,updated_at
+       ), updated_observation AS (
+         UPDATE operational_observations o
+            SET verification_status=CASE WHEN $12='reopen' THEN 'reported' ELSE 'verified' END,
+                verified_by=CASE WHEN $12='verify' THEN $13 ELSE NULL END,
+                verified_at=CASE WHEN $12='verify' THEN now() ELSE NULL END
+          WHERE o.id=$14::uuid AND o.organization_id=$10::uuid
+            AND EXISTS (SELECT 1 FROM updated_action)
+            AND (
+              $12='reopen'
+              OR ($12='verify' AND NOT EXISTS (
+                SELECT 1 FROM operational_actions a
+                 WHERE a.observation_id=o.id AND a.id<>$9::uuid
+                   AND a.status NOT IN ('verified','cancelled')
+              ))
+            )
+          RETURNING o.id
+       )
+       SELECT ua.*, (SELECT count(*)::int FROM updated_observation) AS observation_updated
+         FROM updated_action ua`,
       [nextStatus,completedBy,completedAt,verifiedBy,verifiedAt,reopenedBy,reopenedAt,reopenReason,
-       current.id,req.user.organizationId,current.status], {orgId:req.user.organizationId});
+       current.id,req.user.organizationId,current.status,body.type,actorId,current.observation_id],
+      {orgId:req.user.organizationId});
     if (!updated.rows?.[0]) throw httpError(409, 'Задача уже изменилась. Обновите список и повторите действие.', 'CONCURRENT_UPDATE');
-    if (body.type === 'verify') {
-      await queryWithRetry(
-        `UPDATE operational_observations o
-         SET verification_status='verified', verified_by=$1, verified_at=now()
-         WHERE o.id=$2::uuid AND o.organization_id=$3::uuid
-           AND NOT EXISTS (
-             SELECT 1 FROM operational_actions a
-             WHERE a.observation_id=o.id AND a.id<>$4::uuid AND a.status NOT IN ('verified','cancelled')
-           )`,
-        [actorId,current.observation_id,req.user.organizationId,current.id], {orgId:req.user.organizationId});
-    } else if (body.type === 'reopen') {
-      await queryWithRetry(
-        `UPDATE operational_observations
-         SET verification_status='reported', verified_by=NULL, verified_at=NULL
-         WHERE id=$1::uuid AND organization_id=$2::uuid`,
-        [current.observation_id,req.user.organizationId], {orgId:req.user.organizationId});
-    }
     await audit(req.user, 'operational.action.'+body.type, 'operational_actions', current.id, { from:current.status, to:nextStatus });
     ok(res, { action: updated.rows[0], confirmed: true });
   } catch (e) { next(e); }
