@@ -3236,10 +3236,10 @@ try {
       const result = await handleOperationalTelegramUpdate(req.body);
       operational = Boolean(result.handled);
     }
-    await completeTelegramUpdate(query, req.body.update_id);
+    await completeTelegramUpdate(query, req.body.update_id, claim.attempts);
     return res.status(200).json({ ok: true, ...stored, operational, processed: true });
   } catch (processingError) {
-    try { await failTelegramUpdate(query, req.body.update_id, processingError); }
+    try { await failTelegramUpdate(query, req.body.update_id, claim.attempts, processingError); }
     catch (releaseError) { console.error('[sten] telegram update release failed:', releaseError?.code || releaseError?.message || 'UNKNOWN'); }
     throw processingError;
   }
