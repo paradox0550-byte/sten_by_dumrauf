@@ -49,12 +49,12 @@ export function parseScheduleCell(value: unknown): ScheduleCell {
     return value > 0 && value <= 24 ? { kind: 'hours', hours: value, raw }
       : { kind: 'unknown', raw };
   }
-  const numeric = raw.match(/^(\\d{1,2}(?:[.,]\\d+)?)\\s*(?:ч|час(?:а|ов)?|h|hrs?)?$/i);
+  const numeric = raw.match(/^(\d{1,2}(?:[.,]\d+)?)\\s*(?:ч|час(?:а|ов)?|h|hrs?)?$/i);
   if (numeric) {
     const hours = Number(numeric[1].replace(',', '.'));
     if (hours > 0 && hours <= 24) return { kind: 'hours', hours, raw };
   }
-  const range = raw.match(/(\\d{1,2}):(\\d{2})\\s*[-–—]\\s*(\\d{1,2}):(\\d{2})/);
+  const range = raw.match(/(\d{1,2}):(\d{2})\\s*[-–—]\\s*(\d{1,2}):(\d{2})/);
   if (range) {
     const sh = Number(range[1]), sm = Number(range[2]), eh = Number(range[3]), em = Number(range[4]);
     if (sh <= 23 && eh <= 23 && sm <= 59 && em <= 59) {
@@ -69,7 +69,7 @@ export function parseScheduleCell(value: unknown): ScheduleCell {
 function parseShiftValue(value: unknown): { hours: number | null; startTime: string | null; endTime: string | null; ambiguous: boolean } {
   const common = parseScheduleCell(value);
   if (common.kind === 'hours') {
-    const range = common.raw.match(/(\\d{1,2}):(\\d{2})\\s*[-–—]\\s*(\\d{1,2}):(\\d{2})/);
+    const range = common.raw.match(/(\d{1,2}):(\d{2})\\s*[-–—]\\s*(\d{1,2}):(\d{2})/);
     if (range) return { hours: common.hours, startTime: `${String(Number(range[1])).padStart(2,'0')}:${range[2]}`, endTime: `${String(Number(range[3])).padStart(2,'0')}:${range[4]}`, ambiguous: false };
     return { hours: common.hours, startTime: null, endTime: null, ambiguous: false };
   }
@@ -79,26 +79,6 @@ function parseShiftValue(value: unknown): { hours: number | null; startTime: str
 }
 
 
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value > 0 && value <= 24 ? { hours: value, startTime: null, endTime: null, ambiguous: false }
-      : { hours: null, startTime: null, endTime: null, ambiguous: true };
-  }
-  const raw=String(value??'').trim();
-  const range=raw.match(/(\d{1,2}):([0-5]\d)\s*[-–—]\s*(\d{1,2}):([0-5]\d)/);
-  if(range){
-    const sh=Number(range[1]),sm=Number(range[2]),eh=Number(range[3]),em=Number(range[4]);
-    if(sh>23||eh>23)return {hours:null,startTime:null,endTime:null,ambiguous:true};
-    const startTime=`${String(sh).padStart(2,'0')}:${range[2]}`,endTime=`${String(eh).padStart(2,'0')}:${range[4]}`;
-    let minutes=eh*60+em-(sh*60+sm);if(minutes<=0)minutes+=1440;
-    return {hours:minutes/60,startTime,endTime,ambiguous:false};
-  }
-  const numeric=raw.match(/^(\d{1,2}(?:[.,]\d+)?)\s*(?:ч|час(?:а|ов)?|h|hrs?)?$/i);
-  if(numeric){
-    const hours=Number(numeric[1].replace(',','.'));
-    if(hours>0&&hours<=24)return {hours,startTime:null,endTime:null,ambiguous:false};
-  }
-  return {hours:null,startTime:null,endTime:null,ambiguous:true};
-}
 /** Detect matrix-style rota exports with employees in rows and dates in columns. */
 export function parseScheduleMatrix(matrix: unknown[][]): ScheduleMatrixResult | null {
   const limit=Math.min(matrix.length,30);
