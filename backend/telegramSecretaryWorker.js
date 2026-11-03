@@ -9,10 +9,11 @@ async function processTelegramMessageBatch({ queryWithRetry, analyze, limit = 20
   const safeLimit = Math.max(1, Math.min(50, Number(limit) || 20));
   const pending = await queryWithRetry(
     `SELECT m.chat_id, m.message_id, m.sender_id, m.sender_name, m.message_text,
-            m.message_date, b.organization_id, b.restaurant_id, u.name AS restaurant_name
+            m.message_date, b.organization_id, b.restaurant_id, u.name AS restaurant_name, COALESCE(bs.mode,'secretary') AS bot_mode
        FROM telegram_messages m
        JOIN telegram_chat_bindings b ON b.chat_id=m.chat_id
        JOIN org_units u ON u.id=b.restaurant_id AND u.organization_id=b.organization_id
+       LEFT JOIN telegram_bot_settings bs ON bs.chat_id=b.chat_id AND bs.organization_id=b.organization_id
        LEFT JOIN telegram_message_analyses a
          ON a.chat_id=m.chat_id AND a.message_id=m.message_id
        WHERE a.message_id IS NULL
@@ -41,17 +42,20 @@ async function processTelegramMessageBatch({ queryWithRetry, analyze, limit = 20
     try {
       const prompt = buildTelegramAnalysisPrompt(row.restaurant_name, context, row.message_text);
       const raw = await analyze(prompt, row);
-      const analysis = parseTelegramAnalysis(raw, {
+      const parsedAnalysis = parseTelegramAnalysis(raw, {
         chatId: row.chat_id,
         messageId: row.message_id,
         senderId: row.sender_id,
         senderName: row.sender_name,
         messageDate: row.message_date,
       });
-      if (!analysis) {
+      if (!parsedAnalysis) {
         results.skipped += 1;
         continue;
       }
+      const analysis = row.bot_mode === 'observer'
+        ? Object.freeze({ ...parsedAnalysis, actionProposal: null })
+        : parsedAnalysis;
       const inserted = await queryWithRetry(
         `INSERT INTO telegram_message_analyses
           (chat_id,message_id,organization_id,restaurant_id,sender_id,analysis_json,created_at)
