@@ -111,6 +111,7 @@ function xlsxToRows(buffer) {
       const planFormula = planFormulaInfo.formula;
       const factFormula = factFormulaInfo.formula;
       const warnings = [];
+      if (!category) warnings.push('Статья не сопоставлена с категорией P&L; требуется ручное распределение.');
       if (planColumn < 0 || factColumn < 0) warnings.push('Не все заголовки «План» и «Факт» найдены: отсутствующее значение оставлено пустым.');
       if (planFormulaInfo.missingCachedValue && plan === null) warnings.push('Формула в плане не содержит сохранённого результата Excel.');
       if (factFormulaInfo.missingCachedValue && fact === null) warnings.push('Формула в факте не содержит сохранённого результата Excel.');
