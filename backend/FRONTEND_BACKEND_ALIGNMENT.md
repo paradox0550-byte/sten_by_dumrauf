@@ -24,7 +24,7 @@ This document records the API behavior verified in the repository. It is not a d
 | Operational control / Secretary | `/api/secretary/notes`, `/api/secretary/events` CRUD | Preserve readback confirmation and organization scope. A failed write must not be shown as saved. |
 | Analytics settings | `GET/PUT /api/analytics/settings` | Missing configuration should remain missing, not silently become a business fact. |
 | Messenger/report delivery | `GET/POST /api/messenger/settings`, `POST /api/reports/send` | Require authorization and configured recipient/provider; never expose tokens/secrets. |
-| Payroll analytics | `GET /fot-analytics`, `GET /my-earnings`, `POST /calculate-salary` | Scoped payroll must fail closed until source-level scope filtering is available; never return organization-wide payroll as if it were restaurant-specific. |
+| Payroll analytics | `GET /fot-analytics`, `GET /my-earnings`, `POST /calculate-salary` | The `/fot-analytics` handler now applies organization, project, branch, restaurant, department and period filters in SQL after `assertScopeAccess`; validate real cross-restaurant isolation with production readback before release. |
 
 ## Known integration limits to keep visible
 
