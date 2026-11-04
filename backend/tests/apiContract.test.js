@@ -57,7 +57,7 @@ function pathMatches(client, backend) {
   return a.every((segment, index) => {
     const other = b[index];
     const isParam = (value) => /^\{[^}]+\}$/.test(value);
-    return segment === other || (isParam(segment) && isParam(other));
+    return segment === other || isParam(other) || (isParam(segment) && isParam(other));
   });
 }
 
