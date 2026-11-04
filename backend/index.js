@@ -22,6 +22,7 @@ const { TOOLS, executeTool } = require('./core/tools');
 const { createMemory, listMemory, updateMemoryConfidence, deleteMemory, loadMemoryContext } = require('./core/memory');
 const { loadConversationContext, startConversationTurn, finishConversationTurn, failConversationTurn } = require('./core/conversationMemory');
 const { connectIikoCloud, encryptCredentials } = require('./integrations/iikoCloud');
+const { FotScheduleHistorySchema, FotStaffingPlanSchema, normalizeFotScope, fotScopeKey, assertJsonPayloadSize } = require('./fotPersistence');
 
 // Версия правил, встроенных в этот релиз функции; настройки фильтруются по схеме ниже.
 const SKILLS_VERSION = '5.4.1';
@@ -3737,6 +3738,195 @@ by_department,
 formula_version: 'fot-v1',
 });
 } catch (e) { next(e); }
+});
+
+
+/* ---- shared FOT schedule history and staffing plan ---- */
+function parseFotScope(input) {
+  try { return normalizeFotScope(input); }
+  catch { throw httpError(400, 'Некорректные идентификаторы рабочего контура ФОТ.', 'BAD_FOT_SCOPE'); }
+}
+
+function assertFotScopeReadAccess(user, scope) {
+  const hasScope = Boolean(scope.project_id || scope.branch_id || scope.restaurant_id || scope.department_id);
+  if (!hasScope && !WRITE_ROLES.includes(String(user.role || '').toLowerCase())) {
+    throw httpError(403, 'Для просмотра общего плана организации требуется управленческая роль.', 'FOT_ORG_SCOPE_FORBIDDEN');
+  }
+}
+
+function fotPersistenceError(error) {
+  if (error?.code === '42P01') {
+    return httpError(503, 'Общее хранилище ФОТ ещё не подготовлено. Требуется применить проверенную миграцию базы данных.', 'FOT_PERSISTENCE_NOT_MIGRATED');
+  }
+  return error;
+}
+
+app.get('/api/fot/schedule-history', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const scope = parseFotScope(scopeFromQuery(req.query));
+    await assertScopeAccess(req.user, scope);
+    assertFotScopeReadAccess(req.user, scope);
+    const rows = await queryWithRetry(
+      `SELECT period, file_name, norm_hours, ndfl, calculations_json, totals_json, saved_at, updated_at
+       FROM fot_schedule_history
+       WHERE organization_id=$1::uuid AND scope_key=$2
+       ORDER BY period DESC LIMIT 36`,
+      [req.user.organizationId, fotScopeKey(scope)],
+      { orgId: req.user.organizationId }
+    );
+    ok(res, { records: rows.rows.map(row => ({
+      period: row.period,
+      fileName: row.file_name,
+      normHours: row.norm_hours == null ? null : Number(row.norm_hours),
+      ndfl: row.ndfl == null ? null : Number(row.ndfl),
+      calculations: row.calculations_json,
+      totals: row.totals_json,
+      savedAt: row.saved_at,
+      updatedAt: row.updated_at,
+    })) });
+  } catch (error) { next(fotPersistenceError(error)); }
+});
+
+app.put('/api/fot/schedule-history', requireAuth, requireOrg, requireRole(...WRITE_ROLES), async (req, res, next) => {
+  try {
+    const parsed = FotScheduleHistorySchema.safeParse(req.body);
+    if (!parsed.success) throw httpError(400, 'Некорректные данные истории ФОТ.', 'BAD_FOT_HISTORY');
+    const payload = parsed.data;
+    assertJsonPayloadSize(payload);
+    const scope = normalizeFotScope(payload.scope);
+    await assertScopeAccess(req.user, scope);
+    assertFotScopeReadAccess(req.user, scope);
+    const savedAt = payload.savedAt || new Date().toISOString();
+    const result = await queryWithRetry(
+      `INSERT INTO fot_schedule_history (
+         organization_id, project_id, branch_id, restaurant_id, department_id, scope_key,
+         period, file_name, norm_hours, ndfl, calculations_json, totals_json, saved_at, created_by, updated_by
+       ) VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb,$13::timestamptz,$14,$14)
+       ON CONFLICT (organization_id, scope_key, period) DO UPDATE SET
+         project_id=EXCLUDED.project_id,
+         branch_id=EXCLUDED.branch_id,
+         restaurant_id=EXCLUDED.restaurant_id,
+         department_id=EXCLUDED.department_id,
+         file_name=EXCLUDED.file_name,
+         norm_hours=EXCLUDED.norm_hours,
+         ndfl=EXCLUDED.ndfl,
+         calculations_json=EXCLUDED.calculations_json,
+         totals_json=EXCLUDED.totals_json,
+         saved_at=EXCLUDED.saved_at,
+         updated_by=EXCLUDED.updated_by,
+         updated_at=now()
+       RETURNING saved_at, updated_at`,
+      [
+        req.user.organizationId, scope.project_id, scope.branch_id, scope.restaurant_id, scope.department_id,
+        fotScopeKey(scope), payload.period, payload.fileName, payload.normHours, payload.ndfl,
+        JSON.stringify(payload.calculations), JSON.stringify(payload.totals), savedAt, req.user.id,
+      ],
+      { orgId: req.user.organizationId }
+    );
+    await audit(req.user, 'fot.schedule_history.saved', 'fot_schedule_history', payload.period, {
+      period: payload.period, scope, employeeCount: payload.calculations.length,
+    });
+    ok(res, { record: {
+      period: payload.period,
+      fileName: payload.fileName,
+      normHours: payload.normHours,
+      ndfl: payload.ndfl,
+      calculations: payload.calculations,
+      totals: payload.totals,
+      savedAt: result.rows[0].saved_at,
+      updatedAt: result.rows[0].updated_at,
+    } });
+  } catch (error) { next(fotPersistenceError(error)); }
+});
+
+app.get('/api/fot/staffing-plan', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const period = String(req.query.period || '');
+    if (!YM_RE.test(period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ).', 'BAD_PERIOD');
+    const scope = parseFotScope(scopeFromQuery(req.query));
+    await assertScopeAccess(req.user, scope);
+    assertFotScopeReadAccess(req.user, scope);
+    const key = fotScopeKey(scope);
+    const [planResult, customResult] = await Promise.all([
+      queryWithRetry(
+        'SELECT plan_json, updated_at FROM fot_staffing_plans WHERE organization_id=$1::uuid AND scope_key=$2 AND period=$3 LIMIT 1',
+        [req.user.organizationId, key, period],
+        { orgId: req.user.organizationId }
+      ),
+      queryWithRetry(
+        'SELECT positions_json, updated_at FROM fot_custom_position_sets WHERE organization_id=$1::uuid AND scope_key=$2 LIMIT 1',
+        [req.user.organizationId, key],
+        { orgId: req.user.organizationId }
+      ),
+    ]);
+    ok(res, {
+      period,
+      plan: planResult.rows[0]?.plan_json || {},
+      customPositions: customResult.rows[0]?.positions_json || [],
+      updatedAt: planResult.rows[0]?.updated_at || customResult.rows[0]?.updated_at || null,
+    });
+  } catch (error) { next(fotPersistenceError(error)); }
+});
+
+app.put('/api/fot/staffing-plan', requireAuth, requireOrg, requireRole(...WRITE_ROLES), async (req, res, next) => {
+  try {
+    const parsed = FotStaffingPlanSchema.safeParse(req.body);
+    if (!parsed.success) throw httpError(400, 'Некорректные данные штатного плана ФОТ.', 'BAD_FOT_STAFFING_PLAN');
+    const payload = parsed.data;
+    assertJsonPayloadSize(payload, 1024 * 1024);
+    const scope = normalizeFotScope(payload.scope);
+    await assertScopeAccess(req.user, scope);
+    assertFotScopeReadAccess(req.user, scope);
+    const key = fotScopeKey(scope);
+    const result = await queryWithRetry(
+      `WITH saved_plan AS (
+         INSERT INTO fot_staffing_plans (
+           organization_id, project_id, branch_id, restaurant_id, department_id,
+           scope_key, period, plan_json, updated_by
+         ) VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6,$7,$8::jsonb,$10)
+         ON CONFLICT (organization_id, scope_key, period) DO UPDATE SET
+           project_id=EXCLUDED.project_id,
+           branch_id=EXCLUDED.branch_id,
+           restaurant_id=EXCLUDED.restaurant_id,
+           department_id=EXCLUDED.department_id,
+           plan_json=EXCLUDED.plan_json,
+           updated_by=EXCLUDED.updated_by,
+           updated_at=now()
+         RETURNING updated_at
+       ),
+       saved_custom AS (
+         INSERT INTO fot_custom_position_sets (
+           organization_id, project_id, branch_id, restaurant_id, department_id,
+           scope_key, positions_json, updated_by
+         ) VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6,$9::jsonb,$10)
+         ON CONFLICT (organization_id, scope_key) DO UPDATE SET
+           project_id=EXCLUDED.project_id,
+           branch_id=EXCLUDED.branch_id,
+           restaurant_id=EXCLUDED.restaurant_id,
+           department_id=EXCLUDED.department_id,
+           positions_json=EXCLUDED.positions_json,
+           updated_by=EXCLUDED.updated_by,
+           updated_at=now()
+         RETURNING updated_at
+       )
+       SELECT saved_plan.updated_at AS plan_updated_at, saved_custom.updated_at AS custom_updated_at
+       FROM saved_plan CROSS JOIN saved_custom`,
+      [
+        req.user.organizationId, scope.project_id, scope.branch_id, scope.restaurant_id, scope.department_id,
+        key, payload.period, JSON.stringify(payload.plan), JSON.stringify(payload.customPositions), req.user.id,
+      ],
+      { orgId: req.user.organizationId }
+    );
+    await audit(req.user, 'fot.staffing_plan.saved', 'fot_staffing_plans', payload.period, {
+      period: payload.period, scope, positions: Object.keys(payload.plan).length, customPositions: payload.customPositions.length,
+    });
+    ok(res, {
+      period: payload.period,
+      plan: payload.plan,
+      customPositions: payload.customPositions,
+      updatedAt: result.rows[0]?.plan_updated_at || result.rows[0]?.custom_updated_at || null,
+    });
+  } catch (error) { next(fotPersistenceError(error)); }
 });
 
 /* ---- 404 / error handler ---- */
