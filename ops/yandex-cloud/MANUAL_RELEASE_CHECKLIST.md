@@ -7,11 +7,12 @@
 - [ ] Выбрать проверенную ветку и PR.
 - [ ] Убедиться, что CI зелёный именно на HEAD commit выбранной ветки.
 - [ ] Запустить GitHub Actions **Package Yandex Cloud Backend (manual)** на том же commit.
-- [ ] Скачать `sten-yandex-backend`.
+- [ ] Скачать artifact `sten-yandex-backend` с двумя ZIP-архивами.
 - [ ] Сверить commit SHA из `release-manifest.txt` с выбранным commit.
-- [ ] Проверить SHA-256 архива.
-- [ ] Убедиться, что ZIP содержит в корне `index.js`, `package.json`, `package-lock.json`, runtime JS modules.
-- [ ] Убедиться, что ZIP не содержит `backend/markitdown/`, секретов, локальных .env и `node_modules`.
+- [ ] Проверить SHA-256 обоих архивов.
+- [ ] Убедиться, что Node.js ZIP содержит в корне `index.js`, `package.json`, `package-lock.json` и runtime JS modules.
+- [ ] Убедиться, что Python ZIP содержит в корне `function.py` и `requirements.txt`.
+- [ ] Убедиться, что ZIP не содержит секретов, локальных .env и `node_modules`.
 
 ## Этап 1. Подготовить новую версию функции
 
@@ -112,7 +113,7 @@
 - нет подтверждённого сетевого пути к единственному рабочему кластеру;
 - Gateway spec не совпадает с Backend contract;
 - не установлена invocation identity/не подтверждены права;
-- любая проверка требует отключить TLS, включить старый кластер или раскрыть секрет в логах.
+- любая проверка требует отключить TLS, раскрыть секрет в логах.
 
 ## Результат ручного релиза — заполнить оператором
 
