@@ -22,7 +22,6 @@ type PositionPlanMap = Record<string, PositionPlan>;
 type CustomPosition = { id: string; department: string; position: string };
 type CustomPositionMap = Record<string, CustomPosition>;
 const emptyPlan = (): PositionPlan => ({ headcount: '', hoursPerPerson: '', hourlyRate: '' });
-const planNumber = (value: string) => value.trim() === '' ? null : n(value.replace(',', '.'));
 const positionKey = (department: string, position: string) => department + '::' + position;
 function readPositionPlan(key: string): PositionPlanMap {
   try { const value = localStorage.getItem(key); return value ? JSON.parse(value) as PositionPlanMap : {}; } catch { return {}; }
@@ -32,6 +31,7 @@ const n = (value: unknown): number | null => {
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 };
+const planNumber = (value: string) => value.trim() === '' ? null : n(value.replace(',', '.'));
 const fmt = (value: number | null, digits = 1) => value == null ? '—' : new Intl.NumberFormat('ru-RU', { maximumFractionDigits: digits }).format(value);
 const money = (value: number | null) => value == null ? 'Нет данных' : formatMoney(value);
 const pct = (value: number | null) => value == null ? 'Нет данных' : fmt(value, 1) + ' %';
@@ -162,8 +162,24 @@ export default function Team() {
       api.get<PayrollResponse>('/fot-analytics?' + query),
       api.get<Pnl>('/api/pnl?' + query),
     ]);
-    const scopeDenied=[fotResult,pnlResult].some(result=>result.status==='rejected'&&result.reason instanceof ApiError&&result.reason.status===403&&result.reason.code==='SCOPE_ACCESS_CHECK_FAILED');
-    if(scopeDenied){setRecords([]);setPnl(null);setScopeUnavailable(true);setError('Нет доступа к данным выбранного ресторана. Выберите другой рабочий контур или обратитесь к администратору.');setPnlError('');setLoading(false);return;}
+    const forbiddenResult = [fotResult, pnlResult].find(
+      result => result.status === 'rejected' && result.reason instanceof ApiError && result.reason.status === 403,
+    );
+    if (forbiddenResult?.status === 'rejected') {
+      const reason = forbiddenResult.reason as ApiError;
+      const message = reason.code === 'ORG_ACCESS_CLOSED'
+        ? 'Доступ к организации закрыт. Проверьте статус подписки или обратитесь к администратору.'
+        : reason.code === 'RESTAURANT_FORBIDDEN'
+          ? 'Нет доступа к выбранному ресторану. Выберите другой рабочий контур или обратитесь к администратору.'
+          : 'Нет доступа к данным выбранного контура. Проверьте права или выберите другой рабочий контур.';
+      setRecords([]);
+      setPnl(null);
+      setScopeUnavailable(true);
+      setError(message);
+      setPnlError('');
+      setLoading(false);
+      return;
+    }
     if (fotResult.status === 'fulfilled') {
       const result = fotResult.value;
       setRecords(Array.isArray(result?.records) ? result.records.filter(row => row.period === scope.period) : []);
@@ -324,14 +340,14 @@ export default function Team() {
     </section>
 
     <section className="fot-section">
-      <div className="fot-section-heading"><div><span className="eyebrow">ПЛАНИРОВАНИЕ ШТАТА</span><h2>Штат, часы и прогноз стоимости</h2><p>Заполните план по должностям. STEN рассчитает штатную численность, месячные часы и прогноз ФОТ только по строкам с тремя введёнными параметрами.</p></div><div className="fot-planner-heading-actions"><span className="fot-source-tag">{planSaveState === 'loading' ? 'Загрузка общего плана…' : planSaveState === 'saving' ? 'Сохранение…' : planSaveState === 'error' ? 'Не сохранено' : planSaveState === 'ready' ? 'Общий план' : 'Общий план · сохранено'}</span><button type="button" className="secondary-button" onClick={exportPositionPlan}><Download size={14} /> Экспорт плана CSV</button></div></div>
+      <div className="fot-section-heading"><div><span className="eyebrow">ПЛАНИРОВАНИЕ ШТАТА</span><h2>Штат, часы и прогноз стоимости</h2><p>Заполните план по должностям. STEN рассчитает штатную численность, месячные часы и прогноз ФОТ только по строкам с тремя введёнными параметрами.</p></div><div className="fot-planner-heading-actions"><span className="fot-source-tag">{planSaveState === 'loading' ? 'Загрузка общего плана…' : planSaveState === 'saving' ? 'Сохранение…' : planSaveState === 'error' ? 'Не подтверждено' : planSaveState === 'ready' ? 'Общий план' : 'Общий план · сохранено'}</span><button type="button" className="secondary-button" onClick={exportPositionPlan}><Download size={14} /> Экспорт плана CSV</button></div></div>
       <div className="fot-planner-summary">
         <article><small>Плановая численность, ставки</small><strong>{fmt(plannedHeadcount)}</strong></article>
         <article><small>План часов за месяц</small><strong>{fmt(plannedHours)}</strong></article>
         <article><small>Прогноз ФОТ, ₽</small><strong>{money(plannedCost)}</strong></article>
         <article><small>Заполнено должностей</small><strong>{completePlanRows.length} / {planRows.length}</strong></article>
       </div>
-      <div className="fot-note"><ClipboardList size={16} /><span><b>Это плановый сценарий, не фактические данные.</b> План хранится в общей базе организации и доступен уполномоченным сотрудникам на разных устройствах в пределах выбранного контура.{planSaveState === 'error' ? ' Сохранение не подтверждено: ' + planSaveError : ''}</span></div>
+      <div className="fot-note"><ClipboardList size={16} /><span><b>Это плановый сценарий, не фактические данные.</b> {planSaveState === 'error' ? 'Сервер не подтвердил загрузку или сохранение общего плана. Значения на экране нельзя считать синхронизированными. ' + planSaveError : 'План хранится в общей базе организации и доступен уполномоченным сотрудникам на разных устройствах в пределах выбранного контура.'}</span></div>
       <div className="fot-table-wrap">
         <table className="fot-table fot-planner-table"><thead><tr><th>Подразделение / должность</th><th>Ставки</th><th>Часов на ставку / мес.</th><th>Стоимость часа, ₽</th><th>Часы, план</th><th>ФОТ, прогноз</th></tr></thead>
           <tbody>{planRows.map(row => <tr key={row.key}><td><b>{row.position}</b><small>{row.department}</small></td>
