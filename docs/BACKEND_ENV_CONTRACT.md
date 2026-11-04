@@ -15,7 +15,6 @@ It is not a copy of the current Yandex Cloud environment. Secret values must nev
 | `DB_NAME` | config | Database name. |
 | `DB_USER` | config | Database user. |
 | `DB_PASSWORD` | secret | Database password. |
-| `DB_SSL_CA_BASE64` | optional compatibility override | Base64-encoded PostgreSQL CA certificate. If unset in Yandex Cloud Functions, backend reads `/usr/local/share/ca-certificates/yandex-internal-ca.crt`. |
 | `DB_POOL_MAX` | config | PostgreSQL pool size; default 2. |
 | `DB_IDLE_TIMEOUT_MS` | config | Pool idle timeout; default 30000 ms. |
 | `DB_SSL_MODE` | config | Leave unset/default for verified TLS; `disable` is rejected in production unless the insecure override is explicitly enabled. |
@@ -28,7 +27,7 @@ It is not a copy of the current Yandex Cloud environment. Secret values must nev
 | `AWS_SECRET_ACCESS_KEY` | secret | S3-compatible secret key when static credentials are used. |
 | `GOOGLE_CLIENT_ID` | config | Expected Google OAuth client ID; backend checks token `azp` (authorized party), falling back to `aud`. Must match frontend `VITE_GOOGLE_CLIENT_ID`. |
 
-**TLS rule:** Yandex Cloud Functions provides the managed-database CA at `/usr/local/share/ca-certificates/yandex-internal-ca.crt`; backend reads it and uses `rejectUnauthorized: true`. `DB_SSL_CA_BASE64` remains an optional compatibility override for other runtimes. Do not set `DB_SSL_ALLOW_INSECURE=true` in production or disable certificate verification to make a deployment pass. If neither CA source is available, the backend fails closed.
+**TLS rule:** Yandex Cloud Functions provides the managed-database CA at `/usr/local/share/ca-certificates/yandex-internal-ca.crt`; backend reads it and uses `rejectUnauthorized: true`. Do not set `DB_SSL_ALLOW_INSECURE=true` in production or disable certificate verification to make a deployment pass. If the platform CA file is unavailable, the backend fails closed.
 
 **Storage boundary:** `OBJECT_STORAGE_BUCKET` must reference a private data bucket with anonymous read/list disabled. Do not use `smenavkarmane-business` if it remains the public frontend bucket. Confirm the private bucket and its IAM permissions before creating the new function version.
 
