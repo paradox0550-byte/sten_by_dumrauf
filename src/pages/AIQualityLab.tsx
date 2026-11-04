@@ -63,7 +63,7 @@ export default function AIQualityLab(){
    finally{setBusyId(null)}
  };
  const runCustom=async()=>{const prompt=customPrompt.trim();if(!prompt||busyId)return;const custom:Scenario={id:'CUSTOM:'+uuid(),title:'Пользовательский запрос',prompt,goal:'Проверьте полноту, точность, источники и честность ответа.',checks:['Задача выполнена напрямую','Факты подтверждены источниками','Нет выдуманных данных']};await runScenario(custom)};
- const grade=(run:Run,verdict:Verdict)=>{const next={...verdicts,[run.scenarioId]:verdict};setVerdicts(next);if(key){try{localStorage.setItem(key,JSON.stringify(next))}catch{}}setRuns(prev=>prev.map(item=>item.id===run.id?{...item,verdict}:item))};
+ const grade=(run:Run,verdict:Verdict)=>{setError('');const next={...verdicts,[run.scenarioId]:verdict};setVerdicts(next);if(key){try{localStorage.setItem(key,JSON.stringify(next))}catch{}}setRuns(prev=>prev.map(item=>item.id===run.id?{...item,verdict}:item))};
  const exportRuns=()=>{
    if(!runs.length)return;
    const columns=['scenarioId','prompt','answer','verdict','error','at','durationMs'];
