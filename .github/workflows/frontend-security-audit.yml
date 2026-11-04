@@ -7,7 +7,7 @@ on:
       - package-lock.json
       - .github/workflows/frontend-security-audit.yml
   push:
-    branches: [main, chore/security-audit-gate-2026-11]
+    branches: [main]
     paths:
       - package.json
       - package-lock.json
