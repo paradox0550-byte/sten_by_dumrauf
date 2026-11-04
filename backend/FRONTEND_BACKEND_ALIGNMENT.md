@@ -30,12 +30,12 @@ This document records the API behavior verified in the repository. It is not a d
 | Messenger/report delivery | `GET/POST /api/messenger/settings`, `POST /api/reports/send` | Require authorization and configured recipient/provider; never expose tokens/secrets. |
 | iiko integration | `GET /api/integrations/iiko`, `POST /api/integrations/iiko/connect`, `PUT /api/integrations/iiko/:connectionId/mapping`, `DELETE /api/integrations/iiko/:connectionId` | Connection credentials are encrypted server-side; never return credentials to the browser. |
 | Google Workspace | `GET/PUT/DELETE /api/integrations/google/:provider`, `PATCH /api/integrations/google/:provider/sync-status`, explicit Sheets PUT | Google Calendar/Sheets provider settings are backend-routed. Browser-side Google API calls for user-authorized data access are external Google requests, not missing STEN backend routes. |
-| Payroll analytics | `GET /fot-analytics`, `GET /my-earnings`, `POST /calculate-salary` | `/fot-analytics` applies organization, project, branch, restaurant, department and period filters in SQL after `assertScopeAccess`; validate real cross-restaurant isolation with production readback before release. |
+| Payroll analytics and planning | `GET /fot-analytics`, `GET /my-earnings`, `POST /calculate-salary`, `GET/PUT /api/fot/schedule-history`, `GET/PUT /api/fot/staffing-plan` | Payroll facts remain in `payroll_records`; schedule history, staffing scenarios and custom positions use separate organization/scope-scoped storage with management-role writes, audit records and explicit migration. |
 
 ## Known integration limits to keep visible
 
 - `GET /fot-analytics` currently applies organization isolation plus project/branch/restaurant/department filters to `payroll_records`, after `assertScopeAccess`. The route is implemented in source; live correctness still requires a production readback with real payroll rows for at least two distinct restaurants.
-- The staff planning/custom-position workflow on the frontend currently stores its plan locally. It is not a persisted payroll source and must not be described as saved to the backend. This is a product capability gap, not a missing API route.
+- The shared FOT endpoints store schedule calculations and staffing scenarios separately from actual payroll. They never write imported plans into `payroll_records` or P&L. This is a product capability gap, not a missing API route.
 - Voice playback and the global mute preference are browser-side behavior. They do not justify adding an undocumented backend endpoint.
 - `POST /calculate-salary` is a calculation-only endpoint; it does not persist payroll records. `GET /my-earnings` reads only the authenticated user's payroll rows.
 - `POST /api/ingest/message` returns a parsed draft with `writeToPnl:false`; the confirmation route is the explicit write boundary.
@@ -44,17 +44,17 @@ This document records the API behavior verified in the repository. It is not a d
 
 These are working browser-side features, but their state is not shared through the backend:
 
-- `FotScheduleImport` stores imported schedule history/calculations in browser `localStorage`. The UI correctly labels the history as local to this browser. It is not the canonical payroll source and is not synchronized across devices.
-- `Team` stores staffing/position plans and custom positions in browser `localStorage`. They are local planning drafts, not persisted organization payroll data.
+- `FotScheduleImport` and `Team` now read/write shared PostgreSQL records through the scoped FOT API. Legacy browser data is imported only for missing periods / empty server state; existing shared records are not overwritten by a local copy.
+- Browser `localStorage` remains only as a one-time legacy migration source and a fallback display if the API is unavailable; it is no longer the active save target for FOT history or staffing plans.
 - P&L expense-classification overrides and user article templates are stored locally. They are per-browser preferences, not shared organization settings.
 - Theme, font size, reduced motion and voice mute are intentionally client preferences and should remain local unless a separate product requirement says otherwise.
 
-If schedule history or staffing plans must be shared across devices/users, add a separate organization-scoped persistence design and reviewed database migration with RBAC, audit, retention and readback. Do not repurpose `payroll_records` as a schedule-history table or claim these drafts are saved to the backend.
+Apply `backend/migrations/20261104_fot_shared_persistence.sql` manually to the target PostgreSQL database before enabling the new UI. The migration is idempotent and is deliberately not run by backend startup. Then verify read/write/readback and cross-restaurant isolation for two distinct restaurants. Do not repurpose `payroll_records` as a schedule-history table.
 
 ## Static route parity audit (2026-11-04)
 
-- Express backend registers 82 method/path pairs.
-- `api-spec.yaml` declares 82 method/path pairs.
+- Express backend registers 86 method/path pairs.
+- `api-spec.yaml` declares 86 method/path pairs.
 - Static comparison after normalizing Express `:param` and OpenAPI `{param}` syntax: **82/82 exact matches**, with no backend route missing from the OpenAPI contract and no OpenAPI operation without a backend handler.
 - The Gateway layer explicitly routes `/healthz` and Google Sheets, forwards `/{proxy+}` to the Node API function, and routes `/markitdown/{proxy+}` to the separate Python converter.
 - Frontend paths were checked in the principal flows: authentication, Dashboard, P&L, Finances, Budget, Analytics, Team, Settings, Secretary, Operational Checks, Telegram Monitor, Documents, Flash/Quick Entry, Workspace Selector, iiko and Google Sheets. The corresponding handlers exist in the backend route table.
