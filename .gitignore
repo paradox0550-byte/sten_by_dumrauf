@@ -60,3 +60,6 @@ dist-ssr/
 tsc.log
 tsc-test.log
 # OS / editor
+
+# Local Yandex Cloud release packages (never commit generated archives)
+release-artifacts/yandex-cloud/
