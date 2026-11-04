@@ -40,6 +40,7 @@ export default function AIQualityLab(){
  useEffect(()=>{setVerdicts(readVerdicts(key));setRuns([]);},[key]);
  const [error,setError]=useState('');
  const completed=useMemo(()=>Object.keys(verdicts).length,[verdicts]);
+ const verdictCounts=useMemo(()=>({pass:Object.values(verdicts).filter(value=>value==='pass').length,fail:Object.values(verdicts).filter(value=>value==='fail').length,review:Object.values(verdicts).filter(value=>value==='needs-review').length}),[verdicts]);
  const runScenario=async(s:Scenario)=>{
    if(busyId)return; setBusyId(s.id);setError('');
    const started=Date.now();
@@ -51,7 +52,7 @@ export default function AIQualityLab(){
      const response=await api.post<AskResponse & {steps?:unknown[];total_ms?:number}>('/ask',request);
      const answer=String(response.answer??response.message??'Ответ не получен.');
      setRuns(prev=>[{id:uuid(),scenarioId:s.id,prompt:s.prompt,answer,sources:Array.isArray(response.sources)?response.sources:[],tools:Array.isArray(response.tools_used)?response.tools_used:[],model:response.model,durationMs:Date.now()-started,at:new Date().toISOString()},...prev].slice(0,50));
-   }catch(e){const message=e instanceof ApiError?e.message:e instanceof Error?e.message:'Не удалось выполнить проверку.';setError(message);setRuns(prev=>[{id:crypto.randomUUID(),scenarioId:s.id,prompt:s.prompt,answer:'',sources:[],tools:[],durationMs:Date.now()-started,error:message,at:new Date().toISOString()},...prev]);}
+   }catch(e){const message=e instanceof ApiError?e.message:e instanceof Error?e.message:'Не удалось выполнить проверку.';setError(message);setRuns(prev=>[{id:uuid(),scenarioId:s.id,prompt:s.prompt,answer:'',sources:[],tools:[],durationMs:Date.now()-started,error:message,at:new Date().toISOString()},...prev].slice(0,50));}
    finally{setBusyId(null)}
  };
  const runCustom=async()=>{const prompt=customPrompt.trim();if(!prompt||busyId)return;const custom:Scenario={id:'CUSTOM:'+uuid(),title:'Пользовательский запрос',prompt,goal:'Проверьте полноту, точность, источники и честность ответа.',checks:['Задача выполнена напрямую','Факты подтверждены источниками','Нет выдуманных данных']};await runScenario(custom)};
@@ -60,7 +61,7 @@ export default function AIQualityLab(){
  return <div className="page ai-quality-page">
   <div className="page-head ai-quality-head"><div><span className="eyebrow">STEN AI · КАЧЕСТВО</span><h1>Лаборатория ответов</h1><p>Проверяйте реальные ответы STEN на задачах ресторана — без изменения backend и без обучения модели на словах.</p></div><Link className="ai-quality-back" to="/sten"><ArrowLeft size={16}/> Вернуться в STEN AI</Link></div>
   <section className="ai-quality-notice"><ShieldAlert size={19}/><div><strong>Это проверка качества, а не дообучение модели</strong><p>Каждый запуск обращается к действующему <code>/ask</code> с текущим выбранным контекстом. Оценки сохраняются только в этом браузере для вашей учётной записи. Результаты и реальные ответы не сохраняются в локальную историю.</p></div></section>
-  <div className="ai-quality-summary"><div><span>Сценариев</span><strong>{scenarios.length}</strong></div><div><span>Оценок в браузере</span><strong>{completed}</strong></div><div><span>Запусков в этой сессии</span><strong>{runs.length}</strong></div></div>
+  <div className="ai-quality-summary"><div><span>Сценариев</span><strong>{scenarios.length}</strong></div><div><span>Оценок в браузере</span><strong>{completed}</strong></div><div><span>Пройдено</span><strong>{verdictCounts.pass}</strong></div><div><span>Не пройдено</span><strong>{verdictCounts.fail}</strong></div><div><span>На проверке</span><strong>{verdictCounts.review}</strong></div><div><span>Запусков в этой сессии</span><strong>{runs.length}</strong></div></div>
   <section className="ai-training-standard" aria-labelledby="ai-training-standard-title">
    <div className="ai-training-standard-head"><span className="eyebrow">ПРОГРАММА КАЧЕСТВА</span><h2 id="ai-training-standard-title">Эталон ответа STEN</h2><p>Используйте этот стандарт при оценке каждого ответа. Он задаёт критерии проверки, но сам по себе не меняет веса или знания модели.</p></div>
    <div className="ai-training-standard-grid">

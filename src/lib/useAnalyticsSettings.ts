@@ -80,17 +80,18 @@ export function useAnalyticsSettings() {
   }, []);
 
   const reload = useCallback(async () => {
+    const sequence = ++saveSequence.current;
     setLoading(true);
     setError('');
     try {
       const data = await api.get<{ settings: AnalyticsSettings | null }>('/api/analytics/settings');
       const remote = data && 'settings' in data ? sanitize(data.settings) : null;
-      apply(remote ?? DEFAULT_ANALYTICS_SETTINGS);
+      if (sequence === saveSequence.current) apply(remote ?? DEFAULT_ANALYTICS_SETTINGS);
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Не удалось загрузить настройки аналитики.';
-      if (alive.current) setError(msg);
+      if (alive.current && sequence === saveSequence.current) setError(msg);
     } finally {
-      if (alive.current) setLoading(false);
+      if (alive.current && sequence === saveSequence.current) setLoading(false);
     }
   }, [apply]);
 

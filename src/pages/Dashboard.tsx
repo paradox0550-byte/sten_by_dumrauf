@@ -103,6 +103,7 @@ export default function Dashboard() {
   const primeCost = isFiniteNumber(fact?.primeCostPercent)
     ? Math.abs(fact.primeCostPercent)
     : cogsPercent !== null && laborPercent !== null ? cogsPercent + laborPercent : null;
+  const primeCostPlan = isFiniteNumber(plan?.primeCostPercent) ? Math.abs(plan.primeCostPercent) : null;
   const formatKpiOrMissing = (value: number | null) => value === null ? 'Нет данных' : formatPercent(value);
   const ebitdaMargin = fact?.ebitdaMargin ?? (
     isFiniteNumber(fact?.ebitda) && isFiniteNumber(fact?.revenue) && fact.revenue > 0
@@ -117,6 +118,7 @@ export default function Dashboard() {
       <header className="director-topbar">
         <h1>Сводка</h1>
         <div className="director-topbar__controls">
+          <button className="secondary-button" type="button" aria-label="Обновить сводку" onClick={() => void load()} disabled={state === 'loading'}><RefreshCw size={15} /> Обновить</button>
           <label className="director-period">
             <span className="sr-only">Период</span>
             <input aria-label="Период" type="month" value={scope.period} onChange={(event) => setScope({ ...scope, period: event.target.value })} />
@@ -148,7 +150,7 @@ export default function Dashboard() {
           {taskMessage && <p className="director-state" role="status">{taskMessage}</p>}
           <section className="director-metrics" aria-label="Ключевые метрики">
             <ExecutiveMetric label="Выручка" value={formatMoneyAuto(fact?.revenue)} detail={'План ' + formatMoneyAuto(plan?.revenue)} delta={formatDeltaPct(plan?.revenue, fact?.revenue)} deltaTone={revenueDelta === null ? 'neutral' : revenueDelta >= 0 ? 'success' : 'danger'} />
-            <ExecutiveMetric label="Prime Cost" value={formatKpiOrMissing(primeCost)} detail={`Food Cost ${formatKpiOrMissing(foodCost)} · Labor Cost ${formatKpiOrMissing(laborPercent)}`} />
+            <ExecutiveMetric label="Prime Cost" value={formatKpiOrMissing(primeCost)} detail={`План ${formatKpiOrMissing(primeCostPlan)} · Food Cost ${formatKpiOrMissing(foodCost)} · Labor Cost ${formatKpiOrMissing(laborPercent)}`} delta={formatDeltaPct(primeCostPlan, primeCost)} deltaTone={primeCostPlan === null || primeCost === null ? 'neutral' : primeCost <= primeCostPlan ? 'success' : 'danger'} />
             <ExecutiveMetric label="ФОТ" value={formatMoneyAuto(laborFact)} detail={'План ' + formatMoneyAuto(laborPlan)} delta={formatDeltaPct(laborPlan, laborFact)} deltaTone={laborDelta === null ? 'neutral' : laborDelta <= 0 ? 'success' : 'danger'} />
             <ExecutiveMetric label="EBITDA" value={formatMoneyAuto(fact?.ebitda)} detail={ebitdaMargin === null ? 'Маржа —' : 'Маржа ' + formatPercent(ebitdaMargin)} delta={formatDeltaPct(plan?.ebitda, fact?.ebitda)} deltaTone={fact?.ebitda == null || plan?.ebitda == null ? 'neutral' : fact.ebitda >= plan.ebitda ? 'success' : 'danger'} />
           </section>
