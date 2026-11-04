@@ -25,7 +25,7 @@ const sharedRules = {
 
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**', 'backend/node_modules/**', '*.cjs'],
+    ignores: ['dist/**', 'node_modules/**', 'backend/**', 'services/**', '*.cjs'],
   },
   {
     ...js.configs.recommended,
