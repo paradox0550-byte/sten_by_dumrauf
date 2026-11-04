@@ -17,7 +17,7 @@ It is not a copy of the current Yandex Cloud environment. Secret values must nev
 | `DB_PASSWORD` | secret | Database password. |
 | `DB_POOL_MAX` | config | PostgreSQL pool size; default 2. |
 | `DB_IDLE_TIMEOUT_MS` | config | Pool idle timeout; default 30000 ms. |
-| `DB_SSL_MODE` | config | Leave unset/default for verified TLS; `disable` is rejected in production unless the insecure override is explicitly enabled. |
+| `DB_SSL_MODE` | config | Leave unset/default for verified TLS. `disable` is rejected in production; no insecure override is supported. |
 | `DB_SSL_ALLOW_INSECURE` | config | Must remain unset or `false` in production. Do not use as a deployment workaround. |
 | `YC_FOLDER_ID` | config | Yandex Cloud folder used to resolve the YandexGPT model URI. |
 | `YANDEXGPT_API_KEY` | secret | YandexGPT API key. |
@@ -27,7 +27,7 @@ It is not a copy of the current Yandex Cloud environment. Secret values must nev
 | `AWS_SECRET_ACCESS_KEY` | secret | S3-compatible secret key when static credentials are used. |
 | `GOOGLE_CLIENT_ID` | config | Expected Google OAuth client ID; backend checks token `azp` (authorized party), falling back to `aud`. Must match frontend `VITE_GOOGLE_CLIENT_ID`. |
 
-**TLS rule:** Yandex Cloud Functions provides the managed-database CA at `/usr/local/share/ca-certificates/yandex-internal-ca.crt`; backend reads it and uses `rejectUnauthorized: true`. Do not set `DB_SSL_ALLOW_INSECURE=true` in production or disable certificate verification to make a deployment pass. If the platform CA file is unavailable, the backend fails closed.
+**TLS rule:** Yandex Cloud Functions provides the managed-database CA at `/usr/local/share/ca-certificates/yandex-internal-ca.crt`; backend reads it and uses `rejectUnauthorized: true`. Do not disable certificate verification to make a deployment pass. If the platform CA file is unavailable, the backend fails closed.
 
 **Storage boundary:** `OBJECT_STORAGE_BUCKET` must reference a private data bucket with anonymous read/list disabled. Do not use `smenavkarmane-business` if it remains the public frontend bucket. Confirm the private bucket and its IAM permissions before creating the new function version.
 
@@ -51,7 +51,7 @@ It is not a copy of the current Yandex Cloud environment. Secret values must nev
 - `DEBUG` — leave disabled in production unless temporary diagnostics are approved.
 - `YANDEXGPT_BASE_URL`, `YANDEXGPT_TIMEOUT_MS`, `YANDEXGPT_MODEL`, `YANDEXGPT_MAX_TOKENS`, `YANDEXGPT_TEMPERATURE` — AI settings; defaults exist for model, timeout, token count and temperature.
 - `VISION_OCR_URL` — OCR endpoint; default points to Yandex Vision OCR.
-- `MARKITDOWN_URL`, `MARKITDOWN_ENABLED`, `MARKITDOWN_TIMEOUT_MS` — MarkItDown integration. Enable only after the converter is reachable.
+- `MARKITDOWN_URL`, `MARKITDOWN_ENABLED`, `MARKITDOWN_TIMEOUT_MS` — MarkItDown integration. When enabled, `MARKITDOWN_URL` must use the dedicated `/markitdown/{proxy+}` Gateway route and point to the separate converter function; enable only after that function and route are verified reachable.
 - `OBJECT_STORAGE_REGION` — preferred storage region. `AWS_DEFAULT_REGION` is accepted as a fallback.
 - `TOOL_MAX_ITERATIONS` — AI tool iteration limit.
 - `PNL_APPROVER_ROLES` — optional P&L approval role override.
