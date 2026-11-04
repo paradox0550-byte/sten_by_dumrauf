@@ -7,6 +7,7 @@ const express    = require('express');
 const serverless = require('serverless-http');
 const { Pool, types } = require('pg');
 const crypto     = require('crypto');
+const fs         = require('fs');
 const bcrypt     = require('bcryptjs');
 const { z }      = require('zod');
 const XLSX       = require('@e965/xlsx');
@@ -118,6 +119,8 @@ return e;
 }
 
 /* ----------------------------- database ----------------------------------- */
+const YANDEX_INTERNAL_CA_PATH = '/usr/local/share/ca-certificates/yandex-internal-ca.crt';
+
 function resolveDbSsl() {
 const allowInsecure = process.env.DB_SSL_ALLOW_INSECURE === 'true';
 if (process.env.DB_SSL_MODE === 'disable') {
@@ -126,14 +129,23 @@ if (process.env.DB_SSL_MODE === 'disable') {
   }
   return false;
 }
+
+// Explicit CA remains supported for non-Yandex runtimes and controlled local tests.
+// In Yandex Cloud Functions, prefer the platform-provided managed-database CA.
 if (process.env.DB_SSL_CA_BASE64) {
-return {
-ca: Buffer.from(process.env.DB_SSL_CA_BASE64, 'base64').toString('utf8'),
-rejectUnauthorized: true,
-};
+  const ca = Buffer.from(process.env.DB_SSL_CA_BASE64, 'base64').toString('utf8');
+  if (!ca.trim()) throw new Error('[sten] FATAL: DB_SSL_CA_BASE64 пуст.');
+  return { ca, rejectUnauthorized: true };
 }
+
+if (fs.existsSync(YANDEX_INTERNAL_CA_PATH)) {
+  const ca = fs.readFileSync(YANDEX_INTERNAL_CA_PATH);
+  if (!ca.length) throw new Error('[sten] FATAL: Yandex managed-database CA file is empty.');
+  return { ca, rejectUnauthorized: true };
+}
+
 if (ENV.NODE_ENV === 'production' && !allowInsecure) {
-  throw new Error('[sten] FATAL: DB_SSL_CA_BASE64 не задан в production. Установите CA или явно разрешите DB_SSL_ALLOW_INSECURE=true.');
+  throw new Error('[sten] FATAL: CA certificate unavailable. Expected DB_SSL_CA_BASE64 or the Yandex Cloud Functions managed-database CA file.');
 }
 return { rejectUnauthorized: false };
 }
