@@ -5,7 +5,6 @@
 ## Область работ
 
 - Единственный рабочий PostgreSQL: кластер `postgresql373-1`, ID `c9qsb64sleqkc6mdooon`.
-- Старый кластер `postgresql373` считается выведенным из эксплуатации. Не включать его, не использовать как резерв и не переносить на него настройки.
 - Backend-кандидат: исходники ветки, из которой собран этот комплект; версия из `backend/package.json` должна совпадать с манифестом артефакта.
 - Cloud Function: `smenavkarmane-api`, ID `d4epijnhj7h9sd5ppa66`, runtime Node.js 22, entrypoint `index.handler`.
 - API Gateway: `qww`, ID `d5d5p4eof6ra03bsva7a`.
