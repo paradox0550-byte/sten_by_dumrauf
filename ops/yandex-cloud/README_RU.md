@@ -28,9 +28,9 @@
 
 На компьютере должны быть Node.js 22, Python 3.12, `zip` и `sha256sum`. Клонируй репозиторий, переключись на эту ветку и выполни:
 
-\`\`\`bash
+```bash
 bash ops/yandex-cloud/package-manual.sh
-\`\`\`
+```
 
 Архивы, SHA-256 и `release-manifest.txt` появятся в `release-artifacts/yandex-cloud/`. Если работаешь не из Git clone, передай проверенный commit SHA через переменную `SOURCE_COMMIT`.
 
