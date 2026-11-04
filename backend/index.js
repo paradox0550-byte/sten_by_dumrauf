@@ -789,7 +789,7 @@ function normalizeSkillConfig(raw) {
   // Public API speaks includeCapexWarning; the prompt builder consumes legacy excludeCapex.
   // Translate explicitly so a false warning flag does not silently become "include".
   if (allowed.includeCapexWarning !== undefined) {
-    allowed.excludeCapex = !allowed.includeCapexWarning;
+    allowed.excludeCapex = allowed.includeCapexWarning;
     delete allowed.includeCapexWarning;
   }
   const parsed = AiSkillsSchema.safeParse(allowed);
