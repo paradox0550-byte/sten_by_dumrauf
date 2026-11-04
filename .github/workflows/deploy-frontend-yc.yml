@@ -59,6 +59,17 @@ jobs:
           grep -RqsF "$VITE_API_URL" dist/assets
           echo "Built commit: $(git rev-parse HEAD)"
 
+      - name: Inspect GitHub OIDC claims (no token output)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const token = await core.getIDToken(process.env.YC_AUDIENCE);
+            const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
+            const claims = { iss: payload.iss, sub: payload.sub, aud: payload.aud };
+            core.info('OIDC claims (safe metadata only): ' + JSON.stringify(claims));
+            if (claims.iss !== 'https://token.actions.githubusercontent.com') core.setFailed('Unexpected OIDC issuer');
+            if (claims.aud !== process.env.YC_AUDIENCE) core.setFailed('OIDC audience does not match YC_AUDIENCE');
+
       - name: Get Yandex Cloud IAM token using WIF
         id: iam
         uses: docker://ghcr.io/yc-actions/yc-iam-token-fed:1.0.0
