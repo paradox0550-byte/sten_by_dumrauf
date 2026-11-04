@@ -111,3 +111,13 @@ curl.exe -X GET "https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net/aut
 ## 5.6 Manual ingestion security boundary
 
 Unauthenticated manual ingestion must be rejected. Telegram requests require the configured Telegram webhook secret header; WhatsApp requests require a valid `X-Hub-Signature-256` signature. Do not test by sending real restaurant data to an unauthenticated endpoint.
+
+## 5.7 Legacy PIN route is disabled
+
+```powershell
+curl.exe -X POST "https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net/auth/unlock" `
+  -H "Content-Type: application/json" `
+  -d "{\"code\":\"0000\"}"
+```
+
+Ожидаемо: HTTP 410 и `LEGACY_AUTH_DISABLED`. Не используйте настоящий код доступа в smoke-тесте.
