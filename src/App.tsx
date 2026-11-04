@@ -48,7 +48,7 @@ function Protected({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <AuthProvider>
-      <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <HashRouter>
         <Suspense
           fallback={
             <main className="loading sten-loading" aria-label="Загрузка STEN" aria-busy="true">
