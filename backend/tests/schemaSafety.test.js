@@ -34,3 +34,20 @@ test('financial report reads do not convert database failures into empty dataset
   assert.match(reportMetrics, /strictQuery\(/u);
   assert.doesNotMatch(reportMetrics, /safeQuery\(/u);
 });
+
+test('Yandex Cloud Functions PostgreSQL TLS uses the platform CA with verification enabled', () => {
+  assert.match(source, /const YANDEX_INTERNAL_CA_PATH = '\/usr\/local\/share\/ca-certificates\/yandex-internal-ca\.crt'/u);
+  assert.match(source, /fs\.existsSync\(YANDEX_INTERNAL_CA_PATH\)/u);
+  assert.match(source, /fs\.readFileSync\(YANDEX_INTERNAL_CA_PATH\)/u);
+  assert.match(source, /return \{ ca, rejectUnauthorized: true \}/u);
+  assert.match(source, /CA certificate unavailable/u);
+});
+
+test('PostgreSQL TLS never silently disables verification in production', () => {
+  const resolver = source.slice(
+    source.indexOf('function resolveDbSsl()'),
+    source.indexOf('let _pool = null;'),
+  );
+  assert.match(resolver, /ENV\.NODE_ENV === 'production' && !allowInsecure/u);
+  assert.match(resolver, /DB_SSL_ALLOW_INSECURE/u);
+});
