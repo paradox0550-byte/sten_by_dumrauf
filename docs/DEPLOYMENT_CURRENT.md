@@ -22,7 +22,7 @@ The following settings were supplied in the infrastructure inventory on 2026-11-
 - Runtime package version: `5.4.1`.
 - Canonical Yandex API Gateway specification: root `api-gateway.yaml`.
 - The former duplicate `api-gateway-spec.yaml` has been removed from this branch; use only `api-gateway.yaml` as the canonical gateway source.
-- `api-spec.yaml` is the application API contract generated from registered Express routes; it is not the gateway integration file.
+- `api-spec.yaml` is the maintained application API contract; CI checks exact method/path parity against registered Express routes. It is not the gateway integration file.
 
 Do not deploy only `backend/index.js`: it imports runtime modules from `backend/core/`, `backend/finance/`, `backend/integrations/`, `backend/telegramMonitor.js`, `backend/telegramSecretary.js`, `backend/telegramSecretaryWorker.js`, `backend/operationalControl.js`, `backend/markitdownClient.js` and `backend/documentProcessor.js`. The Python converter under `backend/markitdown/` is a separate Cloud Function and must not be bundled into the Node.js API archive.
 
