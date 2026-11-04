@@ -103,13 +103,16 @@ export function useScope():[Scope,(next:Partial<Scope>)=>void] {
         // Empty/null server fields must not erase a validated local selection.
         const serverHasSelection=['project_id','branch_id','restaurant_id','department_id'].some(k=>typeof c[k]==='string'&&c[k].length>0);
         if(serverHasSelection){
-          setScope(prev=>({
-            ...prev,
-            projectId:typeof c.project_id==='string'&&c.project_id?c.project_id:undefined,
-            branchId:typeof c.branch_id==='string'&&c.branch_id?c.branch_id:undefined,
-            restaurantId:typeof c.restaurant_id==='string'&&c.restaurant_id?c.restaurant_id:undefined,
-            departmentId:typeof c.department_id==='string'&&c.department_id?c.department_id:undefined,
-          }));
+          setScope(prev=>{
+            const next={...prev,
+              projectId:typeof c.project_id==='string'&&c.project_id?c.project_id:undefined,
+              branchId:typeof c.branch_id==='string'&&c.branch_id?c.branch_id:undefined,
+              restaurantId:typeof c.restaurant_id==='string'&&c.restaurant_id?c.restaurant_id:undefined,
+              departmentId:typeof c.department_id==='string'&&c.department_id?c.department_id:undefined,
+            };
+            scopeRef.current=next;
+            return next;
+          });
         }
       } catch { /* API недоступен — сохраняем текущий локальный контекст; доступ проверяет сервер */ }
     };
@@ -156,8 +159,6 @@ export function useScope():[Scope,(next:Partial<Scope>)=>void] {
       }
     })();
   };
-
-  useEffect(()=>{scopeRef.current=scope},[scope]);
 
   useEffect(()=>{
     if(!key||loadedFor!==key)return;

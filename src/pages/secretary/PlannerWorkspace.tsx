@@ -29,7 +29,7 @@ function keyOf(d: Date) { return [d.getFullYear(), String(d.getMonth()+1).padSta
 function fromKey(key: string) { const p = key.split('-').map(Number); return new Date(p[0], p[1]-1, p[2], 12); }
 function addDays(d: Date, n: number) { const next = new Date(d); next.setDate(next.getDate()+n); return next; }
 function monday(d: Date) { const next = new Date(d); next.setHours(0,0,0,0); next.setDate(next.getDate()-((next.getDay()+6)%7)); return next; }
-function dateLabel(d: Date) { return d.toLocaleDateString('ru-RU', {day:'numeric', month:'short'}).replace('.', ''); }
+function dateLabel(d: Date) { return d.toLocaleDateString('ru-RU', {day:'numeric', month:'short'}).replace(/\.$/, ''); }
 function done(status: string) { return ['done','completed','complete','confirmed'].includes(String(status).toLowerCase()); }
 function Donut({value, label}:{value:number|null;label:string}) {
   const r=17, c=2*Math.PI*r, v=Math.max(0,Math.min(100,value??0));

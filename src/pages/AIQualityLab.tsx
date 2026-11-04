@@ -62,7 +62,7 @@ export default function AIQualityLab(){
    const columns=['scenarioId','prompt','answer','verdict','error','at','durationMs'];
    const escapeCsv=(value:unknown)=>'"'+String(value??'').replace(/"/g,'""')+'"';
    const csv=[columns.join(','),...runs.map(run=>[run.scenarioId,run.prompt,run.answer,run.verdict,run.error,run.at,run.durationMs].map(escapeCsv).join(','))].join('\n');
-   const url=URL.createObjectURL(new Blob(['\\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
+   const url=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
    const anchor=document.createElement('a');anchor.href=url;anchor.download='sten-ai-quality.csv';anchor.click();URL.revokeObjectURL(url);
  };
  const resetGrades=()=>{setVerdicts({});if(key){try{localStorage.removeItem(key)}catch{}}};
@@ -84,7 +84,7 @@ export default function AIQualityLab(){
   </section>
   <div className="ai-quality-grid">{scenarios.map(s=><section className="ai-quality-card" key={s.id}>
     <div className="ai-quality-card-top"><span className="ai-quality-id">{s.id}</span>{s.needsDocuments&&<span className="ai-quality-tag">Нужны документы</span>}</div>
-    <h2>{s.title}</h2><p>{s.goal}</p><div className="ai-quality-checks">{s.checks.map(check=><div key={check}><ClipboardCheck size={14}/><span>{check}</span></div>)}</div>
+    <h2>{s.title}</h2><p>{s.goal}</p>{s.needsDocuments&&<small>Для этой проверки загрузите исходный файл в STEN AI → Документы. Без документа ответ не сможет подтвердить источник.</small>}<div className="ai-quality-checks">{s.checks.map(check=><div key={check}><ClipboardCheck size={14}/><span>{check}</span></div>)}</div>
     {verdicts[s.id]&&<div className={'ai-quality-saved '+verdicts[s.id]}>{verdicts[s.id]==='pass'?'Последняя оценка: пройдено':verdicts[s.id]==='fail'?'Последняя оценка: не пройдено':'Последняя оценка: нужна проверка'}</div>}
     <button className="primary-button ai-quality-run" disabled={!!busyId} onClick={()=>void runScenario(s)}>{busyId===s.id?<><RotateCcw size={15} className="ai-quality-spin"/> Выполняем…</>:<><Play size={15}/> Запустить проверку</>}</button>
   </section>)}</div>
