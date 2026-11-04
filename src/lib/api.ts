@@ -145,11 +145,6 @@ async function req<T>(
           clearSession();
           dispatchAuthExpired();
         }
-        if (response.status === 403 && code === 'ORG_ACCESS_CLOSED') {
-          clearSession();
-          dispatchAuthExpired();
-        }
-
         if (attempt < maxRetries && response.status >= 500) {
           attempt++;
           await waitBeforeRetry(300 * attempt, opts.signal);

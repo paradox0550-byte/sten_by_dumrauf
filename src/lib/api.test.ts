@@ -52,14 +52,15 @@ describe('API client', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it('clears the session and emits auth expiry for a closed organization', async () => {
+  it('keeps a valid session when organization access is closed', async () => {
     vi.stubEnv('VITE_API_URL', API_URL);
     const target = new EventTarget();
     const handler = vi.fn();
     target.addEventListener('sten-auth-expired', handler);
     vi.stubGlobal('window', target);
+    const removeItem = vi.fn();
     vi.stubGlobal('localStorage', {
-      removeItem: vi.fn(),
+      removeItem,
       getItem: vi.fn(() => 'token'),
       get length() { return 0; },
       key: vi.fn(),
@@ -69,7 +70,8 @@ describe('API client', () => {
     ));
 
     await expect(api.get('/api/pnl')).rejects.toMatchObject({ code: 'ORG_ACCESS_CLOSED' });
-    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).not.toHaveBeenCalled();
+    expect(removeItem).not.toHaveBeenCalled();
   });
 
   it('does not expire a session for invalid login credentials', async () => {
