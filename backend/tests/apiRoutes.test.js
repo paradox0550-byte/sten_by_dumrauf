@@ -61,3 +61,14 @@ test('manual message ingestion requires authentication while webhook payloads us
   const payload = await response.json();
   assert.equal(payload.error, 'authentication_required');
 });
+
+test('legacy PIN authentication is disabled and cannot issue a session', async () => {
+  const response = await fetch(baseUrl + '/auth/unlock', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: '1234' }),
+  });
+  assert.equal(response.status, 410);
+  const payload = await response.json();
+  assert.equal(payload.error?.code, 'LEGACY_AUTH_DISABLED');
+});
