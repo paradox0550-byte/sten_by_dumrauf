@@ -52,7 +52,7 @@ export default function Team() {
   const { user } = useAuth();
   const planStorageKey = 'sten_fot_plan_v1:' + [user?.organizationId || 'no-org', user?.id || 'no-user', scope.period, scope.projectId || 'all-projects', scope.branchId || 'all-branches', scope.restaurantId || 'all-restaurants', scope.departmentId || 'all-departments'].join(':');
   const customStorageKey = 'sten_fot_custom_positions_v1:' + [user?.organizationId || 'no-org', user?.id || 'no-user', scope.projectId || 'all-projects', scope.branchId || 'all-branches', scope.restaurantId || 'all-restaurants', scope.departmentId || 'all-departments'].join(':');
-  const planScope = useMemo(() => ({ period: planScope.period, projectId: scope.projectId, branchId: scope.branchId, restaurantId: scope.restaurantId, departmentId: scope.departmentId }), [scope.period, scope.projectId, scope.branchId, scope.restaurantId, scope.departmentId]);
+  const planScope = useMemo(() => ({ period: scope.period, projectId: scope.projectId, branchId: scope.branchId, restaurantId: scope.restaurantId, departmentId: scope.departmentId }), [scope.period, scope.projectId, scope.branchId, scope.restaurantId, scope.departmentId]);
   const [positionPlan, setPositionPlan] = useState<PositionPlanMap>({});
   const [customPositions, setCustomPositions] = useState<CustomPositionMap>({});
   const [planLoadedFor, setPlanLoadedFor] = useState('');
@@ -89,7 +89,7 @@ export default function Team() {
           nextPlan = Object.keys(remotePlan).length ? remotePlan : legacyPlan;
           nextCustom = remoteCustom.length ? remoteCustom : Object.values(legacyCustom);
           const migrated = await api.put<{ plan: PositionPlanMap; customPositions: CustomPosition[] }>('/api/fot/staffing-plan', {
-            period: scope.period,
+            period: planScope.period,
             scope: { project_id: planScope.projectId || null, branch_id: planScope.branchId || null, restaurant_id: planScope.restaurantId || null, department_id: planScope.departmentId || null },
             plan: nextPlan,
             customPositions: nextCustom,
@@ -132,8 +132,8 @@ export default function Team() {
       setPlanSaveError('');
       try {
         await api.put('/api/fot/staffing-plan', {
-          period: scope.period,
-          scope: { project_id: scope.projectId || null, branch_id: scope.branchId || null, restaurant_id: scope.restaurantId || null, department_id: scope.departmentId || null },
+          period: planScope.period,
+          scope: { project_id: planScope.projectId || null, branch_id: planScope.branchId || null, restaurant_id: planScope.restaurantId || null, department_id: planScope.departmentId || null },
           plan: positionPlan,
           customPositions: Object.values(customPositions),
         });
