@@ -1,0 +1,93 @@
+name: Package Yandex Cloud Backend (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yandex-backend-package-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Validate and package Node.js 22 function source
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact selected commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install locked backend dependencies
+        run: npm ci --prefix backend --ignore-scripts
+
+      - name: Validate backend tests
+        run: npm test --prefix backend
+
+      - name: Validate entrypoint syntax
+        run: node --check backend/index.js
+
+      - name: Build source archive with function files at ZIP root
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f backend/index.js
+          test -f backend/package.json
+          test -f backend/package-lock.json
+          package_version="$(node -p "require('./backend/package.json').version")"
+          test "$package_version" = "5.4.1"
+
+          mkdir -p dist/function
+          tar -C backend \
+            --exclude='./node_modules' \
+            --exclude='./tests' \
+            --exclude='./markitdown' \
+            -cf - . | tar -C dist/function -xf -
+
+          test -f dist/function/index.js
+          test -f dist/function/package.json
+          test -f dist/function/package-lock.json
+          test ! -e dist/function/markitdown
+          test ! -e dist/function/node_modules
+
+          archive="sten-backend-node22-${GITHUB_SHA}.zip"
+          (cd dist/function && zip -qr "../$archive" .)
+          sha256sum "dist/$archive" > "dist/$archive.sha256"
+
+          {
+            echo "product=STEN Backend"
+            echo "package_version=$package_version"
+            echo "runtime=nodejs22"
+            echo "entrypoint=index.handler"
+            echo "source_commit=$GITHUB_SHA"
+            echo "source_ref=$GITHUB_REF"
+            echo "function_id=d4epijnhj7h9sd5ppa66"
+            echo "gateway_id=d5d5p4eof6ra03bsva7a"
+            echo "archive=$archive"
+            echo "archive_sha256=$(cut -d ' ' -f 1 "dist/$archive.sha256")"
+            echo "built_at_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "contains_node_modules=false"
+            echo "contains_python_markitdown=false"
+            echo "secrets_included=false"
+          } > dist/release-manifest.txt
+
+      - name: Upload manual release package
+        uses: actions/upload-artifact@v4
+        with:
+          name: sten-yandex-backend
+          path: |
+            dist/sten-backend-node22-*.zip
+            dist/sten-backend-node22-*.zip.sha256
+            dist/release-manifest.txt
+          if-no-files-found: error
+          retention-days: 14
