@@ -1,0 +1,134 @@
+name: Deploy Frontend to Yandex Object Storage
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production:
+        description: "Type DEPLOY to publish the current main frontend"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: sten-production-frontend-deploy
+  cancel-in-progress: false
+
+env:
+  YC_FOLDER_ID: b1glljl1mm7jdlgpkked
+  YC_FEDERATION_ID: ajepd07sf24pa5lfcgum
+  YC_SA_ID: ajeru518lnk3t3rc935k
+  YC_AUDIENCE: https://github.com/paradox0550-byte
+  BUCKET: smenavkarmane-business
+  SITE_URL: https://smenavkarmane-business.website.yandexcloud.net
+
+jobs:
+  deploy:
+    if: ${{ inputs.confirm_production == 'DEPLOY' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build production frontend
+        env:
+          VITE_API_URL: https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          npm run typecheck
+          npm run build
+          test -s dist/index.html
+          test -d dist/assets
+          test -s dist/manifest.json
+          test -s dist/sw.js
+          grep -RqsF "$VITE_API_URL" dist/assets
+          echo "Built commit: $(git rev-parse HEAD)"
+
+      - name: Get Yandex Cloud IAM token using WIF
+        id: iam
+        uses: docker://ghcr.io/yc-actions/yc-iam-token-fed:1.0.0
+        with:
+          yc-sa-id: ${{ env.YC_SA_ID }}
+
+      - name: Verify bucket access before upload
+        env:
+          IAM_TOKEN: ${{ steps.iam.outputs.token }}
+        run: |
+          set -euo pipefail
+          test -n "$IAM_TOKEN"
+          code=$(curl --silent --show-error --output /tmp/bucket-list.xml --write-out "%{http_code}" \
+            --header "Authorization: Bearer $IAM_TOKEN" \
+            "https://storage.yandexcloud.net/$BUCKET?list-type=2&max-keys=1")
+          echo "Bucket list HTTP: $code"
+          if [ "$code" != "200" ]; then
+            cat /tmp/bucket-list.xml
+            echo "WIF identity cannot verify access to the production bucket."
+            exit 1
+          fi
+
+      - name: Upload frontend objects (non-destructive)
+        env:
+          IAM_TOKEN: ${{ steps.iam.outputs.token }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            key="${file#dist/}"
+            case "$key" in
+              *.html) content_type="text/html; charset=utf-8" ;;
+              *.js|*.mjs) content_type="application/javascript; charset=utf-8" ;;
+              *.css) content_type="text/css; charset=utf-8" ;;
+              *.svg) content_type="image/svg+xml" ;;
+              *.json) content_type="application/json; charset=utf-8" ;;
+              *.webmanifest) content_type="application/manifest+json" ;;
+              *.png) content_type="image/png" ;;
+              *.jpg|*.jpeg) content_type="image/jpeg" ;;
+              *.webp) content_type="image/webp" ;;
+              *.woff2) content_type="font/woff2" ;;
+              *.woff) content_type="font/woff" ;;
+              *.ttf) content_type="font/ttf" ;;
+              *.ico) content_type="image/x-icon" ;;
+              *) content_type="application/octet-stream" ;;
+            esac
+            case "$key" in
+              index.html|404.html|sw.js|manifest.json) cache_control="no-cache, no-store, must-revalidate" ;;
+              assets/*) cache_control="public, max-age=31536000, immutable" ;;
+              *) cache_control="public, max-age=3600" ;;
+            esac
+            echo "Uploading $key"
+            curl --fail --silent --show-error --retry 3 \
+              --request PUT \
+              --header "Authorization: Bearer $IAM_TOKEN" \
+              --header "Content-Type: $content_type" \
+              --header "Cache-Control: $cache_control" \
+              --upload-file "$file" \
+              "https://storage.yandexcloud.net/$BUCKET/$key"
+          done < <(find dist -type f -print0)
+          echo "Upload complete. No bucket-wide deletion or sync --delete was performed."
+
+      - name: Production smoke test
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 5 --retry-all-errors "$SITE_URL/" -o /tmp/production-index.html
+          grep -q '<html' /tmp/production-index.html
+          assets=$(grep -oE '(src|href)="\./assets/[^"]+\.(js|css)(\?[^"]*)?"' /tmp/production-index.html | cut -d '"' -f 2 | sort -u)
+          test -n "$assets"
+          while IFS= read -r asset; do
+            curl --fail --silent --show-error --head "$SITE_URL/${asset#./}" >/dev/null
+            echo "Verified $asset"
+          done <<< "$assets"
+          echo "Production frontend smoke test passed."
