@@ -14,7 +14,7 @@ From the repository root, on the reviewed branch:
 
 ```bash
 cd backend
-zip -r ../sten-backend-5.4.1.zip . -x 'node_modules/*' 'tests/*'
+zip -r ../sten-backend-5.4.1.zip index.js package.json package-lock.json core finance integrations documentProcessor.js markitdownClient.js operationalControl.js telegramMonitor.js telegramSecretary.js telegramSecretaryWorker.js
 ```
 
 ### PowerShell
@@ -36,7 +36,7 @@ Before upload, inspect the archive. Its root must contain:
 - `core/`
 - `integrations/`
 
-The PowerShell command includes tests; this is harmless but makes the archive larger. The Linux command excludes tests and local `node_modules`.
+The archive intentionally excludes tests, local `node_modules`, `server.js`/Dockerfile (Cloud.ru container adapter) and `markitdown/` (a separate Python Cloud Function). Do not bundle the Python MarkItDown converter into the Node.js API function.
 
 ## Yandex Cloud Function settings
 
