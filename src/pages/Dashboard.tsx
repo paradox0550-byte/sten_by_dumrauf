@@ -150,7 +150,8 @@ export default function Dashboard() {
         <section className="director-state director-state--empty">
           <AlertTriangle size={20} aria-hidden="true" />
           <div><h2>Нет данных за {monthLabel}</h2></div>
-          <Link className="secondary-button" to="/pnl">Загрузить данные</Link>
+          <Link className="secondary-button" to="/pnl">Импорт P&amp;L</Link>
+          <Link className="secondary-button" to="/settings">Настроить интеграцию</Link>
         </section>
       )}
 
