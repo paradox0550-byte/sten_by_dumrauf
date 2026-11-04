@@ -68,6 +68,12 @@ export default function Dashboard() {
       if (error instanceof ApiError && error.status === 503) {
         setState('unavailable');
         setErrorMessage('Данные временно недоступны.');
+      } else if (error instanceof ApiError && error.status === 403 && error.code === 'SCOPE_ACCESS_CHECK_FAILED') {
+        setState('error');
+        setErrorMessage('Нет доступа к данным выбранного ресторана. Выберите другой рабочий контур или обратитесь к администратору.');
+      } else if (error instanceof ApiError && error.code === 'ORG_ACCESS_CLOSED') {
+        setState('error');
+        setErrorMessage('Доступ к организации закрыт. Проверьте статус подписки или обратитесь к администратору.');
       } else {
         setState('error');
         setErrorMessage('Не удалось обновить показатели. Попробуйте ещё раз.');
@@ -121,7 +127,7 @@ export default function Dashboard() {
           <button className="secondary-button" type="button" aria-label="Обновить сводку" onClick={() => void load()} disabled={state === 'loading'}><RefreshCw size={15} /> Обновить</button>
           <label className="director-period">
             <span className="sr-only">Период</span>
-            <input aria-label="Период" type="month" value={scope.period} onChange={(event) => setScope({ ...scope, period: event.target.value })} />
+            <input aria-label="Период" type="month" value={scope.period} onChange={(event) => setScope({ period: event.target.value })} />
           </label>
         </div>
       </header>

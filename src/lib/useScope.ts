@@ -64,10 +64,11 @@ async function migrateLegacyScope(key:string):Promise<Scope|null> {
   } catch { return null; }
 }
 
-export function useScope():[Scope,(next:Scope)=>void] {
+export function useScope():[Scope,(next:Partial<Scope>)=>void] {
   const {user}=useAuth();
   const key=storageKey(user);
   const [scope,setScope]=useState<Scope>(()=>readSaved(key));
+  const scopeRef=useRef(scope);
   const [loadedFor,setLoadedFor]=useState<string|null>(null);
   const contextSeqRef=useRef(0);
   const saveSeqRef=useRef(0);
@@ -91,6 +92,7 @@ export function useScope():[Scope,(next:Scope)=>void] {
         }
       }
       if(cancelled||seq!==contextSeqRef.current)return;
+      scopeRef.current=initial;
       setScope(initial);
       setLoadedFor(canPersist?key:null);
       try {
@@ -112,7 +114,7 @@ export function useScope():[Scope,(next:Scope)=>void] {
       } catch { /* API недоступен — сохраняем текущий локальный контекст; доступ проверяет сервер */ }
     };
     void initialize();
-    const onChange=()=>setScope(readSaved(key));
+    const onChange=()=>{const saved=readSaved(key);scopeRef.current=saved;setScope(saved)};
     window.addEventListener(EVT,onChange);
     window.addEventListener('storage',onChange);
     return()=>{
@@ -122,7 +124,9 @@ export function useScope():[Scope,(next:Scope)=>void] {
     };
   },[key]);
 
-  const update=(next:Scope)=>{
+  const update=(patch:Partial<Scope>)=>{
+    const next:Scope={...scopeRef.current,...patch};
+    scopeRef.current=next;
     const seq=++saveSeqRef.current;
     void (async()=>{
       try {
@@ -133,6 +137,7 @@ export function useScope():[Scope,(next:Scope)=>void] {
           department_id:next.departmentId??null,
         });
         if(seq!==saveSeqRef.current)return;
+        scopeRef.current=next;
         setScope(next);
         setLoadedFor(key);
         try{if(key)localStorage.setItem(key,JSON.stringify(next));}catch{/* приватный режим */}
@@ -142,6 +147,7 @@ export function useScope():[Scope,(next:Scope)=>void] {
         if(seq!==saveSeqRef.current)return;
         // A failed write invalidates the selected contour locally: never keep sending a stale restaurant to AI.
         const cleared:Scope={period:next.period};
+        scopeRef.current=cleared;
         setScope(cleared);
         setLoadedFor(key);
         try{if(key)localStorage.setItem(key,JSON.stringify(cleared));}catch{/* приватный режим */}
@@ -150,6 +156,8 @@ export function useScope():[Scope,(next:Scope)=>void] {
       }
     })();
   };
+
+  useEffect(()=>{scopeRef.current=scope},[scope]);
 
   useEffect(()=>{
     if(!key||loadedFor!==key)return;

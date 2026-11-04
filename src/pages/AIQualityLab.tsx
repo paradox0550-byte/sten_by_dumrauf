@@ -57,6 +57,14 @@ export default function AIQualityLab(){
  };
  const runCustom=async()=>{const prompt=customPrompt.trim();if(!prompt||busyId)return;const custom:Scenario={id:'CUSTOM:'+uuid(),title:'Пользовательский запрос',prompt,goal:'Проверьте полноту, точность, источники и честность ответа.',checks:['Задача выполнена напрямую','Факты подтверждены источниками','Нет выдуманных данных']};await runScenario(custom)};
  const grade=(run:Run,verdict:Verdict)=>{const next={...verdicts,[run.scenarioId]:verdict};setVerdicts(next);if(key){try{localStorage.setItem(key,JSON.stringify(next))}catch{}}setRuns(prev=>prev.map(item=>item.id===run.id?{...item,verdict}:item))};
+ const exportRuns=()=>{
+   if(!runs.length)return;
+   const columns=['scenarioId','prompt','answer','verdict','error','at','durationMs'];
+   const escapeCsv=(value:unknown)=>'"'+String(value??'').replace(/"/g,'""')+'"';
+   const csv=[columns.join(','),...runs.map(run=>[run.scenarioId,run.prompt,run.answer,run.verdict,run.error,run.at,run.durationMs].map(escapeCsv).join(','))].join('\n');
+   const url=URL.createObjectURL(new Blob(['\\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
+   const anchor=document.createElement('a');anchor.href=url;anchor.download='sten-ai-quality.csv';anchor.click();URL.revokeObjectURL(url);
+ };
  const resetGrades=()=>{setVerdicts({});if(key){try{localStorage.removeItem(key)}catch{}}};
  return <div className="page ai-quality-page">
   <div className="page-head ai-quality-head"><div><span className="eyebrow">STEN AI · КАЧЕСТВО</span><h1>Лаборатория ответов</h1><p>Проверяйте реальные ответы STEN на задачах ресторана — без изменения backend и без обучения модели на словах.</p></div><Link className="ai-quality-back" to="/sten"><ArrowLeft size={16}/> Вернуться в STEN AI</Link></div>
@@ -82,7 +90,7 @@ export default function AIQualityLab(){
   </section>)}</div>
   <section className="panel ai-quality-custom"><h2>Проверить свой запрос</h2><p className="muted">Введите задачу, на которой STEN должен показать конкретный результат. Запрос уйдёт в тот же рабочий API, что и обычный чат.</p><textarea value={customPrompt} onChange={e=>setCustomPrompt(e.target.value)} rows={3} maxLength={8000} placeholder="Например: сравни ФОТ двух ресторанов за выбранный месяц и укажи источники…"/><button className="primary-button" disabled={!customPrompt.trim()||!!busyId} onClick={()=>void runCustom()}><Play size={15}/> Выполнить запрос</button></section>
   {error&&<p role="alert" className="ai-quality-error">{error}</p>}
-  <section className="ai-quality-results" aria-live="polite" aria-atomic="false"><div className="ai-quality-results-head"><div><span className="eyebrow">ТЕКУЩАЯ СЕССИЯ</span><h2>Результаты проверок</h2></div><span className="muted">{runs.length} запусков</span></div>
+  <section className="ai-quality-results" aria-live="polite" aria-atomic="false"><div className="ai-quality-results-head"><div><span className="eyebrow">ТЕКУЩАЯ СЕССИЯ</span><h2>Результаты проверок</h2></div><span className="muted">{runs.length} запусков</span><button className="secondary-button" type="button" onClick={exportRuns} disabled={!runs.length}>Экспорт</button></div>
    {!runs.length?<div className="ai-quality-empty"><CircleHelp size={22}/><p>Запустите сценарий выше. Ответ появится здесь вместе с источниками и инструментами, которые вернул API.</p></div>:runs.map(run=><article className="ai-quality-result" key={run.id}>
     <div className="ai-quality-result-head"><div><span className="ai-quality-id">{run.scenarioId}</span><h3>{run.scenarioId.startsWith('CUSTOM:')?'Пользовательский запрос':scenarios.find(s=>s.id===run.scenarioId)?.title}</h3></div><span className="ai-quality-duration">{run.durationMs} мс</span></div>
     <p className="ai-quality-question"><strong>Запрос:</strong> {run.prompt}</p>
