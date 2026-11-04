@@ -44,7 +44,7 @@ export default function AIQualityLab(){
  const [runs,setRuns]=useState<Run[]>([]);
  const [busyId,setBusyId]=useState<string|null>(null);
  const [verdicts,setVerdicts]=useState<Record<string,Verdict>>(()=>readVerdicts(key));
- useEffect(()=>{setVerdicts(readVerdicts(key));setRuns([]);},[key]);
+ useEffect(()=>{setVerdicts(readVerdicts(key));setRuns([]);setError('');},[key]);
  const [error,setError]=useState('');
  const completed=useMemo(()=>Object.keys(verdicts).length,[verdicts]);
  const verdictCounts=useMemo(()=>({pass:Object.values(verdicts).filter(value=>value==='pass').length,fail:Object.values(verdicts).filter(value=>value==='fail').length,review:Object.values(verdicts).filter(value=>value==='needs-review').length}),[verdicts]);
@@ -70,9 +70,9 @@ export default function AIQualityLab(){
    const escapeCsv=(value:unknown)=>'"'+String(value??'').replace(/"/g,'""')+'"';
    const csv=[columns.join(','),...runs.map(run=>[run.scenarioId,run.prompt,run.answer,run.verdict,run.error,run.at,run.durationMs].map(escapeCsv).join(','))].join('\n');
    const url=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
-   const anchor=document.createElement('a');anchor.href=url;anchor.download='sten-ai-quality.csv';anchor.click();URL.revokeObjectURL(url);
+   const anchor=document.createElement('a');anchor.href=url;anchor.download='sten-ai-quality.csv';anchor.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000);
  };
- const resetGrades=()=>{setVerdicts({});if(key){try{localStorage.removeItem(key)}catch{}}};
+ const resetGrades=()=>{setVerdicts({});setRuns(prev=>prev.map(run=>({...run,verdict:undefined})));if(key){try{localStorage.removeItem(key)}catch{}}};
  return <div className="page ai-quality-page">
   <div className="page-head ai-quality-head"><div><span className="eyebrow">STEN AI · КАЧЕСТВО</span><h1>Лаборатория ответов</h1><p>Проверяйте реальные ответы STEN на задачах ресторана — без изменения backend и без обучения модели на словах.</p></div><Link className="ai-quality-back" to="/sten"><ArrowLeft size={16}/> Вернуться в STEN AI</Link></div>
   <section className="ai-quality-notice"><ShieldAlert size={19}/><div><strong>Это проверка качества, а не дообучение модели</strong><p>Каждый запуск обращается к действующему <code>/ask</code> с текущим выбранным контекстом. Оценки сохраняются только в этом браузере для вашей учётной записи. Результаты и реальные ответы не сохраняются в локальную историю.</p></div></section>

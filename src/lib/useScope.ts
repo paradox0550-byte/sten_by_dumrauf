@@ -75,6 +75,7 @@ export function useScope():[Scope,(next:Partial<Scope>)=>void] {
 
   useEffect(()=>{
     const seq=++contextSeqRef.current;
+    const saveSeqAtStart=saveSeqRef.current;
     let cancelled=false;
     const initialize=async()=>{
       let initial=readSaved(key);
@@ -91,13 +92,13 @@ export function useScope():[Scope,(next:Partial<Scope>)=>void] {
           try{if(hadLegacy&&localStorage.getItem(LEGACY_KEY))canPersist=false;}catch{canPersist=false;}
         }
       }
-      if(cancelled||seq!==contextSeqRef.current)return;
+      if(cancelled||seq!==contextSeqRef.current||saveSeqAtStart!==saveSeqRef.current)return;
       scopeRef.current=initial;
       setScope(initial);
       setLoadedFor(canPersist?key:null);
       try {
         const r=await api.get<any>('/api/b2b/context');
-        if(cancelled||seq!==contextSeqRef.current)return;
+        if(cancelled||seq!==contextSeqRef.current||saveSeqAtStart!==saveSeqRef.current)return;
         const c=r?.context??r?.data?.context;
         if(!c)return;
         // Empty/null server fields must not erase a validated local selection.
