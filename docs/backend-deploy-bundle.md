@@ -20,7 +20,8 @@ zip -r ../sten-backend-5.4.1.zip index.js package.json package-lock.json core fi
 ### PowerShell
 
 ```powershell
-Compress-Archive -Path backend\* -DestinationPath sten-backend-5.4.1.zip -Force
+Set-Location backend
+Compress-Archive -Path index.js,package.json,package-lock.json,core,finance,integrations,documentProcessor.js,markitdownClient.js,operationalControl.js,telegramMonitor.js,telegramSecretary.js,telegramSecretaryWorker.js -DestinationPath ..\sten-backend-5.4.1.zip -Force
 ```
 
 Before upload, inspect the archive. Its root must contain:
@@ -33,6 +34,8 @@ Before upload, inspect the archive. Its root must contain:
 - `telegramMonitor.js`
 - `telegramSecretary.js`
 - `telegramSecretaryWorker.js`
+- `operationalControl.js`
+- `finance/`
 - `core/`
 - `integrations/`
 
