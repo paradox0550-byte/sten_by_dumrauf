@@ -19,6 +19,8 @@
 | `LOCKBOX_MIGRATION.md` | План переноса секретов из environment в Lockbox без потери ключей |
 | `POSTGRESQL_NETWORK_IAM.md` | Рабочая БД, TLS, VPC, Security Group и IAM |
 | `MANUAL_RELEASE_CHECKLIST.md` | Пошаговый порядок ручной публикации и отката |
+| `GATEWAY_IMPORT.md` | Сверка и ручной импорт OpenAPI в Gateway без потери security-модели |
+| `MARKITDOWN_DEPLOYMENT.md` | Отдельная публикация Python-конвертера и подключение через Gateway |
 | `.github/workflows/package-yandex-backend.yml` | Ручная сборка двух ZIP: Node.js Backend и отдельной Python-функции MarkItDown |
 
 ## Получение ZIP Backend
@@ -27,7 +29,7 @@
 2. Нажми **Run workflow** на проверенной ветке этого комплекта.
 3. Дождись успешного завершения всех шагов.
 4. Скачай artifact `sten-yandex-backend`.
-5. Внутри будут ZIP с исходниками Backend, `release-manifest.txt` и SHA-256.
+5. Внутри будут два ZIP — Node.js Backend и Python MarkItDown — плюс `release-manifest.txt` и SHA-256 для каждого архива.
 6. Перед загрузкой в Yandex Cloud сравни commit SHA из манифеста с проверенной веткой/PR.
 
 Node.js ZIP устроен так, что `index.js`, `package.json` и `package-lock.json` находятся в корне архива. Python-конвертер собирается отдельным ZIP: `function.py` и `requirements.txt` находятся в его корне.
