@@ -14,9 +14,7 @@ Base URL:
 curl.exe "https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net/healthz"
 ```
 
-Ожидаемо: HTTP 200, `status: "ok"`, `version: "5.0.2"`, `db: "connected"`.
-
-> Примечание: актуальный `backend/index.js` из `main` содержит version 5.0.2. Не считать 5.1.0 успешным результатом для этого bundle: это означало бы проверку кода, которого в данном PR нет.
+Ожидаемо: HTTP 200, `status: "ok"`, `version: "5.4.1"`, `db: "connected"`.
 
 ## 2. Ask — обычный вопрос
 
@@ -109,3 +107,17 @@ curl.exe -X GET "https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net/aut
 ## Результат
 
 Все 5 групп smoke-тестов должны пройти только после публикации всех трёх файлов bundle. `<TOKEN>` — действующий JWT, который оператор вставляет вручную.
+
+## 5.6 Manual ingestion security boundary
+
+Unauthenticated manual ingestion must be rejected. Telegram requests require the configured Telegram webhook secret header; WhatsApp requests require a valid `X-Hub-Signature-256` signature. Do not test by sending real restaurant data to an unauthenticated endpoint.
+
+## 5.7 Legacy PIN route is disabled
+
+```powershell
+curl.exe -X POST "https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net/auth/unlock" `
+  -H "Content-Type: application/json" `
+  -d "{\"code\":\"0000\"}"
+```
+
+Ожидаемо: HTTP 410 и `LEGACY_AUTH_DISABLED`. Не используйте настоящий код доступа в smoke-тесте.

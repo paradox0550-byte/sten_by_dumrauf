@@ -1,12 +1,13 @@
 'use strict';
 /* ============================================================================
 STEN Backend — Express + serverless-http (Yandex Cloud Functions)
-Version: 5.4.0
+Version: 5.4.1
 ========================================================================== */
 const express    = require('express');
 const serverless = require('serverless-http');
 const { Pool, types } = require('pg');
 const crypto     = require('crypto');
+const fs         = require('fs');
 const bcrypt     = require('bcryptjs');
 const { z }      = require('zod');
 const XLSX       = require('@e965/xlsx');
@@ -21,9 +22,10 @@ const { TOOLS, executeTool } = require('./core/tools');
 const { createMemory, listMemory, updateMemoryConfidence, deleteMemory, loadMemoryContext } = require('./core/memory');
 const { loadConversationContext, startConversationTurn, finishConversationTurn, failConversationTurn } = require('./core/conversationMemory');
 const { connectIikoCloud, encryptCredentials } = require('./integrations/iikoCloud');
+const { FotScheduleHistorySchema, FotStaffingPlanSchema, normalizeFotScope, fotScopeKey, assertJsonPayloadSize } = require('./fotPersistence');
 
 // Версия правил, встроенных в этот релиз функции; настройки фильтруются по схеме ниже.
-const SKILLS_VERSION = '5.4.0';
+const SKILLS_VERSION = '5.4.1';
 const SKILL_KEYS_READ_BY_PROMPT = Object.freeze(['foodCost','laborCost','shiftHours','tone','documents','history','includeCapexWarning','excludeCapex']);
 
 types.setTypeParser(1082, v => v);
@@ -35,7 +37,6 @@ const ENV = {
 NODE_ENV: process.env.NODE_ENV || 'production',
 JWT_SECRET: process.env.JWT_SECRET || INSECURE_JWT_FALLBACK,
 JWT_TTL_SEC: parseInt(process.env.JWT_TTL_SECONDS || String(30 * 24 * 3600), 10),
-UNLOCK_CODE_HASH: process.env.UNLOCK_CODE_HASH || process.env.UNLOCK_CODE || process.env.STEN_UNLOCK_CODE || '',
 ALLOWED_ORIGINS: (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? '' : '*')).split(',').map(s => s.trim()).filter(Boolean),
 ADMIN_ID: process.env.ADMIN_ID || 'admin',
 ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@sten.local',
@@ -50,6 +51,8 @@ DB_PORT: parseInt(process.env.DB_PORT || '6432', 10),
 DB_NAME: process.env.DB_NAME,
 DB_USER: process.env.DB_USER,
 DB_PASSWORD: process.env.DB_PASSWORD,
+DB_IDLE_TIMEOUT_MS: Math.max(1000, Math.min(300000, Number(process.env.DB_IDLE_TIMEOUT_MS || 30000))),
+GOOGLE_CLIENT_ID: String(process.env.GOOGLE_CLIENT_ID || '').trim(),
 YANDEXGPT_API_KEY: process.env.YANDEXGPT_API_KEY,
 YC_FOLDER_ID: process.env.YC_FOLDER_ID,
 YANDEXGPT_MODEL: process.env.YANDEXGPT_MODEL || 'yandexgpt',
@@ -65,7 +68,7 @@ MARKITDOWN_AUTH_MODE: process.env.MARKITDOWN_AUTH_MODE || 'auto',
 MARKITDOWN_TIMEOUT_MS: Number(process.env.MARKITDOWN_TIMEOUT_MS || 60000),
 STORAGE_BUCKET: process.env.OBJECT_STORAGE_BUCKET || process.env.YC_BUCKET_NAME,
 STORAGE_ENDPOINT: process.env.OBJECT_STORAGE_ENDPOINT || 'https://storage.yandexcloud.net',
-STORAGE_REGION: process.env.OBJECT_STORAGE_REGION || 'ru-central1',
+STORAGE_REGION: process.env.OBJECT_STORAGE_REGION || process.env.AWS_DEFAULT_REGION || 'ru-central1',
 AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
 AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
 BCRYPT_ROUNDS: 12,
@@ -118,23 +121,21 @@ return e;
 
 /* ----------------------------- database ----------------------------------- */
 function resolveDbSsl() {
-const allowInsecure = process.env.DB_SSL_ALLOW_INSECURE === 'true';
 if (process.env.DB_SSL_MODE === 'disable') {
-  if (ENV.NODE_ENV === 'production' && !allowInsecure) {
-    throw new Error('[sten] FATAL: DB_SSL_MODE=disable в production запрещён без DB_SSL_ALLOW_INSECURE=true.');
+  if (ENV.NODE_ENV === 'production') {
+    throw new Error('[sten] FATAL: DB_SSL_MODE=disable в production запрещён.');
   }
   return false;
 }
-if (process.env.DB_SSL_CA_BASE64) {
+
+const ca = fs.readFileSync('/usr/local/share/ca-certificates/yandex-internal-ca.crt');
+if (!ca.length) {
+  throw new Error('[sten] FATAL: Yandex managed-database CA file is empty.');
+}
 return {
-ca: Buffer.from(process.env.DB_SSL_CA_BASE64, 'base64').toString('utf8'),
-rejectUnauthorized: true,
+  ca,
+  rejectUnauthorized: true,
 };
-}
-if (ENV.NODE_ENV === 'production' && !allowInsecure) {
-  throw new Error('[sten] FATAL: DB_SSL_CA_BASE64 не задан в production. Установите CA или явно разрешите DB_SSL_ALLOW_INSECURE=true.');
-}
-return { rejectUnauthorized: false };
 }
 
 let _pool = null;
@@ -143,7 +144,7 @@ if (_pool) return _pool;
 if (!ENV.DB_HOST) { log('db: no DB_HOST, pool disabled'); return null; }
 _pool = new Pool({
 host: ENV.DB_HOST, port: ENV.DB_PORT, database: ENV.DB_NAME, user: ENV.DB_USER, password: ENV.DB_PASSWORD,
-ssl: resolveDbSsl(), max: Math.max(1, Math.min(10, Number.parseInt(process.env.DB_POOL_MAX || '2', 10) || 2)), idleTimeoutMillis: 30000, connectionTimeoutMillis: 15000,
+ssl: resolveDbSsl(), max: Math.max(1, Math.min(10, Number.parseInt(process.env.DB_POOL_MAX || '2', 10) || 2)), idleTimeoutMillis: ENV.DB_IDLE_TIMEOUT_MS, connectionTimeoutMillis: 15000,
 statement_timeout: 25000, query_timeout: 25000, keepAlive: true, statement_cache_size: 0,
 application_name: 'sten-api',
 });
@@ -424,7 +425,7 @@ FOR c IN
 SELECT indexname FROM pg_indexes
 WHERE tablename='daily_reports' AND indexdef ILIKE '%(date)%'
 LOOP EXECUTE 'DROP INDEX IF EXISTS ' || quote_ident(c.indexname); END LOOP;
-ALTER TABLE daily_reports DROP COLUMN date;
+-- Keep legacy date column until a separate verified data migration. Do not discard source data at runtime.
 END IF;
 END $$;`);
 await query(`DROP INDEX IF EXISTS daily_reports_org_date_uniq;`);
@@ -482,9 +483,7 @@ await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT;`)
 await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;`);
 await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false;`);
 await query(`CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_uniq ON users (lower(email));`);
-// Одноразовая миграция: удалить дубликаты pnl_entries с пустым project_id.
-try { await query(`DELETE FROM pnl_entries WHERE project_id = '' AND period >= '2026-01' AND period <= '2026-12'`); }
-catch (e) { log('cleanup pnl_entries duplicates:', e.message); }
+// P&L rows are never deleted during schema bootstrap. Data cleanup requires a reviewed migration.
 try {
 if (ENV.ADMIN_EMAIL) {
 const ex = await query(`SELECT id, password_hash FROM users WHERE lower(email)=lower($1) LIMIT 1`, [ENV.ADMIN_EMAIL]);
@@ -712,7 +711,6 @@ other: z.number().finite().nullable(),
 other_operating: z.number().finite().nullable(),
 }).partial().strict().optional(),
 }).catchall(z.unknown());
-const UnlockSchema = z.object({ code: z.string().regex(/^\d{4}$/u, 'Код должен содержать 4 цифры') }).strict();
 const LoginSchema = z.object({ email: z.string().trim().email().max(320), password: z.string().min(1).max(200) }).strict();
 const SetPasswordSchema = z.object({ newPassword: z.string().min(8).max(200) }).strict();
 const ChangePasswordSchema = z.object({ oldPassword: z.string().min(1).max(200), newPassword: z.string().min(8).max(200) }).strict();
@@ -1203,7 +1201,7 @@ try { await query('SELECT 1'); dbReachable = true; kickSchema(); }
 catch (e) { log('healthz db:', e.message); }
 }
 ok(res, {
-status: 'ok', version: '5.4.0', time: new Date().toISOString(),
+status: 'ok', version: '5.4.1', time: new Date().toISOString(),
 db: dbOk ? (dbReachable ? 'connected' : 'configured-unreachable') : 'not-configured',
 ai: ENV.YANDEXGPT_API_KEY ? 'configured' : 'not-configured',
 storage: ENV.STORAGE_BUCKET ? 'configured' : 'not-configured',
@@ -1212,48 +1210,18 @@ skills_version: SKILLS_VERSION,
 });
 });
 
-/* ---- auth: unlock (legacy PIN) ---- */
-app.post('/auth/unlock', async (req, res) => {
-const body = parseOr400(UnlockSchema, req.body ?? {});
-if (!ENV.DB_HOST) return res.status(503).json({ error: { message: 'Сервер авторизации не настроен (БД)', code: 'AUTH_NOT_CONFIGURED', requestId: req.requestId } });
-await ensureSchemaNow();
-const hash = String(ENV.UNLOCK_CODE_HASH || '');
-if (!hash || !hash.startsWith('$2')) return res.status(503).json({ error: { message: 'Сервер авторизации не настроен. Укажите bcrypt-хеш кода доступа в secret storage.', code: 'AUTH_NOT_CONFIGURED', requestId: req.requestId } });
-try {
-if (bcrypt.getRounds(hash) !== ENV.BCRYPT_ROUNDS) return res.status(503).json({ error: { message: 'Сервер авторизации требует bcrypt cost 12.', code: 'AUTH_HASH_CONFIG', requestId: req.requestId } });
-} catch { return res.status(503).json({ error: { message: 'Сервер авторизации настроен некорректно.', code: 'AUTH_HASH_CONFIG', requestId: req.requestId } }); }
-const ip = String(req.ip || 'unknown').slice(0, 255);
-const rate = await query(
-`INSERT INTO auth_unlock_attempts (ip, window_started_at, failed_attempts, blocked_until) VALUES ($1, now(), 0, NULL)
-ON CONFLICT (ip) DO UPDATE SET
-failed_attempts = CASE WHEN auth_unlock_attempts.window_started_at < now() - interval '15 minutes' THEN 0 ELSE auth_unlock_attempts.failed_attempts END,
-window_started_at = CASE WHEN auth_unlock_attempts.window_started_at < now() - interval '15 minutes' THEN now() ELSE auth_unlock_attempts.window_started_at END,
-blocked_until = CASE WHEN auth_unlock_attempts.window_started_at < now() - interval '15 minutes' THEN NULL ELSE auth_unlock_attempts.blocked_until END
-RETURNING failed_attempts, blocked_until`, [ip]);
-const blockedUntil = rate.rows?.[0]?.blocked_until ? new Date(rate.rows[0].blocked_until) : null;
-if (blockedUntil && blockedUntil.getTime() > Date.now()) return res.status(429).json({ error: { message: 'Слишком много попыток. Повторите вход позже.', code: 'AUTH_RATE_LIMITED', requestId: req.requestId } });
-const match = await bcrypt.compare(String(body.code), hash);
-if (!match) {
-const failed = await query(
-`UPDATE auth_unlock_attempts SET failed_attempts = failed_attempts + 1, blocked_until = CASE WHEN failed_attempts + 1 >= 5 THEN now() + interval '30 minutes' ELSE blocked_until END WHERE ip = $1 RETURNING failed_attempts`,
-[ip]);
-await audit(null, 'auth.unlock.denied', 'auth', null, { ip, attempts: failed.rows?.[0]?.failed_attempts || 1 });
-return res.status(401).json({ error: { message: 'Неверный код доступа', code: 'INVALID_CODE', requestId: req.requestId } });
-}
-await query('DELETE FROM auth_unlock_attempts WHERE ip = $1', [ip]);
-let user = null;
-if (ENV.DB_HOST) {
-const rows = await safeQuery('SELECT id, email, role, organization_id, first_name, last_name FROM users WHERE lower(email) = lower($1) AND is_active = true LIMIT 1', [ENV.ADMIN_EMAIL], null);
-user = rows?.[0] || null;
-}
-if (!user) return res.status(503).json({ error: { message: 'Учётная запись не найдена в базе. Обратитесь к администратору.', code: 'USER_NOT_PROVISIONED', requestId: req.requestId } });
-const claims = { userId: user.id, email: user.email, role: user.role, organizationId: user.organization_id };
-const token = createJWT(claims);
-await audit({ id: user.id, organizationId: user.organization_id }, 'auth.unlock.ok', 'auth', user.id, {});
-ok(res, { token, user: { id: user.id, email: user.email, role: user.role, firstName: user.first_name, lastName: user.last_name, organizationId: user.organization_id, permissions: { '*': 'edit' } } });
+/* ---- auth: legacy PIN disabled ---- */
+app.post('/auth/unlock', (_req, res) => {
+  return res.status(410).json({
+    error: {
+      message: 'Вход по персональному коду отключён. Используйте email и пароль.',
+      code: 'LEGACY_AUTH_DISABLED',
+    },
+  });
 });
 
 /* ---- auth: login / set-password / change-password / me ---- */
+
 app.post('/auth/login', async (req, res, next) => {
 try {
 const body = parseOr400(LoginSchema, req.body ?? {});
@@ -1269,7 +1237,7 @@ blocked_until = CASE WHEN auth_unlock_attempts.window_started_at < now() - inter
 RETURNING failed_attempts, blocked_until`, [rlKey]);
 const rlBlocked = rl.rows?.[0]?.blocked_until ? new Date(rl.rows[0].blocked_until) : null;
 if (rlBlocked && rlBlocked.getTime() > Date.now()) return res.status(429).json({ error: { message: 'Слишком много попыток входа. Повторите позже.', code: 'AUTH_RATE_LIMITED', requestId: req.requestId } });
-const rows = await safeQuery('SELECT id, email, role, organization_id, first_name, last_name, password_hash, is_active FROM users WHERE lower(email)=lower($1) LIMIT 1', [body.email], null);
+const rows = await strictQuery('SELECT id, email, role, organization_id, first_name, last_name, password_hash, is_active FROM users WHERE lower(email)=lower($1) LIMIT 1', [body.email]);
 const u = rows?.[0];
 if (!u) return res.status(401).json({ error: { message: 'Неверный email или пароль', code: 'INVALID_CREDENTIALS', requestId: req.requestId } });
 if (!u.is_active) return res.status(403).json({ error: { message: 'Учётная запись отключена', code: 'USER_INACTIVE', requestId: req.requestId } });
@@ -1301,7 +1269,7 @@ ok(res, { saved: true, confirmed: true });
 app.post('/auth/change-password', requireAuth, async (req, res, next) => {
 try {
 const body = parseOr400(ChangePasswordSchema, req.body ?? {});
-const rows = await safeQuery('SELECT password_hash FROM users WHERE id=$1::uuid LIMIT 1', [req.user.id], null);
+const rows = await strictQuery('SELECT password_hash FROM users WHERE id=$1::uuid LIMIT 1', [req.user.id]);
 const cur = rows?.[0]?.password_hash;
 if (!cur) return res.status(409).json({ error: { message: 'Пароль ещё не установлен.', code: 'PASSWORD_NOT_SET', requestId: req.requestId } });
 const okOld = await bcrypt.compare(body.oldPassword, cur);
@@ -1743,7 +1711,7 @@ try {
 const q = scopeFromQuery(req.query);
 await assertScopeAccess(req.user, q);
 if (!YM_RE.test(q.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
-const rows = await safeQuery(
+const rows = await strictQuery(
 `SELECT id, transaction_date, type, article, amount, comment, created_at FROM pnl_transactions
 WHERE organization_id=$1::uuid AND period=$2
 AND ($3::text='' OR project_id=$3) AND ($4::text='' OR branch_id=$4)
@@ -1760,7 +1728,7 @@ const body=parseOr400(PnlTransactionSchema,req.body??{});
 await assertScopeAccess(req.user, body);
 if(body.date.slice(0,7)!==body.period) throw httpError(400,'Дата операции не относится к выбранному периоду','DATE_PERIOD_MISMATCH');
 const scope=[body.project_id||'',body.branch_id||'',body.restaurant_id||'',body.department_id||''];
-const existing=await safeQuery(
+const existing=await strictQuery(
 `SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1`,
 [req.user.organizationId,body.period,...scope],[]);
 let rows=[];
@@ -1971,11 +1939,11 @@ return {provider:'whatsapp',sent:true};
 }
 async function loadReportMetrics(user,date,scope){
 const s=scope||{period:date.slice(0,7),project_id:'',branch_id:'',restaurant_id:'',department_id:''};
-const reportRows=await safeQuery(
+const reportRows=await strictQuery(
 'SELECT values_json FROM daily_reports WHERE organization_id=$1::uuid AND report_date=$2::date AND ($3::text=\'\' OR project_id=$3) AND ($4::text=\'\' OR branch_id=$4) AND ($5::text=\'\' OR restaurant_id=$5) AND ($6::text=\'\' OR department_id=$6) LIMIT 1',
 [user.organizationId,date,s.project_id||'',s.branch_id||'',s.restaurant_id||'',s.department_id||''],[]);
 const values=reportRows[0]?.values_json||{};
-const rows=await safeQuery(
+const rows=await strictQuery(
 'SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND ($3::text=\'\' OR project_id=$3) AND ($4::text=\'\' OR branch_id=$4) AND ($5::text=\'\' OR restaurant_id=$5) AND ($6::text=\'\' OR department_id=$6)',
 [user.organizationId,s.period,s.project_id||'',s.branch_id||'',s.restaurant_id||'',s.department_id||''],[]);
 const all=[];for(const r of rows){try{const parsed=JSON.parse(r.rows);if(Array.isArray(parsed))all.push(...parsed)}catch{/* ignore */}}
@@ -2243,7 +2211,7 @@ try {
 const date = req.query.date ? String(req.query.date) : null;
 const reportScope = scopeFromQuery({ ...req.query, period: date ? String(date).slice(0,7) : new Date().toISOString().slice(0,7) });
 await assertScopeAccess(req.user, reportScope);
-const rows = await safeQuery(
+const rows = await strictQuery(
 `SELECT id, report_date, project_id, branch_id, restaurant_id, department_id, values_json, note, updated_at
 FROM daily_reports WHERE organization_id = $1::uuid
 AND ($2::date IS NULL OR report_date = $2::date)
@@ -2345,6 +2313,9 @@ app.put('/api/integrations/google/sheets', requireAuth, requireOrg, async (req, 
     const verify = await fetch('https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=' + encodeURIComponent(body.accessToken));
     if (!verify.ok) throw httpError(401, 'Токен Google недействителен или истёк. Подключите таблицу повторно.', 'GOOGLE_TOKEN_INVALID');
     const tokenInfo = await verify.json();
+    if (!ENV.GOOGLE_CLIENT_ID) throw httpError(503, 'Google OAuth client ID не настроен на сервере.', 'GOOGLE_CLIENT_NOT_CONFIGURED');
+    const tokenClientId = String(tokenInfo.azp || tokenInfo.aud || '').trim();
+    if (tokenClientId !== ENV.GOOGLE_CLIENT_ID) throw httpError(401, 'Токен Google выпущен для другого OAuth-клиента.', 'GOOGLE_TOKEN_AUDIENCE_INVALID');
     const grantedScopes = String(tokenInfo.scope || '').split(/\s+/u);
     if (!grantedScopes.includes('https://www.googleapis.com/auth/spreadsheets.readonly')) {
       throw httpError(403, 'Google не выдал разрешение на чтение таблиц.', 'GOOGLE_SCOPE_REQUIRED');
@@ -3599,6 +3570,7 @@ const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(raw).dig
 const a = Buffer.from(provided), b = Buffer.from(expected);
 if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.status(403).json({ ok: false, error: 'forbidden' });
 }
+if (!isWhatsApp && !req.user) return res.status(401).json({ ok: false, error: 'authentication_required' });
 const ipKey = 'ingest:' + String(req.ip || req.headers['x-forwarded-for'] || 'unknown').slice(0, 200);
 const rl = await query(
 `INSERT INTO auth_unlock_attempts (ip, window_started_at, failed_attempts, blocked_until) VALUES ($1, now(), 1, NULL)
@@ -3621,7 +3593,7 @@ let parsed = null, parseError = null;
 try { parsed = await parseSalesReportWithFunctionCalling(String(text)); }
 catch (e) { parseError = e?.code || e?.message || 'PARSE_FAILED'; console.error('[sten] ingest parse error:', parseError); }
 let binding = null;
-try { binding = await resolveInboundBinding(null, source, subjectId); } catch { /* ignore */ }
+try { binding = await resolveInboundBinding(req.user || null, source, subjectId); } catch { /* ignore */ }
 if (parsed && binding && !parsed.restaurant) parsed.restaurant = binding.unit_name;
 try {
 await safeQuery(
@@ -3766,6 +3738,205 @@ by_department,
 formula_version: 'fot-v1',
 });
 } catch (e) { next(e); }
+});
+
+
+/* ---- shared FOT schedule history and staffing plan ---- */
+function parseFotScope(input) {
+  try { return normalizeFotScope(input); }
+  catch { throw httpError(400, 'Некорректные идентификаторы рабочего контура ФОТ.', 'BAD_FOT_SCOPE'); }
+}
+
+async function assertFotScopeReadAccess(user, scope) {
+  const hasScope = Boolean(scope.project_id || scope.branch_id || scope.restaurant_id || scope.department_id);
+  if (hasScope) return true;
+  const role = String(user.role || '').toLowerCase();
+  if (['super_admin', 'owner'].includes(role)) return true;
+  const restaurants = await scopeQuery(
+    "SELECT id FROM org_units WHERE organization_id=$1::uuid AND kind='restaurant' ORDER BY id",
+    [user.organizationId],
+    'организации'
+  );
+  if (!restaurants.length) {
+    throw httpError(403, 'Для просмотра общего плана организации требуется доступ ко всем ресторанам.', 'FOT_ORG_SCOPE_FORBIDDEN');
+  }
+  for (const restaurant of restaurants) await assertRestaurantAccess(user, String(restaurant.id));
+  return true;
+}
+
+function fotPersistenceError(error) {
+  if (error?.code === '42P01') {
+    return httpError(503, 'Общее хранилище ФОТ ещё не подготовлено. Требуется применить проверенную миграцию базы данных.', 'FOT_PERSISTENCE_NOT_MIGRATED');
+  }
+  return error;
+}
+
+app.get('/api/fot/schedule-history', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const scope = parseFotScope(scopeFromQuery(req.query));
+    await assertScopeAccess(req.user, scope);
+    await assertFotScopeReadAccess(req.user, scope);
+    const rows = await queryWithRetry(
+      `SELECT period, file_name, norm_hours, ndfl, calculations_json, totals_json, saved_at, updated_at
+       FROM fot_schedule_history
+       WHERE organization_id=$1::uuid AND scope_key=$2
+       ORDER BY period DESC LIMIT 36`,
+      [req.user.organizationId, fotScopeKey(scope)],
+      { orgId: req.user.organizationId }
+    );
+    ok(res, { records: rows.rows.map(row => ({
+      period: row.period,
+      fileName: row.file_name,
+      normHours: row.norm_hours == null ? null : Number(row.norm_hours),
+      ndfl: row.ndfl == null ? null : Number(row.ndfl),
+      calculations: row.calculations_json,
+      totals: row.totals_json,
+      savedAt: row.saved_at,
+      updatedAt: row.updated_at,
+    })) });
+  } catch (error) { next(fotPersistenceError(error)); }
+});
+
+app.put('/api/fot/schedule-history', requireAuth, requireOrg, requireRole(...WRITE_ROLES), async (req, res, next) => {
+  try {
+    const parsed = FotScheduleHistorySchema.safeParse(req.body);
+    if (!parsed.success) throw httpError(400, 'Некорректные данные истории ФОТ.', 'BAD_FOT_HISTORY');
+    const payload = parsed.data;
+    assertJsonPayloadSize(payload);
+    const scope = normalizeFotScope(payload.scope);
+    await assertScopeAccess(req.user, scope);
+    await assertFotScopeReadAccess(req.user, scope);
+    const savedAt = payload.savedAt || new Date().toISOString();
+    const result = await queryWithRetry(
+      `INSERT INTO fot_schedule_history (
+         organization_id, project_id, branch_id, restaurant_id, department_id, scope_key,
+         period, file_name, norm_hours, ndfl, calculations_json, totals_json, saved_at, created_by, updated_by
+       ) VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb,$13::timestamptz,$14,$14)
+       ON CONFLICT (organization_id, scope_key, period) DO UPDATE SET
+         project_id=EXCLUDED.project_id,
+         branch_id=EXCLUDED.branch_id,
+         restaurant_id=EXCLUDED.restaurant_id,
+         department_id=EXCLUDED.department_id,
+         file_name=EXCLUDED.file_name,
+         norm_hours=EXCLUDED.norm_hours,
+         ndfl=EXCLUDED.ndfl,
+         calculations_json=EXCLUDED.calculations_json,
+         totals_json=EXCLUDED.totals_json,
+         saved_at=EXCLUDED.saved_at,
+         updated_by=EXCLUDED.updated_by,
+         updated_at=now()
+       RETURNING saved_at, updated_at`,
+      [
+        req.user.organizationId, scope.project_id, scope.branch_id, scope.restaurant_id, scope.department_id,
+        fotScopeKey(scope), payload.period, payload.fileName, payload.normHours, payload.ndfl,
+        JSON.stringify(payload.calculations), JSON.stringify(payload.totals), savedAt, req.user.id,
+      ],
+      { orgId: req.user.organizationId }
+    );
+    await audit(req.user, 'fot.schedule_history.saved', 'fot_schedule_history', payload.period, {
+      period: payload.period, scope, employeeCount: payload.calculations.length,
+    });
+    ok(res, { record: {
+      period: payload.period,
+      fileName: payload.fileName,
+      normHours: payload.normHours,
+      ndfl: payload.ndfl,
+      calculations: payload.calculations,
+      totals: payload.totals,
+      savedAt: result.rows[0].saved_at,
+      updatedAt: result.rows[0].updated_at,
+    } });
+  } catch (error) { next(fotPersistenceError(error)); }
+});
+
+app.get('/api/fot/staffing-plan', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const period = String(req.query.period || '');
+    if (!YM_RE.test(period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ).', 'BAD_PERIOD');
+    const scope = parseFotScope(scopeFromQuery(req.query));
+    await assertScopeAccess(req.user, scope);
+    await assertFotScopeReadAccess(req.user, scope);
+    const key = fotScopeKey(scope);
+    const [planResult, customResult] = await Promise.all([
+      queryWithRetry(
+        'SELECT plan_json, updated_at FROM fot_staffing_plans WHERE organization_id=$1::uuid AND scope_key=$2 AND period=$3 LIMIT 1',
+        [req.user.organizationId, key, period],
+        { orgId: req.user.organizationId }
+      ),
+      queryWithRetry(
+        'SELECT positions_json, updated_at FROM fot_custom_position_sets WHERE organization_id=$1::uuid AND scope_key=$2 LIMIT 1',
+        [req.user.organizationId, key],
+        { orgId: req.user.organizationId }
+      ),
+    ]);
+    ok(res, {
+      period,
+      plan: planResult.rows[0]?.plan_json || {},
+      customPositions: customResult.rows[0]?.positions_json || [],
+      updatedAt: planResult.rows[0]?.updated_at || customResult.rows[0]?.updated_at || null,
+    });
+  } catch (error) { next(fotPersistenceError(error)); }
+});
+
+app.put('/api/fot/staffing-plan', requireAuth, requireOrg, requireRole(...WRITE_ROLES), async (req, res, next) => {
+  try {
+    const parsed = FotStaffingPlanSchema.safeParse(req.body);
+    if (!parsed.success) throw httpError(400, 'Некорректные данные штатного плана ФОТ.', 'BAD_FOT_STAFFING_PLAN');
+    const payload = parsed.data;
+    assertJsonPayloadSize(payload, 1024 * 1024);
+    const scope = normalizeFotScope(payload.scope);
+    await assertScopeAccess(req.user, scope);
+    await assertFotScopeReadAccess(req.user, scope);
+    const key = fotScopeKey(scope);
+    const result = await queryWithRetry(
+      `WITH saved_plan AS (
+         INSERT INTO fot_staffing_plans (
+           organization_id, project_id, branch_id, restaurant_id, department_id,
+           scope_key, period, plan_json, updated_by
+         ) VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6,$7,$8::jsonb,$10)
+         ON CONFLICT (organization_id, scope_key, period) DO UPDATE SET
+           project_id=EXCLUDED.project_id,
+           branch_id=EXCLUDED.branch_id,
+           restaurant_id=EXCLUDED.restaurant_id,
+           department_id=EXCLUDED.department_id,
+           plan_json=EXCLUDED.plan_json,
+           updated_by=EXCLUDED.updated_by,
+           updated_at=now()
+         RETURNING updated_at
+       ),
+       saved_custom AS (
+         INSERT INTO fot_custom_position_sets (
+           organization_id, project_id, branch_id, restaurant_id, department_id,
+           scope_key, positions_json, updated_by
+         ) VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6,$9::jsonb,$10)
+         ON CONFLICT (organization_id, scope_key) DO UPDATE SET
+           project_id=EXCLUDED.project_id,
+           branch_id=EXCLUDED.branch_id,
+           restaurant_id=EXCLUDED.restaurant_id,
+           department_id=EXCLUDED.department_id,
+           positions_json=EXCLUDED.positions_json,
+           updated_by=EXCLUDED.updated_by,
+           updated_at=now()
+         RETURNING updated_at
+       )
+       SELECT saved_plan.updated_at AS plan_updated_at, saved_custom.updated_at AS custom_updated_at
+       FROM saved_plan CROSS JOIN saved_custom`,
+      [
+        req.user.organizationId, scope.project_id, scope.branch_id, scope.restaurant_id, scope.department_id,
+        key, payload.period, JSON.stringify(payload.plan), JSON.stringify(payload.customPositions), req.user.id,
+      ],
+      { orgId: req.user.organizationId }
+    );
+    await audit(req.user, 'fot.staffing_plan.saved', 'fot_staffing_plans', payload.period, {
+      period: payload.period, scope, positions: Object.keys(payload.plan).length, customPositions: payload.customPositions.length,
+    });
+    ok(res, {
+      period: payload.period,
+      plan: payload.plan,
+      customPositions: payload.customPositions,
+      updatedAt: result.rows[0]?.plan_updated_at || result.rows[0]?.custom_updated_at || null,
+    });
+  } catch (error) { next(fotPersistenceError(error)); }
 });
 
 /* ---- 404 / error handler ---- */

@@ -1,15 +1,21 @@
-openapi: 3.0.0
+openapi: 3.0.3
 info:
   title: STEN API Gateway
-  version: 1.0.0
+  version: 5.4.1
   description: >
-    STEN gateway recovery. Confirm service-account permissions before deployment.
+    Canonical Yandex API Gateway specification for STEN backend 5.4.1.
+    All application routes are proxied to the Node.js 22 Cloud Function.
+    The gateway currently has no dedicated service account binding; do not
+    add one without validating the Yandex Cloud invocation model.
 servers:
-  - url: /
+  - url: https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net
 paths:
   /healthz:
     get:
       operationId: healthz
+      responses:
+        '200':
+          description: Backend liveness and dependency status
       x-yc-apigateway-integration:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
@@ -17,22 +23,24 @@ paths:
   /api/integrations/google/sheets:
     put:
       operationId: connectGoogleSheets
-      summary: Save Google Sheets read-only connection for the authenticated user
-      description: >
-        Accepts a short-lived Google Identity Services access token and sheet settings.
-        The backend validates the token, stores it privately per organization/user, and never
-        includes the token in connection settings responses. GIS tokens expire; reconnect is required.
+      summary: Save a Google Sheets connection for the authenticated user
+      responses:
+        '200':
+          description: Connection saved
+        '401':
+          description: Authentication or Google token rejected
       x-yc-apigateway-integration:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: $latest
-  /{proxy+}:
-    x-yc-apigateway-integration:
-      type: cloud_functions
-      function_id: d4epijnhj7h9sd5ppa66
-      tag: $latest
+  # Keep the dedicated converter route before the catch-all proxy.
   /markitdown/{proxy+}:
     x-yc-apigateway-integration:
       type: cloud_functions
       function_id: d4e4ai8895c3kq3b0ds5
+      tag: $latest
+  /{proxy+}:
+    x-yc-apigateway-integration:
+      type: cloud_functions
+      function_id: d4epijnhj7h9sd5ppa66
       tag: $latest

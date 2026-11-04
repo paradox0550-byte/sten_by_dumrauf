@@ -79,3 +79,8 @@ test('parses Russian and European thousands separators', () => {
   assert.equal(parseNumberCell('−1 234,50'), -1234.5);
   assert.equal(parseNumberCell('не число'), null);
 });
+
+test('prioritizes specific operating categories over broad OPEX and payroll aliases', () => {
+  assert.equal(classifyArticle('Прочие операционные расходы'), 'other_operating');
+  assert.equal(classifyArticle('Расходы на персонал (не ФОТ)'), 'opex');
+});

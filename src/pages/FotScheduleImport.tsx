@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { calculateEmployeeMonth, calculateTotalFOT, inferFotPayType, type FotPayType, type FotEmployeeCalculation } from '../lib/fotCalculator';
 import { AlertCircle, FileSpreadsheet, UploadCloud, FileDown, Printer } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { parseScheduleCell } from '../domain/labor/imports/parseScheduleMatrix';
+import { api, ApiError } from '../lib/api';
 import './FotScheduleImport.css';
 
 type ShiftCell =
@@ -23,6 +24,16 @@ type ScheduleRow = {
 
 type FotHistoryRecord = { scopeKey: string; period: string; savedAt: string; fileName: string; normHours: number; ndfl: number | null; calculations: FotEmployeeCalculation[]; totals: ReturnType<typeof calculateTotalFOT> };
 type StoredFotHistory = { version: 1; records: FotHistoryRecord[] };
+type FotScope = { projectId?: string; branchId?: string; restaurantId?: string; departmentId?: string };
+const toApiScope = (scope: FotScope) => ({ project_id: scope.projectId || null, branch_id: scope.branchId || null, restaurant_id: scope.restaurantId || null, department_id: scope.departmentId || null });
+const scopeQueryString = (scope: FotScope) => {
+  const query = new URLSearchParams();
+  if (scope.projectId) query.set('project_id', scope.projectId);
+  if (scope.branchId) query.set('branch_id', scope.branchId);
+  if (scope.restaurantId) query.set('restaurant_id', scope.restaurantId);
+  if (scope.departmentId) query.set('department_id', scope.departmentId);
+  return query.toString();
+};
 const FOT_HISTORY_KEY = 'sten_fot_history_v1';
 const previousPeriod = (period: string) => { const [year, month] = period.split('-').map(Number); return new Date(Date.UTC(year, month - 2, 1)).toISOString().slice(0, 7); };
 function readFotHistory(): FotHistoryRecord[] {
@@ -105,7 +116,7 @@ const findColumn = (headers: string[], words: string[]) =>
   headers.findIndex(header => words.some(word => normalize(header).includes(word)));
 const columnLabel = (headers: string[], index: number) => index >= 0 ? headers[index] || 'Столбец ' + (index + 1) : 'Не определён';
 
-export default function FotScheduleImport({ period, historyScope = 'all' }: { period: string; historyScope?: string }) {
+export default function FotScheduleImport({ period, historyScope = 'all', scope }: { period: string; historyScope?: string; scope: FotScope }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [parsed, setParsed] = useState<ParsedSchedule | null>(null);
   const [error, setError] = useState('');
@@ -116,10 +127,70 @@ export default function FotScheduleImport({ period, historyScope = 'all' }: { pe
   const [payTypes, setPayTypes] = useState<Record<number, FotPayType | null>>({});
   const [calculations, setCalculations] = useState<FotEmployeeCalculation[] | null>(null);
   const [history, setHistory] = useState<FotHistoryRecord[]>([]);
+  const apiScope = useMemo(() => toApiScope(scope), [scope.projectId, scope.branchId, scope.restaurantId, scope.departmentId]);
+  const historyQuery = useMemo(() => scopeQueryString(scope), [scope.projectId, scope.branchId, scope.restaurantId, scope.departmentId]);
   const [historyPeriod, setHistoryPeriod] = useState(period);
   const [historyWarning, setHistoryWarning] = useState('');
-  useEffect(() => { setHistory(readFotHistory()); }, []);
   useEffect(() => { setHistoryPeriod(period); }, [period]);
+  useEffect(() => {
+    let cancelled = false;
+    const loadHistory = async () => {
+      setHistoryWarning('Загружаем общую историю ФОТ…');
+      try {
+        const path = '/api/fot/schedule-history' + (historyQuery ? '?' + historyQuery : '');
+        const remote = await api.get<{ records: Array<Omit<FotHistoryRecord, 'scopeKey'>> }>(path);
+        let records = Array.isArray(remote.records) ? remote.records : [];
+        const legacy = readFotHistory().filter(record => record.scopeKey === historyScope);
+        const existing = new Set(records.map(record => record.period));
+        const remoteByPeriod = new Map(records.map(record => [record.period, record]));
+        const conflicts = legacy.filter(record => {
+          const server = remoteByPeriod.get(record.period);
+          return Boolean(server && (
+            server.fileName !== record.fileName ||
+            server.normHours !== record.normHours ||
+            server.ndfl !== record.ndfl ||
+            new Date(server.savedAt).getTime() !== new Date(record.savedAt).getTime()
+          ));
+        });
+        const missingLegacy = legacy.filter(record => !existing.has(record.period));
+        for (const record of missingLegacy) {
+          await api.put('/api/fot/schedule-history', {
+            period: record.period,
+            scope: apiScope,
+            fileName: record.fileName,
+            normHours: record.normHours,
+            ndfl: record.ndfl,
+            calculations: record.calculations,
+            totals: record.totals,
+            savedAt: record.savedAt,
+          });
+          existing.add(record.period);
+        }
+        if (missingLegacy.length) {
+          const refreshed = await api.get<{ records: Array<Omit<FotHistoryRecord, 'scopeKey'>> }>(path);
+          records = Array.isArray(refreshed.records) ? refreshed.records : records;
+        }
+        if (!cancelled) {
+          setHistory(records.map(record => ({ ...record, scopeKey: historyScope })));
+          setHistoryWarning([
+            missingLegacy.length ? 'Старые расчёты из этого браузера перенесены в общую историю.' : '',
+            conflicts.length ? `${conflicts.length} локальных версий за уже занятые периоды не перезаписаны: сохранена общая версия сервера.` : '',
+          ].filter(Boolean).join(' '));
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const legacy = readFotHistory().filter(record => record.scopeKey === historyScope);
+          setHistory(legacy);
+          const reason = error instanceof ApiError ? error.message : 'Нет связи с сервером.';
+          setHistoryWarning(legacy.length
+            ? 'Не удалось синхронизировать старую историю. Сейчас показана копия из этого браузера. ' + reason
+            : 'Не удалось загрузить общую историю ФОТ. ' + reason);
+        }
+      }
+    };
+    void loadHistory();
+    return () => { cancelled = true; };
+  }, [historyScope, historyQuery, apiScope]);
   const [pending, setPending] = useState<{ fileName: string; sheetName: string; headers: string[]; rows: unknown[][]; dateColumns: Array<{ index: number; date: string; label: string }> } | null>(null);
 
   const finishParse = (source: NonNullable<typeof pending>, columns: { employee: number; position: number; rate: number }) => {
@@ -190,7 +261,7 @@ export default function FotScheduleImport({ period, historyScope = 'all' }: { pe
     }
   };
 
-  const calculate = () => {
+  const calculate = async () => {
     if (!parsed) return;
     const norm = normHours.trim() === '' ? NaN : Number(normHours.replace(',', '.'));
     if (!Number.isFinite(norm) || norm < 0) {
@@ -220,14 +291,26 @@ export default function FotScheduleImport({ period, historyScope = 'all' }: { pe
     setCalculations(results);
     const totalsForSave = calculateTotalFOT(results, { normHours: norm });
     const record: FotHistoryRecord = { scopeKey: historyScope, period, savedAt: new Date().toISOString(), fileName: parsed.fileName, normHours: norm, ndfl: ndfl.trim() === '' ? null : Number(ndfl.replace(',', '.')), calculations: results, totals: totalsForSave };
+    setHistoryWarning('Сохраняем расчёт в общей истории…');
     try {
-      const existing = readFotHistory().filter(item => !(item.scopeKey === historyScope && item.period === period));
-      const sameScope = [...existing.filter(item => item.scopeKey === historyScope), record].sort((a, b) => b.period.localeCompare(a.period)).slice(0, 36);
-      const nextHistory = [...existing.filter(item => item.scopeKey !== historyScope), ...sameScope]
-        .sort((a, b) => a.scopeKey.localeCompare(b.scopeKey) || b.period.localeCompare(a.period));
-      localStorage.setItem(FOT_HISTORY_KEY, JSON.stringify({ version: 1, records: nextHistory } satisfies StoredFotHistory));
-      setHistory(nextHistory); setHistoryPeriod(period); setHistoryWarning('');
-    } catch { setHistoryWarning('Расчёт выполнен, но браузер не разрешил сохранить историю. История не синхронизируется между устройствами.'); }
+      const response = await api.put<{ record: Omit<FotHistoryRecord, 'scopeKey'> }>('/api/fot/schedule-history', {
+        period,
+        scope: toApiScope(scope),
+        fileName: record.fileName,
+        normHours: record.normHours,
+        ndfl: record.ndfl,
+        calculations: record.calculations,
+        totals: record.totals,
+        savedAt: record.savedAt,
+      });
+      const saved = { ...response.record, scopeKey: historyScope };
+      setHistory(current => [...current.filter(item => item.period !== period), saved].sort((a, b) => b.period.localeCompare(a.period)).slice(0, 36));
+      setHistoryPeriod(period);
+      setHistoryWarning('Расчёт сохранён в общей истории организации.');
+    } catch (error) {
+      const reason = error instanceof ApiError ? error.message : 'Нет связи с сервером.';
+      setHistoryWarning('Расчёт выполнен, но не сохранён на сервере. ' + reason);
+    }
     setError('');
   };
   const totals = calculations ? calculateTotalFOT(calculations, { normHours: Number(normHours.replace(',', '.')) }) : null;
@@ -290,7 +373,7 @@ export default function FotScheduleImport({ period, historyScope = 'all' }: { pe
         <div className="fot-calculation-fields">
           <label>Норма часов за месяц<input type="number" min="0" step="0.5" value={normHours} onChange={event => { setNormHours(event.target.value); setCalculations(null); }} /></label>
           <label>Общий НДФЛ за месяц (руб.)<input type="number" min="0" step="0.01" placeholder="Введите сумму вручную" value={ndfl} onChange={event => { setNdfl(event.target.value); }} /></label>
-          <button type="button" className="secondary-button" onClick={calculate}>Рассчитать и сохранить локально</button>
+          <button type="button" className="secondary-button" onClick={() => void calculate()}>Рассчитать и сохранить</button>
         </div>
         {calculations && totals && <div className="fot-calculation-results">
           <div className="fot-result-card"><span>Общий плановый ФОТ</span><strong>{moneyLabel(totals.accrued)}</strong><small>{totals.accrued == null ? 'Есть сотрудники с незавершённым расчётом' : 'Сумма начислений по рассчитанным сотрудникам'}</small></div>
@@ -303,8 +386,8 @@ export default function FotScheduleImport({ period, historyScope = 'all' }: { pe
     </div>}
     {historyWarning && <div className="fot-import-warning" role="status">{historyWarning}</div>}
     {scopeHistory.length > 0 && <section className="fot-history-panel" aria-label="История ФОТ">
-      <div className="fot-history-heading"><div><span className="eyebrow">ИСТОРИЯ НА ЭТОМ УСТРОЙСТВЕ</span><h3>Сохранённые расчёты</h3></div><label>Месяц<select value={selectedHistory?.period ?? ''} onChange={event => setHistoryPeriod(event.target.value)}>{scopeHistory.map(record => <option key={record.period} value={record.period}>{record.period}</option>)}</select></label></div>
-      <p className="fot-history-disclaimer">Важно: расчёт сохраняется только в этом браузере. Общий план компании и синхронизация между устройствами пока не подключены.</p>
+      <div className="fot-history-heading"><div><span className="eyebrow">ОБЩАЯ ИСТОРИЯ ФОТ</span><h3>Сохранённые расчёты</h3></div><label>Месяц<select value={selectedHistory?.period ?? ''} onChange={event => setHistoryPeriod(event.target.value)}>{scopeHistory.map(record => <option key={record.period} value={record.period}>{record.period}</option>)}</select></label></div>
+      <p className="fot-history-disclaimer">Расчёты доступны уполномоченным сотрудникам организации на разных устройствах в пределах выбранного рабочего контура.</p>
       {selectedHistory && <><div className="fot-history-meta"><span>Источник: {selectedHistory.fileName}</span><span>Сохранено: {new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(selectedHistory.savedAt))}</span></div>
         <div className="fot-history-grid">
           <div className="fot-history-metric"><span>Плановый ФОТ</span><strong>{moneyLabel(selectedHistory.totals.accrued)}</strong><small>К предыдущему месяцу: {previousHistory ? historyDelta(selectedHistory.totals.accrued, previousHistory.totals.accrued) : 'Нет сохранённого предыдущего месяца'}</small></div>
@@ -342,7 +425,7 @@ export default function FotScheduleImport({ period, historyScope = 'all' }: { pe
           <tbody>{selectedEmployeeRows.map((employee, index) => <tr key={employee.employee + ':' + employee.position + ':' + index}><td>{employee.employee || 'Нет данных'}</td><td>{employee.position || 'Нет данных'}</td><td>{employee.payType === 'hourly' ? 'Почасовая' : employee.payType === 'shift' ? 'За смену' : employee.payType === 'salary' ? 'Оклад' : 'Не определён'}</td><td>{employee.hours == null ? '—' : new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(employee.hours)}</td><td>{employee.overtimeHours == null ? '—' : new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(employee.overtimeHours)}</td><td>{moneyLabel(employee.accrued)}</td><td>{employee.error ? employee.error : 'Рассчитано'}</td></tr>)}</tbody>
         </table>
       </div>
-      <p className="fot-analytics-footnote">Плановый расчёт по загруженному графику, не фактическая выплата. НДФЛ не рассчитывается автоматически. Источник: {selectedHistory.fileName}; сохранено {new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(selectedHistory.savedAt))}. Данные локальные для этого браузера.</p>
+      <p className="fot-analytics-footnote">Плановый расчёт по загруженному графику, не фактическая выплата. НДФЛ не рассчитывается автоматически. Источник: {selectedHistory.fileName}; сохранено {new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(selectedHistory.savedAt))}. Общая история организации.</p>
     </section>}
   </section>;
 }

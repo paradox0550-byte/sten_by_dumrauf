@@ -37,6 +37,10 @@ test('operational control and Telegram Monitor routes are registered', async () 
     ['PUT', '/api/telegram-bot/settings'],
     ['GET', '/api/telegram-monitor/chats'],
     ['GET', '/api/telegram-monitor/messages?chat_id=-100123'],
+    ['GET', '/api/fot/schedule-history'],
+    ['PUT', '/api/fot/schedule-history'],
+    ['GET', '/api/fot/staffing-plan?period=2026-11'],
+    ['PUT', '/api/fot/staffing-plan'],
   ];
 
   for (const [method, path] of routes) {
@@ -49,4 +53,26 @@ test('operational control and Telegram Monitor routes are registered', async () 
     const payload = await response.json();
     assert.equal(payload.error?.code, 'UNAUTHORIZED');
   }
+});
+
+test('manual message ingestion requires authentication while webhook payloads use their own signatures', async () => {
+  const response = await fetch(baseUrl + '/api/ingest/message', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: 'Проверьте поставку' }),
+  });
+  assert.equal(response.status, 401);
+  const payload = await response.json();
+  assert.equal(payload.error, 'authentication_required');
+});
+
+test('legacy PIN authentication is disabled and cannot issue a session', async () => {
+  const response = await fetch(baseUrl + '/auth/unlock', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: '1234' }),
+  });
+  assert.equal(response.status, 410);
+  const payload = await response.json();
+  assert.equal(payload.error?.code, 'LEGACY_AUTH_DISABLED');
 });

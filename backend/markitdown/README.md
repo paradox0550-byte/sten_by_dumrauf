@@ -24,7 +24,7 @@ Response:
 
 `{ "markdown": "...", "engine": "markitdown", "engineVersion": "0.1.8", "sourceFormat": "...", "warnings": [] }`
 
-Optional bearer authentication is controlled by `MARKITDOWN_TOKEN`.
+Bearer authentication is mandatory. The function returns 503 when `MARKITDOWN_TOKEN` is not configured and rejects requests without the matching Bearer token.
 
 ## Deploy
 

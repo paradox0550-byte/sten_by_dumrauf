@@ -51,24 +51,101 @@ export default function Team() {
   const [scope] = useScope();
   const { user } = useAuth();
   const planStorageKey = 'sten_fot_plan_v1:' + [user?.organizationId || 'no-org', user?.id || 'no-user', scope.period, scope.projectId || 'all-projects', scope.branchId || 'all-branches', scope.restaurantId || 'all-restaurants', scope.departmentId || 'all-departments'].join(':');
-  const [positionPlan, setPositionPlan] = useState<PositionPlanMap>(() => readPositionPlan(planStorageKey));
-  const [planLoadedFor, setPlanLoadedFor] = useState(planStorageKey);
   const customStorageKey = 'sten_fot_custom_positions_v1:' + [user?.organizationId || 'no-org', user?.id || 'no-user', scope.projectId || 'all-projects', scope.branchId || 'all-branches', scope.restaurantId || 'all-restaurants', scope.departmentId || 'all-departments'].join(':');
-  const [customPositions, setCustomPositions] = useState<CustomPositionMap>(() => {
-    try { const value = localStorage.getItem(customStorageKey); return value ? JSON.parse(value) as CustomPositionMap : {}; } catch { return {}; }
-  });
+  const planScope = useMemo(() => ({ period: scope.period, projectId: scope.projectId, branchId: scope.branchId, restaurantId: scope.restaurantId, departmentId: scope.departmentId }), [scope.period, scope.projectId, scope.branchId, scope.restaurantId, scope.departmentId]);
+  const [positionPlan, setPositionPlan] = useState<PositionPlanMap>({});
+  const [customPositions, setCustomPositions] = useState<CustomPositionMap>({});
+  const [planLoadedFor, setPlanLoadedFor] = useState('');
+  const [planBaseline, setPlanBaseline] = useState('');
+  const [planSaveState, setPlanSaveState] = useState<'loading' | 'ready' | 'saved' | 'saving' | 'error'>('loading');
+  const [planSaveError, setPlanSaveError] = useState('');
   const [customDepartment, setCustomDepartment] = useState<string>(CUSTOM_DEPARTMENT_OPTIONS[0]);
   const [customPositionName, setCustomPositionName] = useState('');
   const [customPositionError, setCustomPositionError] = useState('');
+
   useEffect(() => {
-    try { const value = localStorage.getItem(customStorageKey); setCustomPositions(value ? JSON.parse(value) as CustomPositionMap : {}); }
-    catch { setCustomPositions({}); }
-  }, [customStorageKey]);
+    let cancelled = false;
+    setPlanLoadedFor('');
+    setPlanSaveState('loading');
+    setPlanSaveError('');
+    const loadPlan = async () => {
+      try {
+        const remote = await api.get<{ period: string; plan: PositionPlanMap; customPositions: CustomPosition[]; updatedAt: string | null }>('/api/fot/staffing-plan?' + scopeQuery(planScope));
+        const remotePlan = remote.plan && typeof remote.plan === 'object' ? remote.plan : {};
+        const remoteCustom = Array.isArray(remote.customPositions) ? remote.customPositions : [];
+        const legacyPlan = readPositionPlan(planStorageKey);
+        let legacyCustom: CustomPositionMap = {};
+        try {
+          const raw = localStorage.getItem(customStorageKey);
+          legacyCustom = raw ? JSON.parse(raw) as CustomPositionMap : {};
+        } catch { legacyCustom = {}; }
+
+        let nextPlan = remotePlan;
+        let nextCustom = remoteCustom;
+        const hasLegacyPlan = Object.keys(legacyPlan).length > 0;
+        const hasLegacyCustom = Object.keys(legacyCustom).length > 0;
+        const shouldMigrate = (Object.keys(remotePlan).length === 0 && hasLegacyPlan) || (remoteCustom.length === 0 && hasLegacyCustom);
+        if (shouldMigrate) {
+          nextPlan = Object.keys(remotePlan).length ? remotePlan : legacyPlan;
+          nextCustom = remoteCustom.length ? remoteCustom : Object.values(legacyCustom);
+          const migrated = await api.put<{ plan: PositionPlanMap; customPositions: CustomPosition[] }>('/api/fot/staffing-plan', {
+            period: planScope.period,
+            scope: { project_id: planScope.projectId || null, branch_id: planScope.branchId || null, restaurant_id: planScope.restaurantId || null, department_id: planScope.departmentId || null },
+            plan: nextPlan,
+            customPositions: nextCustom,
+          });
+          nextPlan = migrated.plan;
+          nextCustom = migrated.customPositions;
+        }
+        if (cancelled) return;
+        const nextCustomMap = Object.fromEntries(nextCustom.map(item => [item.id, item]));
+        setPositionPlan(nextPlan);
+        setCustomPositions(nextCustomMap);
+        const snapshot = JSON.stringify({ plan: nextPlan, customPositions: nextCustomMap });
+        setPlanBaseline(snapshot);
+        setPlanLoadedFor(planStorageKey);
+        setPlanSaveState(shouldMigrate || remote.updatedAt ? 'saved' : 'ready');
+      } catch (error) {
+        if (cancelled) return;
+        const legacyPlan = readPositionPlan(planStorageKey);
+        let legacyCustom: CustomPositionMap = {};
+        try {
+          const raw = localStorage.getItem(customStorageKey);
+          legacyCustom = raw ? JSON.parse(raw) as CustomPositionMap : {};
+        } catch { legacyCustom = {}; }
+        setPositionPlan(legacyPlan);
+        setCustomPositions(legacyCustom);
+        setPlanSaveState('error');
+        setPlanSaveError(error instanceof ApiError ? error.message : 'Не удалось загрузить общий план ФОТ.');
+      }
+    };
+    void loadPlan();
+    return () => { cancelled = true; };
+  }, [planStorageKey, customStorageKey, planScope]);
+
   useEffect(() => {
-    try { localStorage.setItem(customStorageKey, JSON.stringify(customPositions)); } catch { /* custom roles remain in memory for this session */ }
-  }, [customStorageKey, customPositions]);
-  useEffect(() => { const next = readPositionPlan(planStorageKey); setPositionPlan(next); setPlanLoadedFor(planStorageKey); }, [planStorageKey]);
-  useEffect(() => { if (planLoadedFor === planStorageKey) { try { localStorage.setItem(planStorageKey, JSON.stringify(positionPlan)); } catch { /* local planning draft remains in memory */ } } }, [planStorageKey, planLoadedFor, positionPlan]);
+    if (planLoadedFor !== planStorageKey) return;
+    const snapshot = JSON.stringify({ plan: positionPlan, customPositions });
+    if (snapshot === planBaseline) return;
+    const timer = window.setTimeout(async () => {
+      setPlanSaveState('saving');
+      setPlanSaveError('');
+      try {
+        await api.put('/api/fot/staffing-plan', {
+          period: planScope.period,
+          scope: { project_id: planScope.projectId || null, branch_id: planScope.branchId || null, restaurant_id: planScope.restaurantId || null, department_id: planScope.departmentId || null },
+          plan: positionPlan,
+          customPositions: Object.values(customPositions),
+        });
+        setPlanBaseline(snapshot);
+        setPlanSaveState('saved');
+      } catch (error) {
+        setPlanSaveState('error');
+        setPlanSaveError(error instanceof ApiError ? error.message : 'Не удалось сохранить общий план ФОТ.');
+      }
+    }, 650);
+    return () => window.clearTimeout(timer);
+  }, [planLoadedFor, planStorageKey, planBaseline, positionPlan, customPositions, planScope]);
   const [records, setRecords] = useState<PayrollRecord[]>([]);
   const [pnl, setPnl] = useState<Pnl | null>(null);
   const [loading, setLoading] = useState(true);
@@ -203,7 +280,7 @@ export default function Team() {
       </div>
     </header>
 
-    <Suspense fallback={<div className="panel" aria-busy="true">Открываем импорт графика…</div>}><FotScheduleImport period={scope.period} historyScope={[user?.organizationId || 'no-org', user?.id || 'anonymous', scope.projectId || 'all', scope.branchId || 'all', scope.restaurantId || 'all', scope.departmentId || 'all'].join(':')} /></Suspense>
+    <Suspense fallback={<div className="panel" aria-busy="true">Открываем импорт графика…</div>}><FotScheduleImport period={scope.period} scope={scope} historyScope={[user?.organizationId || 'no-org', user?.id || 'anonymous', scope.projectId || 'all', scope.branchId || 'all', scope.restaurantId || 'all', scope.departmentId || 'all'].join(':')} /></Suspense>
     <Suspense fallback={<div className="panel" aria-busy="true">Открываем расчёт загрузки…</div>}><LaborIntelligencePanel period={scope.period} scopeKey={[user?.organizationId || 'no-org', user?.id || 'anonymous', scope.projectId || 'all', scope.branchId || 'all', scope.restaurantId || 'all', scope.departmentId || 'all'].join(':')} /></Suspense>
     <Suspense fallback={<div className="panel" aria-busy="true">Открываем импорт отчётов…</div>}><ActualLaborReportsPanel /></Suspense>
 
@@ -247,14 +324,14 @@ export default function Team() {
     </section>
 
     <section className="fot-section">
-      <div className="fot-section-heading"><div><span className="eyebrow">ПЛАНИРОВАНИЕ ШТАТА</span><h2>Штат, часы и прогноз стоимости</h2><p>Заполните план по должностям. STEN рассчитает штатную численность, месячные часы и прогноз ФОТ только по строкам с тремя введёнными параметрами.</p></div><div className="fot-planner-heading-actions"><span className="fot-source-tag">Локальный сценарий</span><button type="button" className="secondary-button" onClick={exportPositionPlan}><Download size={14} /> Экспорт плана CSV</button></div></div>
+      <div className="fot-section-heading"><div><span className="eyebrow">ПЛАНИРОВАНИЕ ШТАТА</span><h2>Штат, часы и прогноз стоимости</h2><p>Заполните план по должностям. STEN рассчитает штатную численность, месячные часы и прогноз ФОТ только по строкам с тремя введёнными параметрами.</p></div><div className="fot-planner-heading-actions"><span className="fot-source-tag">{planSaveState === 'loading' ? 'Загрузка общего плана…' : planSaveState === 'saving' ? 'Сохранение…' : planSaveState === 'error' ? 'Не сохранено' : planSaveState === 'ready' ? 'Общий план' : 'Общий план · сохранено'}</span><button type="button" className="secondary-button" onClick={exportPositionPlan}><Download size={14} /> Экспорт плана CSV</button></div></div>
       <div className="fot-planner-summary">
         <article><small>Плановая численность, ставки</small><strong>{fmt(plannedHeadcount)}</strong></article>
         <article><small>План часов за месяц</small><strong>{fmt(plannedHours)}</strong></article>
         <article><small>Прогноз ФОТ, ₽</small><strong>{money(plannedCost)}</strong></article>
         <article><small>Заполнено должностей</small><strong>{completePlanRows.length} / {planRows.length}</strong></article>
       </div>
-      <div className="fot-note"><ClipboardList size={16} /><span><b>Это плановый сценарий, не фактические данные.</b> Черновик сохраняется локально в этом браузере для текущего пользователя, организации, периода и контура. Он не отправляется на сервер и не синхронизируется с другими устройствами.</span></div>
+      <div className="fot-note"><ClipboardList size={16} /><span><b>Это плановый сценарий, не фактические данные.</b> План хранится в общей базе организации и доступен уполномоченным сотрудникам на разных устройствах в пределах выбранного контура.{planSaveState === 'error' ? ' Сохранение не подтверждено: ' + planSaveError : ''}</span></div>
       <div className="fot-table-wrap">
         <table className="fot-table fot-planner-table"><thead><tr><th>Подразделение / должность</th><th>Ставки</th><th>Часов на ставку / мес.</th><th>Стоимость часа, ₽</th><th>Часы, план</th><th>ФОТ, прогноз</th></tr></thead>
           <tbody>{planRows.map(row => <tr key={row.key}><td><b>{row.position}</b><small>{row.department}</small></td>

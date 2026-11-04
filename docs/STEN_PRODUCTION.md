@@ -17,8 +17,9 @@ https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net
 The browser calls the API Gateway only. It never derives the API host from window.location and never calls the AI service directly.
 
 Main contracts:
-- POST /auth/unlock
+- POST /auth/login (email + password)
 - GET /auth/me
+- POST /auth/change-password
 - POST /ask
 - GET /ai/documents
 - POST /ai/documents/upload
@@ -50,7 +51,7 @@ Financial values are calculated by deterministic backend code. The model must no
 
 ## Auth
 
-The user-facing authentication flow is personal unlock. Email, login, password, registration and password-reset UI are intentionally removed from the frontend.
+The active user-facing authentication flow is email + password. The frontend calls `POST /auth/login` and validates the session through `GET /auth/me`. Legacy `POST /auth/unlock` returns HTTP 410 and must not issue a token. No offline-auth or local bypass is allowed.
 
 The backend may retain its technical JWT session because the API still needs an authenticated request context.
 
@@ -77,7 +78,7 @@ Before calling the release ready:
 8. verify JavaScript MIME type
 9. verify CSS MIME type
 10. verify API URL points to Gateway
-11. verify online unlock
+11. verify online email/password login
 12. verify /ask through the Gateway
 13. verify document upload and retrieval
 14. verify P&L calculation against real data
