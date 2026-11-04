@@ -21,7 +21,7 @@ The following settings were supplied in the infrastructure inventory on 2026-11-
 - Function entrypoint: `index.handler`.
 - Runtime package version: `5.4.1`.
 - Canonical Yandex API Gateway specification: root `api-gateway.yaml`.
-- `api-gateway-spec.yaml` is kept as an identical compatibility copy.
+- `api-gateway-spec.yaml` is a byte-identical duplicate candidate listed in root `КОРЗИНА.md`; use only `api-gateway.yaml` as the canonical gateway source.
 - `api-spec.yaml` is the application API contract generated from registered Express routes; it is not the gateway integration file.
 
 Do not deploy only `backend/index.js`: it imports runtime modules from `backend/core/`, `backend/finance/`, `backend/integrations/`, `backend/telegramMonitor.js`, `backend/telegramSecretary.js`, `backend/telegramSecretaryWorker.js`, `backend/operationalControl.js`, `backend/markitdownClient.js` and `backend/documentProcessor.js`. The Python converter under `backend/markitdown/` is a separate Cloud Function and must not be bundled into the Node.js API archive.
@@ -29,7 +29,7 @@ Do not deploy only `backend/index.js`: it imports runtime modules from `backend/
 ## GitHub automation
 
 - `.github/workflows/ci.yml` validates frontend and backend and uploads a frontend build artifact.
-- `.github/workflows/deploy-frontend.yml` publishes the frontend to the public Object Storage bucket after successful CI on `main`. Merging a PR to `main` can therefore publish the frontend.
+- `.github/workflows/deploy-frontend.yml` is retained for an explicitly approved manual frontend release only. It must not publish automatically after CI or merge to `main`.
 - There is currently no `.github/workflows/deploy-backend.yml` in the repository.
 - Backend and API Gateway publication are manual operator actions. This repository audit does not publish to Yandex Cloud.
 
