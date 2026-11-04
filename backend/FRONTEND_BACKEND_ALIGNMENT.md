@@ -33,6 +33,15 @@ This document records the API behavior verified in the repository. It is not a d
 - Voice playback and the global mute preference are browser-side behavior. They do not justify adding an undocumented backend endpoint.\n- `POST /calculate-salary` is a calculation-only endpoint; it does not persist payroll records. `GET /my-earnings` reads only the authenticated user's payroll rows.
 - `POST /api/ingest/message` returns a parsed draft with `writeToPnl:false`; the confirmation route is the explicit write boundary.
 
+## Static route parity audit (2026-11-04)
+
+- Express backend registers 82 method/path pairs.
+- `api-spec.yaml` declares 82 method/path pairs.
+- Static comparison after normalizing Express `:param` and OpenAPI `{param}` syntax: **82/82 exact matches**, with no backend route missing from the OpenAPI contract and no OpenAPI operation without a backend handler.
+- The Gateway layer explicitly routes `/healthz` and Google Sheets, forwards `/{proxy+}` to the Node API function, and routes `/markitdown/{proxy+}` to the separate Python converter.
+- Frontend paths were checked in the principal flows: authentication, Dashboard, P&L, Finances, Budget, Analytics, Team, Settings, Secretary, Operational Checks, Telegram Monitor, Documents, Flash/Quick Entry, Workspace Selector, iiko and Google Sheets. The corresponding handlers exist in the backend route table.
+- This is a source-level contract check, **not** live proof of Cloud Function version/tag, Gateway deployment, IAM invocation permissions, CORS, PostgreSQL connectivity, or restaurant-level data isolation. Those remain release smoke checks.
+
 ## Validation
 
 Run from `backend/`:
