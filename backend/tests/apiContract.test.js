@@ -53,10 +53,11 @@ function walkJavaScript(directory) {
       if (entry.name === 'tests' || entry.name === 'node_modules') return [];
       return walkJavaScript(absolute);
     }
-    return entry.isFile() && /\\.js$/.test(entry.name) ? [absolute] : [];
+    return entry.isFile() && /\.js$/.test(entry.name) ? [absolute] : [];
   });
 }
-\nfunction frontendRoute(raw) {
+
+function frontendRoute(raw) {
   const withoutQuery = raw.split(/[?#]/, 1)[0].replace(/\$\{[^}]+\}/g, '{param}');
   return { path: withoutQuery, prefix: withoutQuery.endsWith('/') };
 }
@@ -120,7 +121,7 @@ test('backend runtime environment reads are documented in the environment contra
   const variables = new Set();
   for (const file of walkJavaScript(path.join(ROOT, 'backend'))) {
     const source = fs.readFileSync(file, 'utf8');
-    for (const match of source.matchAll(/process\\.env\\.([A-Z][A-Z0-9_]*)/g)) {
+    for (const match of source.matchAll(/process\.env\.([A-Z][A-Z0-9_]*)/g)) {
       variables.add(match[1]);
     }
   }
@@ -128,7 +129,8 @@ test('backend runtime environment reads are documented in the environment contra
   const missing = [...variables].filter((name) => !contract.includes('`' + name + '`')).sort();
   assert.deepEqual(missing, [], 'Backend runtime environment variables missing from docs/BACKEND_ENV_CONTRACT.md:');
 });
-\ntest('frontend API host, Gateway integration targets, and backend CORS contract agree', () => {
+
+test('frontend API host, Gateway integration targets, and backend CORS contract agree', () => {
   const gateway = read('api-gateway.yaml');
   const envExample = read('.env.example');
   const ci = read('.github/workflows/ci.yml');
