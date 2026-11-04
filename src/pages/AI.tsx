@@ -609,16 +609,16 @@ function AIContent({user}:{user:User|null}){
          onDragLeave={()=>setDragOver(false)}
          onDrop={e=>{e.preventDefault();setDragOver(false);void uploadFiles(e.dataTransfer.files)}}>
          {dragOver&&<div className="composer-drop-hint"><UploadCloud size={16}/> Отпустите файл — STEN добавит его в документы</div>}
-         <MeetingNotesPanel
-           storageKey={meetingNotesKey}
-           disabled={busy || upload}
-           onSummarize={(transcript) => {
-             void ask('Разбери заметки встречи. Подготовь краткое резюме, ключевые решения, список задач с ответственными и сроками, а также вопросы без ответа. Не придумывай имена, сроки или решения, которых нет в тексте.\n\nЗАМЕТКИ ВСТРЕЧИ:\n' + transcript);
-           }}
-         />
          <div className="composer-box" onPointerDown={e=>{if((e.target as HTMLElement).closest("button,textarea"))return;promptRef.current?.focus()}} onClick={e=>{if((e.target as HTMLElement).closest("button"))return;promptRef.current?.focus()}}>
+           <MeetingNotesPanel
+             storageKey={meetingNotesKey}
+             disabled={busy || upload}
+             onSummarize={(transcript) => {
+               void ask('Разбери заметки встречи. Подготовь краткое резюме, ключевые решения, список задач с ответственными и сроками, а также вопросы без ответа. Не придумывай имена, сроки или решения, которых нет в тексте.\n\nЗАМЕТКИ ВСТРЕЧИ:\n' + transcript);
+             }}
+           />
            <button className="icon-button composer-attach" onClick={()=>file.current?.click()} aria-label="Прикрепить документ" title="Добавить документ"><Paperclip size={18}/></button>
-           <textarea ref={promptRef} value={prompt} onFocus={()=>{setComposerFocused(true);const textarea=promptRef.current;if(textarea)requestAnimationFrame(()=>textarea.scrollIntoView({behavior:'auto',block:'nearest'}))}} onBlur={()=>setComposerFocused(false)} onChange={e=>setPrompt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void ask()}}} placeholder={listening?'Говорите…':'Спросите про P&L, ФОТ или ситуацию в смене…'} rows={1} aria-label="Запрос к STEN AI"/>
+           <textarea ref={promptRef} value={prompt} onFocus={()=>setComposerFocused(true)} onBlur={()=>setComposerFocused(false)} onChange={e=>setPrompt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void ask()}}} placeholder={listening?'Говорите…':'Спросите про P&L, ФОТ или ситуацию в смене…'} rows={1} aria-label="Запрос к STEN AI"/>
            {voiceState==='speaking'&&<button className="icon-button voice-stop" onClick={interruptVoice} aria-label="Перебить ответ STEN" title="Перебить ответ"><MicOff size={18}/></button>}
            <button className={'icon-button'+(listening?' mic-active':'')+(voiceMode?' voice-mode-active':'')} onClick={toggleVoice} aria-label={voiceMode?'Завершить голосовой диалог':'Начать голосовой диалог'} title={SR?'Голосовой диалог (Chrome / Edge)':'Голосовой ввод не поддерживается этим браузером'}>
              {listening?<MicOff size={18}/>:<Mic size={18}/>}
@@ -627,7 +627,7 @@ function AIContent({user}:{user:User|null}){
          </div>
          {voiceMode&&<div className="sten-voice-status" role="status" aria-live="polite"><span className={'sten-voice-status__dot is-'+voiceState}/>{voiceState==='listening'?'Слушаю — говорите':voiceState==='thinking'||busy?'Обрабатываю вопрос…':voiceState==='speaking'?'Отвечаю голосом — нажмите микрофон, чтобы перебить':'Голосовой диалог включён'}</div>}
          <div className="composer-footer">
-           <span>{upload?'Обрабатываем документ…':dragOver?'Добавление документа':voiceMode?'Голосовой режим · микрофон завершает диалог':'Enter — отправить · Shift+Enter — новая строка'}</span>
+           <span className="composer-shortcuts">{upload?'Обрабатываем документ…':dragOver?'Добавление документа':voiceMode?'Голосовой режим · микрофон завершает диалог':'Enter — отправить · Shift+Enter — новая строка'}</span>
            <span className="composer-context">{readyCount} док. готовы</span>
          </div>
        </div>
