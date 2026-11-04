@@ -2,12 +2,13 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bot, CalendarDays, FileText, Mic, MicOff, Paperclip, Send, Sparkles, Trash2, UploadCloud, Eye, X, Database, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { StenLogo } from '../components/brand/StenLogo';
-import { api, ApiError, createMemory } from '../lib/api';
+import { api, ApiError, createMemory, UPLOAD_TIMEOUT_MS } from '../lib/api';
 import { useScope } from '../lib/useScope';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth, type User } from '../contexts/AuthContext';
 import { hasScopeId, scopeQuery } from '../lib/scope';
 import { buildAiChatKey } from '../lib/aiChatKey';
+import { uuid } from '../lib/uuid';
 import { AskRequestSchema, type AskRequest, type AskResponse, type AskSource } from '../lib/contracts/ask';
 import { AppearanceProvider, useAppearanceContext } from '../features/chat-appearance/AppearanceContext';
 import { ChatBackground } from '../features/chat-appearance/ChatBackground';
@@ -35,8 +36,22 @@ function parseMeetingDetails(text:string):Partial<MeetingDraft>{
  else if(/(?<![\p{L}\p{N}_])завтра(?![\p{L}\p{N}_])/iu.test(value)){const date=new Date(now);date.setDate(date.getDate()+1);result.date=localDateKey(date)}
  else if(/(?<![\p{L}\p{N}_])сегодня(?![\p{L}\p{N}_])/iu.test(value)){result.date=localDateKey(now)}
  else{
-  const dateMatch=value.match(/(?<![\p{L}\p{N}_])(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?(?![\p{L}\p{N}_])/u);
-  if(dateMatch){let year=dateMatch[3]?Number(dateMatch[3]):now.getFullYear();if(year<100)year+=2000;const day=Number(dateMatch[1]),month=Number(dateMatch[2]);const date=new Date(year,month-1,day);if(date.getFullYear()===year&&date.getMonth()===month-1&&date.getDate()===day){if(!dateMatch[3]&&date<new Date(now.getFullYear(),now.getMonth(),now.getDate()))date.setFullYear(year+1);result.date=localDateKey(date)}}
+  const rawDateMatch=value.match(/(?<![\p{L}\p{N}_])(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?(?![\p{L}\p{N}_])/u);
+  let dateMatch=rawDateMatch;
+  if(rawDateMatch){
+   const after=value.slice((rawDateMatch.index??0)+rawDateMatch[0].length).trim();
+   if(/^(?:млн|млрд|тыс|тысяч|руб|₽|%|процент)/iu.test(after))dateMatch=null;
+  }
+  if(dateMatch){
+   let year=dateMatch[3]?Number(dateMatch[3]):now.getFullYear();
+   if(year<100)year+=2000;
+   const day=Number(dateMatch[1]),month=Number(dateMatch[2]);
+   const date=new Date(year,month-1,day);
+   if(date.getFullYear()===year&&date.getMonth()===month-1&&date.getDate()===day){
+    if(!dateMatch[3]&&date<new Date(now.getFullYear(),now.getMonth(),now.getDate()))date.setFullYear(year+1);
+    result.date=localDateKey(date);
+   }
+  }
  }
  const timeMatch=value.match(/(?<![\p{L}\p{N}_])(?:в\s*)?(\d{1,2})[:.](\d{2})(?![\p{L}\p{N}_])/iu)||value.match(/(?<![\p{L}\p{N}_])в\s*(\d{1,2})\s*(?:час(?:а|ов)?|ч)(?![\p{L}\p{N}_])/iu);
  if(timeMatch){const hour=Number(timeMatch[1]),minute=Number(timeMatch[2]||0);if(hour>=0&&hour<=23&&minute>=0&&minute<=59)result.time=String(hour).padStart(2,'0')+':'+String(minute).padStart(2,'0')}
@@ -87,6 +102,8 @@ function AIContent({user}:{user:User|null}){
  const[docs,setDocs]=useState<Doc[]>([]);
  const loadSeqRef=useRef(0);
  const askSeqRef=useRef(0);
+ const memorySaveInFlightRef=useRef(new Set<string>());
+ const voiceResumeTimerRef=useRef<number|null>(null);
  const[busy,setBusy]=useState(false);
   const[personalMode,setPersonalMode]=useState<PersonalMode>(()=>{try{const value=localStorage.getItem(PERSONAL_MODE_KEY);return PERSONAL_MODES.some(mode=>mode.id===value)?value as PersonalMode:'analyst'}catch{return 'analyst'}});
   useEffect(()=>{try{localStorage.setItem(PERSONAL_MODE_KEY,personalMode)}catch{}},[personalMode]);
@@ -189,7 +206,7 @@ function AIContent({user}:{user:User|null}){
  useEffect(()=>{askSeqRef.current+=1;setBusy(false)},[scope.period,scope.projectId,scope.branchId,scope.restaurantId,scope.departmentId]);
 
  function appendLocalAssistant(answer:string){
-   setMessages(current=>[...current,{id:crypto.randomUUID(),role:'assistant',text:answer,createdAt:new Date().toISOString()}]);
+   setMessages(current=>[...current,{id:uuid(),role:'assistant',text:answer,createdAt:new Date().toISOString()}]);
    if(voiceModeRef.current||voiceAutoplayRef.current)speakAnswer(answer);
  }
  async function confirmMeeting(draft:MeetingDraft){
@@ -209,8 +226,11 @@ function AIContent({user}:{user:User|null}){
  }
  async function handleMeetingUtterance(text:string){
    const value=text.trim();
-   const affirmative=/^(да|давай|подтверждаю|подтвердить|согласен|верно|всё верно|создавай|записывай|ок|okay|окей)[!.\s]*$/i.test(value);
-   const negative=/^(нет|не надо|отмена|отмени|не подтверждаю|не записывай|стоп)[!.\s]*$/i.test(value);
+   const startsAffirmative=/^\s*(?:да|давай|подтверждаю|подтвердить|согласен|верно|всё верно|создавай|записывай|ок|okay|окей)(?![\p{L}\p{N}_])/iu.test(value);
+   const startsNegative=/^\s*(?:нет|не надо|отмена|отмени|не подтверждаю|не записывай|стоп)(?![\p{L}\p{N}_])/iu.test(value);
+   const hasAnyNegative=/(?<![\p{L}\p{N}_])(?:нет|не надо|отмена|отмени|не подтверждаю|не записывай|стоп)(?![\p{L}\p{N}_])/iu.test(value);
+   const affirmative=startsAffirmative&&!hasAnyNegative;
+   const negative=startsNegative;
    if(meetingDraft){
      if(meetingDraft.awaitingConfirmation&&affirmative){await confirmMeeting(meetingDraft);return true}
      if(negative){setMeetingDraft(null);appendLocalAssistant('Хорошо, отменил. Встреча не записана.');return true}
@@ -244,7 +264,7 @@ function AIContent({user}:{user:User|null}){
    if(!text||busy)return;
    const requestId=++askSeqRef.current;
    setPrompt('');
-   const nextMsgs=[...messages,{id:crypto.randomUUID(),role:'user' as const,text,createdAt:new Date().toISOString()}];
+   const nextMsgs=[...messages,{id:uuid(),role:'user' as const,text,createdAt:new Date().toISOString()}];
    shouldAutoScrollRef.current=true;
    setMessages(nextMsgs);
    setBusy(true);
@@ -273,7 +293,7 @@ function AIContent({user}:{user:User|null}){
      if(requestId!==askSeqRef.current)return;
      const p = r;
      const answer=String(p.answer??p.message??'Ответ не получен.');
-     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:answer,sources:Array.isArray(p.sources)?p.sources:[],steps:Array.isArray(p.steps)?p.steps:undefined,totalMs:typeof p.total_ms==='number'?p.total_ms:undefined,proposedMemory:Array.isArray(p.proposed_memory)?p.proposed_memory:p.proposed_memory===null?null:undefined,model:typeof p.model==='string'?p.model:undefined,toolsUsed:Array.isArray(p.tools_used)?p.tools_used.map(t=>({name:t.name,ok:t.ok,ms:t.ms})):p.tools_used===null?null:undefined,agent:p.agent&&typeof p.agent.id==='string'&&typeof p.agent.name==='string'?{id:p.agent.id,name:p.agent.name}:undefined,createdAt:new Date().toISOString()}]);
+     setMessages(m=>[...m,{id:uuid(),role:'assistant',text:answer,sources:Array.isArray(p.sources)?p.sources:[],steps:Array.isArray(p.steps)?p.steps:undefined,totalMs:typeof p.total_ms==='number'?p.total_ms:undefined,proposedMemory:Array.isArray(p.proposed_memory)?p.proposed_memory:p.proposed_memory===null?null:undefined,model:typeof p.model==='string'?p.model:undefined,toolsUsed:Array.isArray(p.tools_used)?p.tools_used.map(t=>({name:t.name,ok:t.ok,ms:t.ms})):p.tools_used===null?null:undefined,agent:p.agent&&typeof p.agent.id==='string'&&typeof p.agent.name==='string'?{id:p.agent.id,name:p.agent.name}:undefined,createdAt:new Date().toISOString()}]);
      if(voiceModeRef.current||voiceAutoplayRef.current)speakAnswer(answer);
    }catch(e){
      if(requestId!==askSeqRef.current)return;
@@ -289,7 +309,7 @@ function AIContent({user}:{user:User|null}){
        : e instanceof ApiError && e.status === 502
          ? `AI вернул ошибку. Код: ${e.code}. ID запроса: ${e.requestId||'не указан'}.`
          : e instanceof Error ? e.message : 'Не удалось получить ответ.';
-     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:message,createdAt:new Date().toISOString()}]);
+     setMessages(m=>[...m,{id:uuid(),role:'assistant',text:message,createdAt:new Date().toISOString()}]);
      if(voiceModeRef.current){setVoiceState('idle');finalTranscriptRef.current='';window.setTimeout(()=>{if(voiceModeRef.current&&!speechRef.current)startRecognition()},350)}
    }finally{if(requestId===askSeqRef.current)setBusy(false)}
  }
@@ -302,39 +322,53 @@ function AIContent({user}:{user:User|null}){
    try{
      for(const f of Array.from(list).slice(0,6)){
        const ext=f.name.split('.').pop()?.toLowerCase();
-       if(!ext||!supported.has(ext)){setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:'Формат «.'+(ext||'?')+'» не поддерживается.',createdAt:new Date().toISOString()}]);continue}
+       if(!ext||!supported.has(ext)){setMessages(m=>[...m,{id:uuid(),role:'assistant',text:'Формат «.'+(ext||'?')+'» не поддерживается.',createdAt:new Date().toISOString()}]);continue}
        if(f.size>MAX_DOC_BYTES)throw new Error(f.name+': файл больше 15 МБ');
-       await api.post('/ai/documents/upload',{name:f.name,mimeType:f.type||'application/octet-stream',dataBase64:await to64(f)});
+       await api.post('/ai/documents/upload',{name:f.name,mimeType:f.type||'application/octet-stream',dataBase64:await to64(f)},{timeoutMs:UPLOAD_TIMEOUT_MS});
      }
      await load();
    }catch(e){
-     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Файл не обработан.',createdAt:new Date().toISOString()}]);
+     setMessages(m=>[...m,{id:uuid(),role:'assistant',text:e instanceof Error?e.message:'Файл не обработан.',createdAt:new Date().toISOString()}]);
    }finally{setUpload(false)}
  }
 
  async function showPreview(d:Doc){
    setPreviewBusy(true);
    try{const r=await api.get<DocPreview>('/ai/documents/'+d.id+'/preview');setPreviewDoc((r as any)?.data??r)}
-   catch(e){setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось открыть содержимое документа.',createdAt:new Date().toISOString()}])}
+   catch(e){setMessages(m=>[...m,{id:uuid(),role:'assistant',text:e instanceof Error?e.message:'Не удалось открыть содержимое документа.',createdAt:new Date().toISOString()}])}
    finally{setPreviewBusy(false)}
  }
 
  async function removeDoc(d:Doc){
    try{await api.delete('/ai/documents/'+d.id);await load()}
-   catch(e){setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось удалить документ.',createdAt:new Date().toISOString()}])}
+   catch(e){setMessages(m=>[...m,{id:uuid(),role:'assistant',text:e instanceof Error?e.message:'Не удалось удалить документ.',createdAt:new Date().toISOString()}])}
  }
 
  function stopSpeech(){
+   if(voiceResumeTimerRef.current!==null){window.clearTimeout(voiceResumeTimerRef.current);voiceResumeTimerRef.current=null}
    if(typeof window!=='undefined'&&'speechSynthesis' in window)window.speechSynthesis.cancel();
    speechRef.current=null;
    setVoiceState('idle');
  }
  function speakAnswer(answer:string){
-   if(!answer.trim()){setVoiceState('idle');return}
-   if(!('speechSynthesis' in window)||typeof SpeechSynthesisUtterance==='undefined'){setVoiceState('idle');showChatToast('Озвучивание не поддерживается этим браузером.');return}
+   const resumeVoice=()=>{
+     if(!voiceModeRef.current)return;
+     if(voiceResumeTimerRef.current!==null)window.clearTimeout(voiceResumeTimerRef.current);
+     voiceResumeTimerRef.current=window.setTimeout(()=>{
+       voiceResumeTimerRef.current=null;
+       if(voiceModeRef.current&&!speechRef.current)startRecognition();
+     },350);
+   };
+   if(!answer.trim()){setVoiceState('idle');resumeVoice();return}
+   if(!('speechSynthesis' in window)||typeof SpeechSynthesisUtterance==='undefined'){
+     setVoiceState('idle');
+     showChatToast('Озвучивание не поддерживается этим браузером. Продолжаем голосовой ввод без озвучки.');
+     resumeVoice();
+     return;
+   }
    window.speechSynthesis.cancel();
    const plain=answer.replace(/\[([^\]]+)\]\([^)]*\)/g,'$1').replace(/https?:\/\/\S+/g,'').replace(/<[^>]*>/g,' ').replace(/```[\s\S]*?```/g,' Код опущен. ').replace(/[*_#>|]/g,' ').replace(/\s+/g,' ').trim();
-   if(!plain){setVoiceState('idle');return}
+   if(!plain){setVoiceState('idle');resumeVoice();return}
    const utterance=new SpeechSynthesisUtterance(plain.slice(0,12000));
    utterance.lang='ru-RU';utterance.rate=1;
    const russianVoices=window.speechSynthesis.getVoices().filter(voice=>/^ru([-_]|$)/i.test(voice.lang));
@@ -347,7 +381,7 @@ function AIContent({user}:{user:User|null}){
      if(preferMale&&!maleVoiceNoticeRef.current){maleVoiceNoticeRef.current=true;showChatToast('Русский мужской голос не найден в голосах устройства. Используется доступный системный голос; можно проверить настройки озвучивания устройства.');}
    }
    utterance.onstart=()=>setVoiceState('speaking');
-   utterance.onerror=(event)=>{speechRef.current=null;setVoiceState('idle');if(event.error!=='canceled'&&event.error!=='interrupted')showChatToast('Браузер не смог озвучить ответ. Попробуйте кнопку «Прослушать» ещё раз.');};
+   utterance.onerror=(event)=>{speechRef.current=null;setVoiceState('idle');if(event.error!=='canceled'&&event.error!=='interrupted')showChatToast('Браузер не смог озвучить ответ. Продолжаем голосовой ввод.');resumeVoice();};
    utterance.onend=()=>{speechRef.current=null;if(voiceModeRef.current)startRecognition();else setVoiceState('idle')};
    speechRef.current=utterance;setVoiceState('speaking');window.speechSynthesis.speak(utterance);
  }
@@ -356,7 +390,10 @@ function AIContent({user}:{user:User|null}){
    try{recog.current?.abort?.()}catch{}
    const r=new SR();r.lang='ru-RU';r.interimResults=true;r.continuous=false;finalTranscriptRef.current='';
    const base=voiceModeRef.current?'':prompt.trim();
-   r.onstart=()=>{setListening(true);setVoiceState('listening')};
+   r.onstart=()=>{
+     if(voiceResumeTimerRef.current!==null){window.clearTimeout(voiceResumeTimerRef.current);voiceResumeTimerRef.current=null}
+     setListening(true);setVoiceState('listening');
+   };
    r.onresult=(e:any)=>{
      let interim='';let finalText='';
      for(let i=e.resultIndex;i<e.results.length;i++){const item=e.results[i];if(item.isFinal)finalText+=item[0].transcript;else interim+=item[0].transcript}
@@ -366,7 +403,13 @@ function AIContent({user}:{user:User|null}){
      }
    };
    r.onerror=(event:any)=>{setListening(false);if(voiceModeRef.current){setVoiceState('idle');if(event?.error==='not-allowed'||event?.error==='service-not-allowed'){voiceModeRef.current=false;setVoiceMode(false);showChatToast('Разрешите доступ к микрофону в настройках браузера.');}else if(event?.error!=='aborted'&&event?.error!=='no-speech'){showChatToast('Не удалось распознать речь. Проверьте микрофон и попробуйте ещё раз.');if(event?.error==='audio-capture'){voiceModeRef.current=false;setVoiceMode(false);}}}};
-   r.onend=()=>{setListening(false);if(!voiceModeRef.current){setVoiceState('idle');return;}if(finalTranscriptRef.current)return;window.setTimeout(()=>{if(voiceModeRef.current&&!speechRef.current)startRecognition()},350)};recog.current=r;
+   r.onend=()=>{
+     setListening(false);
+     if(voiceResumeTimerRef.current!==null){window.clearTimeout(voiceResumeTimerRef.current);voiceResumeTimerRef.current=null}
+     if(!voiceModeRef.current){setVoiceState('idle');return}
+     if(finalTranscriptRef.current)return;
+     window.setTimeout(()=>{if(voiceModeRef.current&&!speechRef.current)startRecognition()},350);
+   };recog.current=r;
    try{r.start()}catch{setListening(false);setVoiceState('idle');showChatToast('Не удалось запустить микрофон. Проверьте разрешения браузера.')}
  }
  function toggleVoice(){
@@ -402,12 +445,31 @@ function AIContent({user}:{user:User|null}){
    }catch(e){showChatToast(e instanceof Error?e.message:'Не удалось создать задачу в Секретаре');}
  };
  const saveProposedMemory=async(messageId:string,items:ProposedMemory[])=>{
-   if(!items.length)return;
+   if(!items.length||memorySaveInFlightRef.current.has(messageId))return;
+   memorySaveInFlightRef.current.add(messageId);
+   const savedItems=new Set<ProposedMemory>();
+   let lastErr:unknown=null;
    try{
-     for(const item of items)await createMemory({scope:{project_id:scope.projectId??null,branch_id:scope.branchId??null,restaurant_id:scope.restaurantId??null,department_id:scope.departmentId??null},kind:item.kind,title:item.title,content:item.content,evidence:item.evidence??{}});
-     setMessages(current=>current.map(item=>item.id===messageId?{...item,proposedMemory:undefined}:item));
-     showChatToast('Предложения сохранены в память');
-   }catch(e){showChatToast(e instanceof Error?e.message:'Не удалось сохранить память');}
+     for(const item of items){
+       try{
+         await createMemory({
+           scope:{project_id:scope.projectId??null,branch_id:scope.branchId??null,restaurant_id:scope.restaurantId??null,department_id:scope.departmentId??null},
+           kind:item.kind,title:item.title,content:item.content,evidence:item.evidence??{}
+         });
+         savedItems.add(item);
+         setMessages(current=>current.map(message=>{
+           if(message.id!==messageId)return message;
+           const remaining=(message.proposedMemory??[]).filter(proposed=>!savedItems.has(proposed));
+           return{...message,proposedMemory:remaining.length?remaining:undefined};
+         }));
+       }catch(error){lastErr=error;}
+     }
+     if(savedItems.size===items.length)showChatToast('Предложения сохранены в память');
+     else if(savedItems.size>0)showChatToast(`Сохранено ${savedItems.size} из ${items.length}${lastErr instanceof Error?': '+lastErr.message:''}`);
+     else showChatToast(lastErr instanceof Error?lastErr.message:'Не удалось сохранить память');
+   }finally{
+     memorySaveInFlightRef.current.delete(messageId);
+   }
  };
  const analyzePnl=()=>navigate('/pnl?'+scopeQuery(scope));
 
@@ -418,7 +480,6 @@ function AIContent({user}:{user:User|null}){
  };
 
  const pageClass='page sten-ai-page theme-'+settings.theme+' density-'+settings.density+(settings.showAvatars?'':' appearance-no-avatars')+(settings.showTime?'':' appearance-no-time')+(settings.showSources?'':' appearance-no-sources')+(settings.showActions?'':' appearance-no-actions');
- const formatTime=(value?:string)=>value?new Date(value).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'';
 
  return <div className={pageClass}>
    <header className="sten-ai-topbar">
@@ -503,7 +564,6 @@ function AIContent({user}:{user:User|null}){
            return <Fragment key={m.id}>
              {m.role === 'assistant' && m.agent && m.agent.id !== 'sten' && <div className="sten-ai-agent-label" aria-label={`Ответ подготовил агент ${m.agent.name}`}>{m.agent.name}</div>}
              <MessageRow
-               key={m.id}
                message={message}
                previousMessage={previousMessage}
                user={user}

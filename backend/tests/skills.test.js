@@ -25,6 +25,20 @@ test('all response modes receive execution-first and document-source rules', () 
   }
 });
 
+test('Capex warning follows the public includeCapexWarning flag', () => {
+  const includedPrompt = buildSkillPrompt('Проверь операционные расходы и Capex', { includeCapexWarning: true });
+  assert.match(includedPrompt, /Не смешивай разовые инвестиционные расходы/u);
+  const excludedPrompt = buildSkillPrompt('Проверь операционные расходы и Capex', { includeCapexWarning: false });
+  assert.doesNotMatch(excludedPrompt, /Не смешивай разовые инвестиционные расходы/u);
+});
+
+test('legacy Capex warning flag remains supported', () => {
+  const defaultPrompt = buildSkillPrompt('Проверь операционные расходы и Capex');
+  assert.match(defaultPrompt, /Не смешивай разовые инвестиционные расходы/u);
+  const disabledPrompt = buildSkillPrompt('Проверь операционные расходы и Capex', { excludeCapex: false });
+  assert.doesNotMatch(disabledPrompt, /Не смешивай разовые инвестиционные расходы/u);
+});
+
 test('HR skill allows source-grounded names for authorized tasks but protects unrelated sensitive data', () => {
   const prompt = buildSkillPrompt('Найди зарплату сотрудника и рассчитай мотивацию');
   assert.match(prompt, /ФИО и должность можно назвать только если они прямо содержатся в источнике/u);

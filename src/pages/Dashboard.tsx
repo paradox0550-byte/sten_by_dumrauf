@@ -5,7 +5,8 @@ import { api, ApiError } from '../lib/api';
 import { useScope } from '../lib/useScope';
 import { scopeQuery } from '../lib/scope';
 import { formatDeltaPct, formatMoneyAuto, formatPercent } from '../lib/format';
-import { calculateKPISafely, calculateVarianceSignal } from '../lib/financialCalculations';
+import { calculateKPISafely } from '../lib/financialCalculations';
+import { classifyArticleType } from '../lib/articleClassifier';
 import ExecutiveMetric from '../components/ExecutiveMetric';
 import AttentionBlock from '../components/AttentionBlock';
 import './Dashboard.css';
@@ -37,7 +38,8 @@ function attentionItems(rows: PnlRow[]): DeviationItem[] {
     const delta = row.fact - row.plan;
     const deltaPct = row.plan === 0 ? null : delta / Math.abs(row.plan) * 100;
     const severity = (deltaPct !== null && Math.abs(deltaPct) > 10) || Math.abs(delta) > 100000 ? 'high' as const : (deltaPct !== null && Math.abs(deltaPct) > 5) || Math.abs(delta) > 30000 ? 'medium' as const : 'low' as const;
-    const unfavorable = calculateVarianceSignal(row.plan, row.fact) === 'overrun';
+    const articleType = classifyArticleType(row.article);
+    const unfavorable = articleType !== 'unknown' && delta < 0;
     return { article: row.article, plan: row.plan, fact: row.fact, delta, deltaPct, severity, group: unfavorable ? 'critical' as const : 'positive' as const };
   }).filter(item => item.group === 'missing' || item.delta !== 0).sort((a, b) => {
     const order = { critical: 0, missing: 1, positive: 2 };
@@ -66,6 +68,12 @@ export default function Dashboard() {
       if (error instanceof ApiError && error.status === 503) {
         setState('unavailable');
         setErrorMessage('Данные временно недоступны.');
+      } else if (error instanceof ApiError && error.status === 403 && error.code === 'SCOPE_ACCESS_CHECK_FAILED') {
+        setState('error');
+        setErrorMessage('Нет доступа к данным выбранного ресторана. Выберите другой рабочий контур или обратитесь к администратору.');
+      } else if (error instanceof ApiError && error.code === 'ORG_ACCESS_CLOSED') {
+        setState('error');
+        setErrorMessage('Доступ к организации закрыт. Проверьте статус подписки или обратитесь к администратору.');
       } else {
         setState('error');
         setErrorMessage('Не удалось обновить показатели. Попробуйте ещё раз.');
@@ -82,7 +90,7 @@ export default function Dashboard() {
   const createDeviationTask = async (item: DeviationItem) => {
     setCreatingTask(item.article); setTaskMessage('');
     try {
-      await api.post('/api/secretary/events', { title: 'Разобраться с отклонением по ' + item.article, description: 'Период: ' + scope.period + '. План: ' + (item.plan ?? 'нет данных') + '; факт: ' + (item.fact ?? 'нет данных') + '. Проверьте источник и причину отклонения.', start_at: new Date().toISOString(), event_type: 'task', status: 'planned', reminder_minutes: 30 });
+      await api.post('/api/secretary/events', { title: 'Разобраться с отклонением по ' + item.article, description: 'Период: ' + scope.period + '. План: ' + (item.plan ?? 'нет данных') + '; факт: ' + (item.fact ?? 'нет данных') + '. Проверьте источник и причину отклонения.', start_at: new Date(new Date().setHours(23, 59, 0, 0)).toISOString(), event_type: 'task', status: 'planned', reminder_minutes: 30 });
       setTaskMessage('Задача добавлена в план руководителя.');
     } catch (error) { setTaskMessage(error instanceof Error ? error.message : 'Не удалось создать задачу.'); }
     finally { setCreatingTask(null); }
@@ -101,6 +109,7 @@ export default function Dashboard() {
   const primeCost = isFiniteNumber(fact?.primeCostPercent)
     ? Math.abs(fact.primeCostPercent)
     : cogsPercent !== null && laborPercent !== null ? cogsPercent + laborPercent : null;
+  const primeCostPlan = isFiniteNumber(plan?.primeCostPercent) ? Math.abs(plan.primeCostPercent) : null;
   const formatKpiOrMissing = (value: number | null) => value === null ? 'Нет данных' : formatPercent(value);
   const ebitdaMargin = fact?.ebitdaMargin ?? (
     isFiniteNumber(fact?.ebitda) && isFiniteNumber(fact?.revenue) && fact.revenue > 0
@@ -115,9 +124,10 @@ export default function Dashboard() {
       <header className="director-topbar">
         <h1>Сводка</h1>
         <div className="director-topbar__controls">
+          <button className="secondary-button" type="button" aria-label="Обновить сводку" onClick={() => void load()} disabled={state === 'loading'}><RefreshCw size={15} /> Обновить</button>
           <label className="director-period">
             <span className="sr-only">Период</span>
-            <input aria-label="Период" type="month" value={scope.period} onChange={(event) => setScope({ ...scope, period: event.target.value })} />
+            <input aria-label="Период" type="month" value={scope.period} onChange={(event) => setScope({ period: event.target.value })} />
           </label>
         </div>
       </header>
@@ -146,7 +156,7 @@ export default function Dashboard() {
           {taskMessage && <p className="director-state" role="status">{taskMessage}</p>}
           <section className="director-metrics" aria-label="Ключевые метрики">
             <ExecutiveMetric label="Выручка" value={formatMoneyAuto(fact?.revenue)} detail={'План ' + formatMoneyAuto(plan?.revenue)} delta={formatDeltaPct(plan?.revenue, fact?.revenue)} deltaTone={revenueDelta === null ? 'neutral' : revenueDelta >= 0 ? 'success' : 'danger'} />
-            <ExecutiveMetric label="Prime Cost" value={formatKpiOrMissing(primeCost)} detail={`Food Cost ${formatKpiOrMissing(foodCost)} · Labor Cost ${formatKpiOrMissing(laborPercent)}`} />
+            <ExecutiveMetric label="Prime Cost" value={formatKpiOrMissing(primeCost)} detail={`План ${formatKpiOrMissing(primeCostPlan)} · Food Cost ${formatKpiOrMissing(foodCost)} · Labor Cost ${formatKpiOrMissing(laborPercent)}`} delta={formatDeltaPct(primeCostPlan, primeCost)} deltaTone={primeCostPlan === null || primeCost === null ? 'neutral' : primeCost <= primeCostPlan ? 'success' : 'danger'} />
             <ExecutiveMetric label="ФОТ" value={formatMoneyAuto(laborFact)} detail={'План ' + formatMoneyAuto(laborPlan)} delta={formatDeltaPct(laborPlan, laborFact)} deltaTone={laborDelta === null ? 'neutral' : laborDelta <= 0 ? 'success' : 'danger'} />
             <ExecutiveMetric label="EBITDA" value={formatMoneyAuto(fact?.ebitda)} detail={ebitdaMargin === null ? 'Маржа —' : 'Маржа ' + formatPercent(ebitdaMargin)} delta={formatDeltaPct(plan?.ebitda, fact?.ebitda)} deltaTone={fact?.ebitda == null || plan?.ebitda == null ? 'neutral' : fact.ebitda >= plan.ebitda ? 'success' : 'danger'} />
           </section>

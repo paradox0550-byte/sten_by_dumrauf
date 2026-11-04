@@ -457,7 +457,7 @@ function buildSkillPrompt(question, config = {}) {
       lines.push('📝 TONE: Кратко, по делу, с фокусом на ближайшее действие. Используй структуру: Проблема → Решение → Срок.');
     }
 
-    if (config.excludeCapex !== false) {
+    if (typeof config.includeCapexWarning === 'boolean' ? config.includeCapexWarning : config.excludeCapex !== false) {
       lines.push('💰 ВАЖНО: Не смешивай разовые инвестиционные расходы (Capex) с операционными (Opex). Анализируй их отдельно.');
     }
 

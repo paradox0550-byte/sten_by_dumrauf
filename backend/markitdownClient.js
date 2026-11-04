@@ -20,7 +20,8 @@ async function convertWithMarkItDown(buffer, name, mime, env = process.env) {
   const enabled = String(env.MARKITDOWN_ENABLED || 'false').toLowerCase() === 'true';
   if (!enabled || !url) return null;
 
-  const timeoutMs = Math.max(1000, Number(env.MARKITDOWN_TIMEOUT_MS || 60000));
+  const configuredTimeoutMs = Number(env.MARKITDOWN_TIMEOUT_MS || 45000);
+  const timeoutMs = Number.isFinite(configuredTimeoutMs) ? Math.min(45000, Math.max(1000, configuredTimeoutMs)) : 45000;
   const token = String(env.MARKITDOWN_TOKEN || '').trim();
   const headers = {
     'content-type': 'application/json',

@@ -12,6 +12,8 @@ import { parseShiftFile } from '../domain/labor/imports/parseShiftFile';
 import type { SalesLine, ShiftLine } from '../domain/labor/imports/schema';
 import type { LaborConfiguration, RolePassport, ZoneDemandNorm } from '../domain/labor/roles/schema';
 import './LaborIntelligencePanel.css';
+import { uuid } from '../lib/uuid';
+import { normalizeArticle } from '../lib/normalize';
 
 type Zone = Exclude<ZoneId, 'unknown'>;
 type Props = { period: string; scopeKey: string };
@@ -26,8 +28,17 @@ const readStored = (key: string): Stored => {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return emptyStored();
-    const value = JSON.parse(raw) as Stored;
-    return value?.version === 1 ? { ...emptyStored(), ...value } : emptyStored();
+    const value = JSON.parse(raw) as Partial<Stored> | null;
+    if (!value || value.version !== 1 || typeof value !== 'object') return emptyStored();
+    const base = emptyStored();
+    return {
+      version: 1,
+      roles: Array.isArray(value.roles) ? value.roles.filter(role => role && typeof role.id === 'string' && typeof role.positionName === 'string') : base.roles,
+      norms: Array.isArray(value.norms) ? value.norms : base.norms,
+      effortByCategory: value.effortByCategory && typeof value.effortByCategory === 'object' && !Array.isArray(value.effortByCategory) ? value.effortByCategory : base.effortByCategory,
+      zoneByCategory: value.zoneByCategory && typeof value.zoneByCategory === 'object' && !Array.isArray(value.zoneByCategory) ? value.zoneByCategory : base.zoneByCategory,
+      coverageMinHoursByRole: value.coverageMinHoursByRole && typeof value.coverageMinHoursByRole === 'object' && !Array.isArray(value.coverageMinHoursByRole) ? value.coverageMinHoursByRole : base.coverageMinHoursByRole,
+    };
   } catch { return emptyStored(); }
 };
 const fmt = (value: number | null | undefined, digits = 1) => value == null || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('ru-RU', { maximumFractionDigits: digits }).format(value);
@@ -118,15 +129,15 @@ export default function LaborIntelligencePanel({ period, scopeKey }: Props) {
     const rate = roleRate.trim() === '' ? null : Number(roleRate.replace(',', '.'));
     const coverage = roleCoverage.trim() === '' ? null : Number(roleCoverage.replace(',', '.'));
     if (!name) return;
-    if (stored.roles.some(role => role.positionName.toLocaleLowerCase('ru-RU') === name.toLocaleLowerCase('ru-RU'))) return;
+    if (stored.roles.some(role => normalizeArticle(role.positionName) === normalizeArticle(name))) return;
     if ((rate != null && (!Number.isFinite(rate) || rate < 0)) || (coverage != null && (!Number.isFinite(coverage) || coverage < 0))) return;
-    const role: RolePassport = { id: crypto.randomUUID(), positionName: name, workMode: 'mixed', zoneIds: [roleZone], unitName: 'час', minimumShiftHours: null, fixedHoursPerDay: null, hourlyRate: rate, salaryPerShift: null, monthlySalary: null, productivityUnitsPerHour: null, effortCoefficient: null, active: true };
+    const role: RolePassport = { id: uuid(), positionName: name, workMode: 'mixed', zoneIds: [roleZone], unitName: 'час', minimumShiftHours: null, fixedHoursPerDay: null, hourlyRate: rate, salaryPerShift: null, monthlySalary: null, productivityUnitsPerHour: null, effortCoefficient: null, active: true };
     setStored(prev => ({ ...prev, roles: [...prev.roles, role], coverageMinHoursByRole: { ...prev.coverageMinHoursByRole, ...(coverage == null ? {} : { [name]: coverage }) } }));
     setRoleName(''); setRoleRate(''); setRoleCoverage('');
   }
 
-  const periodSales = sales.filter(line => line.businessDate.startsWith(period));
-  const periodShifts = shifts.filter(line => line.businessDate.startsWith(period));
+  const periodSales = useMemo(() => sales.filter(line => line.businessDate.startsWith(period)), [sales, period]);
+  const periodShifts = useMemo(() => shifts.filter(line => line.businessDate.startsWith(period)), [shifts, period]);
   const calculation = useMemo(() => periodSales.length && periodShifts.length && stored.roles.length
     ? calculateLabor({ sales: periodSales, shifts: periodShifts, config: configuration })
     : null, [periodSales, periodShifts, configuration, stored.roles.length]);
@@ -150,7 +161,7 @@ export default function LaborIntelligencePanel({ period, scopeKey }: Props) {
     {expanded && <>
       <div className="li-import-grid">
         <div className="li-import-card"><b><FileSpreadsheet size={16} /> Продажи iiko</b><p>Экспорт OLAP в XLSX или CSV. Для почасового анализа нужны дата, час, блюдо, категория, количество и сумма.</p><label className="li-upload"><UploadCloud size={16} />{busy === 'sales' ? 'Читаем файл…' : 'Загрузить продажи'}<input type="file" accept=".xlsx,.xls,.csv" disabled={!!busy} onChange={event => void importSales(event.target.files?.[0])} /></label>{salesReport && <small>{salesReport.fileName}: принято {salesReport.validRows}, нераспознано {salesReport.unmappedRows}, ошибок {salesReport.invalidRows}, пропущено {salesReport.skippedRows}</small>}{salesError && <span className="li-error" role="alert">{salesError}</span>}</div>
-        <div className="li-import-card"><b><FileSpreadsheet size={16} /> Табель / график</b><p>Файл XLSX/CSV с датой, сотрудником, должностью и часами. Время начала/окончания и ставка уточняют расчёт.</p><label className="li-upload"><UploadCloud size={16} />{busy === 'shifts' ? 'Читаем файл…' : 'Загрузить табель'}<input type="file" accept=".xlsx,.xls,.csv" disabled={!!busy} onChange={event => void importShifts(event.target.files?.[0])} /></label>{shiftReport && <small>{shiftReport.fileName}: принято {shiftReport.acceptedRows} из {shiftReport.totalRows}, ошибок {shiftReport.rejectedRows}</small>}{shiftError && <span className="li-error" role="alert">{shiftError}</span>}</div>
+        <div className="li-import-card"><b><FileSpreadsheet size={16} /> Табель / график</b><p>Файл XLSX/CSV с датой, сотрудником, должностью и часами. Время начала/окончания и ставка уточняют расчёт.</p><label className="li-upload"><UploadCloud size={16} />{busy === 'shifts' ? 'Читаем файл…' : 'Загрузить табель'}<input type="file" accept=".xlsx,.xls,.csv" disabled={!!busy} onChange={event => void importShifts(event.target.files?.[0])} /></label>{shiftReport && <><small>{shiftReport.fileName}: принято {shiftReport.acceptedRows} из {shiftReport.totalRows}, ошибок {shiftReport.rejectedRows}</small>{shiftReport.issues.length > 0 && <details><summary>Причины пропуска строк ({shiftReport.issues.length})</summary><ul>{shiftReport.issues.slice(0, 10).map((issue, index) => <li key={issue.row + ':' + index}>Строка {issue.row}: {issue.reason}</li>)}</ul></details>}</>}{shiftError && <span className="li-error" role="alert">{shiftError}</span>}</div>
       </div>
       {allCategories.length > 0 && <div className="li-config"><h3>Категории и рабочие зоны</h3><p>Проверьте автоматическое сопоставление. Вы можете изменить зону для любой категории; нераспределённые строки не участвуют в расчёте потребности.</p>{allCategories.map(category => <div className="li-config-row" key={category}><span>{category}</span><select value={sales.find(line => line.categoryName === category)?.zoneId ?? ''} onChange={event => setZone(category, event.target.value ? event.target.value as Zone : null)}><option value="">Не сопоставлена</option>{ZONES.map(zone => <option key={zone.id} value={zone.id}>{zone.label}</option>)}</select></div>)}</div>}
       {allCategories.length > 0 && <div className="li-config"><h3>Трудоёмкость блюд и категорий</h3><p>Коэффициент задаётся владельцем ресторана: трудоёмкие единицы на одну проданную позицию. Количество блюд само по себе не считается трудозатратами.</p>{allCategories.map(category => <div className="li-config-row" key={category}><span>{category}</span><label>Ед./блюдо<input type="number" min="0.001" step="0.1" placeholder="Не задано" value={effortInputs[category] ?? (stored.effortByCategory[category]?.toString() ?? '')} onChange={event => setEffort(category, event.target.value)} /></label></div>)}</div>}

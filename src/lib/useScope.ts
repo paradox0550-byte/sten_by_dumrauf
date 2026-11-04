@@ -64,16 +64,18 @@ async function migrateLegacyScope(key:string):Promise<Scope|null> {
   } catch { return null; }
 }
 
-export function useScope():[Scope,(next:Scope)=>void] {
+export function useScope():[Scope,(next:Partial<Scope>)=>void] {
   const {user}=useAuth();
   const key=storageKey(user);
   const [scope,setScope]=useState<Scope>(()=>readSaved(key));
+  const scopeRef=useRef(scope);
   const [loadedFor,setLoadedFor]=useState<string|null>(null);
   const contextSeqRef=useRef(0);
   const saveSeqRef=useRef(0);
 
   useEffect(()=>{
     const seq=++contextSeqRef.current;
+    const saveSeqAtStart=saveSeqRef.current;
     let cancelled=false;
     const initialize=async()=>{
       let initial=readSaved(key);
@@ -90,29 +92,33 @@ export function useScope():[Scope,(next:Scope)=>void] {
           try{if(hadLegacy&&localStorage.getItem(LEGACY_KEY))canPersist=false;}catch{canPersist=false;}
         }
       }
-      if(cancelled||seq!==contextSeqRef.current)return;
+      if(cancelled||seq!==contextSeqRef.current||saveSeqAtStart!==saveSeqRef.current)return;
+      scopeRef.current=initial;
       setScope(initial);
       setLoadedFor(canPersist?key:null);
       try {
         const r=await api.get<any>('/api/b2b/context');
-        if(cancelled||seq!==contextSeqRef.current)return;
+        if(cancelled||seq!==contextSeqRef.current||saveSeqAtStart!==saveSeqRef.current)return;
         const c=r?.context??r?.data?.context;
         if(!c)return;
         // Empty/null server fields must not erase a validated local selection.
         const serverHasSelection=['project_id','branch_id','restaurant_id','department_id'].some(k=>typeof c[k]==='string'&&c[k].length>0);
         if(serverHasSelection){
-          setScope(prev=>({
-            ...prev,
-            projectId:typeof c.project_id==='string'&&c.project_id?c.project_id:undefined,
-            branchId:typeof c.branch_id==='string'&&c.branch_id?c.branch_id:undefined,
-            restaurantId:typeof c.restaurant_id==='string'&&c.restaurant_id?c.restaurant_id:undefined,
-            departmentId:typeof c.department_id==='string'&&c.department_id?c.department_id:undefined,
-          }));
+          setScope(prev=>{
+            const next={...prev,
+              projectId:typeof c.project_id==='string'&&c.project_id?c.project_id:undefined,
+              branchId:typeof c.branch_id==='string'&&c.branch_id?c.branch_id:undefined,
+              restaurantId:typeof c.restaurant_id==='string'&&c.restaurant_id?c.restaurant_id:undefined,
+              departmentId:typeof c.department_id==='string'&&c.department_id?c.department_id:undefined,
+            };
+            scopeRef.current=next;
+            return next;
+          });
         }
       } catch { /* API недоступен — сохраняем текущий локальный контекст; доступ проверяет сервер */ }
     };
     void initialize();
-    const onChange=()=>setScope(readSaved(key));
+    const onChange=()=>{const saved=readSaved(key);scopeRef.current=saved;setScope(saved)};
     window.addEventListener(EVT,onChange);
     window.addEventListener('storage',onChange);
     return()=>{
@@ -122,7 +128,9 @@ export function useScope():[Scope,(next:Scope)=>void] {
     };
   },[key]);
 
-  const update=(next:Scope)=>{
+  const update=(patch:Partial<Scope>)=>{
+    const next:Scope={...scopeRef.current,...patch};
+    scopeRef.current=next;
     const seq=++saveSeqRef.current;
     void (async()=>{
       try {
@@ -133,6 +141,7 @@ export function useScope():[Scope,(next:Scope)=>void] {
           department_id:next.departmentId??null,
         });
         if(seq!==saveSeqRef.current)return;
+        scopeRef.current=next;
         setScope(next);
         setLoadedFor(key);
         try{if(key)localStorage.setItem(key,JSON.stringify(next));}catch{/* приватный режим */}
@@ -142,6 +151,7 @@ export function useScope():[Scope,(next:Scope)=>void] {
         if(seq!==saveSeqRef.current)return;
         // A failed write invalidates the selected contour locally: never keep sending a stale restaurant to AI.
         const cleared:Scope={period:next.period};
+        scopeRef.current=cleared;
         setScope(cleared);
         setLoadedFor(key);
         try{if(key)localStorage.setItem(key,JSON.stringify(cleared));}catch{/* приватный режим */}
