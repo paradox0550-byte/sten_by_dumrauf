@@ -162,6 +162,10 @@ test('frontend API host, package versions, Gateway bindings, and backend CORS co
   const health = gatewayBlock(gateway, '/healthz');
   const proxy = gatewayBlock(gateway, '/{proxy+}');
   const markitdown = gatewayBlock(gateway, '/markitdown/{proxy+}');
+  assert.ok(
+    gateway.indexOf('/markitdown/{proxy+}:') < gateway.indexOf('/{proxy+}:'),
+    'Dedicated MarkItDown route must be declared before the application catch-all.'
+  );
   const backendFunction = health.match(/function_id:\s*([A-Za-z0-9_-]+)/)?.[1];
   assert.ok(backendFunction, 'Health route must bind to the backend Cloud Function.');
   assert.match(proxy, new RegExp('function_id:\\s*' + backendFunction + '\\b'), 'Application wildcard must bind to the same backend function.');
