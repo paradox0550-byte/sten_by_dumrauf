@@ -44,7 +44,7 @@ echo "Validating MarkItDown source..."
 test -f backend/markitdown/function.py
 test -f backend/markitdown/requirements.txt
 grep -qx 'markitdown[all]==0.1.8' backend/markitdown/requirements.txt
-python3 -m py_compile backend/markitdown/function.py
+python3 -c "from pathlib import Path; compile(Path('backend/markitdown/function.py').read_text(encoding='utf-8'), 'backend/markitdown/function.py', 'exec')"
 
 tar -C backend \
   --exclude='./node_modules' \
