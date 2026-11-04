@@ -18,7 +18,7 @@ It is not a copy of the current Yandex Cloud environment. Secret values must nev
 | `DB_POOL_MAX` | config | PostgreSQL pool size; default 2. |
 | `DB_IDLE_TIMEOUT_MS` | config | Pool idle timeout; default 30000 ms. |
 | `DB_SSL_MODE` | config | Leave unset/default for verified TLS. `disable` is rejected in production; no insecure override is supported. |
-| `DB_SSL_ALLOW_INSECURE` | config | Must remain unset or `false` in production. Do not use as a deployment workaround. |
+
 | `YC_FOLDER_ID` | config | Yandex Cloud folder used to resolve the YandexGPT model URI. |
 | `YANDEXGPT_API_KEY` | secret | YandexGPT API key. |
 | `OBJECT_STORAGE_BUCKET` | config | Private backend bucket for uploaded documents. Never point this at the public website bucket. |
@@ -65,6 +65,7 @@ Do not treat these as active backend requirements:
 | Variable | Finding |
 |---|---|
 | `API` | Not read by backend code. |
+| `DB_SSL_ALLOW_INSECURE` | Not read by the current PostgreSQL SSL resolver; no insecure override exists. Do not add it to Cloud Function configuration. |
 | `NETWORK_ID` | Not read by backend code; VPC/network is a Cloud Function resource setting. |
 | `ASK_RATE_LIMIT`, `ASK_RATE_WINDOW_SEC` | Not read by backend code. AI tool policy currently has its own fixed per-user limit in `backend/core/policy.js`; these variables do not configure it. |
 | `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Not used by the current Google Identity Services browser-token flow. |
