@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 import { mapSemanticRows, recognizeSemanticReport, type CanonicalRecord, type SemanticImportPreview } from './semanticSchema';
 
 export type SemanticSheetPreview = {
