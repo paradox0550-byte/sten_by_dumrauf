@@ -14,17 +14,23 @@ This document records the API behavior verified in the repository. It is not a d
 
 | Frontend area | Existing backend contract | Alignment notes |
 |---|---|---|
-| Authentication/session | `GET /auth/me` and existing auth routes | Preserve token/session semantics and public user shape. |
+| Authentication/session | `POST /auth/login`, `POST /auth/set-password`, `POST /auth/change-password`, `GET /auth/me`; legacy `POST /auth/unlock` returns 410 | Preserve token/session semantics and public user shape. Do not restore PIN auth. |
+| Workspace / organization tree | `GET/PUT /api/b2b/context`, `GET/POST /api/b2b/bindings`, `DELETE /api/b2b/bindings/:id`, `GET /api/b2b/org/tree`, `POST /api/b2b/org/units`, `PATCH/DELETE /api/b2b/org/units/:id` | Workspace context, channel bindings and org-unit changes are server-backed; every operation must use the authenticated organization and access checks. |
+| Administration | `GET/POST /api/admin/organizations`, `PATCH /api/admin/organizations/:id`, `GET /api/admin/organizations/:id/users` | Admin-only operations; do not expose to ordinary restaurant roles. |
 | User profile | `GET /api/profile`, `PUT /api/profile` | Profile update is supported. Telegram IDs must be numeric; negative IDs are valid for groups. |
-| STEN AI | `POST /ask`, `GET /api/ai/skills`, `PUT /api/ai/skills` | AI personal response modes, voice playback, and mute are frontend presentation/preferences unless a future explicit API contract says otherwise. Do not invent server persistence for them. |
+| STEN AI | `POST /ask`, `GET /api/ai/skills`, `PUT /api/ai/skills` | AI response modes, voice playback and mute are frontend presentation/preferences unless a future explicit API contract says otherwise. |
 | AI memory | `GET/POST /api/ai/memory`, `PATCH/DELETE /api/ai/memory/:id` | Organization and workspace scope must be enforced; confirmed and unconfirmed memory remain distinct. |
 | Documents | `GET /ai/documents`, `POST /ai/documents/upload`, `GET /ai/documents/:id/preview`, `DELETE /ai/documents/:id` plus AI document tools | Never return documents across organizations; extracted file content is untrusted input. |
-| P&L | `GET/POST /api/pnl`, `POST /api/pnl/calculate`, `POST /api/pnl/import`, approval and transaction routes | Keep formula/source/period/scope semantics. Do not duplicate totals or convert missing plan/fact to zero. |
-| Shift/report intake | `POST /api/ingest/message`, `POST /api/ingest/message/confirm`, `GET/POST /reports` | Parsing is not confirmation. Intake must not write revenue to P&L until the authenticated confirmation path succeeds. |
-| Operational control / Secretary | `/api/secretary/notes`, `/api/secretary/events` CRUD | Preserve readback confirmation and organization scope. A failed write must not be shown as saved. |
+| P&L / Finance | `GET/POST /api/pnl`, `POST /api/pnl/calculate`, `POST /api/pnl/import`, `GET /api/pnl/transactions`, `POST /api/pnl/transactions`, approval routes | Keep formula/source/period/scope semantics. Do not duplicate totals or convert missing plan/fact to zero. |
+| Shift/report intake | `GET/POST /reports`, `GET/POST /api/ingest/message`, `POST /api/ingest/message/confirm` | Parsing is not confirmation. Intake must not write revenue to P&L until the authenticated confirmation path succeeds. |
+| Operational control | `GET /api/operational-control`, `POST /api/operational-control/observations`, `POST /api/operational-control/actions`, `PATCH /api/operational-control/actions/:id` | Observations and actions persist in organization/restaurant-scoped tables. State transitions must preserve the two-person verification rule and audit trail. |
+| Secretary | `GET/POST /api/secretary/notes`, `GET/POST /api/secretary/events`, `PATCH/DELETE` by ID | Preserve readback confirmation, idempotency and organization scope. A failed write must not be shown as saved. |
+| Telegram Monitor / bot | `GET /api/telegram-monitor/chats`, `GET /api/telegram-monitor/messages`, `POST /api/telegram-monitor/analyze`, `POST /api/telegram-monitor/chats/:chatId/bind`, `GET/PUT /api/telegram-bot/settings` | Telegram chat bindings are scoped to organization/restaurant. Webhook authentication and callback-query handling are separate from user JWT routes. |
 | Analytics settings | `GET/PUT /api/analytics/settings` | Missing configuration should remain missing, not silently become a business fact. |
 | Messenger/report delivery | `GET/POST /api/messenger/settings`, `POST /api/reports/send` | Require authorization and configured recipient/provider; never expose tokens/secrets. |
-| Payroll analytics | `GET /fot-analytics`, `GET /my-earnings`, `POST /calculate-salary` | The `/fot-analytics` handler now applies organization, project, branch, restaurant, department and period filters in SQL after `assertScopeAccess`; validate real cross-restaurant isolation with production readback before release. |
+| iiko integration | `GET /api/integrations/iiko`, `POST /api/integrations/iiko/connect`, `PUT /api/integrations/iiko/:connectionId/mapping`, `DELETE /api/integrations/iiko/:connectionId` | Connection credentials are encrypted server-side; never return credentials to the browser. |
+| Google Workspace | `GET/PUT/DELETE /api/integrations/google/:provider`, `PATCH /api/integrations/google/:provider/sync-status`, explicit Sheets PUT | Google Calendar/Sheets provider settings are backend-routed. Browser-side Google API calls for user-authorized data access are external Google requests, not missing STEN backend routes. |
+| Payroll analytics | `GET /fot-analytics`, `GET /my-earnings`, `POST /calculate-salary` | `/fot-analytics` applies organization, project, branch, restaurant, department and period filters in SQL after `assertScopeAccess`; validate real cross-restaurant isolation with production readback before release. |
 
 ## Known integration limits to keep visible
 
