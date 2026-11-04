@@ -1,0 +1,51 @@
+name: Package Yandex Cloud Backend (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yandex-backend-package-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Validate and package Node.js 22 function source
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact selected commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build both manual function archives
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+          SOURCE_REF: ${{ github.ref }}
+        run: bash ops/yandex-cloud/package-manual.sh
+
+      - name: Upload manual release package
+        uses: actions/upload-artifact@v4
+        with:
+          name: sten-yandex-backend
+          path: |
+            release-artifacts/yandex-cloud/*.zip
+            release-artifacts/yandex-cloud/*.sha256
+            release-artifacts/yandex-cloud/release-manifest.txt
+          if-no-files-found: error
+          retention-days: 14
