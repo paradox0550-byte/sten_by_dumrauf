@@ -35,7 +35,7 @@ function parseMeetingDetails(text:string):Partial<MeetingDraft>{
  else if(/(?<![\p{L}\p{N}_])завтра(?![\p{L}\p{N}_])/iu.test(value)){const date=new Date(now);date.setDate(date.getDate()+1);result.date=localDateKey(date)}
  else if(/(?<![\p{L}\p{N}_])сегодня(?![\p{L}\p{N}_])/iu.test(value)){result.date=localDateKey(now)}
  else{
-  const rawDateMatch=value.match(/(?<![\\p{L}\\p{N}_])(\\d{1,2})[./-](\\d{1,2})(?:[./-](\\d{2,4}))?(?![\\p{L}\\p{N}_])/u);
+  const rawDateMatch=value.match(/(?<![\p{L}\p{N}_])(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?(?![\p{L}\p{N}_])/u);
   let dateMatch=rawDateMatch;
   if(rawDateMatch){
    const after=value.slice((rawDateMatch.index??0)+rawDateMatch[0].length).trim();
@@ -225,9 +225,9 @@ function AIContent({user}:{user:User|null}){
  }
  async function handleMeetingUtterance(text:string){
    const value=text.trim();
-   const startsAffirmative=/^\\s*(?:да|давай|подтверждаю|подтвердить|согласен|верно|всё верно|создавай|записывай|ок|okay|окей)(?![\\p{L}\\p{N}_])/iu.test(value);
-   const startsNegative=/^\\s*(?:нет|не надо|отмена|отмени|не подтверждаю|не записывай|стоп)(?![\\p{L}\\p{N}_])/iu.test(value);
-   const hasAnyNegative=/(?<![\\p{L}\\p{N}_])(?:нет|не надо|отмена|отмени|не подтверждаю|не записывай|стоп)(?![\\p{L}\\p{N}_])/iu.test(value);
+   const startsAffirmative=/^\s*(?:да|давай|подтверждаю|подтвердить|согласен|верно|всё верно|создавай|записывай|ок|okay|окей)(?![\p{L}\p{N}_])/iu.test(value);
+   const startsNegative=/^\s*(?:нет|не надо|отмена|отмени|не подтверждаю|не записывай|стоп)(?![\p{L}\p{N}_])/iu.test(value);
+   const hasAnyNegative=/(?<![\p{L}\p{N}_])(?:нет|не надо|отмена|отмени|не подтверждаю|не записывай|стоп)(?![\p{L}\p{N}_])/iu.test(value);
    const affirmative=startsAffirmative&&!hasAnyNegative;
    const negative=startsNegative;
    if(meetingDraft){
