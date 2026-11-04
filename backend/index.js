@@ -35,7 +35,6 @@ const ENV = {
 NODE_ENV: process.env.NODE_ENV || 'production',
 JWT_SECRET: process.env.JWT_SECRET || INSECURE_JWT_FALLBACK,
 JWT_TTL_SEC: parseInt(process.env.JWT_TTL_SECONDS || String(30 * 24 * 3600), 10),
-UNLOCK_CODE_HASH: process.env.UNLOCK_CODE_HASH || process.env.UNLOCK_CODE || process.env.STEN_UNLOCK_CODE || '',
 ALLOWED_ORIGINS: (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? '' : '*')).split(',').map(s => s.trim()).filter(Boolean),
 ADMIN_ID: process.env.ADMIN_ID || 'admin',
 ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@sten.local',
@@ -712,7 +711,6 @@ other: z.number().finite().nullable(),
 other_operating: z.number().finite().nullable(),
 }).partial().strict().optional(),
 }).catchall(z.unknown());
-const UnlockSchema = z.object({ code: z.string().regex(/^\d{4}$/u, 'Код должен содержать 4 цифры') }).strict();
 const LoginSchema = z.object({ email: z.string().trim().email().max(320), password: z.string().min(1).max(200) }).strict();
 const SetPasswordSchema = z.object({ newPassword: z.string().min(8).max(200) }).strict();
 const ChangePasswordSchema = z.object({ oldPassword: z.string().min(1).max(200), newPassword: z.string().min(8).max(200) }).strict();
@@ -1212,48 +1210,18 @@ skills_version: SKILLS_VERSION,
 });
 });
 
-/* ---- auth: unlock (legacy PIN) ---- */
-app.post('/auth/unlock', async (req, res) => {
-const body = parseOr400(UnlockSchema, req.body ?? {});
-if (!ENV.DB_HOST) return res.status(503).json({ error: { message: 'Сервер авторизации не настроен (БД)', code: 'AUTH_NOT_CONFIGURED', requestId: req.requestId } });
-await ensureSchemaNow();
-const hash = String(ENV.UNLOCK_CODE_HASH || '');
-if (!hash || !hash.startsWith('$2')) return res.status(503).json({ error: { message: 'Сервер авторизации не настроен. Укажите bcrypt-хеш кода доступа в secret storage.', code: 'AUTH_NOT_CONFIGURED', requestId: req.requestId } });
-try {
-if (bcrypt.getRounds(hash) !== ENV.BCRYPT_ROUNDS) return res.status(503).json({ error: { message: 'Сервер авторизации требует bcrypt cost 12.', code: 'AUTH_HASH_CONFIG', requestId: req.requestId } });
-} catch { return res.status(503).json({ error: { message: 'Сервер авторизации настроен некорректно.', code: 'AUTH_HASH_CONFIG', requestId: req.requestId } }); }
-const ip = String(req.ip || 'unknown').slice(0, 255);
-const rate = await query(
-`INSERT INTO auth_unlock_attempts (ip, window_started_at, failed_attempts, blocked_until) VALUES ($1, now(), 0, NULL)
-ON CONFLICT (ip) DO UPDATE SET
-failed_attempts = CASE WHEN auth_unlock_attempts.window_started_at < now() - interval '15 minutes' THEN 0 ELSE auth_unlock_attempts.failed_attempts END,
-window_started_at = CASE WHEN auth_unlock_attempts.window_started_at < now() - interval '15 minutes' THEN now() ELSE auth_unlock_attempts.window_started_at END,
-blocked_until = CASE WHEN auth_unlock_attempts.window_started_at < now() - interval '15 minutes' THEN NULL ELSE auth_unlock_attempts.blocked_until END
-RETURNING failed_attempts, blocked_until`, [ip]);
-const blockedUntil = rate.rows?.[0]?.blocked_until ? new Date(rate.rows[0].blocked_until) : null;
-if (blockedUntil && blockedUntil.getTime() > Date.now()) return res.status(429).json({ error: { message: 'Слишком много попыток. Повторите вход позже.', code: 'AUTH_RATE_LIMITED', requestId: req.requestId } });
-const match = await bcrypt.compare(String(body.code), hash);
-if (!match) {
-const failed = await query(
-`UPDATE auth_unlock_attempts SET failed_attempts = failed_attempts + 1, blocked_until = CASE WHEN failed_attempts + 1 >= 5 THEN now() + interval '30 minutes' ELSE blocked_until END WHERE ip = $1 RETURNING failed_attempts`,
-[ip]);
-await audit(null, 'auth.unlock.denied', 'auth', null, { ip, attempts: failed.rows?.[0]?.failed_attempts || 1 });
-return res.status(401).json({ error: { message: 'Неверный код доступа', code: 'INVALID_CODE', requestId: req.requestId } });
-}
-await query('DELETE FROM auth_unlock_attempts WHERE ip = $1', [ip]);
-let user = null;
-if (ENV.DB_HOST) {
-const rows = await safeQuery('SELECT id, email, role, organization_id, first_name, last_name FROM users WHERE lower(email) = lower($1) AND is_active = true LIMIT 1', [ENV.ADMIN_EMAIL], null);
-user = rows?.[0] || null;
-}
-if (!user) return res.status(503).json({ error: { message: 'Учётная запись не найдена в базе. Обратитесь к администратору.', code: 'USER_NOT_PROVISIONED', requestId: req.requestId } });
-const claims = { userId: user.id, email: user.email, role: user.role, organizationId: user.organization_id };
-const token = createJWT(claims);
-await audit({ id: user.id, organizationId: user.organization_id }, 'auth.unlock.ok', 'auth', user.id, {});
-ok(res, { token, user: { id: user.id, email: user.email, role: user.role, firstName: user.first_name, lastName: user.last_name, organizationId: user.organization_id, permissions: { '*': 'edit' } } });
+/* ---- auth: legacy PIN disabled ---- */
+app.post('/auth/unlock', (_req, res) => {
+  return res.status(410).json({
+    error: {
+      message: 'Вход по персональному коду отключён. Используйте email и пароль.',
+      code: 'LEGACY_AUTH_DISABLED',
+    },
+  });
 });
 
 /* ---- auth: login / set-password / change-password / me ---- */
+
 app.post('/auth/login', async (req, res, next) => {
 try {
 const body = parseOr400(LoginSchema, req.body ?? {});
@@ -1269,7 +1237,7 @@ blocked_until = CASE WHEN auth_unlock_attempts.window_started_at < now() - inter
 RETURNING failed_attempts, blocked_until`, [rlKey]);
 const rlBlocked = rl.rows?.[0]?.blocked_until ? new Date(rl.rows[0].blocked_until) : null;
 if (rlBlocked && rlBlocked.getTime() > Date.now()) return res.status(429).json({ error: { message: 'Слишком много попыток входа. Повторите позже.', code: 'AUTH_RATE_LIMITED', requestId: req.requestId } });
-const rows = await safeQuery('SELECT id, email, role, organization_id, first_name, last_name, password_hash, is_active FROM users WHERE lower(email)=lower($1) LIMIT 1', [body.email], null);
+const rows = await strictQuery('SELECT id, email, role, organization_id, first_name, last_name, password_hash, is_active FROM users WHERE lower(email)=lower($1) LIMIT 1', [body.email]);
 const u = rows?.[0];
 if (!u) return res.status(401).json({ error: { message: 'Неверный email или пароль', code: 'INVALID_CREDENTIALS', requestId: req.requestId } });
 if (!u.is_active) return res.status(403).json({ error: { message: 'Учётная запись отключена', code: 'USER_INACTIVE', requestId: req.requestId } });
@@ -1301,7 +1269,7 @@ ok(res, { saved: true, confirmed: true });
 app.post('/auth/change-password', requireAuth, async (req, res, next) => {
 try {
 const body = parseOr400(ChangePasswordSchema, req.body ?? {});
-const rows = await safeQuery('SELECT password_hash FROM users WHERE id=$1::uuid LIMIT 1', [req.user.id], null);
+const rows = await strictQuery('SELECT password_hash FROM users WHERE id=$1::uuid LIMIT 1', [req.user.id]);
 const cur = rows?.[0]?.password_hash;
 if (!cur) return res.status(409).json({ error: { message: 'Пароль ещё не установлен.', code: 'PASSWORD_NOT_SET', requestId: req.requestId } });
 const okOld = await bcrypt.compare(body.oldPassword, cur);
