@@ -19,7 +19,7 @@ STEN (Smart Tracking & Economic Navigator) — рабочий интерфейс
 | `docs/` | Контракты, спецификации, аудиты и инструкции |
 | `.github/workflows/ci.yml` | CI-проверки |
 | `.github/workflows/deploy-frontend.yml` | Workflow публикации frontend; не запускайте вручную без согласованного релиза |
-| `api-gateway.yaml` | Каноническая конфигурация Yandex API Gateway для ручного импорта |
+| `api-gateway.yaml` | Единственная каноническая конфигурация Yandex API Gateway для ручного импорта |
 | `api-gateway-spec.yaml` | Совместимая копия Gateway spec; должна совпадать с `api-gateway.yaml` |
 | `api-spec.yaml` | OpenAPI-контракт зарегистрированных маршрутов backend, не импортировать в Gateway |
 | `AGENTS.md` | Обязательные правила работы с кодом и репозиторием |
