@@ -52,7 +52,7 @@ function extractRestaurants(input: unknown): Restaurant[] {
     const id = typeof node.id === 'string' ? node.id : typeof node.uuid === 'string' ? node.uuid : '';
     const name = typeof node.name === 'string' ? node.name : typeof node.title === 'string' ? node.title : '';
     const kind = String(node.kind || node.type || '').toLowerCase();
-    if (id && name && (kind === 'restaurant' || kind === 'unit')) found.set(id, { id, name });
+    if (id && name && kind === 'restaurant') found.set(id, { id, name });
     for (const key of ['tree', 'children', 'projects', 'branches', 'restaurants', 'departments', 'units']) {
       if (node[key]) visit(node[key]);
     }
