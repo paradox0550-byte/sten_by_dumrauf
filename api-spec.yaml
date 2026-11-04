@@ -33,6 +33,8 @@ paths:
     post:
       operationId: post-auth-unlock
       responses:
+        '410':
+          description: Legacy PIN login is permanently disabled
         '200':
           description: Request processed
         '400':
