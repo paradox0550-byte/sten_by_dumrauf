@@ -122,32 +122,21 @@ return e;
 const YANDEX_INTERNAL_CA_PATH = '/usr/local/share/ca-certificates/yandex-internal-ca.crt';
 
 function resolveDbSsl() {
-const allowInsecure = process.env.DB_SSL_ALLOW_INSECURE === 'true';
 if (process.env.DB_SSL_MODE === 'disable') {
-  if (ENV.NODE_ENV === 'production' && !allowInsecure) {
-    throw new Error('[sten] FATAL: DB_SSL_MODE=disable в production запрещён без DB_SSL_ALLOW_INSECURE=true.');
+  if (ENV.NODE_ENV === 'production') {
+    throw new Error('[sten] FATAL: DB_SSL_MODE=disable в production запрещён.');
   }
   return false;
 }
 
-// Explicit CA remains supported for non-Yandex runtimes and controlled local tests.
-// In Yandex Cloud Functions, prefer the platform-provided managed-database CA.
-if (process.env.DB_SSL_CA_BASE64) {
-  const ca = Buffer.from(process.env.DB_SSL_CA_BASE64, 'base64').toString('utf8');
-  if (!ca.trim()) throw new Error('[sten] FATAL: DB_SSL_CA_BASE64 пуст.');
-  return { ca, rejectUnauthorized: true };
+const ca = fs.readFileSync('/usr/local/share/ca-certificates/yandex-internal-ca.crt');
+if (!ca.length) {
+  throw new Error('[sten] FATAL: Yandex managed-database CA file is empty.');
 }
-
-if (fs.existsSync(YANDEX_INTERNAL_CA_PATH)) {
-  const ca = fs.readFileSync(YANDEX_INTERNAL_CA_PATH);
-  if (!ca.length) throw new Error('[sten] FATAL: Yandex managed-database CA file is empty.');
-  return { ca, rejectUnauthorized: true };
-}
-
-if (ENV.NODE_ENV === 'production' && !allowInsecure) {
-  throw new Error('[sten] FATAL: CA certificate unavailable. Expected DB_SSL_CA_BASE64 or the Yandex Cloud Functions managed-database CA file.');
-}
-return { rejectUnauthorized: false };
+return {
+  ca,
+  rejectUnauthorized: true,
+};
 }
 
 let _pool = null;
