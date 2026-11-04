@@ -186,7 +186,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <span>Финансы</span>
               <span className="nav-group-chevron" aria-hidden="true">{financeExpanded ? '−' : '+'}</span>
             </button>
-            {financeExpanded && <div className="nav-group-children" aria-label="Финансы">
+            {(financeExpanded || mobileMenu) && <div className="nav-group-children" aria-label="Финансы">
               {([
                 ['/pnl', 'P&L'],
                 ['/budget', 'Бюджет'],
