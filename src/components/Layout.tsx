@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
   BarChart3, Bot, Menu, Moon, PanelLeft, PanelLeftClose, MessageSquareText,
-  LogOut, Sun, X, ClipboardList, Gauge, Monitor, Users, Settings2,
+  LogOut, Sun, X, ClipboardList, Gauge, Monitor, Users, Settings2, FileText,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import WorkspaceSelector from './WorkspaceSelector';
@@ -204,8 +204,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Settings2 size={17} aria-hidden="true" />
               <span>Настройки</span>
             </NavLink>
+            <div className="nav-subsection" aria-label="Разделы настроек">
+              <NavLink to="/settings#settings-profile" onClick={() => setMobileMenu(false)}><span>Аккаунт</span></NavLink>
+              <NavLink to="/settings#settings-integrations" onClick={() => setMobileMenu(false)}><span>Интеграции</span></NavLink>
+              {user?.role === 'super_admin' && <NavLink to="/settings#settings-workspace" onClick={() => setMobileMenu(false)}><span>Организации</span></NavLink>}
+            </div>
             {user?.role === 'super_admin' && <div className="nav-subsection" aria-label="Инструменты администратора">
-              <NavLink to="/admin/organizations" onClick={() => setMobileMenu(false)}><span>Организации</span></NavLink>
               <NavLink to="/ai-quality" onClick={() => setMobileMenu(false)}><span>Лаборатория AI</span></NavLink>
             </div>}
             <NavLink to="/legal" onClick={() => setMobileMenu(false)} className="nav-legal-link">
