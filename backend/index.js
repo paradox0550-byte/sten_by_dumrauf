@@ -119,8 +119,6 @@ return e;
 }
 
 /* ----------------------------- database ----------------------------------- */
-const YANDEX_INTERNAL_CA_PATH = '/usr/local/share/ca-certificates/yandex-internal-ca.crt';
-
 function resolveDbSsl() {
 if (process.env.DB_SSL_MODE === 'disable') {
   if (ENV.NODE_ENV === 'production') {
