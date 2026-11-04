@@ -45,7 +45,18 @@ function walk(directory) {
   });
 }
 
-function frontendRoute(raw) {
+
+function walkJavaScript(directory) {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const absolute = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === 'tests' || entry.name === 'node_modules') return [];
+      return walkJavaScript(absolute);
+    }
+    return entry.isFile() && /\\.js$/.test(entry.name) ? [absolute] : [];
+  });
+}
+\nfunction frontendRoute(raw) {
   const withoutQuery = raw.split(/[?#]/, 1)[0].replace(/\$\{[^}]+\}/g, '{param}');
   return { path: withoutQuery, prefix: withoutQuery.endsWith('/') };
 }
@@ -104,7 +115,20 @@ test('every literal frontend API client call resolves to a backend route', () =>
   assert.deepEqual(missing, [], 'Frontend API calls without a matching backend route:');
 });
 
-test('frontend API host, Gateway integration targets, and backend CORS contract agree', () => {
+
+test('backend runtime environment reads are documented in the environment contract', () => {
+  const variables = new Set();
+  for (const file of walkJavaScript(path.join(ROOT, 'backend'))) {
+    const source = fs.readFileSync(file, 'utf8');
+    for (const match of source.matchAll(/process\\.env\\.([A-Z][A-Z0-9_]*)/g)) {
+      variables.add(match[1]);
+    }
+  }
+  const contract = read('docs/BACKEND_ENV_CONTRACT.md');
+  const missing = [...variables].filter((name) => !contract.includes('`' + name + '`')).sort();
+  assert.deepEqual(missing, [], 'Backend runtime environment variables missing from docs/BACKEND_ENV_CONTRACT.md:');
+});
+\ntest('frontend API host, Gateway integration targets, and backend CORS contract agree', () => {
   const gateway = read('api-gateway.yaml');
   const envExample = read('.env.example');
   const ci = read('.github/workflows/ci.yml');
