@@ -60,7 +60,7 @@ test -f "$TMP_DIR/backend/package.json"
 test -f "$TMP_DIR/backend/package-lock.json"
 test ! -e "$TMP_DIR/backend/markitdown"
 test ! -e "$TMP_DIR/backend/node_modules"
-if find "$TMP_DIR/backend" -type f \\( -name ".env" -o -name ".env.*" \\) -print -quit | grep -q .; then
+if find "$TMP_DIR/backend" -type f \( -name ".env" -o -name ".env.*" \) -print -quit | grep -q .; then
   echo "ERROR: environment file found in Backend archive staging area" >&2
   exit 1
 fi
