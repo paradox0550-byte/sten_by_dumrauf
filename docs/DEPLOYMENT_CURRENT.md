@@ -1,91 +1,57 @@
-# STEN — текущий контур деплоя
+# STEN — текущий контур публикации
 
-## Production
+## Production passport supplied by operator
 
-- Static site: https://smenavkarmane-business.website.yandexcloud.net
-- API Gateway: https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net
-- Cloud Function: d4epijnhj7h9sd5ppa66 (smenavkarmane-api)
+The following settings were supplied in the infrastructure inventory on 2026-11-04. They are an operator-provided baseline, not a live verification performed by this repository audit.
+
+- Cloud Function: `smenavkarmane-api` / `d4epijnhj7h9sd5ppa66`
+- Active version reported: `d4ejrc3ko6koqo1l6dup` / `$latest`
 - Runtime: Node.js 22
-- Database: PostgreSQL in Yandex Managed Service
-- AI: Yandex Cloud AI Studio / YandexGPT
+- Entrypoint: `index.handler`
+- Memory: 1 GB
+- Timeout: 90 seconds
+- Concurrency: 1
+- Runtime service account: `serviakk` / `ajeoat76avsvv6jtmjar`
+- API Gateway: `qww` / `d5d5p4eof6ra03bsva7a`
+- Gateway URL: `https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net`
 
-## YandexGPT configuration
+## Source of truth
 
-Production backend must use Yandex AI Studio Text Generation API, not a local model runtime.
+- Backend source: complete `backend/` directory.
+- Function entrypoint: `index.handler`.
+- Runtime package version: `5.4.1`.
+- Canonical Yandex API Gateway specification: root `api-gateway.yaml`.
+- `api-gateway-spec.yaml` is kept as an identical compatibility copy.
+- `api-spec.yaml` is the application API contract generated from registered Express routes; it is not the gateway integration file.
 
-Recommended environment contract:
-- FOLDER_ID — Yandex Cloud folder ID
-- MODEL_NAME — YandexGPT model URI, e.g. gpt://<folder_id>/yandexgpt/latest
-- BASE_URL — https://ai.api.cloud.yandex.net/v1
-- API_KEY — secret, supplied outside source control
+Do not deploy only `backend/index.js`: it imports other runtime modules from `backend/core/`, `backend/integrations/`, `backend/telegramMonitor.js`, `backend/telegramSecretaryWorker.js`, `backend/markitdownClient.js` and `backend/documentProcessor.js`.
 
-Yandex documents this Cloud Functions pattern and the model URI format. citeturn1search1
+## GitHub automation
 
-The API key must stay in Yandex Cloud secrets/Lockbox or an equivalent secret store and never enter frontend code, Git history, .env committed files or build artifacts.
+- `.github/workflows/ci.yml` validates frontend and backend and uploads a frontend build artifact.
+- `.github/workflows/deploy-frontend.yml` publishes the frontend to the public Object Storage bucket after successful CI on `main`. Merging a PR to `main` can therefore publish the frontend.
+- There is currently no `.github/workflows/deploy-backend.yml` in the repository.
+- Backend and API Gateway publication are manual operator actions. This repository audit does not publish to Yandex Cloud.
 
-## Function deployment contract
+## Manual backend package
 
-Yandex Cloud Functions uses the native module.exports.handler entrypoint from the deployed `smenavkarmane-api` Node.js 22 function (`index.handler`). Do not add a second HTTP adapter when the current Gateway v1.0 handler already returns { statusCode, headers, body }.
+1. Use the reviewed PR branch after its CI is green.
+2. Download the repository source and take the complete contents of `backend/`.
+3. Build a source archive with `index.js`, `package.json`, `package-lock.json`, `core/`, `integrations/` and all runtime modules at the archive root. Do not nest them under another `backend/` directory.
+4. Use the Yandex Cloud Console Node.js 22 source-archive flow and its dependency installation mechanism. Keep the entrypoint `index.handler`, memory and timeout unchanged unless separately approved.
+5. Create a new function version; do not delete the previous version.
+6. Update API Gateway from the canonical root `api-gateway.yaml` only after confirming the function version and integration target.
+7. Run the smoke checks in `docs/smoke-backend.md`. Do not treat an HTTP 200 from `/healthz` alone as proof that every dependency and business route works.
 
-## Request normalization
+## Required release gate
 
-The deployed function accepts API Gateway request variants and normalizes the path before routing.
+- Backend tests pass.
+- The source archive contains the complete backend runtime tree.
+- Production environment matches `docs/BACKEND_ENV_CONTRACT.md`.
+- PostgreSQL TLS verification is enabled with the correct CA.
+- The existing iiko encryption key is preserved.
+- The dangerous startup P&L deletion is absent.
+- API Gateway routes all application paths to the same function and MarkItDown only to its dedicated converter.
+- Smoke checks pass before traffic is considered healthy.
 
-## STEN agent
-
-/ask is the canonical STEN route. STEN loads organization-scoped document evidence and memory, executes deterministic tools, then asks YandexGPT for the final response.
-
-Financial values are calculated by deterministic backend code; YandexGPT is used for interpretation and language generation. Missing evidence must remain missing and must never be converted into a guessed number.
-
-## Authentication
-
-Analytics thresholds and the analytics composition are persisted via GET/PUT /api/analytics/settings through the same Gateway/Function.
-The legacy 4-digit PIN login is parked and is not part of the active product flow. Authentication is being reworked to email/password + email verification + organization membership; do not restore POST /auth/unlock.
-
-## CI gate
-
-Production deployment must validate:
-1. frontend typecheck;
-2. frontend build and relative Object Storage assets;
-3. backend syntax and STEN tool registry;
-4. exact backend ZIP contents;
-5. Yandex Cloud Function version creation;
-6. GET /healthz after deployment;
-7. real /ask integration through YandexGPT.
-
-A green frontend build alone is not proof of AI health.
-
-## Backend GitHub Actions deployment
-
-The repository now has `.github/workflows/deploy-backend.yml` for the real Yandex Cloud Function `smenavkarmane-api`.
-
-GitHub repository **Variables** required by the workflow:
-- `YC_FOLDER_ID` — Yandex Cloud folder containing the function.
-- `YC_DEPLOY_SA_ID` — service account used by GitHub Actions to deploy versions.
-- `YC_NETWORK_ID` — network ID for the function (`dumm` must be supplied as the actual network ID, not the network name).
-- `YC_DB_HOST`
-- `YC_DB_PORT`
-- `YC_DB_NAME`
-- `YC_DB_USER`
-- `YC_LOCKBOX_JWT_SECRET`
-- `YC_LOCKBOX_DB_PASSWORD`
-- `YC_LOCKBOX_YANDEXGPT_API_KEY`
-- `YC_LOCKBOX_AWS_ACCESS_KEY_ID`
-- `YC_LOCKBOX_AWS_SECRET_ACCESS_KEY`
-
-The last six values are **Lockbox secret references**, not secret values. The deploy service account must have permission to resolve them. The runtime service account is the existing `github-deployer`.
-
-The workflow validates the backend, deploys `nodejs22 / index.handler / 256Mb / 90s`, attaches the configured VPC network, and then checks the API Gateway `/healthz` endpoint.
-
-This workflow does not copy `backend/function.zip`; it packages the authoritative `backend/` source at deploy time so the deployed version cannot silently lag behind `main`.
-
-<!-- 2026-09-29 analytics-settings -->
-## 2026-09-29 - Analytics / Settings on server
-
-- Настройки аналитики (пороги Food Cost / Labor Cost, тумблеры financial/labor/forecast) перенесены из localStorage в backend.
-- Хук src/lib/useAnalyticsSettings.ts - источник правды. localStorage используется только как кэш.
-- API Gateway получил путь /api/analytics/settings (GET / PUT / OPTIONS) с интеграцией на Cloud Function d4epijnhj7h9sd5ppa66.
-- src/pages/Settings.tsx сохраняет через useAnalyticsSettings().save().
-- src/pages/Analytics.tsx читает через тот же хук; пороги отображаются как "Порог N%".
-- .env.production должен содержать VITE_API_URL=https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net. Без этого build не считается валидным.
-- Контракт: GET -> { ok: true, data: { settings: null | AnalyticsSettings } }; PUT <- { foodTarget, laborTarget, financial, labor, forecast } -> { ok: true, data: { saved: true, confirmed: true, settings: {...} } }.
+Financial calculations remain deterministic backend logic. YandexGPT interprets data but must not invent missing financial values.
