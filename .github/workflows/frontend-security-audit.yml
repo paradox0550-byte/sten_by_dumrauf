@@ -1,0 +1,75 @@
+name: Frontend dependency security audit
+
+on:
+  pull_request:
+    paths:
+      - package.json
+      - package-lock.json
+      - .github/workflows/frontend-security-audit.yml
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - package-lock.json
+      - .github/workflows/frontend-security-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Frontend npm audit (High/Critical gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked frontend dependencies
+        run: npm ci --legacy-peer-deps
+      - name: Generate full and production audit reports
+        run: |
+          npm audit --json > npm-audit-full.json || true
+          npm audit --omit=dev --json > npm-audit-production.json || true
+      - name: Fail on High or Critical advisories
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+
+          let failed = false;
+          for (const [label, path] of [
+            ['FULL', 'npm-audit-full.json'],
+            ['PRODUCTION', 'npm-audit-production.json'],
+          ]) {
+            const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+            const counts = report.metadata?.vulnerabilities ?? {};
+            const high = Number(counts.high ?? 0);
+            const critical = Number(counts.critical ?? 0);
+            console.log(`${label}: critical=${critical}, high=${high}, moderate=${counts.moderate ?? 0}, low=${counts.low ?? 0}`);
+
+            for (const [name, item] of Object.entries(report.vulnerabilities ?? {})) {
+              if (['high', 'critical'].includes(item.severity)) {
+                console.error(`BLOCKED: ${name} (${item.severity}) range=${item.range}`);
+              }
+            }
+            if (high > 0 || critical > 0) failed = true;
+          }
+
+          if (failed) {
+            console.error('Security gate failed: resolve all High and Critical frontend npm advisories.');
+            process.exit(1);
+          }
+          console.log('Security gate passed: no High or Critical frontend npm advisories.');
+          NODE
+      - name: Upload npm audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-npm-audit-reports
+          path: |
+            npm-audit-full.json
+            npm-audit-production.json
+          if-no-files-found: warn
+          retention-days: 14
