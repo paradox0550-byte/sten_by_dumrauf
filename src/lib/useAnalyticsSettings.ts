@@ -133,7 +133,7 @@ export function useAnalyticsSettings() {
         if (alive.current && saveId === saveSequence.current) setSaving(false);
       }
     },
-    [settings, apply]
+    [apply]
   );
 
   useEffect(() => {
