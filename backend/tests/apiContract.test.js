@@ -130,19 +130,34 @@ test('backend runtime environment reads are documented in the environment contra
   assert.deepEqual(missing, [], 'Backend runtime environment variables missing from docs/BACKEND_ENV_CONTRACT.md:');
 });
 
-test('frontend API host, Gateway integration targets, and backend CORS contract agree', () => {
+test('frontend API host, package versions, Gateway bindings, and backend CORS contract agree', () => {
   const gateway = read('api-gateway.yaml');
+  const apiSpec = read('api-spec.yaml');
   const envExample = read('.env.example');
   const ci = read('.github/workflows/ci.yml');
   const apiClient = read('src/lib/api.ts');
   const backend = read('backend/index.js');
+  const backendPackage = JSON.parse(read('backend/package.json'));
+  const deployment = read('docs/DEPLOYMENT_CURRENT.md');
+
   const serverUrl = gateway.match(/^\s+- url:\s*(\S+)\s*$/m)?.[1];
+  const apiSpecUrl = apiSpec.match(/^\s+- url:\s*(\S+)\s*$/m)?.[1];
   const envUrl = envExample.match(/^VITE_API_URL=(\S+)$/m)?.[1];
   const ciUrl = ci.match(/VITE_API_URL:\s*(\S+)/)?.[1];
   assert.ok(serverUrl, 'Gateway server URL is required.');
   assert.equal(envUrl, serverUrl, '.env.example must point to the canonical Gateway.');
   assert.equal(ciUrl, serverUrl, 'CI build must use the canonical Gateway URL.');
+  assert.equal(apiSpecUrl, serverUrl, 'OpenAPI server URL must point to the canonical Gateway.');
   assert.match(apiClient, /import\.meta\.env\.VITE_API_URL/u);
+
+  const gatewayVersion = gateway.match(/^\s+version:\s*(\S+)/m)?.[1];
+  const apiSpecVersion = apiSpec.match(/^\s+version:\s*(\S+)/m)?.[1];
+  assert.equal(backendPackage.version, '5.4.1');
+  assert.equal(backendPackage.main, 'index.js');
+  assert.equal(backendPackage.engines?.node, '22');
+  assert.equal(gatewayVersion, backendPackage.version);
+  assert.equal(apiSpecVersion, backendPackage.version);
+  assert.match(backend, /Version:\s*5\.4\.1/u);
 
   const health = gatewayBlock(gateway, '/healthz');
   const proxy = gatewayBlock(gateway, '/{proxy+}');
@@ -150,12 +165,18 @@ test('frontend API host, Gateway integration targets, and backend CORS contract 
   const backendFunction = health.match(/function_id:\s*([A-Za-z0-9_-]+)/)?.[1];
   assert.ok(backendFunction, 'Health route must bind to the backend Cloud Function.');
   assert.match(proxy, new RegExp('function_id:\\s*' + backendFunction + '\\b'), 'Application wildcard must bind to the same backend function.');
+  const healthTag = health.match(/tag:\s*(\S+)/)?.[1];
+  const proxyTag = proxy.match(/tag:\s*(\S+)/)?.[1];
+  assert.equal(healthTag, '$latest');
+  assert.equal(proxyTag, healthTag);
+
   const converterFunction = markitdown.match(/function_id:\s*([A-Za-z0-9_-]+)/)?.[1];
   assert.ok(converterFunction, 'MarkItDown must have its own function binding.');
   assert.notEqual(converterFunction, backendFunction, 'MarkItDown must not be routed to the main backend function.');
-  assert.equal(markitdown.match(/tag:\\s*(\\S+)/)?.[1], '$latest');
+  assert.equal(markitdown.match(/tag:\s*(\S+)/)?.[1], '$latest');
   assert.ok(deployment.includes(backendFunction), 'Deployment passport must record the backend function ID from Gateway config.');
   assert.ok(deployment.includes(converterFunction), 'Deployment passport must record the separate MarkItDown function ID from Gateway config.');
+  assert.match(deployment, /service_account_id|invocation permission|functions\.functionInvoker/u);
 
   assert.match(backend, /Access-Control-Allow-Methods',\s*'GET, POST, PUT, PATCH, DELETE, OPTIONS'/u);
   assert.match(backend, /Access-Control-Allow-Headers',\s*'Authorization, Content-Type, X-Request-ID'/u);
