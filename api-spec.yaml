@@ -35,16 +35,6 @@ paths:
       responses:
         '410':
           description: Legacy PIN login is permanently disabled
-        '200':
-          description: Request processed
-        '400':
-          description: Invalid request
-        '401':
-          description: Authentication required or rejected
-        '403':
-          description: Access denied
-        '500':
-          description: Internal error
       security: []
   /auth/login:
     post:
