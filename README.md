@@ -91,7 +91,7 @@ npm run build:strict
 - `AGENTS.md` — правила разработки, проверки, безопасности и PR.
 - `CHANGELOG.md` — история изменений.
 - `docs/DEPLOYMENT_CURRENT.md` — сведения о контуре публикации; перед релизом нужно сверить их с текущими настройками GitHub и облака.
-- `docs/API_GATEWAY_SPEC_2026-09-29.yaml` — версия спецификации API Gateway от указанной даты; не считать автоматически актуальной без сверки с backend.
+- `api-gateway.yaml` — каноническая спецификация интеграций Yandex API Gateway для ручного импорта.\n- `api-spec.yaml` — контракт HTTP-маршрутов backend; CI проверяет его соответствие зарегистрированным маршрутам, это не файл импорта Gateway.
 - `docs/BACKEND_ENV_CONTRACT.md` — переменные окружения backend.
 - `docs/PNL_WORKSPACE_SPEC.md`, `docs/PNL_MANUAL_ENTRY_CONTRACT.md` — документация P&L, если эти файлы присутствуют в текущей ветке.
 - `docs/SCOPE_CONTRACT.md` — описание рабочего контура и scope, если этот файл присутствует в текущей ветке.
