@@ -30,7 +30,8 @@ This document records the API behavior verified in the repository. It is not a d
 
 - `GET /fot-analytics` currently applies organization isolation plus project/branch/restaurant/department filters to `payroll_records`, after `assertScopeAccess`. The route is implemented in source; live correctness still requires a production readback with real payroll rows for at least two distinct restaurants.
 - The staff planning/custom-position workflow on the frontend currently stores its plan locally. It is not a persisted payroll source and must not be described as saved to the backend. This is a product capability gap, not a missing API route.
-- Voice playback and the global mute preference are browser-side behavior. They do not justify adding an undocumented backend endpoint.\n- `POST /calculate-salary` is a calculation-only endpoint; it does not persist payroll records. `GET /my-earnings` reads only the authenticated user's payroll rows.
+- Voice playback and the global mute preference are browser-side behavior. They do not justify adding an undocumented backend endpoint.
+- `POST /calculate-salary` is a calculation-only endpoint; it does not persist payroll records. `GET /my-earnings` reads only the authenticated user's payroll rows.
 - `POST /api/ingest/message` returns a parsed draft with `writeToPnl:false`; the confirmation route is the explicit write boundary.
 
 ## Static route parity audit (2026-11-04)
