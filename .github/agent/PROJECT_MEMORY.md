@@ -28,7 +28,7 @@ STEN читает историю, доступные документы, P&L и 
 Продукт личный, спокойный и премиальный: светлая тема, много воздуха, строгая типографика, карточки без glass/aurora-эффектов, единый desktop/iPhone shell. Не перегружать экран. На мобильном — компактная навигация, safe-area и touch targets.
 
 ## 6. Auth
-Единственный пользовательский вход — персональная разблокировка `/auth/unlock`. Email/password UX отключён. Frontend хранит JWT и обращается к API Gateway; прямого вызова YandexGPT из браузера нет.
+Единственный активный пользовательский вход — email/password через `/auth/login`, JWT проверяется через `/auth/me`. Legacy `/auth/unlock` отключён (HTTP 410). Frontend хранит JWT и обращается к API Gateway; прямого вызова YandexGPT из браузера нет.
 
 ## 7. Static deploy rule
 GitHub Actions собирает только frontend и публикует `dist/` в Object Storage. Backend не пакуется и не деплоится из этого workflow. Для SPA bucket website использует `index.html` как home page и `404.html` как error page, чтобы клиентские маршруты `/unlock`, `/ai`, `/pnl` и другие не возвращали 404. Workflow не выполняет `--delete` по всему бакету, потому что в нём могут находиться документы.
@@ -39,7 +39,7 @@ Revenue = hall + delivery. Personnel = salaries + KPI bonuses. EBITDA = revenue 
 ## 9. Engineering rules
 1. Не чинить ошибку повторным патчем наугад.
 2. Сначала читать текущий `main`, затем проверять фактическую причину.
-3. Не возвращать старые login/password, legacy UI или старый AI runtime без доказанной необходимости.
+3. Не возвращать legacy PIN login или старый AI runtime без доказанной необходимости; активный вход — email/password.
 4. Не коммитить секреты.
 5. Не считать build доказательством работоспособности API/DB/YandexGPT.
 6. После UI-изменений проверять `typecheck → build → static deploy smoke test`.
@@ -52,7 +52,7 @@ Revenue = hall + delivery. Personnel = salaries + KPI bonuses. EBITDA = revenue 
 The engineering auditor uses focused playbooks: UI visual, root-cause debugging, API contract, finance integrity, YandexGPT, security/secrets, deploy smoke and mobile UX. New confirmed findings should update the relevant skill or this memory instead of creating contradictory instructions.
 
 ## 12. Backend secret boundary
-AWS credentials, JWT secret, database password, YandexGPT API key and unlock code are backend secrets. They are never frontend configuration. Backend environment names are documented in docs/BACKEND_ENV_CONTRACT.md without secret values.
+AWS credentials, JWT secret, database password and YandexGPT API key are backend secrets. Legacy unlock hash is disabled and must not be reintroduced. Backend environment names are documented in docs/BACKEND_ENV_CONTRACT.md without secret values.
 
 
 ## 2026-09-24 — Operating director scope and document intelligence
@@ -67,13 +67,13 @@ AWS credentials, JWT secret, database password, YandexGPT API key and unlock cod
 
 ## 2026-09-24 — Auth root-cause fix
 - Removed the frontend offline-auth bypass from `AuthContext`: no bundled 4-digit hash, no synthetic owner identity, and no `sten_offline_v3` session flag.
-- A user is authenticated only after `/auth/unlock` returns a token and `/auth/me` validates that token.
+- A user is authenticated only after `/auth/login` returns a token and `/auth/me` validates that token.
 - Network/API failure no longer grants an authenticated UI identity. This prevents a client-side brute-force/bypass path and keeps production data behind the real Gateway session.
 - P&L summary no longer sums unrelated financial articles; it shows revenue plan/fact and count of populated rows.
 
 ## 2026-09-24 — Auth contract and secret hygiene follow-up
 - Project documentation previously stated an offline unlock path and exposed the personal unlock code in `docs/STEN_HANDOFF.md`; both were removed.
-- The unlock code is backend/secret-store material only and must never appear in Git, frontend source, docs or build output.
+- The legacy unlock hash is not part of the active runtime contract and must not be reintroduced.
 - Offline UI may render public/local settings, but it must never create or restore an authenticated user without a valid server JWT.
 - If documentation and implementation disagree, current `src/contexts/AuthContext.tsx` and the security rules above are authoritative; update stale docs immediately.
 
