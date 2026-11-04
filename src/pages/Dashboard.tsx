@@ -5,7 +5,7 @@ import { api, ApiError } from '../lib/api';
 import { useScope } from '../lib/useScope';
 import { scopeQuery } from '../lib/scope';
 import { formatDeltaPct, formatMoneyAuto, formatPercent } from '../lib/format';
-import { calculateKPISafely } from '../lib/financialCalculations';
+import { calculateKPISafely, calculatePnlVarianceSignal } from '../lib/financialCalculations';
 import { classifyArticleType } from '../lib/articleClassifier';
 import ExecutiveMetric from '../components/ExecutiveMetric';
 import AttentionBlock from '../components/AttentionBlock';
@@ -31,7 +31,7 @@ const getPlan = (response: PnlResponse | null) => response?.calculated?.plan ?? 
 const moneyDeltaPercent = (plan: number | null | undefined, fact: number | null | undefined) =>
   isFiniteNumber(plan) && isFiniteNumber(fact) && plan !== 0 ? ((fact - plan) / Math.abs(plan)) * 100 : null;
 
-export type DeviationItem = { article: string; plan: number | null; fact: number | null; delta: number | null; deltaPct: number | null; severity: 'high' | 'medium' | 'low'; group: 'critical' | 'positive' | 'missing' };
+export type DeviationItem = { article: string; plan: number | null; fact: number | null; delta: number | null; deltaPct: number | null; severity: 'high' | 'medium' | 'low'; group: 'critical' | 'positive' | 'missing' | 'unclassified' };
 function attentionItems(rows: PnlRow[]): DeviationItem[] {
   return rows.map((row) => {
     if (!isFiniteNumber(row.plan) || !isFiniteNumber(row.fact)) return { article: row.article, plan: row.plan ?? null, fact: row.fact ?? null, delta: null, deltaPct: null, severity: 'low' as const, group: 'missing' as const };
@@ -39,10 +39,14 @@ function attentionItems(rows: PnlRow[]): DeviationItem[] {
     const deltaPct = row.plan === 0 ? null : delta / Math.abs(row.plan) * 100;
     const severity = (deltaPct !== null && Math.abs(deltaPct) > 10) || Math.abs(delta) > 100000 ? 'high' as const : (deltaPct !== null && Math.abs(deltaPct) > 5) || Math.abs(delta) > 30000 ? 'medium' as const : 'low' as const;
     const articleType = classifyArticleType(row.article);
-    const unfavorable = articleType !== 'unknown' && delta < 0;
-    return { article: row.article, plan: row.plan, fact: row.fact, delta, deltaPct, severity, group: unfavorable ? 'critical' as const : 'positive' as const };
+    const signal = calculatePnlVarianceSignal(row.plan, row.fact, articleType);
+    const group = signal === 'overrun' ? 'critical' as const
+      : signal === 'saving' ? 'positive' as const
+        : signal === 'insufficient_data' ? 'unclassified' as const
+          : 'positive' as const;
+    return { article: row.article, plan: row.plan, fact: row.fact, delta, deltaPct, severity, group };
   }).filter(item => item.group === 'missing' || item.delta !== 0).sort((a, b) => {
-    const order = { critical: 0, missing: 1, positive: 2 };
+    const order = { critical: 0, missing: 1, unclassified: 2, positive: 3 };
     const severityOrder = { high: 0, medium: 1, low: 2 };
     return order[a.group] - order[b.group] || severityOrder[a.severity] - severityOrder[b.severity] || Math.abs(b.deltaPct ?? 0) - Math.abs(a.deltaPct ?? 0);
   });

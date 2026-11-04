@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateEBITDA, calculateKPISafely, calculateVarianceSignal } from './financialCalculations';
+import { calculateEBITDA, calculateKPISafely, calculatePnlVarianceSignal, calculateVarianceSignal } from './financialCalculations';
 
 describe('calculateEBITDA', () => {
   it('adds negative expense values to revenue', () => {
@@ -22,6 +22,36 @@ describe('calculateVarianceSignal', () => {
 
   it('marks equal plan and fact as neutral', () => {
     expect(calculateVarianceSignal(-100_000, -100_000)).toBe('neutral');
+  });
+});
+
+
+describe('calculatePnlVarianceSignal', () => {
+  it('marks a revenue shortfall as unfavorable', () => {
+    expect(calculatePnlVarianceSignal(1_000_000, 800_000, 'revenue')).toBe('overrun');
+  });
+
+  it('marks positive expense growth as unfavorable', () => {
+    expect(calculatePnlVarianceSignal(300_000, 350_000, 'expense')).toBe('overrun');
+  });
+
+  it('marks a more-negative signed expense as unfavorable', () => {
+    expect(calculatePnlVarianceSignal(-300_000, -350_000, 'expense')).toBe('overrun');
+  });
+
+  it('recognizes savings in both positive and signed expense formats', () => {
+    expect(calculatePnlVarianceSignal(300_000, 250_000, 'expense')).toBe('saving');
+    expect(calculatePnlVarianceSignal(-300_000, -250_000, 'expense')).toBe('saving');
+  });
+
+  it('does not guess for mixed-sign or unknown rows', () => {
+    expect(calculatePnlVarianceSignal(300_000, -250_000, 'expense')).toBe('insufficient_data');
+    expect(calculatePnlVarianceSignal(100, 80, 'unknown')).toBe('insufficient_data');
+  });
+
+  it('preserves missing values and neutral rows', () => {
+    expect(calculatePnlVarianceSignal(null, 80, 'revenue')).toBe('insufficient_data');
+    expect(calculatePnlVarianceSignal(80, 80, 'revenue')).toBe('neutral');
   });
 });
 
