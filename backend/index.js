@@ -2314,7 +2314,8 @@ app.put('/api/integrations/google/sheets', requireAuth, requireOrg, async (req, 
     if (!verify.ok) throw httpError(401, 'Токен Google недействителен или истёк. Подключите таблицу повторно.', 'GOOGLE_TOKEN_INVALID');
     const tokenInfo = await verify.json();
     if (!ENV.GOOGLE_CLIENT_ID) throw httpError(503, 'Google OAuth client ID не настроен на сервере.', 'GOOGLE_CLIENT_NOT_CONFIGURED');
-    if (String(tokenInfo.aud || '') !== ENV.GOOGLE_CLIENT_ID) throw httpError(401, 'Токен Google выпущен для другого OAuth-клиента.', 'GOOGLE_TOKEN_AUDIENCE_INVALID');
+    const tokenClientId = String(tokenInfo.azp || tokenInfo.aud || '').trim();
+    if (tokenClientId !== ENV.GOOGLE_CLIENT_ID) throw httpError(401, 'Токен Google выпущен для другого OAuth-клиента.', 'GOOGLE_TOKEN_AUDIENCE_INVALID');
     const grantedScopes = String(tokenInfo.scope || '').split(/\s+/u);
     if (!grantedScopes.includes('https://www.googleapis.com/auth/spreadsheets.readonly')) {
       throw httpError(403, 'Google не выдал разрешение на чтение таблиц.', 'GOOGLE_SCOPE_REQUIRED');
