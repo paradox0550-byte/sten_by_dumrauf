@@ -33,13 +33,14 @@ paths:
         type: cloud_functions
         function_id: d4epijnhj7h9sd5ppa66
         tag: $latest
-  /{proxy+}:
-    x-yc-apigateway-integration:
-      type: cloud_functions
-      function_id: d4epijnhj7h9sd5ppa66
-      tag: $latest
+  # Keep the dedicated converter route before the catch-all proxy.
   /markitdown/{proxy+}:
     x-yc-apigateway-integration:
       type: cloud_functions
       function_id: d4e4ai8895c3kq3b0ds5
+      tag: $latest
+  /{proxy+}:
+    x-yc-apigateway-integration:
+      type: cloud_functions
+      function_id: d4epijnhj7h9sd5ppa66
       tag: $latest
