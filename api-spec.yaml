@@ -1432,6 +1432,31 @@ paths:
   /api/fot/schedule-history:
     get:
       operationId: get-api-fot-schedule-history
+      parameters:
+        - name: project_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: branch_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: restaurant_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: department_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
           description: Shared schedule history for the authorized organization scope
