@@ -3747,11 +3747,21 @@ function parseFotScope(input) {
   catch { throw httpError(400, 'Некорректные идентификаторы рабочего контура ФОТ.', 'BAD_FOT_SCOPE'); }
 }
 
-function assertFotScopeReadAccess(user, scope) {
+async function assertFotScopeReadAccess(user, scope) {
   const hasScope = Boolean(scope.project_id || scope.branch_id || scope.restaurant_id || scope.department_id);
-  if (!hasScope && !WRITE_ROLES.includes(String(user.role || '').toLowerCase())) {
-    throw httpError(403, 'Для просмотра общего плана организации требуется управленческая роль.', 'FOT_ORG_SCOPE_FORBIDDEN');
+  if (hasScope) return true;
+  const role = String(user.role || '').toLowerCase();
+  if (['super_admin', 'owner'].includes(role)) return true;
+  const restaurants = await scopeQuery(
+    "SELECT id FROM org_units WHERE organization_id=$1::uuid AND kind='restaurant' ORDER BY id",
+    [user.organizationId],
+    'организации'
+  );
+  if (!restaurants.length) {
+    throw httpError(403, 'Для просмотра общего плана организации требуется доступ ко всем ресторанам.', 'FOT_ORG_SCOPE_FORBIDDEN');
   }
+  for (const restaurant of restaurants) await assertRestaurantAccess(user, String(restaurant.id));
+  return true;
 }
 
 function fotPersistenceError(error) {
@@ -3765,7 +3775,7 @@ app.get('/api/fot/schedule-history', requireAuth, requireOrg, async (req, res, n
   try {
     const scope = parseFotScope(scopeFromQuery(req.query));
     await assertScopeAccess(req.user, scope);
-    assertFotScopeReadAccess(req.user, scope);
+    await assertFotScopeReadAccess(req.user, scope);
     const rows = await queryWithRetry(
       `SELECT period, file_name, norm_hours, ndfl, calculations_json, totals_json, saved_at, updated_at
        FROM fot_schedule_history
@@ -3795,7 +3805,7 @@ app.put('/api/fot/schedule-history', requireAuth, requireOrg, requireRole(...WRI
     assertJsonPayloadSize(payload);
     const scope = normalizeFotScope(payload.scope);
     await assertScopeAccess(req.user, scope);
-    assertFotScopeReadAccess(req.user, scope);
+    await assertFotScopeReadAccess(req.user, scope);
     const savedAt = payload.savedAt || new Date().toISOString();
     const result = await queryWithRetry(
       `INSERT INTO fot_schedule_history (
@@ -3845,7 +3855,7 @@ app.get('/api/fot/staffing-plan', requireAuth, requireOrg, async (req, res, next
     if (!YM_RE.test(period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ).', 'BAD_PERIOD');
     const scope = parseFotScope(scopeFromQuery(req.query));
     await assertScopeAccess(req.user, scope);
-    assertFotScopeReadAccess(req.user, scope);
+    await assertFotScopeReadAccess(req.user, scope);
     const key = fotScopeKey(scope);
     const [planResult, customResult] = await Promise.all([
       queryWithRetry(
@@ -3876,7 +3886,7 @@ app.put('/api/fot/staffing-plan', requireAuth, requireOrg, requireRole(...WRITE_
     assertJsonPayloadSize(payload, 1024 * 1024);
     const scope = normalizeFotScope(payload.scope);
     await assertScopeAccess(req.user, scope);
-    assertFotScopeReadAccess(req.user, scope);
+    await assertFotScopeReadAccess(req.user, scope);
     const key = fotScopeKey(scope);
     const result = await queryWithRetry(
       `WITH saved_plan AS (
