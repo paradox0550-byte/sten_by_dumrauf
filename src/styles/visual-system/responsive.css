@@ -29,3 +29,150 @@
   .sten-ai-page .chat-head { gap: 8px; flex-wrap: wrap; }
   .sten-ai-page .composer-footer { font-size: 14px; }
 }
+
+
+/* ============================================================
+   STEN · Dense Calm — final cascade overrides
+   Loaded last by visual-system/index.css. Presentation only.
+   ============================================================ */
+:root {
+  --sten-control-height: 36px;
+  --ui-control-h: 36px;
+}
+html[data-theme='dark'], [data-theme='dark'] {
+  --bg-surface-1: #161B22;
+  --bg-surface-2: #1F242D;
+  --bg-surface-3: #262C36;
+}
+body {
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+}
+.page, .page p, .page li, .page label, .page input, .page select, .page textarea,
+.sten-ai-page, .sten-ai-page p, .sten-ai-page label {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.page h1, .page-head h1, .director-topbar h1, .sten-ai-topbar__name h1 {
+  font-size: 22px !important;
+  line-height: 1.25 !important;
+  font-weight: 600 !important;
+  letter-spacing: -.02em !important;
+}
+.page h2, .page h3, .panel-title { font-weight: 600; }
+.page :is(small, .eyebrow, .section-eyebrow, .field-hint, .helper-text) {
+  font-size: 11px;
+  letter-spacing: .02em;
+}
+:where(.numeric, .financial-value, .metric-card strong, .kpi-value, .metric-value,
+  .pnl-row strong, .budget-grid .num, .prime-card strong, .flash-prime strong,
+  .page table td, .page table th, .director-metrics strong, .ar-kpis strong) {
+  font-family: var(--font-mono, 'IBM Plex Mono', ui-monospace, monospace) !important;
+  font-variant-numeric: tabular-nums lining-nums !important;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
+.page :is(.card, .panel, .metric-card, .surface, .section-card),
+.page .card, .page .panel {
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+.page :is(button, .button, .primary-button, .secondary-button, .danger-button) {
+  min-height: 36px;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+  font-size: 13px !important;
+}
+.page :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), select, textarea) {
+  min-height: 36px;
+  border-radius: 6px !important;
+  border-width: 1px !important;
+  box-shadow: none !important;
+  font-size: 13px !important;
+}
+.page :is(input, select, textarea):focus,
+.sten-ai-page :is(input, textarea):focus,
+.sten-composer:focus-within {
+  border-color: var(--accent, var(--color-brand)) !important;
+  box-shadow: none !important;
+}
+.primary-button {
+  color: #0D1117 !important;
+  background: var(--accent, var(--color-brand)) !important;
+  border-color: var(--accent, var(--color-brand)) !important;
+}
+.secondary-button {
+  background: transparent !important;
+  border: 1px solid var(--border-subtle) !important;
+  box-shadow: none !important;
+}
+.page table { border-collapse: collapse; }
+.page table :is(th, td) {
+  height: 40px;
+  padding-block: 7px !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+}
+.page table th { font-family: var(--font-ui, 'IBM Plex Sans', sans-serif) !important; }
+.page .card .card, .page .panel .panel, .page .section-card .section-card {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.page .card .card:not(:last-child), .page .panel .panel:not(:last-child) {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Imported-report cards: Power BI and iiko OLAP */
+.page .ar-imports .ar-card {
+  color: var(--text-primary) !important;
+  background: var(--bg-surface-1, var(--bg-surface)) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+.page .ar-imports .ar-card :is(b, p, small, span, strong) { color: inherit; }
+
+/* STEN AI: neutral user bubble and restrained composer outline */
+.sten-ai-page .chat-body .message-row--user .message-bubble,
+.sten-ai-page .message-row--user .message-bubble {
+  color: var(--text-primary) !important;
+  background: var(--bg-surface-2, var(--bg-surface-subtle)) !important;
+  border: 1px solid var(--border-subtle) !important;
+  box-shadow: none !important;
+}
+.sten-ai-page .sten-composer, .sten-ai-page .composer-box {
+  border: 1px solid var(--border-subtle) !important;
+  box-shadow: none !important;
+}
+.sten-ai-page .sten-composer.is-focused, .sten-ai-page .composer-box:focus-within {
+  border: 1px solid var(--accent, var(--color-brand)) !important;
+  box-shadow: none !important;
+}
+
+/* Compact dashboard empty state */
+.director-dashboard .director-state--empty {
+  min-height: 0 !important;
+  display: flex;
+  align-items: center !important;
+  flex-wrap: wrap;
+  gap: 10px 14px !important;
+  padding: 14px 16px !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 8px !important;
+  background: var(--bg-surface-1, var(--bg-surface)) !important;
+  box-shadow: none !important;
+}
+.director-dashboard .director-state--empty > svg { width: 16px; height: 16px; margin: 0 !important; }
+.director-dashboard .director-state--empty > div { flex: 1 1 180px; }
+.director-dashboard .director-state--empty h2 { margin: 0 !important; font-size: 14px !important; font-weight: 500 !important; }
+.director-dashboard .director-state--empty .secondary-button { min-height: 32px !important; }
+
+/* Mobile: keep touch targets, protect content from the fixed bottom navigation */
+@media (max-width: 767px) {
+  .content, .main .content, .page-container {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom)) !important;
+  }
+  .page h1, .page-head h1, .director-topbar h1 { font-size: 20px !important; }
+  .page :is(button, .button, .primary-button, .secondary-button, input, select) { min-height: 44px; }
+  .director-metrics, .budget-kpis, .ar-kpis, .kpi-grid, .metric-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
