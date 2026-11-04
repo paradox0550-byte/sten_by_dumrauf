@@ -1743,7 +1743,7 @@ try {
 const q = scopeFromQuery(req.query);
 await assertScopeAccess(req.user, q);
 if (!YM_RE.test(q.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
-const rows = await safeQuery(
+const rows = await strictQuery(
 `SELECT id, transaction_date, type, article, amount, comment, created_at FROM pnl_transactions
 WHERE organization_id=$1::uuid AND period=$2
 AND ($3::text='' OR project_id=$3) AND ($4::text='' OR branch_id=$4)
@@ -1760,7 +1760,7 @@ const body=parseOr400(PnlTransactionSchema,req.body??{});
 await assertScopeAccess(req.user, body);
 if(body.date.slice(0,7)!==body.period) throw httpError(400,'Дата операции не относится к выбранному периоду','DATE_PERIOD_MISMATCH');
 const scope=[body.project_id||'',body.branch_id||'',body.restaurant_id||'',body.department_id||''];
-const existing=await safeQuery(
+const existing=await strictQuery(
 `SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1`,
 [req.user.organizationId,body.period,...scope],[]);
 let rows=[];
@@ -1971,11 +1971,11 @@ return {provider:'whatsapp',sent:true};
 }
 async function loadReportMetrics(user,date,scope){
 const s=scope||{period:date.slice(0,7),project_id:'',branch_id:'',restaurant_id:'',department_id:''};
-const reportRows=await safeQuery(
+const reportRows=await strictQuery(
 'SELECT values_json FROM daily_reports WHERE organization_id=$1::uuid AND report_date=$2::date AND ($3::text=\'\' OR project_id=$3) AND ($4::text=\'\' OR branch_id=$4) AND ($5::text=\'\' OR restaurant_id=$5) AND ($6::text=\'\' OR department_id=$6) LIMIT 1',
 [user.organizationId,date,s.project_id||'',s.branch_id||'',s.restaurant_id||'',s.department_id||''],[]);
 const values=reportRows[0]?.values_json||{};
-const rows=await safeQuery(
+const rows=await strictQuery(
 'SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND ($3::text=\'\' OR project_id=$3) AND ($4::text=\'\' OR branch_id=$4) AND ($5::text=\'\' OR restaurant_id=$5) AND ($6::text=\'\' OR department_id=$6)',
 [user.organizationId,s.period,s.project_id||'',s.branch_id||'',s.restaurant_id||'',s.department_id||''],[]);
 const all=[];for(const r of rows){try{const parsed=JSON.parse(r.rows);if(Array.isArray(parsed))all.push(...parsed)}catch{/* ignore */}}
@@ -2243,7 +2243,7 @@ try {
 const date = req.query.date ? String(req.query.date) : null;
 const reportScope = scopeFromQuery({ ...req.query, period: date ? String(date).slice(0,7) : new Date().toISOString().slice(0,7) });
 await assertScopeAccess(req.user, reportScope);
-const rows = await safeQuery(
+const rows = await strictQuery(
 `SELECT id, report_date, project_id, branch_id, restaurant_id, department_id, values_json, note, updated_at
 FROM daily_reports WHERE organization_id = $1::uuid
 AND ($2::date IS NULL OR report_date = $2::date)
