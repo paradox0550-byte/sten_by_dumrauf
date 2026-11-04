@@ -30,7 +30,14 @@ const scenarios: Scenario[] = [
  {id:'STD-01',title:'Стандарт управленческого ответа',prompt:'Ответь на вопрос о работе ресторана в структурированном формате: 1) факты и источники; 2) формула/расчёт; 3) недостающие данные; 4) гипотезы отдельно от фактов; 5) действия с ответственным и сроком; 6) метрика результата. Если данных недостаточно, прямо укажи это и не подставляй ноль.',goal:'Проверка единого стандарта качества ответа STEN.',checks:['Есть источники фактов','Формула показана там, где есть расчёт','Недостающие данные не маскируются','Гипотезы помечены отдельно','Есть действия, сроки и метрика']}
 ];
 const historyKey=(user:{id?:string;organizationId?:string|null}|null)=>user?.id?'sten_ai_quality_v1:'+(user.organizationId||'no-org')+':'+user.id:null;
-function readVerdicts(key:string|null):Record<string,Verdict>{if(!key)return{};try{const value=JSON.parse(localStorage.getItem(key)||'{}');return value&&typeof value==='object'?value:{}}catch{return{}}}
+function readVerdicts(key:string|null):Record<string,Verdict>{
+ if(!key)return{};
+ try{
+  const value=JSON.parse(localStorage.getItem(key)||'{}');
+  if(!value||typeof value!=='object'||Array.isArray(value))return{};
+  return Object.fromEntries(Object.entries(value).filter((entry):entry is [string,Verdict]=>['pass','fail','needs-review'].includes(String(entry[1]))));
+ }catch{return{}}
+}
 export default function AIQualityLab(){
  const {user}=useAuth(); const [scope]=useScope(); const key=historyKey(user);
  const [customPrompt,setCustomPrompt]=useState('');
