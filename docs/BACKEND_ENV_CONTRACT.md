@@ -18,6 +18,8 @@ It is not a copy of the current Yandex Cloud environment. Secret values must nev
 | `DB_SSL_CA_BASE64` | certificate material | Base64-encoded PostgreSQL CA certificate. Required for verified TLS in production. |
 | `DB_POOL_MAX` | config | PostgreSQL pool size; default 2. |
 | `DB_IDLE_TIMEOUT_MS` | config | Pool idle timeout; default 30000 ms. |
+| `DB_SSL_MODE` | config | Leave unset/default for verified TLS; `disable` is rejected in production unless the insecure override is explicitly enabled. |
+| `DB_SSL_ALLOW_INSECURE` | config | Must remain unset or `false` in production. Do not use as a deployment workaround. |
 | `YC_FOLDER_ID` | config | Yandex Cloud folder used to resolve the YandexGPT model URI. |
 | `YANDEXGPT_API_KEY` | secret | YandexGPT API key. |
 | `OBJECT_STORAGE_BUCKET` | config | Backend bucket for uploaded documents. |
@@ -67,6 +69,7 @@ Do not treat these as active backend requirements:
 | `ASK_RATE_LIMIT`, `ASK_RATE_WINDOW_SEC` | Not read by backend code. AI tool policy currently has its own fixed per-user limit in `backend/core/policy.js`; these variables do not configure it. |
 | `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Not used by the current Google Identity Services browser-token flow. |
 | `TELEGRAM_MONITOR_SECRET` | Not read by backend code. The webhook validates `TELEGRAM_WEBHOOK_SECRET`. |
+| `MARKITDOWN_AUTH_MODE` | Declared in runtime configuration but not consumed by the current MarkItDown bridge; token behavior is controlled by `MARKITDOWN_TOKEN`. |
 | `AWS_DEFAULT_REGION` | Now supported only as a fallback; prefer `OBJECT_STORAGE_REGION`. |
 
 The frontend Google client ID is a build-time GitHub Actions variable `VITE_GOOGLE_CLIENT_ID`, not a Vite secret and not a backend secret. Never put a Google client secret into a `VITE_*` variable.
