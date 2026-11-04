@@ -1,37 +1,78 @@
-This repository contains the frontend, production backend source and API contracts. Backend runtime secrets are still external to Git and must never be copied into Vite/frontend variables.
+# STEN Backend Runtime Contract — 5.4.1
 
-## Secrets — external secret store only
-- AWS_ACCESS_KEY_ID
-- AWS_SECRET_ACCESS_KEY
-- JWT_SECRET
-- YANDEXGPT_API_KEY
-- DB_PASSWORD
+This contract describes variables read by the backend source in `backend/`.
+It is not a copy of the current Yandex Cloud environment. Secret values must never be committed to Git or printed in CI logs.
 
-Use Yandex Cloud Lockbox / runtime secret configuration or the equivalent protected backend secret store. Never commit values, print them in CI logs, or expose them in browser bundles. The runtime must receive a bcrypt hash, never the plaintext 4-digit code.
+## Required production configuration
 
-## Backend configuration
-- DB_USER
-- DB_NAME
-- DB_HOST
-- OBJECT_STORAGE_BUCKET
-- OBJECT_STORAGE_ENDPOINT
-- YC_FOLDER_ID
-- DEFAULT_ORG_ID
-- YANDEXGPT_MODEL
-- YANDEXGPT_TIMEOUT_MS
-- DEBUG
+| Variable | Type | Purpose |
+|---|---|---|
+| `NODE_ENV` | config | Set to `production`. |
+| `ALLOWED_ORIGINS` | config | Exact comma-separated frontend origins. Required in production. |
+| `JWT_SECRET` | secret | Signs STEN session JWTs. No fallback is allowed in production. |
+| `DB_HOST` | config | Managed PostgreSQL endpoint. |
+| `DB_PORT` | config | PostgreSQL connection port; default 6432. |
+| `DB_NAME` | config | Database name. |
+| `DB_USER` | config | Database user. |
+| `DB_PASSWORD` | secret | Database password. |
+| `DB_SSL_CA_BASE64` | certificate material | Base64-encoded PostgreSQL CA certificate. Required for verified TLS in production. |
+| `DB_POOL_MAX` | config | PostgreSQL pool size; default 2. |
+| `DB_IDLE_TIMEOUT_MS` | config | Pool idle timeout; default 30000 ms. |
+| `YC_FOLDER_ID` | config | Yandex Cloud folder used to resolve the YandexGPT model URI. |
+| `YANDEXGPT_API_KEY` | secret | YandexGPT API key. |
+| `OBJECT_STORAGE_BUCKET` | config | Backend bucket for uploaded documents. |
+| `OBJECT_STORAGE_ENDPOINT` | config | S3-compatible Object Storage endpoint; defaults to Yandex Object Storage. |
+| `AWS_ACCESS_KEY_ID` | secret | S3-compatible access key when static credentials are used. |
+| `AWS_SECRET_ACCESS_KEY` | secret | S3-compatible secret key when static credentials are used. |
+| `GOOGLE_CLIENT_ID` | config | Expected Google OAuth audience for server-side token validation. Must match frontend `VITE_GOOGLE_CLIENT_ID`. |
 
-Recommended production posture: DEBUG=0 unless temporary diagnostics are explicitly required. AI configuration remains server-side; the frontend knows only the API Gateway URL.
+**TLS rule:** do not set `DB_SSL_ALLOW_INSECURE=true` in production. Do not disable certificate verification to make a deployment pass. If the CA is absent, the backend must fail closed.
 
-## STEN AI contract
-The backend must call Yandex Cloud AI Studio/YandexGPT. The frontend must never receive YANDEXGPT_API_KEY, database credentials, JWT secret or. If YandexGPT is unavailable, return a safe diagnostic error rather than a fake answer.
+## Feature-specific secrets
 
+| Variable | When needed |
+|---|---|
+| `ADMIN_BOOTSTRAP_PASSWORD` | Temporary administrator bootstrap only. Keep `ADMIN_BOOTSTRAP_FORCE=false); remove the bootstrap password after confirming the admin account has a password. |
+| `IIKO_CREDENTIALS_ENCRYPTION_KEY` | Required if iiko credentials are stored. Keep the exact existing key: changing it can make stored credentials unreadable. |
+| `MARKITDOWN_TOKEN` | Shared secret for the MarkItDown function when token authentication is enabled. |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token; also used as fallback for the monitor bot. |
+| `TELEGRAM_MONITOR_BOT_TOKEN` | Optional dedicated monitor-bot token; takes precedence over `TELEGRAM_BOT_TOKEN`. |
+| `TELEGRAM_WEBHOOK_SECRET` | Telegram webhook secret header validation. This is the variable the webhook actually checks. |
+| `UNLOCK_CODE_HASH` | Legacy `POST /auth/unlock` route only. Prefer email/password authentication. |
+| `WHATSAPP_APP_SECRET` | WhatsApp webhook signature validation, if WhatsApp inbound is enabled. |
+| `WHATSAPP_ACCESS_TOKEN` | WhatsApp outbound messaging, if enabled. |
 
-## MarkItDown document normalization
-- MARKITDOWN_URL — server-side HTTPS invocation URL of the dedicated MarkItDown Cloud Function.
-- MARKITDOWN_ENABLED — `true` only after the converter function is deployed and reachable; otherwise STEN keeps the legacy extraction fallback.
-- MARKITDOWN_TIMEOUT_MS — conversion request timeout, default 60000 ms.
-- MARKITDOWN_TOKEN — protected secret shared only between STEN backend and MarkItDown function.
-- The browser never calls MarkItDown directly.
-- Document flow: upload → MarkItDown → normalized Markdown → STEN deterministic parsing/evidence storage → YandexGPT.
-- For Excel/P&L, MarkItDown is the normalization step, but STEN retains the deterministic XLSX parser for plan/fact/source-cell fields.
+## Optional configuration
+
+- `ADMIN_EMAIL`, `ADMIN_ID`, `ADMIN_ROLE`, `ADMIN_FIRST_NAME`, `ADMIN_LAST_NAME`, `ADMIN_BOOTSTRAP_FORCE`, `DEFAULT_ORG_ID` — administrator bootstrap.
+- `JWT_TTL_SECONDS` — JWT lifetime.
+- `DEBUG` — leave disabled in production unless temporary diagnostics are approved.
+- `YANDEXGPT_BASE_URL`, `YANDEXGPT_TIMEOUT_MS`, `YANDEXGPT_MODEL`, `YANDEXGPT_MAX_TOKENS`, `YANDEXGPT_TEMPERATURE` — AI settings; defaults exist for model, timeout, token count and temperature.
+- `VISION_OCR_URL` — OCR endpoint; default points to Yandex Vision OCR.
+- `MARKITDOWN_URL`, `MARKITDOWN_ENABLED`, `MARKITDOWN_TIMEOUT_MS` — MarkItDown integration. Enable only after the converter is reachable.
+- `OBJECT_STORAGE_REGION` — preferred storage region. `AWS_DEFAULT_REGION` is accepted as a fallback.
+- `TOOL_MAX_ITERATIONS` — AI tool iteration limit.
+- `PNL_APPROVER_ROLES` — optional P&L approval role override.
+- `WHATSAPP_API_VERSION`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN` — WhatsApp integration configuration.
+- `CORS_ORIGIN` — legacy fallback; use `ALLOWED_ORIGINS`.
+
+## Present in the supplied Cloud list but not consumed by backend 5.4.1
+
+Do not treat these as active backend requirements:
+
+| Variable | Finding |
+|---|---|
+| `API` | Not read by backend code. |
+| `NETWORK_ID` | Not read by backend code; VPC/network is a Cloud Function resource setting. |
+| `ASK_RATE_LIMIT`, `ASK_RATE_WINDOW_SEC` | Not read by backend code. AI tool policy currently has its own fixed per-user limit in `backend/core/policy.js`; these variables do not configure it. |
+| `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Not used by the current Google Identity Services browser-token flow. |
+| `TELEGRAM_MONITOR_SECRET` | Not read by backend code. The webhook validates `TELEGRAM_WEBHOOK_SECRET`. |
+| `AWS_DEFAULT_REGION` | Now supported only as a fallback; prefer `OBJECT_STORAGE_REGION`. |
+
+The frontend Google client ID is a build-time GitHub Actions variable `VITE_GOOGLE_CLIENT_ID`, not a Vite secret and not a backend secret. Never put a Google client secret into a `VITE_*` variable.
+
+## Do not rotate during migration
+
+- Do not rotate `IIKO_CREDENTIALS_ENCRYPTION_KEY` without proving that all existing encrypted iiko credentials decrypt successfully with the proposed key.
+- Secret migration and secret rotation are separate operations.
+- Never store secret values in GitHub, this document, build artifacts, logs or browser bundles.
