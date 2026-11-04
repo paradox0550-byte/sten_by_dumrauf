@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 import { ShiftLineSchema, type NormalizationReport, type ShiftLine } from './schema';
 import { normalizeHeader, parseLocalizedNumber } from './normalize';
 import { parseScheduleMatrix } from './parseScheduleMatrix';
