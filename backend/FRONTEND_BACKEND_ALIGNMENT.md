@@ -34,6 +34,17 @@ This document records the API behavior verified in the repository. It is not a d
 - `POST /calculate-salary` is a calculation-only endpoint; it does not persist payroll records. `GET /my-earnings` reads only the authenticated user's payroll rows.
 - `POST /api/ingest/message` returns a parsed draft with `writeToPnl:false`; the confirmation route is the explicit write boundary.
 
+## Client-local persistence — active behavior, not backend storage
+
+These are working browser-side features, but their state is not shared through the backend:
+
+- `FotScheduleImport` stores imported schedule history/calculations in browser `localStorage`. The UI correctly labels the history as local to this browser. It is not the canonical payroll source and is not synchronized across devices.
+- `Team` stores staffing/position plans and custom positions in browser `localStorage`. They are local planning drafts, not persisted organization payroll data.
+- P&L expense-classification overrides and user article templates are stored locally. They are per-browser preferences, not shared organization settings.
+- Theme, font size, reduced motion and voice mute are intentionally client preferences and should remain local unless a separate product requirement says otherwise.
+
+If schedule history or staffing plans must be shared across devices/users, add a separate organization-scoped persistence design and reviewed database migration with RBAC, audit, retention and readback. Do not repurpose `payroll_records` as a schedule-history table or claim these drafts are saved to the backend.
+
 ## Static route parity audit (2026-11-04)
 
 - Express backend registers 82 method/path pairs.
