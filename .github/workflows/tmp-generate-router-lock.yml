@@ -1,0 +1,37 @@
+name: Temporary frontend lock generation
+
+on:
+  push:
+    branches: [fix/security-react-router-2026-11]
+
+permissions:
+  contents: read
+
+jobs:
+  generate-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Update frontend Router dependency and lockfile
+        run: npm install --save-exact react-router-dom@6.30.6 --package-lock-only --ignore-scripts --legacy-peer-deps
+      - name: Verify clean lockfile installation
+        run: npm ci --legacy-peer-deps
+      - name: Frontend validation
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+          npm run build
+      - name: Upload generated frontend manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-router-manifests
+          path: |
+            package.json
+            package-lock.json
+          if-no-files-found: error
+          retention-days: 3
