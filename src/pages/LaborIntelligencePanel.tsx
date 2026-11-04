@@ -12,6 +12,8 @@ import { parseShiftFile } from '../domain/labor/imports/parseShiftFile';
 import type { SalesLine, ShiftLine } from '../domain/labor/imports/schema';
 import type { LaborConfiguration, RolePassport, ZoneDemandNorm } from '../domain/labor/roles/schema';
 import './LaborIntelligencePanel.css';
+import { uuid } from '../lib/uuid';
+import { normalizeArticle } from '../lib/normalize';
 
 type Zone = Exclude<ZoneId, 'unknown'>;
 type Props = { period: string; scopeKey: string };
@@ -26,8 +28,17 @@ const readStored = (key: string): Stored => {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return emptyStored();
-    const value = JSON.parse(raw) as Stored;
-    return value?.version === 1 ? { ...emptyStored(), ...value } : emptyStored();
+    const value = JSON.parse(raw) as Partial<Stored> | null;
+    if (!value || value.version !== 1 || typeof value !== 'object') return emptyStored();
+    const base = emptyStored();
+    return {
+      version: 1,
+      roles: Array.isArray(value.roles) ? value.roles.filter(role => role && typeof role.id === 'string' && typeof role.positionName === 'string') : base.roles,
+      norms: Array.isArray(value.norms) ? value.norms : base.norms,
+      effortByCategory: value.effortByCategory && typeof value.effortByCategory === 'object' && !Array.isArray(value.effortByCategory) ? value.effortByCategory : base.effortByCategory,
+      zoneByCategory: value.zoneByCategory && typeof value.zoneByCategory === 'object' && !Array.isArray(value.zoneByCategory) ? value.zoneByCategory : base.zoneByCategory,
+      coverageMinHoursByRole: value.coverageMinHoursByRole && typeof value.coverageMinHoursByRole === 'object' && !Array.isArray(value.coverageMinHoursByRole) ? value.coverageMinHoursByRole : base.coverageMinHoursByRole,
+    };
   } catch { return emptyStored(); }
 };
 const fmt = (value: number | null | undefined, digits = 1) => value == null || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('ru-RU', { maximumFractionDigits: digits }).format(value);
@@ -118,15 +129,15 @@ export default function LaborIntelligencePanel({ period, scopeKey }: Props) {
     const rate = roleRate.trim() === '' ? null : Number(roleRate.replace(',', '.'));
     const coverage = roleCoverage.trim() === '' ? null : Number(roleCoverage.replace(',', '.'));
     if (!name) return;
-    if (stored.roles.some(role => role.positionName.toLocaleLowerCase('ru-RU') === name.toLocaleLowerCase('ru-RU'))) return;
+    if (stored.roles.some(role => normalizeArticle(role.positionName) === normalizeArticle(name))) return;
     if ((rate != null && (!Number.isFinite(rate) || rate < 0)) || (coverage != null && (!Number.isFinite(coverage) || coverage < 0))) return;
-    const role: RolePassport = { id: crypto.randomUUID(), positionName: name, workMode: 'mixed', zoneIds: [roleZone], unitName: 'час', minimumShiftHours: null, fixedHoursPerDay: null, hourlyRate: rate, salaryPerShift: null, monthlySalary: null, productivityUnitsPerHour: null, effortCoefficient: null, active: true };
+    const role: RolePassport = { id: uuid(), positionName: name, workMode: 'mixed', zoneIds: [roleZone], unitName: 'час', minimumShiftHours: null, fixedHoursPerDay: null, hourlyRate: rate, salaryPerShift: null, monthlySalary: null, productivityUnitsPerHour: null, effortCoefficient: null, active: true };
     setStored(prev => ({ ...prev, roles: [...prev.roles, role], coverageMinHoursByRole: { ...prev.coverageMinHoursByRole, ...(coverage == null ? {} : { [name]: coverage }) } }));
     setRoleName(''); setRoleRate(''); setRoleCoverage('');
   }
 
-  const periodSales = sales.filter(line => line.businessDate.startsWith(period));
-  const periodShifts = shifts.filter(line => line.businessDate.startsWith(period));
+  const periodSales = useMemo(() => sales.filter(line => line.businessDate.startsWith(period)), [sales, period]);
+  const periodShifts = useMemo(() => shifts.filter(line => line.businessDate.startsWith(period)), [shifts, period]);
   const calculation = useMemo(() => periodSales.length && periodShifts.length && stored.roles.length
     ? calculateLabor({ sales: periodSales, shifts: periodShifts, config: configuration })
     : null, [periodSales, periodShifts, configuration, stored.roles.length]);

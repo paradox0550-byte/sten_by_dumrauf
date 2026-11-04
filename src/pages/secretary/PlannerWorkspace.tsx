@@ -12,7 +12,15 @@ const NOTES_KEY = 'sten_plan_weekly_notes_v1';
 const HABITS_KEY = 'sten_habit_tracker_v1';
 
 function read<T>(key: string, fallback: T): T {
-  try { const raw = localStorage.getItem(key); return raw ? { ...fallback as object, ...JSON.parse(raw) } as T : fallback; }
+  try { const raw = localStorage.getItem(key); if (!raw) return fallback;
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(fallback)) return (Array.isArray(parsed) ? parsed : fallback) as T;
+    if (fallback && typeof fallback === 'object') {
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? { ...fallback as object, ...parsed as object } as T
+        : fallback;
+    }
+    return parsed as T; }
   catch { return fallback; }
 }
 function save(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Storage unavailable. */ } }
@@ -72,7 +80,7 @@ export function WeeklyPlanner() {
   }
   async function toggle(task:Task) {
     if(saving)return;setSaving(true);setError('');
-    try {await api.patch('/api/secretary/events/'+encodeURIComponent(task.id),{status:done(task.status)?'planned':'completed'});await load();}
+    try {await api.patch('/api/secretary/events/'+encodeURIComponent(task.id),{status:done(task.status)?'planned':'done'});await load();}
     catch(err){setError(err instanceof Error?err.message:'Не удалось обновить задачу.');}
     finally{setSaving(false);}
   }

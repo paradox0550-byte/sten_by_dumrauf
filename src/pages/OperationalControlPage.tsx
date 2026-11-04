@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Activity, AlertTriangle, CalendarDays, CheckCircle2, CircleDollarSign, Plus, RefreshCw, Save, X } from 'lucide-react';
 import { api } from '../lib/api';
 import { useScope } from '../lib/useScope';
@@ -32,6 +33,7 @@ const n = (v: unknown) => typeof v === 'number' && Number.isFinite(v) ? v : null
 const fmt = (v: number | null, p = false) => v === null ? '—' : (p ? v.toFixed(1).replace('.', ',') + ' %' : new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(v));
 const localDate = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 const articleName = (r: PnlRow) => String(r.article || r.label || r.name || '').trim();
+const DAY_MODE_SENTINEL = 'day';
 
 export default function OperationalControlPage() {
   const [date, setDate] = useState(localDate);
@@ -57,22 +59,30 @@ export default function OperationalControlPage() {
     setLoading(true); setError(''); setMessage(''); setPnlError('');
     const q = new URLSearchParams({ date, ...Object.fromEntries(new URLSearchParams(scopeQuery(scope))) });
     try {
-      const [reports, pnlData] = await Promise.all([
+      const [reportsResult, pnlResult] = await Promise.allSettled([
         api.get<ReportsResponse>('/reports?' + q.toString()),
-        api.get<PnlResponse>('/api/pnl?' + scopeQuery({ ...scope, period: date.slice(0, 7) })).catch((e: unknown) => { setPnlError(e instanceof Error ? e.message : 'Не удалось загрузить финансовые данные.'); return null; }),
+        api.get<PnlResponse>('/api/pnl?' + scopeQuery({ ...scope, period: date.slice(0, 7) })),
       ]);
-      const found = reports.reports?.find(item => item.date === date) ?? null;
-      setR(found);
-      setPnl(pnlData);
-      const next: Record<string, string> = {};
-      for (const f of FIELDS) { const v = found?.values?.[f.key]; next[f.key] = v == null ? '' : String(v); }
-      setForm(next);
-      setEditing(!found);
-      return pnlData !== null;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось загрузить данные дня.');
-      setR(null); setPnl(null); setEditing(true);
-      return false;
+      if (reportsResult.status === 'rejected') {
+        setError(reportsResult.reason instanceof Error ? reportsResult.reason.message : 'Не удалось загрузить данные дня.');
+        setR(null);
+        setForm({});
+        setEditing(true);
+      } else {
+        const found = reportsResult.value.reports?.find(item => item.date === date) ?? null;
+        setR(found);
+        const next: Record<string, string> = {};
+        for (const f of FIELDS) { const v = found?.values?.[f.key]; next[f.key] = v == null ? '' : String(v); }
+        setForm(next);
+        setEditing(!found);
+      }
+      if (pnlResult.status === 'rejected') {
+        setPnlError(pnlResult.reason instanceof Error ? pnlResult.reason.message : 'Не удалось загрузить финансовые данные.');
+        setPnl(null);
+      } else {
+        setPnl(pnlResult.value);
+      }
+      return reportsResult.status === 'fulfilled' && pnlResult.status === 'fulfilled';
     } finally { setLoading(false); }
   }
 
@@ -164,10 +174,10 @@ export default function OperationalControlPage() {
 
       <section className="panel operational-control-toolbar">
         <div className="operational-scope-context">
-          <strong>{scope.period === 'day' ? `Дата: ${date}` : `Выбран период: ${periodLabel}`}</strong>
+          <strong>{scope.period === DAY_MODE_SENTINEL ? `Дата: ${date}` : `Выбран период: ${periodLabel}`}</strong>
           <span>{selectedScope || 'Область учёта не выбрана'}</span>
         </div>
-        {scope.period !== 'day' && <div className="operational-period-warning" role="note">Выбран период: {periodLabel}. В этом экране отчёт дня загружается по дате {date}; подтверждённый агрегат за весь период текущим API-потоком не формируется.</div>}
+        {scope.period !== DAY_MODE_SENTINEL && <div className="operational-period-warning" role="note">Выбран период: {periodLabel}. В этом экране отчёт дня загружается по дате {date}; подтверждённый агрегат за весь период текущим API-потоком не формируется.</div>}
         <label className="settings-field operational-control-date"><span>Дата дня / смены</span><input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
         <div className="operational-day-actions">
           <button className="secondary-button" onClick={() => { setTxDate(date); setTxType('income'); setTxArticle(articles[0] ?? ''); setTxOpen(true); }}><Plus size={15} /> Доход</button>
@@ -185,7 +195,7 @@ export default function OperationalControlPage() {
           <span className={`operational-data-status operational-data-status--${dataStatus === 'полные' ? 'complete' : dataStatus === 'частичные' ? 'partial' : dataStatus === 'ошибка' ? 'error' : 'empty'}`}>{loading ? 'Загрузка…' : dataStatus}</span>
         </div>
         {error && !r ? <p className="operational-missing-fields operational-load-error" role="alert">Не удалось загрузить данные: {error}</p> : <p className="operational-missing-fields" aria-live="polite">{!r ? 'Нет данных за выбранный период' : missingFields.length === 0 ? 'Все поля заполнены' : `Нет данных: ${missingFields.map(field => field.label.split(',')[0]).join(', ')}`}</p>}
-        {pnlError && <div className="operational-pnl-error" role="alert"><AlertTriangle size={16} /><div><strong>P&L недоступен</strong><p>{pnlError}</p><a href="#/pnl">Открыть P&L</a></div></div>}
+        {pnlError && <div className="operational-pnl-error" role="alert"><AlertTriangle size={16} /><div><strong>P&L недоступен</strong><p>{pnlError}</p><Link to="/pnl">Открыть P&L</Link></div></div>}
         <div className="operational-overview-metrics">
           {[
             ['Выручка', n(values.revenue), false], ['Чеков', n(values.checks), false], ['Гостей', n(values.guests), false],
@@ -202,8 +212,8 @@ export default function OperationalControlPage() {
           {loading ? <p>Загружаем данные дня…</p> : attentionSignals.length === 0 ? <p>Нет замечаний</p> : <ul>{attentionSignals.map((signal, index) => <li key={signal}>
             <span>{signal}</span>
             {index === 0 && missingFields.length > 0 && <button type="button" className="operational-inline-action" onClick={() => setEditing(true)}>Заполнить данные</button>}
-            {signal.startsWith('P&L недоступен:') && <a className="operational-inline-action" href="#/pnl">Открыть P&L</a>}
-            {signal.startsWith('Prime Cost') && <a className="operational-inline-action" href="#/pnl">Проверить в P&L</a>}
+            {signal.startsWith('P&L недоступен:') && <Link className="operational-inline-action" to="/pnl">Открыть P&L</Link>}
+            {signal.startsWith('Prime Cost') && <Link className="operational-inline-action" to="/pnl">Проверить в P&L</Link>}
           </li>)}</ul>}
         </div>
       </section>
