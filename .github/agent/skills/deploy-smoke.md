@@ -9,6 +9,6 @@ Before declaring frontend production-ready:
 6. verify configured API URL is the Gateway, not AI/DB
 7. verify SPA fallback for the deployed hosting model
 8. verify MIME types for JS/CSS
-9. run real /auth/unlock and /ask smoke tests only when external services are reachable.
+9. run real /auth/login, /auth/me and /ask smoke tests only when external services are reachable; verify legacy /auth/unlock returns 410.
 
 Build success alone is never proof of backend, PostgreSQL or YandexGPT health.
