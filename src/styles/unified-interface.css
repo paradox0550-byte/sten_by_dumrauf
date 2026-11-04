@@ -458,3 +458,23 @@ html[data-sten-interface="mobile"] :where(.table-wrap, .table-scroll, .pnl-table
   .sidebar { width: 240px; min-width: 240px; }
   .sidebar.is-collapsed { width: 76px; min-width: 76px; }
 }
+
+.sidebar-profile-link {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.sidebar-profile-link:hover .sidebar-profile-copy b { color: var(--accent, var(--color-brand)); }
+.sidebar-profile-link:focus-visible {
+  outline: 2px solid var(--accent, var(--color-brand));
+  outline-offset: 3px;
+  border-radius: 6px;
+}
