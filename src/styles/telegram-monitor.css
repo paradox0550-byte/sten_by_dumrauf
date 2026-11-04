@@ -276,3 +276,11 @@
   }
   .telegram-monitor-summary > div { min-height: 70px; }
 }
+
+/* The shared shell marks page headings !important; make this desktop override explicit.
+   Mobile heading sizing remains owned by the shared mobile visual-system rules. */
+@media (min-width: 768px) {
+  .telegram-monitor-page .page-header h1 {
+    font-size: clamp(26px, 2vw, 30px) !important;
+  }
+}
