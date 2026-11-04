@@ -92,7 +92,7 @@ Gateway не показывает явно заданный `service_account_id`
 - В списке environment активной версии Backend нет `MARKITDOWN_URL`.
 - Backend читает `MARKITDOWN_URL`, `MARKITDOWN_ENABLED`, `MARKITDOWN_TOKEN`, `MARKITDOWN_TIMEOUT_MS`.
 
-До включения интеграции необходимо определить корректный URL функции-конвертера, решить, должен ли трафик идти через Gateway или напрямую, обеспечить проверку авторизации и протестировать маршрут. Не придумывать URL и не включать `MARKITDOWN_ENABLED=true` до этого.
+Кандидатная схема после импорта root `api-gateway.yaml`: Backend вызывает `https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net/markitdown/convert`; этот путь должен попадать в dedicated route `/markitdown/{proxy+}` и далее в функцию-конвертер. Это проектное значение, а не подтверждённый текущий URL. Установить его в `MARKITDOWN_URL` только после ручного импорта Gateway spec и успешной проверки конвертера. Не включать `MARKITDOWN_ENABLED=true` раньше.
 
 ## 8. Различие версий
 
