@@ -293,9 +293,9 @@ html[data-theme='dark'], [data-theme='dark'] {
   --text-on-accent: #0D1117;
   --primary-pressed: #20B9A8;
   --focus-outline: 1px solid var(--accent);
-  --bg-success: rgba(63, 185, 80, 0.10);
-  --bg-warning: rgba(210, 153, 34, 0.10);
-  --bg-danger: rgba(248, 81, 73, 0.10);
+  --bg-success: #1B3023;
+  --bg-warning: #332B1A;
+  --bg-danger: #35201F;
   --bg-success-subtle: rgba(63, 185, 80, 0.08);
   --bg-warning-subtle: rgba(210, 153, 34, 0.08);
   --bg-danger-subtle: rgba(248, 81, 73, 0.08);
