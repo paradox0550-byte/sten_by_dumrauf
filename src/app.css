@@ -10422,3 +10422,26 @@ button.executive-chain__step.active {
   border-color: var(--color-brand);
   color: #0F1419;
 }
+
+
+/* Settings quick-jump: swipeable, non-wrapping section tabs. */
+.settings-quick-jump {
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+}
+.settings-quick-jump a {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  white-space: nowrap;
+}
+.toggle-row i { opacity: 1 !important; }
+@media (max-width: 767px) {
+  .settings-quick-jump {
+    display: flex !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    padding-bottom: 8px;
+  }
+  .settings-quick-jump a { flex: 0 0 auto !important; }
+}

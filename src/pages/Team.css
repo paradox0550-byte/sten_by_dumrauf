@@ -167,3 +167,16 @@
   margin: 0;
   -webkit-appearance: none;
 }
+
+
+@media (max-width: 767px) {
+  .fot-planner-heading-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 12px;
+  }
+  .fot-planner-heading-actions > * { width: 100%; }
+  .fot-planner-heading-actions button { width: 100%; }
+}

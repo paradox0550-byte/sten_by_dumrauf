@@ -125,3 +125,29 @@ table tbody tr:hover td { background: var(--bg-surface-subtle); }
   .sten-ai-page .chat-body .message-actions button { width: 42px !important; min-width: 42px !important; min-height: 42px !important; }
   .mobile-bottom-nav a { min-height: 58px; }
 }
+
+
+@media (max-width: 767px) {
+  .content > .page {
+    padding-bottom: calc(90px + env(safe-area-inset-bottom)) !important;
+  }
+  .sten-floating-ai {
+    bottom: calc(100px + env(safe-area-inset-bottom)) !important;
+  }
+  .page h1,
+  .page-head h1,
+  .telegram-monitor-page .page-header h1 {
+    font-size: clamp(20px, 6vw, 24px) !important;
+    letter-spacing: -0.02em;
+  }
+  .page h2 {
+    font-size: clamp(18px, 5vw, 22px) !important;
+  }
+  .empty-state { padding: 24px 16px !important; }
+  .sten-ai-page .chat-body .message-actions button {
+    width: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+  .sten-ai-page .message-actions { gap: 12px !important; }
+}

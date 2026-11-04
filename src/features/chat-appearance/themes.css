@@ -1360,3 +1360,11 @@
   border: 1px solid color-mix(in srgb, var(--chat-accent) 42%, var(--chat-border));
   color: var(--chat-accent);
 }
+
+
+/* User bubbles use the STEN teal signal, never a saturated pink accent. */
+.sten-ai-page .message-row--user .message-bubble {
+  background: rgba(0, 210, 180, 0.15) !important;
+  color: var(--chat-text, var(--text-primary, #ffffff)) !important;
+  border: 1px solid rgba(0, 210, 180, 0.3) !important;
+}
