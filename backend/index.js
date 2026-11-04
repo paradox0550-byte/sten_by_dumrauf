@@ -1,7 +1,7 @@
 'use strict';
 /* ============================================================================
 STEN Backend — Express + serverless-http (Yandex Cloud Functions)
-Version: 5.4.0
+Version: 5.4.1
 ========================================================================== */
 const express    = require('express');
 const serverless = require('serverless-http');
@@ -23,7 +23,7 @@ const { loadConversationContext, startConversationTurn, finishConversationTurn, 
 const { connectIikoCloud, encryptCredentials } = require('./integrations/iikoCloud');
 
 // Версия правил, встроенных в этот релиз функции; настройки фильтруются по схеме ниже.
-const SKILLS_VERSION = '5.4.0';
+const SKILLS_VERSION = '5.4.1';
 const SKILL_KEYS_READ_BY_PROMPT = Object.freeze(['foodCost','laborCost','shiftHours','tone','documents','history','includeCapexWarning','excludeCapex']);
 
 types.setTypeParser(1082, v => v);
@@ -50,6 +50,8 @@ DB_PORT: parseInt(process.env.DB_PORT || '6432', 10),
 DB_NAME: process.env.DB_NAME,
 DB_USER: process.env.DB_USER,
 DB_PASSWORD: process.env.DB_PASSWORD,
+DB_IDLE_TIMEOUT_MS: Math.max(1000, Math.min(300000, Number(process.env.DB_IDLE_TIMEOUT_MS || 30000))),
+GOOGLE_CLIENT_ID: String(process.env.GOOGLE_CLIENT_ID || '').trim(),
 YANDEXGPT_API_KEY: process.env.YANDEXGPT_API_KEY,
 YC_FOLDER_ID: process.env.YC_FOLDER_ID,
 YANDEXGPT_MODEL: process.env.YANDEXGPT_MODEL || 'yandexgpt',
@@ -65,7 +67,7 @@ MARKITDOWN_AUTH_MODE: process.env.MARKITDOWN_AUTH_MODE || 'auto',
 MARKITDOWN_TIMEOUT_MS: Number(process.env.MARKITDOWN_TIMEOUT_MS || 60000),
 STORAGE_BUCKET: process.env.OBJECT_STORAGE_BUCKET || process.env.YC_BUCKET_NAME,
 STORAGE_ENDPOINT: process.env.OBJECT_STORAGE_ENDPOINT || 'https://storage.yandexcloud.net',
-STORAGE_REGION: process.env.OBJECT_STORAGE_REGION || 'ru-central1',
+STORAGE_REGION: process.env.OBJECT_STORAGE_REGION || process.env.AWS_DEFAULT_REGION || 'ru-central1',
 AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
 AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
 BCRYPT_ROUNDS: 12,
@@ -143,7 +145,7 @@ if (_pool) return _pool;
 if (!ENV.DB_HOST) { log('db: no DB_HOST, pool disabled'); return null; }
 _pool = new Pool({
 host: ENV.DB_HOST, port: ENV.DB_PORT, database: ENV.DB_NAME, user: ENV.DB_USER, password: ENV.DB_PASSWORD,
-ssl: resolveDbSsl(), max: Math.max(1, Math.min(10, Number.parseInt(process.env.DB_POOL_MAX || '2', 10) || 2)), idleTimeoutMillis: 30000, connectionTimeoutMillis: 15000,
+ssl: resolveDbSsl(), max: Math.max(1, Math.min(10, Number.parseInt(process.env.DB_POOL_MAX || '2', 10) || 2)), idleTimeoutMillis: ENV.DB_IDLE_TIMEOUT_MS, connectionTimeoutMillis: 15000,
 statement_timeout: 25000, query_timeout: 25000, keepAlive: true, statement_cache_size: 0,
 application_name: 'sten-api',
 });
@@ -424,7 +426,7 @@ FOR c IN
 SELECT indexname FROM pg_indexes
 WHERE tablename='daily_reports' AND indexdef ILIKE '%(date)%'
 LOOP EXECUTE 'DROP INDEX IF EXISTS ' || quote_ident(c.indexname); END LOOP;
-ALTER TABLE daily_reports DROP COLUMN date;
+-- Keep legacy date column until a separate verified data migration. Do not discard source data at runtime.
 END IF;
 END $$;`);
 await query(`DROP INDEX IF EXISTS daily_reports_org_date_uniq;`);
@@ -482,9 +484,7 @@ await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT;`)
 await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;`);
 await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false;`);
 await query(`CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_uniq ON users (lower(email));`);
-// Одноразовая миграция: удалить дубликаты pnl_entries с пустым project_id.
-try { await query(`DELETE FROM pnl_entries WHERE project_id = '' AND period >= '2026-01' AND period <= '2026-12'`); }
-catch (e) { log('cleanup pnl_entries duplicates:', e.message); }
+// P&L rows are never deleted during schema bootstrap. Data cleanup requires a reviewed migration.
 try {
 if (ENV.ADMIN_EMAIL) {
 const ex = await query(`SELECT id, password_hash FROM users WHERE lower(email)=lower($1) LIMIT 1`, [ENV.ADMIN_EMAIL]);
@@ -1203,7 +1203,7 @@ try { await query('SELECT 1'); dbReachable = true; kickSchema(); }
 catch (e) { log('healthz db:', e.message); }
 }
 ok(res, {
-status: 'ok', version: '5.4.0', time: new Date().toISOString(),
+status: 'ok', version: '5.4.1', time: new Date().toISOString(),
 db: dbOk ? (dbReachable ? 'connected' : 'configured-unreachable') : 'not-configured',
 ai: ENV.YANDEXGPT_API_KEY ? 'configured' : 'not-configured',
 storage: ENV.STORAGE_BUCKET ? 'configured' : 'not-configured',
@@ -2345,6 +2345,8 @@ app.put('/api/integrations/google/sheets', requireAuth, requireOrg, async (req, 
     const verify = await fetch('https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=' + encodeURIComponent(body.accessToken));
     if (!verify.ok) throw httpError(401, 'Токен Google недействителен или истёк. Подключите таблицу повторно.', 'GOOGLE_TOKEN_INVALID');
     const tokenInfo = await verify.json();
+    if (!ENV.GOOGLE_CLIENT_ID) throw httpError(503, 'Google OAuth client ID не настроен на сервере.', 'GOOGLE_CLIENT_NOT_CONFIGURED');
+    if (String(tokenInfo.aud || '') !== ENV.GOOGLE_CLIENT_ID) throw httpError(401, 'Токен Google выпущен для другого OAuth-клиента.', 'GOOGLE_TOKEN_AUDIENCE_INVALID');
     const grantedScopes = String(tokenInfo.scope || '').split(/\s+/u);
     if (!grantedScopes.includes('https://www.googleapis.com/auth/spreadsheets.readonly')) {
       throw httpError(403, 'Google не выдал разрешение на чтение таблиц.', 'GOOGLE_SCOPE_REQUIRED');
@@ -3599,6 +3601,7 @@ const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(raw).dig
 const a = Buffer.from(provided), b = Buffer.from(expected);
 if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.status(403).json({ ok: false, error: 'forbidden' });
 }
+if (!isWhatsApp && !req.user) return res.status(401).json({ ok: false, error: 'authentication_required' });
 const ipKey = 'ingest:' + String(req.ip || req.headers['x-forwarded-for'] || 'unknown').slice(0, 200);
 const rl = await query(
 `INSERT INTO auth_unlock_attempts (ip, window_started_at, failed_attempts, blocked_until) VALUES ($1, now(), 1, NULL)
@@ -3621,7 +3624,7 @@ let parsed = null, parseError = null;
 try { parsed = await parseSalesReportWithFunctionCalling(String(text)); }
 catch (e) { parseError = e?.code || e?.message || 'PARSE_FAILED'; console.error('[sten] ingest parse error:', parseError); }
 let binding = null;
-try { binding = await resolveInboundBinding(null, source, subjectId); } catch { /* ignore */ }
+try { binding = await resolveInboundBinding(req.user || null, source, subjectId); } catch { /* ignore */ }
 if (parsed && binding && !parsed.restaurant) parsed.restaurant = binding.unit_name;
 try {
 await safeQuery(
