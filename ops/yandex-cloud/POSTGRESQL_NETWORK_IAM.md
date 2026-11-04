@@ -15,8 +15,6 @@
 - `access.serverless=false`
 - TLS target: `verify-full`
 
-Старый кластер `postgresql373` не является частью этой схемы и не должен упоминаться в рабочих параметрах.
-
 ## Проверить сеть Cloud Function
 
 В Yandex Console открой настройки Cloud Function `smenavkarmane-api` и проверь фактический раздел Connectivity:
