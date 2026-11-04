@@ -18,7 +18,6 @@ It is not a copy of the current Yandex Cloud environment. Secret values must nev
 | `DB_POOL_MAX` | config | PostgreSQL pool size; default 2. |
 | `DB_IDLE_TIMEOUT_MS` | config | Pool idle timeout; default 30000 ms. |
 | `DB_SSL_MODE` | config | Leave unset/default for verified TLS. `disable` is rejected in production; no insecure override is supported. |
-
 | `YC_FOLDER_ID` | config | Yandex Cloud folder used to resolve the YandexGPT model URI. |
 | `YANDEXGPT_API_KEY` | secret | YandexGPT API key. |
 | `OBJECT_STORAGE_BUCKET` | config | Private backend bucket for uploaded documents. Never point this at the public website bucket. |
@@ -52,7 +51,9 @@ It is not a copy of the current Yandex Cloud environment. Secret values must nev
 - `YANDEXGPT_BASE_URL`, `YANDEXGPT_TIMEOUT_MS`, `YANDEXGPT_MODEL`, `YANDEXGPT_MAX_TOKENS`, `YANDEXGPT_TEMPERATURE` — AI settings; defaults exist for model, timeout, token count and temperature.
 - `VISION_OCR_URL` — OCR endpoint; default points to Yandex Vision OCR.
 - `MARKITDOWN_URL`, `MARKITDOWN_ENABLED`, `MARKITDOWN_TIMEOUT_MS` — MarkItDown integration. When enabled, `MARKITDOWN_URL` must use the dedicated `/markitdown/{proxy+}` Gateway route and point to the separate converter function; enable only after that function and route are verified reachable.
-- `OBJECT_STORAGE_REGION` — preferred storage region. `AWS_DEFAULT_REGION` is accepted as a fallback.\n- `YC_BUCKET_NAME` — legacy fallback for `OBJECT_STORAGE_BUCKET`; prefer `OBJECT_STORAGE_BUCKET` and do not configure both with different values.\n- `PORT` — used only by the optional `backend/server.js` container/local adapter; it is not required by the Yandex Cloud Function entrypoint.
+- `OBJECT_STORAGE_REGION` — preferred storage region. `AWS_DEFAULT_REGION` is accepted as a fallback.
+- `YC_BUCKET_NAME` — legacy fallback for `OBJECT_STORAGE_BUCKET`; prefer `OBJECT_STORAGE_BUCKET` and do not configure both with different values.
+- `PORT` — used only by the optional `backend/server.js` container/local adapter; it is not required by the Yandex Cloud Function entrypoint.
 - `TOOL_MAX_ITERATIONS` — AI tool iteration limit.
 - `PNL_APPROVER_ROLES` — optional P&L approval role override.
 - `WHATSAPP_API_VERSION`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN` — WhatsApp integration configuration.
@@ -72,7 +73,6 @@ Do not treat these as active backend requirements:
 | `TELEGRAM_MONITOR_SECRET` | Not read by backend code. The webhook validates `TELEGRAM_WEBHOOK_SECRET`. |
 | `UNLOCK_CODE_HASH` | Legacy PIN authentication is disabled; `/auth/unlock` returns HTTP 410. Do not include this variable in the next function version. |
 | `MARKITDOWN_AUTH_MODE` | Declared in runtime configuration but not consumed by the current MarkItDown bridge; token behavior is controlled by `MARKITDOWN_TOKEN`. |
-| `AWS_DEFAULT_REGION` | Now supported only as a fallback; prefer `OBJECT_STORAGE_REGION`. |
 
 The frontend Google client ID is a build-time GitHub Actions variable `VITE_GOOGLE_CLIENT_ID`, not a Vite secret and not a backend secret. Never put a Google client secret into a `VITE_*` variable.
 
