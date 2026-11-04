@@ -33,9 +33,9 @@ function sanitize(raw: unknown): AnalyticsSettings | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
   return {
-    financial: Boolean(o.financial),
-    labor: Boolean(o.labor),
-    forecast: Boolean(o.forecast),
+    financial: typeof o.financial === 'boolean' ? o.financial : DEFAULT_ANALYTICS_SETTINGS.financial,
+    labor: typeof o.labor === 'boolean' ? o.labor : DEFAULT_ANALYTICS_SETTINGS.labor,
+    forecast: typeof o.forecast === 'boolean' ? o.forecast : DEFAULT_ANALYTICS_SETTINGS.forecast,
     laborTarget: clampPct(o.laborTarget, DEFAULT_ANALYTICS_SETTINGS.laborTarget),
     foodTarget: clampPct(o.foodTarget, DEFAULT_ANALYTICS_SETTINGS.foodTarget),
     updated_at: typeof o.updated_at === 'string' ? o.updated_at : undefined,
@@ -71,6 +71,7 @@ export function useAnalyticsSettings() {
   const [error, setError] = useState('');
   const [savedAt, setSavedAt] = useState('');
   const alive = useRef(true);
+  const saveSequence = useRef(0);
 
   const apply = useCallback((next: AnalyticsSettings) => {
     setSettings(next);
@@ -95,6 +96,7 @@ export function useAnalyticsSettings() {
 
   const save = useCallback(
     async (patch: Partial<AnalyticsSettings>): Promise<SaveResult> => {
+      const sequence = ++saveSequence.current;
       const prev = settings;
       const merged: AnalyticsSettings = { ...settings, ...patch };
       setSaving(true);
@@ -112,16 +114,16 @@ export function useAnalyticsSettings() {
           }
         );
         const confirmed = res?.settings ? sanitize(res.settings) : null;
-        apply(confirmed ?? merged);
-        if (alive.current) setSavedAt(new Date().toISOString());
+        if (sequence === saveSequence.current) apply(confirmed ?? merged);
+        if (alive.current && sequence === saveSequence.current) setSavedAt(new Date().toISOString());
         return { ok: true };
       } catch (e) {
-        apply(prev);
+        if (sequence === saveSequence.current) apply(prev);
         const msg = e instanceof ApiError ? e.message : 'Не удалось сохранить настройки аналитики.';
-        if (alive.current) setError(msg);
+        if (alive.current && sequence === saveSequence.current) setError(msg);
         return { ok: false, error: msg };
       } finally {
-        if (alive.current) setSaving(false);
+        if (alive.current && sequence === saveSequence.current) setSaving(false);
       }
     },
     [settings, apply]

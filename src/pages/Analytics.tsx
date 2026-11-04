@@ -7,6 +7,8 @@ import { scopeQuery } from '../lib/scope';
 import { aggregateLaborRecords, finiteNumber } from '../lib/financialAnalytics';
 import { aggregateDailySalesReports, type DailySalesReport } from '../lib/dailySalesAnalytics';
 import { analyticsActionStorageKey, isAnalyticsActionOverdue, readAnalyticsActionStates, writeAnalyticsActionStates, reconcileAnalyticsActionImpact, type AnalyticsActionStates } from '../lib/analyticsActionStorage';
+import { normalizeArticle } from '../lib/normalize';
+import { classifyArticleType } from '../lib/articleClassifier';
 
 type Row = { article?: string; plan?: number | null; fact?: number | null; source?: string };
 type CalculatedPnl = { revenue?: number | null; cogs?: number | null; personnel?: number | null; labor?: number | null; opex?: number | null; operatingExpenses?: number | null; ebitda?: number | null; netProfit?: number | null; foodCostPercent?: number | null; personnelPercent?: number | null; opexPercent?: number | null; ebitdaMargin?: number | null; netMargin?: number | null; primeCostPercent?: number | null };
@@ -16,15 +18,10 @@ const finite = finiteNumber;
 const money = (v: number | undefined) => finite(v) == null ? 'Нет данных' : new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(v!);
 const pct = (v: number | undefined) => finite(v) == null ? 'Нет данных' : v!.toFixed(1).replace('.', ',') + ' %';
 const delta = (v: number | undefined) => finite(v) == null ? '—' : (v! > 0 ? '+' : '') + new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(v!);
-const pick = (rows: Row[], terms: string[]) => rows.find(row => terms.some(term => String(row.article || '').toLowerCase().replace(/ё/g, 'е').includes(term)));
+const pick = (rows: Row[], terms: string[]) => rows.find(row => terms.some(term => normalizeArticle(String(row.article || '')).includes(normalizeArticle(term))));
 const localDateKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-const classifyFinancialRow = (article: string): 'revenue' | 'expense' | 'unknown' => {
-  const value = String(article || '').toLowerCase().replace(/ё/g, 'е');
-  if (/выруч|revenue|sales|оборот|доход от продаж/.test(value)) return 'revenue';
-  if (/cogs|food.?cost|себестоим|фот|фонд оплаты|зарплат|payroll|personnel|labor|opex|операцион|аренд|коммунал|маркетинг|ремонт|расход|затрат|налог|амортизац|процент|прочие расходы/.test(value)) return 'expense';
-  return 'unknown';
-};
+
 
 export default function Analytics() {
   const [scope] = useScope(); const [rows, setRows] = useState<Row[]>([]); const [calculated, setCalculated] = useState<PnlCalculated>(null); const [labor, setLabor] = useState<Labor[]>([]); const [dailyReports, setDailyReports] = useState<DailySalesReport[]>([]); const [salesError, setSalesError] = useState('');
@@ -44,7 +41,7 @@ export default function Analytics() {
   const updateActionState = (key: string, status: 'recommended' | 'accepted' | 'confirmed', note: string, currentImpact: number | undefined) => {
     const previous = actionStates[key] ?? { status: 'recommended' as const, note: '' };
     if (status === 'recommended') {
-      const resetAction = { ...previous, initialImpact: undefined, initialImpactPeriod: undefined, initialImpactArticle: undefined, resultAmount: undefined };
+      const resetAction = { ...previous, responsible: undefined, dueDate: undefined, initialImpact: undefined, initialImpactPeriod: undefined, initialImpactArticle: undefined, resultAmount: undefined };
       saveActionStates({ ...actionStates, [key]: { ...resetAction, status, note } });
       return;
     }
@@ -60,7 +57,7 @@ export default function Analytics() {
   const salesMoney = (key: 'revenue' | 'cash' | 'card' | 'discounts') => sales.fields[key].total == null ? 'Нет данных' : money(sales.fields[key].total);
   const metrics=useMemo(()=>{const fact=calculated?.fact,plan=calculated?.plan;const r=finite(fact?.revenue),rp=finite(plan?.revenue),c=finite(fact?.cogs),cp=finite(plan?.cogs),l=finite(fact?.labor),lp=finite(plan?.labor),o=finite(fact?.operatingExpenses??fact?.opex),op=finite(plan?.operatingExpenses??plan?.opex);return{r,rp,c,cp,l,lp,o,op,revenueDelta:r!=null&&rp!=null?r-rp:undefined,cogsDelta:c!=null&&cp!=null?c-cp:undefined,laborDelta:l!=null&&lp!=null?l-lp:undefined,opexDelta:o!=null&&op!=null?o-op:undefined,ebitda:finite(fact?.ebitda),ebitdaPlan:finite(plan?.ebitda),foodCost:finite(fact?.foodCostPercent),laborCost:finite(fact?.personnelPercent)};},[calculated]);
   const incomeExpenseControl = useMemo(() => summaryRows.flatMap((row) => {
-    const plan = finite(row.plan), fact = finite(row.fact), type = classifyFinancialRow(String(row.article || ''));
+    const plan = finite(row.plan), fact = finite(row.fact), type = classifyArticleType(String(row.article || ''));
     if (plan === undefined || fact === undefined) return [];
     const difference = fact - plan;
     if (difference === 0) return [];
@@ -74,7 +71,7 @@ export default function Analytics() {
   const priorityChecks = useMemo(() => incomeExpenseControl
     .filter((item) => item.impact !== undefined && item.impact < 0)
     .map((item) => {
-      const article = item.article.toLowerCase().replace(/ё/g, 'е');
+      const article = normalizeArticle(item.article);
       let check = 'Проверьте первичный документ, классификацию статьи и полноту факта/плана.';
       let evidence = 'Подтверждено неблагоприятное отклонение; причина не установлена.';
       if (/выруч|revenue|sales|оборот|доход от продаж/.test(article)) {
@@ -95,10 +92,10 @@ export default function Analytics() {
 
   const managementActionItems = useMemo(() => {
     const items = new Map<string, { article: string; plan: number | undefined; fact: number | undefined; impact: number | undefined; check: string; evidence: string }>();
-    priorityChecks.forEach((item) => items.set(item.article.toLowerCase(), item));
+    priorityChecks.forEach((item) => items.set(normalizeArticle(item.article), item));
     Object.keys(actionStates).forEach((key) => {
       if (items.has(key)) return;
-      const row = summaryRows.find((candidate) => String(candidate.article || '').toLowerCase() === key);
+      const row = summaryRows.find((candidate) => normalizeArticle(String(candidate.article || '')) === key);
       if (!row) {
         items.set(key, { article: key, plan: undefined, fact: undefined, impact: undefined, check: 'Проверьте сопоставимость статьи и полноту данных P&L.', evidence: 'Статья не найдена в текущем наборе данных.' });
         return;
@@ -227,7 +224,7 @@ export default function Analytics() {
         {managementActionItems.length ? <div className="analytics-report-table">
           <div className="analytics-report-head"><span>Рекомендация</span><span>Статус и сверка P&amp;L</span><span>Решение / доказательство</span><span>Действие</span></div>
           {managementActionItems.map((item) => {
-            const key = item.article.toLowerCase();
+            const key = normalizeArticle(item.article);
             const action = actionStates[key] || { status: 'recommended' as const, note: '' };
             const rowComparable = item.plan !== undefined && item.fact !== undefined && item.impact !== undefined;
             const reconciliation = reconcileAnalyticsActionImpact(action.initialImpact, item.impact, rowComparable, action.initialImpactPeriod, scope.period, action.initialImpactArticle, item.article);

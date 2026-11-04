@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, CircleHelp, ClipboardCheck, Play, RotateCcw, ShieldAlert, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,6 +6,7 @@ import { api, ApiError } from '../lib/api';
 import { useScope } from '../lib/useScope';
 import { AskRequestSchema, type AskRequest, type AskResponse } from '../lib/contracts/ask';
 import './ai-quality-lab.css';
+import { uuid } from '../lib/uuid';
 
 type Verdict = 'pass' | 'fail' | 'needs-review';
 type Scenario = { id: string; title: string; prompt: string; goal: string; checks: string[]; needsDocuments?: boolean };
@@ -36,6 +37,7 @@ export default function AIQualityLab(){
  const [runs,setRuns]=useState<Run[]>([]);
  const [busyId,setBusyId]=useState<string|null>(null);
  const [verdicts,setVerdicts]=useState<Record<string,Verdict>>(()=>readVerdicts(key));
+ useEffect(()=>{setVerdicts(readVerdicts(key));setRuns([]);},[key]);
  const [error,setError]=useState('');
  const completed=useMemo(()=>Object.keys(verdicts).length,[verdicts]);
  const runScenario=async(s:Scenario)=>{
@@ -43,14 +45,16 @@ export default function AIQualityLab(){
    const started=Date.now();
    try{
      const body:AskRequest={question:s.prompt,messages:[],scope:{period:scope.period,project_id:scope.projectId??null,branch_id:scope.branchId??null,restaurant_id:scope.restaurantId??null,department_id:scope.departmentId??null}};
-     const request=AskRequestSchema.parse(body);
+     const parsed=AskRequestSchema.safeParse(body);
+     if(!parsed.success) throw new Error('Не удалось проверить параметры запроса. Обновите страницу и повторите попытку.');
+     const request=parsed.data;
      const response=await api.post<AskResponse & {steps?:unknown[];total_ms?:number}>('/ask',request);
      const answer=String(response.answer??response.message??'Ответ не получен.');
-     setRuns(prev=>[{id:crypto.randomUUID(),scenarioId:s.id,prompt:s.prompt,answer,sources:Array.isArray(response.sources)?response.sources:[],tools:Array.isArray(response.tools_used)?response.tools_used:[],model:response.model,durationMs:Date.now()-started,at:new Date().toISOString()},...prev]);
+     setRuns(prev=>[{id:uuid(),scenarioId:s.id,prompt:s.prompt,answer,sources:Array.isArray(response.sources)?response.sources:[],tools:Array.isArray(response.tools_used)?response.tools_used:[],model:response.model,durationMs:Date.now()-started,at:new Date().toISOString()},...prev].slice(0,50));
    }catch(e){const message=e instanceof ApiError?e.message:e instanceof Error?e.message:'Не удалось выполнить проверку.';setError(message);setRuns(prev=>[{id:crypto.randomUUID(),scenarioId:s.id,prompt:s.prompt,answer:'',sources:[],tools:[],durationMs:Date.now()-started,error:message,at:new Date().toISOString()},...prev]);}
    finally{setBusyId(null)}
  };
- const runCustom=async()=>{const prompt=customPrompt.trim();if(!prompt||busyId)return;const custom:Scenario={id:'CUSTOM',title:'Пользовательский запрос',prompt,goal:'Проверьте полноту, точность, источники и честность ответа.',checks:['Задача выполнена напрямую','Факты подтверждены источниками','Нет выдуманных данных']};await runScenario(custom)};
+ const runCustom=async()=>{const prompt=customPrompt.trim();if(!prompt||busyId)return;const custom:Scenario={id:'CUSTOM:'+uuid(),title:'Пользовательский запрос',prompt,goal:'Проверьте полноту, точность, источники и честность ответа.',checks:['Задача выполнена напрямую','Факты подтверждены источниками','Нет выдуманных данных']};await runScenario(custom)};
  const grade=(run:Run,verdict:Verdict)=>{const next={...verdicts,[run.scenarioId]:verdict};setVerdicts(next);if(key){try{localStorage.setItem(key,JSON.stringify(next))}catch{}}setRuns(prev=>prev.map(item=>item.id===run.id?{...item,verdict}:item))};
  const resetGrades=()=>{setVerdicts({});if(key){try{localStorage.removeItem(key)}catch{}}};
  return <div className="page ai-quality-page">
@@ -77,16 +81,16 @@ export default function AIQualityLab(){
   </section>)}</div>
   <section className="panel ai-quality-custom"><h2>Проверить свой запрос</h2><p className="muted">Введите задачу, на которой STEN должен показать конкретный результат. Запрос уйдёт в тот же рабочий API, что и обычный чат.</p><textarea value={customPrompt} onChange={e=>setCustomPrompt(e.target.value)} rows={3} maxLength={8000} placeholder="Например: сравни ФОТ двух ресторанов за выбранный месяц и укажи источники…"/><button className="primary-button" disabled={!customPrompt.trim()||!!busyId} onClick={()=>void runCustom()}><Play size={15}/> Выполнить запрос</button></section>
   {error&&<p role="alert" className="ai-quality-error">{error}</p>}
-  <section className="ai-quality-results"><div className="ai-quality-results-head"><div><span className="eyebrow">ТЕКУЩАЯ СЕССИЯ</span><h2>Результаты проверок</h2></div><span className="muted">{runs.length} запусков</span></div>
+  <section className="ai-quality-results" aria-live="polite" aria-atomic="false"><div className="ai-quality-results-head"><div><span className="eyebrow">ТЕКУЩАЯ СЕССИЯ</span><h2>Результаты проверок</h2></div><span className="muted">{runs.length} запусков</span></div>
    {!runs.length?<div className="ai-quality-empty"><CircleHelp size={22}/><p>Запустите сценарий выше. Ответ появится здесь вместе с источниками и инструментами, которые вернул API.</p></div>:runs.map(run=><article className="ai-quality-result" key={run.id}>
-    <div className="ai-quality-result-head"><div><span className="ai-quality-id">{run.scenarioId}</span><h3>{run.scenarioId==='CUSTOM'?'Пользовательский запрос':scenarios.find(s=>s.id===run.scenarioId)?.title}</h3></div><span className="ai-quality-duration">{run.durationMs} мс</span></div>
+    <div className="ai-quality-result-head"><div><span className="ai-quality-id">{run.scenarioId}</span><h3>{run.scenarioId.startsWith('CUSTOM:')?'Пользовательский запрос':scenarios.find(s=>s.id===run.scenarioId)?.title}</h3></div><span className="ai-quality-duration">{run.durationMs} мс</span></div>
     <p className="ai-quality-question"><strong>Запрос:</strong> {run.prompt}</p>
     {run.error?<div className="ai-quality-error"><XCircle size={16}/>{run.error}</div>:<div className="ai-quality-answer">{run.answer}</div>}
     <div className="ai-quality-meta">{run.model&&<span>Модель: {run.model}</span>}<span>Источников: {run.sources.length}</span><span>Инструментов: {run.tools.length}</span></div>
     {run.tools.length>0&&<div className="ai-quality-evidence"><strong>Инструменты</strong>{run.tools.map((tool,i)=><span key={tool.name+i} className={tool.ok===false?'failed':''}>{tool.name}{typeof tool.ok==='boolean'?(tool.ok?' · успешно':' · ошибка'):''}{typeof tool.ms==='number'?' · '+tool.ms+' мс':''}</span>)}</div>}
     {run.sources.length>0&&<div className="ai-quality-evidence"><strong>Источники API</strong>{run.sources.map((source,i)=><div key={(source.uri||source.title||'source')+i}><b>{source.title||source.uri||'Источник без названия'}</b>{source.kind&&<small>{source.kind}</small>}{source.excerpt&&<p>{source.excerpt}</p>}</div>)}</div>}
     <div className="ai-quality-grading"><span>Ваша оценка</span><button onClick={()=>grade(run,'pass')} className={run.verdict==='pass'?'selected pass':''}><CheckCircle2 size={15}/> Пройдено</button><button onClick={()=>grade(run,'fail')} className={run.verdict==='fail'?'selected fail':''}><XCircle size={15}/> Не пройдено</button><button onClick={()=>grade(run,'needs-review')} className={run.verdict==='needs-review'?'selected review':''}>Нужна проверка</button></div>
-    {run.scenarioId!=='CUSTOM'&&<div className="ai-quality-rubric"><strong>Критерии приёмки</strong>{scenarios.find(s=>s.id===run.scenarioId)?.checks.map(check=><div key={check}><CircleHelp size={13}/>{check}</div>)}</div>}
+    {!run.scenarioId.startsWith('CUSTOM:')&&<div className="ai-quality-rubric"><strong>Критерии приёмки</strong>{scenarios.find(s=>s.id===run.scenarioId)?.checks.map(check=><div key={check}><CircleHelp size={13}/>{check}</div>)}</div>}
    </article>)}
   </section>
   <div className="ai-quality-footer"><p>Оценка — экспертная отметка, не автоматическое доказательство правильности. Для зарплат, мотивации и финансов сверяйте результат с исходным файлом.</p><button className="secondary-button" onClick={resetGrades} disabled={!completed}><RotateCcw size={14}/> Сбросить оценки</button></div>

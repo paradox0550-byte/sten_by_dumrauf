@@ -1,5 +1,6 @@
 import type { Scope } from './scope';
 import { scopeKey } from './scope';
+import { normalizeArticle } from './normalize';
 
 export type AnalyticsActionStatus = 'recommended' | 'accepted' | 'confirmed';
 export type AnalyticsAction = {
@@ -45,7 +46,7 @@ export function readAnalyticsActionStates(
         const initialImpactPeriod = typeof candidate.initialImpactPeriod === 'string' && /^\d{4}-\d{2}$/.test(candidate.initialImpactPeriod) ? candidate.initialImpactPeriod : undefined;
         const initialImpactArticle = typeof candidate.initialImpactArticle === 'string' ? candidate.initialImpactArticle.slice(0, 200) : undefined;
         const resultAmount = typeof candidate.resultAmount === 'number' && Number.isFinite(candidate.resultAmount) && candidate.resultAmount >= 0 ? candidate.resultAmount : undefined;
-        result[key] = { status: candidate.status, note: candidate.note.slice(0, 1000), ...(responsible ? { responsible } : {}), ...(dueDate ? { dueDate } : {}), ...(initialImpact !== undefined ? { initialImpact } : {}), ...(initialImpactPeriod ? { initialImpactPeriod } : {}), ...(initialImpactArticle ? { initialImpactArticle } : {}), ...(resultAmount !== undefined ? { resultAmount } : {}) };
+        result[normalizeArticle(key)] = { status: candidate.status, note: candidate.note.slice(0, 1000), ...(responsible ? { responsible } : {}), ...(dueDate ? { dueDate } : {}), ...(initialImpact !== undefined ? { initialImpact } : {}), ...(initialImpactPeriod ? { initialImpactPeriod } : {}), ...(initialImpactArticle ? { initialImpactArticle } : {}), ...(resultAmount !== undefined ? { resultAmount } : {}) };
       }
     }
     return result;
@@ -89,11 +90,12 @@ export function reconcileAnalyticsActionImpact(
   currentArticle?: string,
 ): AnalyticsActionReconciliation {
   const samePeriod = Boolean(baselinePeriod && currentPeriod && baselinePeriod === currentPeriod);
-  const sameArticle = Boolean(baselineArticle && currentArticle && baselineArticle.trim().toLocaleLowerCase('ru-RU') === currentArticle.trim().toLocaleLowerCase('ru-RU'));
+  const sameArticle = Boolean(baselineArticle && currentArticle && normalizeArticle(baselineArticle) === normalizeArticle(currentArticle));
   if (!hasComparableData || !samePeriod || !sameArticle || initialImpact === undefined || !Number.isFinite(initialImpact) || initialImpact < 0 || currentImpact === undefined || !Number.isFinite(currentImpact)) return { status: 'insufficient_data' };
   const currentExposure = Math.max(0, -currentImpact);
+  const tolerance = 100;
+  if (initialImpact <= tolerance) return { status: 'insufficient_data', currentExposure };
   const change = initialImpact - currentExposure;
-  const tolerance = 1;
   const status = change > tolerance ? 'improved' : change < -tolerance ? 'worsened' : 'unchanged';
   return { status, currentExposure, change };
 }

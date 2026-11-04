@@ -5,7 +5,8 @@ import { api, ApiError } from '../lib/api';
 import { useScope } from '../lib/useScope';
 import { scopeQuery } from '../lib/scope';
 import { formatDeltaPct, formatMoneyAuto, formatPercent } from '../lib/format';
-import { calculateKPISafely, calculateVarianceSignal } from '../lib/financialCalculations';
+import { calculateKPISafely } from '../lib/financialCalculations';
+import { classifyArticleType } from '../lib/articleClassifier';
 import ExecutiveMetric from '../components/ExecutiveMetric';
 import AttentionBlock from '../components/AttentionBlock';
 import './Dashboard.css';
@@ -37,7 +38,8 @@ function attentionItems(rows: PnlRow[]): DeviationItem[] {
     const delta = row.fact - row.plan;
     const deltaPct = row.plan === 0 ? null : delta / Math.abs(row.plan) * 100;
     const severity = (deltaPct !== null && Math.abs(deltaPct) > 10) || Math.abs(delta) > 100000 ? 'high' as const : (deltaPct !== null && Math.abs(deltaPct) > 5) || Math.abs(delta) > 30000 ? 'medium' as const : 'low' as const;
-    const unfavorable = calculateVarianceSignal(row.plan, row.fact) === 'overrun';
+    const articleType = classifyArticleType(row.article);
+    const unfavorable = articleType !== 'unknown' && delta < 0;
     return { article: row.article, plan: row.plan, fact: row.fact, delta, deltaPct, severity, group: unfavorable ? 'critical' as const : 'positive' as const };
   }).filter(item => item.group === 'missing' || item.delta !== 0).sort((a, b) => {
     const order = { critical: 0, missing: 1, positive: 2 };
@@ -82,7 +84,7 @@ export default function Dashboard() {
   const createDeviationTask = async (item: DeviationItem) => {
     setCreatingTask(item.article); setTaskMessage('');
     try {
-      await api.post('/api/secretary/events', { title: 'Разобраться с отклонением по ' + item.article, description: 'Период: ' + scope.period + '. План: ' + (item.plan ?? 'нет данных') + '; факт: ' + (item.fact ?? 'нет данных') + '. Проверьте источник и причину отклонения.', start_at: new Date().toISOString(), event_type: 'task', status: 'planned', reminder_minutes: 30 });
+      await api.post('/api/secretary/events', { title: 'Разобраться с отклонением по ' + item.article, description: 'Период: ' + scope.period + '. План: ' + (item.plan ?? 'нет данных') + '; факт: ' + (item.fact ?? 'нет данных') + '. Проверьте источник и причину отклонения.', start_at: new Date(new Date().setHours(23, 59, 0, 0)).toISOString(), event_type: 'task', status: 'planned', reminder_minutes: 30 });
       setTaskMessage('Задача добавлена в план руководителя.');
     } catch (error) { setTaskMessage(error instanceof Error ? error.message : 'Не удалось создать задачу.'); }
     finally { setCreatingTask(null); }
