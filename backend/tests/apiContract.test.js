@@ -153,6 +153,9 @@ test('frontend API host, Gateway integration targets, and backend CORS contract 
   const converterFunction = markitdown.match(/function_id:\s*([A-Za-z0-9_-]+)/)?.[1];
   assert.ok(converterFunction, 'MarkItDown must have its own function binding.');
   assert.notEqual(converterFunction, backendFunction, 'MarkItDown must not be routed to the main backend function.');
+  assert.equal(markitdown.match(/tag:\\s*(\\S+)/)?.[1], '$latest');
+  assert.ok(deployment.includes(backendFunction), 'Deployment passport must record the backend function ID from Gateway config.');
+  assert.ok(deployment.includes(converterFunction), 'Deployment passport must record the separate MarkItDown function ID from Gateway config.');
 
   assert.match(backend, /Access-Control-Allow-Methods',\s*'GET, POST, PUT, PATCH, DELETE, OPTIONS'/u);
   assert.match(backend, /Access-Control-Allow-Headers',\s*'Authorization, Content-Type, X-Request-ID'/u);
