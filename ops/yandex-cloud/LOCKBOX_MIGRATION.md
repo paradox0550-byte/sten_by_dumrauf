@@ -21,7 +21,7 @@
 | `TELEGRAM_BOT_TOKEN` | bot token | сохранить webhook/bot continuity |
 | `TELEGRAM_MONITOR_BOT_TOKEN` | bot token | только если отдельный monitor bot реально используется |
 | `TELEGRAM_WEBHOOK_SECRET` | webhook secret | сохранить точное значение, которым настроен Telegram webhook |
-| `MARKITDOWN_TOKEN` | shared secret | только после включения MarkItDown |
+| `MARKITDOWN_TOKEN` | shared secret | один и тот же Lockbox-backed secret привязать к Node Backend и Python converter; не включать интеграцию до проверки обеих привязок |
 | `IIKO_CREDENTIALS_ENCRYPTION_KEY` | encryption key | не менять без подтверждения дешифрования существующих credentials |
 | `WHATSAPP_APP_SECRET` | app secret | только если WhatsApp inbound включён |
 | `WHATSAPP_ACCESS_TOKEN` | access token | только если WhatsApp outbound включён |
