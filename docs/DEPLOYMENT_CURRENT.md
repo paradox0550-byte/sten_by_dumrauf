@@ -50,6 +50,17 @@ Do not deploy only `backend/index.js`: it imports runtime modules from `backend/
 6. Update API Gateway from the canonical root `api-gateway.yaml` only after confirming the function version and integration target.
 7. Run the smoke checks in `docs/smoke-backend.md`. Do not treat an HTTP 200 from `/healthz` alone as proof that every dependency and business route works.
 
+## Shared FOT database prerequisite
+
+The new shared FOT endpoints require the reviewed SQL migration `backend/migrations/20261104_fot_shared_persistence.sql`. Before publishing backend 5.4.1 with these routes:
+
+1. Verify the active PostgreSQL cluster and take a backup / recovery point.
+2. Apply the migration manually using the steps in `backend/migrations/README.md`.
+3. Verify all three FOT tables and their indexes exist.
+4. After backend publication, run scoped read/write/readback and cross-restaurant access tests.
+
+The migration is not executed by backend startup. Do not deploy the frontend feature against a database where the migration has not been applied. No migration or cloud change was performed by this repository task.
+
 ## Required release gate
 
 - Backend tests pass.
