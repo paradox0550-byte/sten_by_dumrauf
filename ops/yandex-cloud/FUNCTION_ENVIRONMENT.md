@@ -45,9 +45,9 @@
 | `ADMIN_BOOTSTRAP_PASSWORD` | Lockbox secret | только временный bootstrap; после проверки учётной записи удалить |
 | `ADMIN_BOOTSTRAP_FORCE` | config | `false`; не запускать принудительный bootstrap на production |
 | `IIKO_CREDENTIALS_ENCRYPTION_KEY` | Lockbox secret | сохранить точное существующее значение, если в БД есть зашифрованные iiko credentials; не ротировать без миграции |
-| `MARKITDOWN_URL` | config | только после проверки отдельной функции и маршрута |
+| `MARKITDOWN_URL` | config | кандидатное значение после импорта spec: `https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net/markitdown/convert`; включать только после теста отдельной функции и Gateway route |
 | `MARKITDOWN_TOKEN` | Lockbox secret | если включена token authentication |
-| `MARKITDOWN_ENABLED` | config | `false`, пока интеграция не прошла тест |
+| `MARKITDOWN_ENABLED` | config | сначала `false`; переключить в `true` только после end-to-end проверки |
 | `MARKITDOWN_TIMEOUT_MS` | config | `60000` |
 | `TELEGRAM_BOT_TOKEN` | Lockbox secret | действующий токен основного бота |
 | `TELEGRAM_MONITOR_BOT_TOKEN` | Lockbox secret | только если используется отдельный бот мониторинга |
