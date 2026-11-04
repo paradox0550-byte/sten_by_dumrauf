@@ -28,93 +28,19 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
-      - name: Install locked backend dependencies
-        run: npm ci --prefix backend --ignore-scripts
-
-      - name: Validate backend tests
-        run: npm test --prefix backend
-
-      - name: Validate entrypoint syntax
-        run: node --check backend/index.js
-
-      - name: Setup Python 3.12 for MarkItDown validation
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Validate MarkItDown converter source
-        run: |
-          set -euo pipefail
-          test -f backend/markitdown/function.py
-          test -f backend/markitdown/requirements.txt
-          grep -qx 'markitdown[all]==0.1.8' backend/markitdown/requirements.txt
-          python -m py_compile backend/markitdown/function.py
-
-      - name: Build source archive with function files at ZIP root
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f backend/index.js
-          test -f backend/package.json
-          test -f backend/package-lock.json
-          package_version="$(node -p "require('./backend/package.json').version")"
-          test "$package_version" = "5.4.1"
-
-          mkdir -p dist/function
-          tar -C backend \
-            --exclude='./node_modules' \
-            --exclude='./tests' \
-            --exclude='./markitdown' \
-            -cf - . | tar -C dist/function -xf -
-
-          test -f dist/function/index.js
-          test -f dist/function/package.json
-          test -f dist/function/package-lock.json
-          test ! -e dist/function/markitdown
-          test ! -e dist/function/node_modules
-
-          archive="sten-backend-node22-${GITHUB_SHA}.zip"
-          (cd dist/function && zip -qr "../$archive" .)
-          sha256sum "dist/$archive" > "dist/$archive.sha256"
-
-          mkdir -p dist/markitdown
-          cp backend/markitdown/function.py backend/markitdown/requirements.txt dist/markitdown/
-          converter_archive="sten-markitdown-python312-${GITHUB_SHA}.zip"
-          (cd dist/markitdown && zip -qr "../$converter_archive" .)
-          sha256sum "dist/$converter_archive" > "dist/$converter_archive.sha256"
-
-          {
-            echo "product=STEN Backend"
-            echo "package_version=$package_version"
-            echo "runtime=nodejs22"
-            echo "entrypoint=index.handler"
-            echo "source_commit=$GITHUB_SHA"
-            echo "source_ref=$GITHUB_REF"
-            echo "function_id=d4epijnhj7h9sd5ppa66"
-            echo "gateway_id=d5d5p4eof6ra03bsva7a"
-            echo "archive=$archive"
-            echo "archive_sha256=$(cut -d ' ' -f 1 "dist/$archive.sha256")"
-            echo "built_at_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            echo "contains_node_modules=false"
-            echo "contains_python_markitdown=false"
-            echo "secrets_included=false"
-            echo "markitdown_function_id=d4e4ai8895c3kq3b0ds5"
-            echo "markitdown_runtime=python312"
-            echo "markitdown_entrypoint=function.handler"
-            echo "markitdown_engine_version=0.1.8"
-            echo "markitdown_archive=$converter_archive"
-            echo "markitdown_archive_sha256=$(cut -d ' ' -f 1 "dist/$converter_archive.sha256")"
-          } > dist/release-manifest.txt
+      - name: Build both manual function archives
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+          SOURCE_REF: ${{ github.ref }}
+        run: bash ops/yandex-cloud/package-manual.sh
 
       - name: Upload manual release package
         uses: actions/upload-artifact@v4
         with:
           name: sten-yandex-backend
           path: |
-            dist/sten-backend-node22-*.zip
-            dist/sten-backend-node22-*.zip.sha256
-            dist/sten-markitdown-python312-*.zip
-            dist/sten-markitdown-python312-*.zip.sha256
-            dist/release-manifest.txt
+            release-artifacts/yandex-cloud/*.zip
+            release-artifacts/yandex-cloud/*.sha256
+            release-artifacts/yandex-cloud/release-manifest.txt
           if-no-files-found: error
           retention-days: 14
