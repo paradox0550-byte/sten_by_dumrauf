@@ -220,8 +220,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         <div className="sidebar-bottom">
           <div className="sidebar-profile">
-            <div className="avatar">{name.slice(0, 1)}</div>
-            <div className="sidebar-profile-copy" title={name}><b>{name}</b></div>
+            <button className="sidebar-profile-link" type="button" onClick={() => navigate('/settings#settings-profile')} aria-label="Открыть профиль">
+              <div className="avatar">{name.slice(0, 1)}</div>
+              <div className="sidebar-profile-copy" title={name}><b>{name}</b></div>
+            </button>
             <button className="sidebar-logout" type="button" onClick={() => { signOut(); navigate('/unlock', { replace: true }); }} aria-label="Выйти из аккаунта" title="Выйти из аккаунта">
               <LogOut size={16} />
             </button>
