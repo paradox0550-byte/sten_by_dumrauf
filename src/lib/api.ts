@@ -1,4 +1,5 @@
 import type { Memory, MemoryCreatePayload, MemoryFilters, MemoryListResponse, MemoryConfidence } from './contracts/memory';
+import { uuid } from './uuid';
 
 export const AUTH_EXPIRED_EVENT = 'sten-auth-expired';
 const SERVICE_UNAVAILABLE_EVENT = 'sten-service-unavailable';
@@ -98,7 +99,7 @@ async function req<T>(
   body?: unknown,
   opts: RequestOptions = {},
 ): Promise<T> {
-  const id = globalThis.crypto?.randomUUID?.() ?? String(Date.now());
+  const id = uuid();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'X-Request-ID': id,
