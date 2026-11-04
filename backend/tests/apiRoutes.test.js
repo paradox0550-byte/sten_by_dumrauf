@@ -50,3 +50,14 @@ test('operational control and Telegram Monitor routes are registered', async () 
     assert.equal(payload.error?.code, 'UNAUTHORIZED');
   }
 });
+
+test('manual message ingestion requires authentication while webhook payloads use their own signatures', async () => {
+  const response = await fetch(baseUrl + '/api/ingest/message', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: 'Проверьте поставку' }),
+  });
+  assert.equal(response.status, 401);
+  const payload = await response.json();
+  assert.equal(payload.error, 'authentication_required');
+});
