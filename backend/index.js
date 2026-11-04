@@ -786,8 +786,12 @@ function normalizeSkillConfig(raw) {
   for (const key of SKILL_KEYS_READ_BY_PROMPT) {
     if (Object.prototype.hasOwnProperty.call(source, key)) allowed[key] = source[key];
   }
-  // Новое поле имеет приоритет; не допускаем конфликт legacy-настройки.
-  if (allowed.includeCapexWarning !== undefined) delete allowed.excludeCapex;
+  // Public API speaks includeCapexWarning; the prompt builder consumes legacy excludeCapex.
+  // Translate explicitly so a false warning flag does not silently become "include".
+  if (allowed.includeCapexWarning !== undefined) {
+    allowed.excludeCapex = !allowed.includeCapexWarning;
+    delete allowed.includeCapexWarning;
+  }
   const parsed = AiSkillsSchema.safeParse(allowed);
   return parsed.success ? parsed.data : {};
 }

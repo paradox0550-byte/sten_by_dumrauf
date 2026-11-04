@@ -77,8 +77,14 @@ describe('management action P&L reconciliation', () => {
   it('marks a larger adverse deviation as worsened', () => {
     expect(reconcileAnalyticsActionImpact(100000, -120000, true, '2026-10', '2026-10', 'Себестоимость', 'Себестоимость')).toEqual({ status: 'worsened', currentExposure: 120000, change: -20000 });
   });
-  it('uses a one-ruble tolerance for rounding noise', () => {
-    expect(reconcileAnalyticsActionImpact(100000, -100000.5, true, '2026-10', '2026-10', 'Себестоимость', 'Себестоимость').status).toBe('unchanged');
+  it('uses a practical 100-ruble tolerance for rounding noise', () => {
+    expect(reconcileAnalyticsActionImpact(100000, -100050, true, '2026-10', '2026-10', 'Себестоимость', 'Себестоимость').status).toBe('unchanged');
+  });
+  it('normalizes ё and е when comparing the same article', () => {
+    expect(reconcileAnalyticsActionImpact(100000, -50000, true, '2026-10', '2026-10', 'Ёмкость', 'Емкость').status).toBe('improved');
+  });
+  it('does not call a zero baseline worsened when no adverse deviation existed', () => {
+    expect(reconcileAnalyticsActionImpact(0, -5000, true, '2026-10', '2026-10', 'Себестоимость', 'Себестоимость').status).toBe('insufficient_data');
   });
   it('refuses to compare a different period or a different article label', () => {
     expect(reconcileAnalyticsActionImpact(100000, -50000, true, '2026-09', '2026-10', 'Себестоимость', 'Себестоимость').status).toBe('insufficient_data');

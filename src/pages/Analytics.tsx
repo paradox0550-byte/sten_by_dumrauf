@@ -101,7 +101,7 @@ export default function Analytics() {
         return;
       }
       const plan = finite(row.plan), fact = finite(row.fact);
-      const type = classifyFinancialRow(String(row.article || ''));
+      const type = classifyArticleType(String(row.article || ''));
       const difference = plan !== undefined && fact !== undefined ? fact - plan : undefined;
       const impact = difference === undefined ? undefined : type === 'revenue' ? difference : type === 'expense' ? -difference : undefined;
       items.set(key, { article: String(row.article || key), plan, fact, impact, check: 'Сверьте статью, период и первичные документы до оценки результата.', evidence: 'Сопоставление возможно только по этой статье в выбранном периоде.' });

@@ -8,6 +8,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth, type User } from '../contexts/AuthContext';
 import { hasScopeId, scopeQuery } from '../lib/scope';
 import { buildAiChatKey } from '../lib/aiChatKey';
+import { uuid } from '../lib/uuid';
 import { AskRequestSchema, type AskRequest, type AskResponse, type AskSource } from '../lib/contracts/ask';
 import { AppearanceProvider, useAppearanceContext } from '../features/chat-appearance/AppearanceContext';
 import { ChatBackground } from '../features/chat-appearance/ChatBackground';
@@ -205,7 +206,7 @@ function AIContent({user}:{user:User|null}){
  useEffect(()=>{askSeqRef.current+=1;setBusy(false)},[scope.period,scope.projectId,scope.branchId,scope.restaurantId,scope.departmentId]);
 
  function appendLocalAssistant(answer:string){
-   setMessages(current=>[...current,{id:crypto.randomUUID(),role:'assistant',text:answer,createdAt:new Date().toISOString()}]);
+   setMessages(current=>[...current,{id:uuid(),role:'assistant',text:answer,createdAt:new Date().toISOString()}]);
    if(voiceModeRef.current||voiceAutoplayRef.current)speakAnswer(answer);
  }
  async function confirmMeeting(draft:MeetingDraft){
@@ -263,7 +264,7 @@ function AIContent({user}:{user:User|null}){
    if(!text||busy)return;
    const requestId=++askSeqRef.current;
    setPrompt('');
-   const nextMsgs=[...messages,{id:crypto.randomUUID(),role:'user' as const,text,createdAt:new Date().toISOString()}];
+   const nextMsgs=[...messages,{id:uuid(),role:'user' as const,text,createdAt:new Date().toISOString()}];
    shouldAutoScrollRef.current=true;
    setMessages(nextMsgs);
    setBusy(true);
@@ -292,7 +293,7 @@ function AIContent({user}:{user:User|null}){
      if(requestId!==askSeqRef.current)return;
      const p = r;
      const answer=String(p.answer??p.message??'Ответ не получен.');
-     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:answer,sources:Array.isArray(p.sources)?p.sources:[],steps:Array.isArray(p.steps)?p.steps:undefined,totalMs:typeof p.total_ms==='number'?p.total_ms:undefined,proposedMemory:Array.isArray(p.proposed_memory)?p.proposed_memory:p.proposed_memory===null?null:undefined,model:typeof p.model==='string'?p.model:undefined,toolsUsed:Array.isArray(p.tools_used)?p.tools_used.map(t=>({name:t.name,ok:t.ok,ms:t.ms})):p.tools_used===null?null:undefined,agent:p.agent&&typeof p.agent.id==='string'&&typeof p.agent.name==='string'?{id:p.agent.id,name:p.agent.name}:undefined,createdAt:new Date().toISOString()}]);
+     setMessages(m=>[...m,{id:uuid(),role:'assistant',text:answer,sources:Array.isArray(p.sources)?p.sources:[],steps:Array.isArray(p.steps)?p.steps:undefined,totalMs:typeof p.total_ms==='number'?p.total_ms:undefined,proposedMemory:Array.isArray(p.proposed_memory)?p.proposed_memory:p.proposed_memory===null?null:undefined,model:typeof p.model==='string'?p.model:undefined,toolsUsed:Array.isArray(p.tools_used)?p.tools_used.map(t=>({name:t.name,ok:t.ok,ms:t.ms})):p.tools_used===null?null:undefined,agent:p.agent&&typeof p.agent.id==='string'&&typeof p.agent.name==='string'?{id:p.agent.id,name:p.agent.name}:undefined,createdAt:new Date().toISOString()}]);
      if(voiceModeRef.current||voiceAutoplayRef.current)speakAnswer(answer);
    }catch(e){
      if(requestId!==askSeqRef.current)return;
@@ -308,7 +309,7 @@ function AIContent({user}:{user:User|null}){
        : e instanceof ApiError && e.status === 502
          ? `AI вернул ошибку. Код: ${e.code}. ID запроса: ${e.requestId||'не указан'}.`
          : e instanceof Error ? e.message : 'Не удалось получить ответ.';
-     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:message,createdAt:new Date().toISOString()}]);
+     setMessages(m=>[...m,{id:uuid(),role:'assistant',text:message,createdAt:new Date().toISOString()}]);
      if(voiceModeRef.current){setVoiceState('idle');finalTranscriptRef.current='';window.setTimeout(()=>{if(voiceModeRef.current&&!speechRef.current)startRecognition()},350)}
    }finally{if(requestId===askSeqRef.current)setBusy(false)}
  }
@@ -321,26 +322,26 @@ function AIContent({user}:{user:User|null}){
    try{
      for(const f of Array.from(list).slice(0,6)){
        const ext=f.name.split('.').pop()?.toLowerCase();
-       if(!ext||!supported.has(ext)){setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:'Формат «.'+(ext||'?')+'» не поддерживается.',createdAt:new Date().toISOString()}]);continue}
+       if(!ext||!supported.has(ext)){setMessages(m=>[...m,{id:uuid(),role:'assistant',text:'Формат «.'+(ext||'?')+'» не поддерживается.',createdAt:new Date().toISOString()}]);continue}
        if(f.size>MAX_DOC_BYTES)throw new Error(f.name+': файл больше 15 МБ');
        await api.post('/ai/documents/upload',{name:f.name,mimeType:f.type||'application/octet-stream',dataBase64:await to64(f)},{timeoutMs:UPLOAD_TIMEOUT_MS});
      }
      await load();
    }catch(e){
-     setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Файл не обработан.',createdAt:new Date().toISOString()}]);
+     setMessages(m=>[...m,{id:uuid(),role:'assistant',text:e instanceof Error?e.message:'Файл не обработан.',createdAt:new Date().toISOString()}]);
    }finally{setUpload(false)}
  }
 
  async function showPreview(d:Doc){
    setPreviewBusy(true);
    try{const r=await api.get<DocPreview>('/ai/documents/'+d.id+'/preview');setPreviewDoc((r as any)?.data??r)}
-   catch(e){setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось открыть содержимое документа.',createdAt:new Date().toISOString()}])}
+   catch(e){setMessages(m=>[...m,{id:uuid(),role:'assistant',text:e instanceof Error?e.message:'Не удалось открыть содержимое документа.',createdAt:new Date().toISOString()}])}
    finally{setPreviewBusy(false)}
  }
 
  async function removeDoc(d:Doc){
    try{await api.delete('/ai/documents/'+d.id);await load()}
-   catch(e){setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:e instanceof Error?e.message:'Не удалось удалить документ.',createdAt:new Date().toISOString()}])}
+   catch(e){setMessages(m=>[...m,{id:uuid(),role:'assistant',text:e instanceof Error?e.message:'Не удалось удалить документ.',createdAt:new Date().toISOString()}])}
  }
 
  function stopSpeech(){

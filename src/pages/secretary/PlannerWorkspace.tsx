@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { api } from '../../lib/api';
+import { uuid } from '../../lib/uuid';
 import { CalendarDays, ChevronLeft, ChevronRight, HeartPulse, Plus, StickyNote, Target, Trash2, TrendingUp } from 'lucide-react';
 import './planner.css';
 
@@ -133,7 +134,7 @@ export function HabitTracker() {
   const stats=state.habits.map(h=>{const elapsed=keys.filter(k=>k<=today&&(!h.createdAt||k>=h.createdAt)).length;const count=keys.filter(k=>k<=today&&(!h.createdAt||k>=h.createdAt)&&(state.records[k]?.done||[]).includes(h.id)).length;return {...h,count,rate:elapsed?count/elapsed*100:0};}).sort((a,b)=>b.rate-a.rate);
   const daily=keys.map(k=>{const active=state.habits.filter(h=>k<=today&&(!h.createdAt||k>=h.createdAt));const count=active.filter(h=>(state.records[k]?.done||[]).includes(h.id)).length;return {key:k,day:fromKey(k).getDate(),rate:active.length?count/active.length*100:-1};});
   function updateRecord(k:string,patch:Partial<RecordDay>){setState(current=>({...current,records:{...current.records,[k]:{...(current.records[k]||{}),done:current.records[k]?.done||[],...patch}}}));}
-  function addHabit(e:React.FormEvent){e.preventDefault();const name=habitName.trim();if(!name)return;if(state.habits.some(h=>h.name.toLowerCase()===name.toLowerCase())){setError('Такая привычка уже есть.');return;}setState(current=>({...current,habits:[...current.habits,{id:window.crypto?.randomUUID?.()||String(Date.now()),name,createdAt:today}]}));setHabitName('');setError('');}
+  function addHabit(e:React.FormEvent){e.preventDefault();const name=habitName.trim();if(!name)return;if(state.habits.some(h=>h.name.toLowerCase()===name.toLowerCase())){setError('Такая привычка уже есть.');return;}setState(current=>({...current,habits:[...current.habits,{id:uuid(),name,createdAt:today}]}));setHabitName('');setError('');}
   function toggle(k:string,id:string){const list=state.records[k]?.done||[];updateRecord(k,{done:list.includes(id)?list.filter(v=>v!==id):[...list,id]});}
   function removeHabit(id:string){if(!window.confirm('Удалить привычку и все её отметки?'))return;setState(current=>({habits:current.habits.filter(h=>h.id!==id),records:Object.fromEntries(Object.entries(current.records).map(([k,r])=>[k,{...r,done:r.done.filter(v=>v!==id)}]))}));}
   const scored=keys.filter(k=>state.records[k]?.mood||state.records[k]?.motivation).map(k=>({key:k,mood:state.records[k]?.mood,motivation:state.records[k]?.motivation}));

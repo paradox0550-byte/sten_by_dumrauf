@@ -15,5 +15,9 @@ module.exports = {
     '@typescript-eslint/no-explicit-any': 'off',
     '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrors: 'none' }],
     'no-empty': ['error', { allowEmptyCatch: true }],
+    'no-restricted-syntax': ['error', {
+      selector: 'JSXAttribute[name.name="href"][value.type="Literal"][value.value=/^#\\//]',
+      message: 'Use React Router Link/to instead of hash-based navigation in BrowserRouter.',
+    }],
   },
 };
