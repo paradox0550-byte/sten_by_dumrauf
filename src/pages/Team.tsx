@@ -57,7 +57,7 @@ export default function Team() {
   const [customPositions, setCustomPositions] = useState<CustomPositionMap>({});
   const [planLoadedFor, setPlanLoadedFor] = useState('');
   const [planBaseline, setPlanBaseline] = useState('');
-  const [planSaveState, setPlanSaveState] = useState<'loading' | 'saved' | 'saving' | 'error'>('loading');
+  const [planSaveState, setPlanSaveState] = useState<'loading' | 'ready' | 'saved' | 'saving' | 'error'>('loading');
   const [planSaveError, setPlanSaveError] = useState('');
   const [customDepartment, setCustomDepartment] = useState<string>(CUSTOM_DEPARTMENT_OPTIONS[0]);
   const [customPositionName, setCustomPositionName] = useState('');
@@ -104,7 +104,7 @@ export default function Team() {
         const snapshot = JSON.stringify({ plan: nextPlan, customPositions: nextCustomMap });
         setPlanBaseline(snapshot);
         setPlanLoadedFor(planStorageKey);
-        setPlanSaveState('saved');
+        setPlanSaveState(shouldMigrate || remote.updatedAt ? 'saved' : 'ready');
       } catch (error) {
         if (cancelled) return;
         const legacyPlan = readPositionPlan(planStorageKey);
@@ -324,7 +324,7 @@ export default function Team() {
     </section>
 
     <section className="fot-section">
-      <div className="fot-section-heading"><div><span className="eyebrow">ПЛАНИРОВАНИЕ ШТАТА</span><h2>Штат, часы и прогноз стоимости</h2><p>Заполните план по должностям. STEN рассчитает штатную численность, месячные часы и прогноз ФОТ только по строкам с тремя введёнными параметрами.</p></div><div className="fot-planner-heading-actions"><span className="fot-source-tag">{planSaveState === 'loading' ? 'Загрузка общего плана…' : planSaveState === 'saving' ? 'Сохранение…' : planSaveState === 'error' ? 'Не сохранено' : 'Общий план · сохранено'}</span><button type="button" className="secondary-button" onClick={exportPositionPlan}><Download size={14} /> Экспорт плана CSV</button></div></div>
+      <div className="fot-section-heading"><div><span className="eyebrow">ПЛАНИРОВАНИЕ ШТАТА</span><h2>Штат, часы и прогноз стоимости</h2><p>Заполните план по должностям. STEN рассчитает штатную численность, месячные часы и прогноз ФОТ только по строкам с тремя введёнными параметрами.</p></div><div className="fot-planner-heading-actions"><span className="fot-source-tag">{planSaveState === 'loading' ? 'Загрузка общего плана…' : planSaveState === 'saving' ? 'Сохранение…' : planSaveState === 'error' ? 'Не сохранено' : planSaveState === 'ready' ? 'Общий план' : 'Общий план · сохранено'}</span><button type="button" className="secondary-button" onClick={exportPositionPlan}><Download size={14} /> Экспорт плана CSV</button></div></div>
       <div className="fot-planner-summary">
         <article><small>Плановая численность, ставки</small><strong>{fmt(plannedHeadcount)}</strong></article>
         <article><small>План часов за месяц</small><strong>{fmt(plannedHours)}</strong></article>
