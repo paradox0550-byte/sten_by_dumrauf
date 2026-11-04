@@ -22,13 +22,15 @@ It is not a copy of the current Yandex Cloud environment. Secret values must nev
 | `DB_SSL_ALLOW_INSECURE` | config | Must remain unset or `false` in production. Do not use as a deployment workaround. |
 | `YC_FOLDER_ID` | config | Yandex Cloud folder used to resolve the YandexGPT model URI. |
 | `YANDEXGPT_API_KEY` | secret | YandexGPT API key. |
-| `OBJECT_STORAGE_BUCKET` | config | Backend bucket for uploaded documents. |
+| `OBJECT_STORAGE_BUCKET` | config | Private backend bucket for uploaded documents. Never point this at the public website bucket. |
 | `OBJECT_STORAGE_ENDPOINT` | config | S3-compatible Object Storage endpoint; defaults to Yandex Object Storage. |
 | `AWS_ACCESS_KEY_ID` | secret | S3-compatible access key when static credentials are used. |
 | `AWS_SECRET_ACCESS_KEY` | secret | S3-compatible secret key when static credentials are used. |
 | `GOOGLE_CLIENT_ID` | config | Expected Google OAuth audience for server-side token validation. Must match frontend `VITE_GOOGLE_CLIENT_ID`. |
 
 **TLS rule:** do not set `DB_SSL_ALLOW_INSECURE=true` in production. Do not disable certificate verification to make a deployment pass. If the CA is absent, the backend must fail closed.
+
+**Storage boundary:** `OBJECT_STORAGE_BUCKET` must reference a private data bucket with anonymous read/list disabled. Do not use `smenavkarmane-business` if it remains the public frontend bucket. Confirm the private bucket and its IAM permissions before creating the new function version.
 
 ## Feature-specific secrets
 
