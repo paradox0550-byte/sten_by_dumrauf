@@ -142,6 +142,16 @@ export default function FotScheduleImport({ period, historyScope = 'all', scope 
         let records = Array.isArray(remote.records) ? remote.records : [];
         const legacy = readFotHistory().filter(record => record.scopeKey === historyScope);
         const existing = new Set(records.map(record => record.period));
+        const remoteByPeriod = new Map(records.map(record => [record.period, record]));
+        const conflicts = legacy.filter(record => {
+          const server = remoteByPeriod.get(record.period);
+          return Boolean(server && (
+            server.fileName !== record.fileName ||
+            server.normHours !== record.normHours ||
+            server.ndfl !== record.ndfl ||
+            new Date(server.savedAt).getTime() !== new Date(record.savedAt).getTime()
+          ));
+        });
         const missingLegacy = legacy.filter(record => !existing.has(record.period));
         for (const record of missingLegacy) {
           await api.put('/api/fot/schedule-history', {
@@ -162,7 +172,10 @@ export default function FotScheduleImport({ period, historyScope = 'all', scope 
         }
         if (!cancelled) {
           setHistory(records.map(record => ({ ...record, scopeKey: historyScope })));
-          setHistoryWarning(missingLegacy.length ? 'Старые расчёты из этого браузера перенесены в общую историю.' : '');
+          setHistoryWarning([
+            missingLegacy.length ? 'Старые расчёты из этого браузера перенесены в общую историю.' : '',
+            conflicts.length ? `${conflicts.length} локальных версий за уже занятые периоды не перезаписаны: сохранена общая версия сервера.` : '',
+          ].filter(Boolean).join(' '));
         }
       } catch (error) {
         if (!cancelled) {
