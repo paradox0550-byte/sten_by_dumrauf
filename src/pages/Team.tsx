@@ -52,6 +52,7 @@ export default function Team() {
   const { user } = useAuth();
   const planStorageKey = 'sten_fot_plan_v1:' + [user?.organizationId || 'no-org', user?.id || 'no-user', scope.period, scope.projectId || 'all-projects', scope.branchId || 'all-branches', scope.restaurantId || 'all-restaurants', scope.departmentId || 'all-departments'].join(':');
   const customStorageKey = 'sten_fot_custom_positions_v1:' + [user?.organizationId || 'no-org', user?.id || 'no-user', scope.projectId || 'all-projects', scope.branchId || 'all-branches', scope.restaurantId || 'all-restaurants', scope.departmentId || 'all-departments'].join(':');
+  const planScope = useMemo(() => ({ period: planScope.period, projectId: scope.projectId, branchId: scope.branchId, restaurantId: scope.restaurantId, departmentId: scope.departmentId }), [scope.period, scope.projectId, scope.branchId, scope.restaurantId, scope.departmentId]);
   const [positionPlan, setPositionPlan] = useState<PositionPlanMap>({});
   const [customPositions, setCustomPositions] = useState<CustomPositionMap>({});
   const [planLoadedFor, setPlanLoadedFor] = useState('');
@@ -69,7 +70,7 @@ export default function Team() {
     setPlanSaveError('');
     const loadPlan = async () => {
       try {
-        const remote = await api.get<{ period: string; plan: PositionPlanMap; customPositions: CustomPosition[]; updatedAt: string | null }>('/api/fot/staffing-plan?' + scopeQuery(scope));
+        const remote = await api.get<{ period: string; plan: PositionPlanMap; customPositions: CustomPosition[]; updatedAt: string | null }>('/api/fot/staffing-plan?' + scopeQuery(planScope));
         const remotePlan = remote.plan && typeof remote.plan === 'object' ? remote.plan : {};
         const remoteCustom = Array.isArray(remote.customPositions) ? remote.customPositions : [];
         const legacyPlan = readPositionPlan(planStorageKey);
@@ -89,7 +90,7 @@ export default function Team() {
           nextCustom = remoteCustom.length ? remoteCustom : Object.values(legacyCustom);
           const migrated = await api.put<{ plan: PositionPlanMap; customPositions: CustomPosition[] }>('/api/fot/staffing-plan', {
             period: scope.period,
-            scope: { project_id: scope.projectId || null, branch_id: scope.branchId || null, restaurant_id: scope.restaurantId || null, department_id: scope.departmentId || null },
+            scope: { project_id: planScope.projectId || null, branch_id: planScope.branchId || null, restaurant_id: planScope.restaurantId || null, department_id: planScope.departmentId || null },
             plan: nextPlan,
             customPositions: nextCustom,
           });
@@ -120,7 +121,7 @@ export default function Team() {
     };
     void loadPlan();
     return () => { cancelled = true; };
-  }, [planStorageKey, customStorageKey, scope.period, scope.projectId, scope.branchId, scope.restaurantId, scope.departmentId]);
+  }, [planStorageKey, customStorageKey, planScope]);
 
   useEffect(() => {
     if (planLoadedFor !== planStorageKey) return;
@@ -144,7 +145,7 @@ export default function Team() {
       }
     }, 650);
     return () => window.clearTimeout(timer);
-  }, [planLoadedFor, planStorageKey, planBaseline, positionPlan, customPositions, scope.period, scope.projectId, scope.branchId, scope.restaurantId, scope.departmentId]);
+  }, [planLoadedFor, planStorageKey, planBaseline, positionPlan, customPositions, planScope]);
   const [records, setRecords] = useState<PayrollRecord[]>([]);
   const [pnl, setPnl] = useState<Pnl | null>(null);
   const [loading, setLoading] = useState(true);
