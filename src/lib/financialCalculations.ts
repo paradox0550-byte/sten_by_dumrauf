@@ -28,6 +28,31 @@ export function calculateVarianceSignal(
 }
 
 /**
+ * Classifies a P&L row without assuming that every expense uses the same
+ * sign convention. Mixed-sign and unknown rows are deliberately unclassified.
+ */
+export function calculatePnlVarianceSignal(
+  plan: number | null | undefined,
+  fact: number | null | undefined,
+  kind: 'revenue' | 'expense' | 'unknown',
+): 'overrun' | 'saving' | 'neutral' | 'insufficient_data' {
+  if (!finite(plan) || !finite(fact)) return 'insufficient_data';
+  const delta = fact - plan;
+  if (delta === 0) return 'neutral';
+
+  if (kind === 'revenue') {
+    if (plan < 0 || fact < 0) return 'insufficient_data';
+    return delta < 0 ? 'overrun' : 'saving';
+  }
+
+  if (kind === 'expense') {
+    if (plan >= 0 && fact >= 0) return delta > 0 ? 'overrun' : 'saving';
+    if (plan <= 0 && fact <= 0) return delta < 0 ? 'overrun' : 'saving';
+  }
+  return 'insufficient_data';
+}
+
+/**
  * Returns a non-negative KPI percentage, or null when inputs are missing,
  * non-finite, or revenue/denominator is not positive.
  * Absolute numerator supports STEN's signed-negative expense convention.
