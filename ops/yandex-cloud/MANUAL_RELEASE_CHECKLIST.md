@@ -51,7 +51,6 @@
 - [ ] TLS использует Yandex CA и hostname verification.
 - [ ] Выполнен только read-only запрос `SELECT 1`.
 - [ ] Не запускались миграции и DDL.
-- [ ] Не включался старый кластер.
 
 ## Этап 4. API Gateway
 
