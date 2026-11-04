@@ -1,0 +1,49 @@
+name: Temporary Vitest 5 compatibility verification
+
+on:
+  pull_request:
+    branches: [fix/security-zod-2026-11]
+
+permissions:
+  contents: read
+
+jobs:
+  generate-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Inspect Vitest peer compatibility
+        run: |
+          npm view vitest@5.1.0 peerDependencies
+          npm view @vitest/coverage-v8@5.1.0 peerDependencies
+      - name: Generate Vitest 5 lock patch
+        run: |
+          cp package-lock.json /tmp/package-lock.before.json
+          npm install --save-exact -D vitest@5.1.0 @vitest/coverage-v8@5.1.0 --package-lock-only --ignore-scripts --legacy-peer-deps
+          npm ci --legacy-peer-deps
+      - name: Print compact lock patch
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const before = JSON.parse(fs.readFileSync('/tmp/package-lock.before.json', 'utf8'));
+          const after = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const changed = {};
+          for (const [key, value] of Object.entries(after.packages)) {
+            if (JSON.stringify(before.packages[key]) !== JSON.stringify(value)) changed[key] = value;
+          }
+          const removed = Object.keys(before.packages).filter(key => !(key in after.packages));
+          const manifest = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          console.log('LOCK_PATCH_START');
+          console.log(JSON.stringify({manifest, changed, removed}));
+          console.log('LOCK_PATCH_END');
+          NODE
+      - name: Frontend validation
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+          npm run build
