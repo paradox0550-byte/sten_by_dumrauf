@@ -69,6 +69,6 @@ export const AskResponseSchema = z.object({
     kind: z.enum(['fact','decision','cause','action','manager_note','pattern']),
     title: z.string(),
     content: z.string(),
-    evidence: z.record(z.unknown()).optional(),
+    evidence: z.record(z.string(), z.unknown()).optional(),
   })).nullable().optional(),
 }).passthrough();
