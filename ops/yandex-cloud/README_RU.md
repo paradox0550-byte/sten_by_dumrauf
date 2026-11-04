@@ -21,9 +21,20 @@
 | `MANUAL_RELEASE_CHECKLIST.md` | Пошаговый порядок ручной публикации и отката |
 | `GATEWAY_IMPORT.md` | Сверка и ручной импорт OpenAPI в Gateway без потери security-модели |
 | `MARKITDOWN_DEPLOYMENT.md` | Отдельная публикация Python-конвертера и подключение через Gateway |
-| `.github/workflows/package-yandex-backend.yml` | Ручная сборка двух ZIP: Node.js Backend и отдельной Python-функции MarkItDown |
+| `package-manual.sh` | Локальная сборка двух архивов для ручной загрузки в Yandex Cloud |
+| `.github/workflows/package-yandex-backend.yml` | Ручная сборка двух ZIP в GitHub Actions после включения workflow в default branch |
 
-## Получение ZIP Backend
+## Сборка архивов сейчас — локально
+
+На компьютере должны быть Node.js 22, Python 3.12, `zip` и `sha256sum`. Клонируй репозиторий, переключись на эту ветку и выполни:
+
+\`\`\`bash
+bash ops/yandex-cloud/package-manual.sh
+\`\`\`
+
+Архивы, SHA-256 и `release-manifest.txt` появятся в `release-artifacts/yandex-cloud/`. Если работаешь не из Git clone, передай проверенный commit SHA через переменную `SOURCE_COMMIT`.
+
+## Сборка через GitHub Actions после включения workflow в default branch
 
 1. Открой GitHub → Actions → **Package Yandex Cloud Backend (manual)**.
 2. Нажми **Run workflow** на проверенной ветке этого комплекта.
