@@ -9,7 +9,8 @@ const date = (value: string | null) => {
   if (!value) return '—';
   const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : value.slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return '—';
-  return new Date(normalized + 'T12:00:00').toLocaleDateString('ru-RU');
+  const parsed = new Date(normalized + 'T12:00:00');
+  return Number.isFinite(parsed.getTime()) ? parsed.toLocaleDateString('ru-RU') : '—';
 };
 
 export default function ActualLaborReportsPanel() {

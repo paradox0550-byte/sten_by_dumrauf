@@ -71,35 +71,41 @@ export function useAnalyticsSettings() {
   const [error, setError] = useState('');
   const [savedAt, setSavedAt] = useState('');
   const alive = useRef(true);
+  const settingsRef = useRef(settings);
+  const requestSequence = useRef(0);
+  const reloadSequence = useRef(0);
   const saveSequence = useRef(0);
 
   const apply = useCallback((next: AnalyticsSettings) => {
+    settingsRef.current = next;
     setSettings(next);
     writeCache(next);
     broadcast(next);
   }, []);
 
   const reload = useCallback(async () => {
-    const sequence = ++saveSequence.current;
+    const sequence = ++requestSequence.current;
+    const reloadId = ++reloadSequence.current;
     setLoading(true);
     setError('');
     try {
       const data = await api.get<{ settings: AnalyticsSettings | null }>('/api/analytics/settings');
       const remote = data && 'settings' in data ? sanitize(data.settings) : null;
-      if (sequence === saveSequence.current) apply(remote ?? DEFAULT_ANALYTICS_SETTINGS);
+      if (sequence === requestSequence.current) apply(remote ?? DEFAULT_ANALYTICS_SETTINGS);
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Не удалось загрузить настройки аналитики.';
-      if (alive.current && sequence === saveSequence.current) setError(msg);
+      if (alive.current && sequence === requestSequence.current) setError(msg);
     } finally {
-      if (alive.current && sequence === saveSequence.current) setLoading(false);
+      if (alive.current && reloadId === reloadSequence.current) setLoading(false);
     }
   }, [apply]);
 
   const save = useCallback(
     async (patch: Partial<AnalyticsSettings>): Promise<SaveResult> => {
-      const sequence = ++saveSequence.current;
-      const prev = settings;
-      const merged: AnalyticsSettings = { ...settings, ...patch };
+      const sequence = ++requestSequence.current;
+      const saveId = ++saveSequence.current;
+      const prev = settingsRef.current;
+      const merged: AnalyticsSettings = { ...settingsRef.current, ...patch };
       setSaving(true);
       setError('');
       apply(merged);
@@ -115,16 +121,16 @@ export function useAnalyticsSettings() {
           }
         );
         const confirmed = res?.settings ? sanitize(res.settings) : null;
-        if (sequence === saveSequence.current) apply(confirmed ?? merged);
-        if (alive.current && sequence === saveSequence.current) setSavedAt(new Date().toISOString());
+        if (sequence === requestSequence.current) apply(confirmed ?? merged);
+        if (alive.current && sequence === requestSequence.current) setSavedAt(new Date().toISOString());
         return { ok: true };
       } catch (e) {
-        if (sequence === saveSequence.current) apply(prev);
+        if (sequence === requestSequence.current) apply(prev);
         const msg = e instanceof ApiError ? e.message : 'Не удалось сохранить настройки аналитики.';
-        if (alive.current && sequence === saveSequence.current) setError(msg);
+        if (alive.current && sequence === requestSequence.current) setError(msg);
         return { ok: false, error: msg };
       } finally {
-        if (alive.current && sequence === saveSequence.current) setSaving(false);
+        if (alive.current && saveId === saveSequence.current) setSaving(false);
       }
     },
     [settings, apply]
@@ -135,7 +141,9 @@ export function useAnalyticsSettings() {
     void reload();
     const onEvt = (e: Event) => {
       const s = sanitize((e as CustomEvent).detail);
-      setSettings(s ?? readCache() ?? DEFAULT_ANALYTICS_SETTINGS);
+      const next = s ?? readCache() ?? DEFAULT_ANALYTICS_SETTINGS;
+      settingsRef.current = next;
+      setSettings(next);
     };
     window.addEventListener(EVT, onEvt as EventListener);
     return () => {
