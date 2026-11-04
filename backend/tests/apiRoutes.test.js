@@ -37,6 +37,10 @@ test('operational control and Telegram Monitor routes are registered', async () 
     ['PUT', '/api/telegram-bot/settings'],
     ['GET', '/api/telegram-monitor/chats'],
     ['GET', '/api/telegram-monitor/messages?chat_id=-100123'],
+    ['GET', '/api/fot/schedule-history'],
+    ['PUT', '/api/fot/schedule-history'],
+    ['GET', '/api/fot/staffing-plan?period=2026-11'],
+    ['PUT', '/api/fot/staffing-plan'],
   ];
 
   for (const [method, path] of routes) {
