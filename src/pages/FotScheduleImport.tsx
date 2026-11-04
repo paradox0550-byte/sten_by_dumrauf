@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { calculateEmployeeMonth, calculateTotalFOT, inferFotPayType, type FotPayType, type FotEmployeeCalculation } from '../lib/fotCalculator';
 import { AlertCircle, FileSpreadsheet, UploadCloud, FileDown, Printer } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -127,6 +127,8 @@ export default function FotScheduleImport({ period, historyScope = 'all', scope 
   const [payTypes, setPayTypes] = useState<Record<number, FotPayType | null>>({});
   const [calculations, setCalculations] = useState<FotEmployeeCalculation[] | null>(null);
   const [history, setHistory] = useState<FotHistoryRecord[]>([]);
+  const apiScope = useMemo(() => toApiScope(scope), [scope.projectId, scope.branchId, scope.restaurantId, scope.departmentId]);
+  const historyQuery = useMemo(() => scopeQueryString(scope), [scope.projectId, scope.branchId, scope.restaurantId, scope.departmentId]);
   const [historyPeriod, setHistoryPeriod] = useState(period);
   const [historyWarning, setHistoryWarning] = useState('');
   useEffect(() => { setHistoryPeriod(period); }, [period]);
@@ -135,8 +137,7 @@ export default function FotScheduleImport({ period, historyScope = 'all', scope 
     const loadHistory = async () => {
       setHistoryWarning('Загружаем общую историю ФОТ…');
       try {
-        const query = scopeQueryString(scope);
-        const path = '/api/fot/schedule-history' + (query ? '?' + query : '');
+        const path = '/api/fot/schedule-history' + (historyQuery ? '?' + historyQuery : '');
         const remote = await api.get<{ records: Array<Omit<FotHistoryRecord, 'scopeKey'>> }>(path);
         let records = Array.isArray(remote.records) ? remote.records : [];
         const legacy = readFotHistory().filter(record => record.scopeKey === historyScope);
@@ -145,7 +146,7 @@ export default function FotScheduleImport({ period, historyScope = 'all', scope 
         for (const record of missingLegacy) {
           await api.put('/api/fot/schedule-history', {
             period: record.period,
-            scope: toApiScope(scope),
+            scope: apiScope,
             fileName: record.fileName,
             normHours: record.normHours,
             ndfl: record.ndfl,
@@ -176,7 +177,7 @@ export default function FotScheduleImport({ period, historyScope = 'all', scope 
     };
     void loadHistory();
     return () => { cancelled = true; };
-  }, [historyScope, scope.projectId, scope.branchId, scope.restaurantId, scope.departmentId]);
+  }, [historyScope, historyQuery, apiScope]);
   const [pending, setPending] = useState<{ fileName: string; sheetName: string; headers: string[]; rows: unknown[][]; dateColumns: Array<{ index: number; date: string; label: string }> } | null>(null);
 
   const finishParse = (source: NonNullable<typeof pending>, columns: { employee: number; position: number; rate: number }) => {
