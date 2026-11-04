@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
-  BarChart3, Bot, Brain, CalendarDays, Menu, Moon, PanelLeft, PanelLeftClose, FlaskConical, MessageSquareText,
-  LogOut, Scale, Sun, WalletCards, X, ChevronDown, ClipboardList, Gauge, Monitor, Users, FileText, Settings2, Building2,
+  BarChart3, Bot, Menu, Moon, PanelLeft, PanelLeftClose, MessageSquareText,
+  LogOut, Sun, X, ClipboardList, Gauge, Monitor, Users, Settings2,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import WorkspaceSelector from './WorkspaceSelector';
@@ -67,32 +67,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
 
   const financePaths = ['/pnl', '/pnl/import', '/budget', '/analytics', '/finances'];
-  const operationsPaths = ['/ops', '/plan'];
-  const knowledgePaths = ['/documents', '/memory'];
-  const toolsPaths = ['/ai-quality', '/legal', '/admin/organizations'];
   const matchesPath = (paths: string[]) => paths.some(path => location.pathname === path || location.pathname.startsWith(`${path}/`));
+  const [financeExpanded, setFinanceExpanded] = useState(() => matchesPath(financePaths));
 
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => ({
-    finance: matchesPath(financePaths),
-    operations: matchesPath(operationsPaths),
-    knowledge: matchesPath(knowledgePaths),
-    tools: matchesPath(toolsPaths),
-  }));
-
-  const toggleGroup = (group: string) => {
+  const toggleFinance = () => {
     if (sidebarCollapsed) {
       setSidebarCollapsed(false);
-      setExpandedGroups(current => ({ ...current, [group]: true }));
+      setFinanceExpanded(true);
       return;
     }
-    setExpandedGroups(current => ({ ...current, [group]: !current[group] }));
+    setFinanceExpanded(value => !value);
   };
 
   useEffect(() => {
-    if (matchesPath(financePaths)) setExpandedGroups(current => ({ ...current, finance: true }));
-    if (matchesPath(operationsPaths)) setExpandedGroups(current => ({ ...current, operations: true }));
-    if (matchesPath(knowledgePaths)) setExpandedGroups(current => ({ ...current, knowledge: true }));
-    if (matchesPath(toolsPaths)) setExpandedGroups(current => ({ ...current, tools: true }));
+    if (matchesPath(financePaths)) setFinanceExpanded(true);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -123,22 +111,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }, []);
 
   const items = useMemo(() => [
-    ['/dashboard', 'Главная', 'overview'],
-    ['/sten', 'STEN AI', Bot],
-    ['/telegram-monitor', 'Мониторинг Telegram', MessageSquareText],
-    ['/ai-quality', 'Лаборатория AI', FlaskConical],
-    ['/ops', 'Отчёт смены', 'report'],
-    ['/plan', 'План руководителя', CalendarDays],
-    ['/pnl', 'P&L', 'pnl'],
-    ['/budget', 'Бюджет', BarChart3],
-    ['/analytics', 'Аналитика', BarChart3],
-    ['/staff', 'Команда и ФОТ', 'staff'],
-    ['/documents', 'Документы', 'terms'],
-    ['/finances', 'Финансовые операции', WalletCards],
-    ['/memory', 'Память STEN', Brain],
-    ['/settings', 'Настройки', Gauge],
-    ['/legal', 'Правовая информация', Scale],
-    ['/admin/organizations', 'Организации', Gauge],
+    ['/dashboard', 'Главная'],
+    ['/ops', 'Мой день'],
+    ['/sten', 'STEN AI'],
+    ['/staff', 'Команда и ФОТ'],
+    ['/pnl', 'Финансы'],
+    ['/telegram-monitor', 'Мониторинг Telegram'],
+    ['/settings', 'Настройки'],
   ] as const, []);
 
   const name = user
@@ -160,7 +139,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     ['/sten', 'STEN AI', Bot],
     ['/telegram-monitor', 'Мониторинг', MessageSquareText],
     ['/pnl', 'Финансы', 'pnl'],
-    ['/ops', 'Операции', ClipboardList],
+    ['/ops', 'Мой день', 'report'],
   ] as const;
 
   return (
@@ -176,77 +155,62 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav className="sten-primary-nav" aria-label="Навигация STEN">
-            <div className="nav-section-label">Рабочее пространство</div>
+            <div className="nav-section-label">РАБОЧЕЕ ПРОСТРАНСТВО</div>
             <NavLink to="/dashboard" end onClick={() => setMobileMenu(false)}>
               <NavIcon icon="overview" size={17} />
               <span>Главная</span>
+            </NavLink>
+            <NavLink to="/ops" onClick={() => setMobileMenu(false)}>
+              <ClipboardList size={17} aria-hidden="true" />
+              <span>Мой день</span>
+            </NavLink>
+            <NavLink to="/plan" onClick={() => setMobileMenu(false)}>
+              <span className="nav-subitem-label">План руководителя</span>
             </NavLink>
             <NavLink to="/sten" onClick={() => setMobileMenu(false)}>
               <Bot size={17} aria-hidden="true" />
               <span>STEN AI</span>
             </NavLink>
+            <div className="nav-subsection" aria-label="Разделы STEN AI">
+              <NavLink to="/documents" onClick={() => setMobileMenu(false)}><span>Документы</span></NavLink>
+              <NavLink to="/memory" onClick={() => setMobileMenu(false)}><span>Память STEN</span></NavLink>
+            </div>
+            <NavLink to="/staff" onClick={() => setMobileMenu(false)}>
+              <Users size={17} aria-hidden="true" />
+              <span>Команда и ФОТ</span>
+            </NavLink>
+
+            <div className="nav-section-label">ФИНАНСЫ</div>
+            <button className={`nav-group-toggle ${matchesPath(financePaths) ? 'is-current' : ''}`} type="button" aria-label="Финансы" title={sidebarCollapsed ? 'Финансы' : undefined} aria-expanded={financeExpanded} onClick={toggleFinance}>
+              <BarChart3 size={17} aria-hidden="true" />
+              <span>Финансы</span>
+              <span className="nav-group-chevron" aria-hidden="true">{financeExpanded ? '−' : '+'}</span>
+            </button>
+            {financeExpanded && <div className="nav-group-children" aria-label="Финансы">
+              {([
+                ['/pnl', 'P&L'],
+                ['/budget', 'Бюджет'],
+                ['/finances', 'Операции'],
+                ['/analytics', 'Аналитика'],
+              ] as const).map(([to, label]) => <NavLink key={to} to={to} onClick={() => setMobileMenu(false)}><span>{label}</span></NavLink>)}
+            </div>}
             <NavLink to="/telegram-monitor" onClick={() => setMobileMenu(false)}>
               <MessageSquareText size={17} aria-hidden="true" />
               <span>Мониторинг Telegram</span>
             </NavLink>
 
-            <button className={`nav-group-toggle ${matchesPath(financePaths) ? 'is-current' : ''}`} type="button" aria-label="Финансы" title={sidebarCollapsed ? 'Финансы' : undefined} aria-expanded={!!expandedGroups.finance} onClick={() => toggleGroup('finance')}>
-              <BarChart3 size={17} aria-hidden="true" />
-              <span>Финансы</span>
-              <ChevronDown className="nav-group-chevron" size={15} aria-hidden="true" />
-            </button>
-            {expandedGroups.finance && <div className="nav-group-children" aria-label="Финансы">
-              {([
-                ['/pnl', 'P&L'],
-                ['/budget', 'Бюджет'],
-                ['/finances', 'Финансовые операции'],
-                ['/analytics', 'Аналитика'],
-              ] as const).map(([to, label]) => <NavLink key={to} to={to} onClick={() => setMobileMenu(false)}><span>{label}</span></NavLink>)}
-            </div>}
-
-            <button className={`nav-group-toggle ${matchesPath(operationsPaths) ? 'is-current' : ''}`} type="button" aria-label="Мой день" title={sidebarCollapsed ? 'Мой день' : undefined} aria-expanded={!!expandedGroups.operations} onClick={() => toggleGroup('operations')}>
-              <ClipboardList size={17} aria-hidden="true" />
-              <span>Мой день</span>
-              <ChevronDown className="nav-group-chevron" size={15} aria-hidden="true" />
-            </button>
-            {expandedGroups.operations && <div className="nav-group-children" aria-label="Мой день">
-              {([
-                ['/ops', 'Отчёт смены'],
-                ['/plan', 'План руководителя'],
-              ] as const).map(([to, label]) => <NavLink key={to} to={to} end onClick={() => setMobileMenu(false)}><span>{label}</span></NavLink>)}
-            </div>}
-
-            <NavLink to="/staff" onClick={() => setMobileMenu(false)} className={({ isActive }) => isActive ? 'active' : ''}>
-              <Users size={17} aria-hidden="true" />
-              <span>Команда и ФОТ</span>
-            </NavLink>
-
-            <button className={`nav-group-toggle ${matchesPath(knowledgePaths) ? 'is-current' : ''}`} type="button" aria-label="Знания" title={sidebarCollapsed ? 'Знания' : undefined} aria-expanded={!!expandedGroups.knowledge} onClick={() => toggleGroup('knowledge')}>
-              <Brain size={17} aria-hidden="true" />
-              <span>Знания</span>
-              <ChevronDown className="nav-group-chevron" size={15} aria-hidden="true" />
-            </button>
-            {expandedGroups.knowledge && <div className="nav-group-children" aria-label="Знания">
-              <NavLink to="/documents" onClick={() => setMobileMenu(false)}><FileText size={16} aria-hidden="true" /><span>Документы</span></NavLink>
-              <NavLink to="/memory" onClick={() => setMobileMenu(false)}><Brain size={16} aria-hidden="true" /><span>Память STEN</span></NavLink>
-            </div>}
-
-            <div className="nav-section-label nav-system-label">Профиль и управление</div>
+            <div className="nav-section-label nav-system-label">УПРАВЛЕНИЕ</div>
             <NavLink to="/settings" onClick={() => setMobileMenu(false)}>
               <Settings2 size={17} aria-hidden="true" />
               <span>Настройки</span>
             </NavLink>
-
-            <button className={`nav-group-toggle ${matchesPath(toolsPaths) ? 'is-current' : ''}`} type="button" aria-label="Дополнительно" title={sidebarCollapsed ? 'Дополнительно' : undefined} aria-expanded={!!expandedGroups.tools} onClick={() => toggleGroup('tools')}>
-              <Scale size={17} aria-hidden="true" />
-              <span>Дополнительно</span>
-              <ChevronDown className="nav-group-chevron" size={15} aria-hidden="true" />
-            </button>
-            {expandedGroups.tools && <div className="nav-group-children" aria-label="Дополнительно">
-              <NavLink to="/ai-quality" onClick={() => setMobileMenu(false)}><FlaskConical size={16} aria-hidden="true" /><span>Лаборатория AI</span></NavLink>
-              <NavLink to="/legal" onClick={() => setMobileMenu(false)}><Scale size={16} aria-hidden="true" /><span>Правовая информация</span></NavLink>
-              {user?.role === 'super_admin' && <NavLink to="/admin/organizations" onClick={() => setMobileMenu(false)}><Building2 size={16} aria-hidden="true" /><span>Организации</span></NavLink>}
+            {user?.role === 'super_admin' && <div className="nav-subsection" aria-label="Инструменты администратора">
+              <NavLink to="/admin/organizations" onClick={() => setMobileMenu(false)}><span>Организации</span></NavLink>
+              <NavLink to="/ai-quality" onClick={() => setMobileMenu(false)}><span>Лаборатория AI</span></NavLink>
             </div>}
+            <NavLink to="/legal" onClick={() => setMobileMenu(false)} className="nav-legal-link">
+              <span>Правовая информация</span>
+            </NavLink>
           </nav>
         </div>
 
@@ -307,7 +271,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <div className="content">{children}{location.pathname === '/sten' ? null : <LegalFooter />}</div>
+        <div className="content">{children}{<LegalFooter />}</div>
       </main>
 
       <nav className="mobile-bottom-nav" aria-label="Основная навигация">
