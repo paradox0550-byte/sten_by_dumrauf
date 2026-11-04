@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bot, CalendarDays, FileText, Mic, MicOff, Paperclip, Send, Sparkles, Trash2, UploadCloud, Eye, X, Database, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { StenLogo } from '../components/brand/StenLogo';
-import { api, ApiError, createMemory } from '../lib/api';
+import { api, ApiError, createMemory, UPLOAD_TIMEOUT_MS } from '../lib/api';
 import { useScope } from '../lib/useScope';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth, type User } from '../contexts/AuthContext';
@@ -304,7 +304,7 @@ function AIContent({user}:{user:User|null}){
        const ext=f.name.split('.').pop()?.toLowerCase();
        if(!ext||!supported.has(ext)){setMessages(m=>[...m,{id:crypto.randomUUID(),role:'assistant',text:'Формат «.'+(ext||'?')+'» не поддерживается.',createdAt:new Date().toISOString()}]);continue}
        if(f.size>MAX_DOC_BYTES)throw new Error(f.name+': файл больше 15 МБ');
-       await api.post('/ai/documents/upload',{name:f.name,mimeType:f.type||'application/octet-stream',dataBase64:await to64(f)});
+       await api.post('/ai/documents/upload',{name:f.name,mimeType:f.type||'application/octet-stream',dataBase64:await to64(f)},{timeoutMs:UPLOAD_TIMEOUT_MS});
      }
      await load();
    }catch(e){

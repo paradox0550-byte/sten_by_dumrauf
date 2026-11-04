@@ -58,6 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           npm run build
+          grep -RqsF "$VITE_API_URL" dist/assets
           test -s dist/index.html
           test -d dist/assets
           test -f dist/manifest.json
