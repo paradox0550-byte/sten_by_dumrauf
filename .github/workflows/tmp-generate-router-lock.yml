@@ -1,8 +1,8 @@
 name: Temporary frontend lock generation
 
 on:
-  push:
-    branches: [fix/security-react-router-2026-11]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
