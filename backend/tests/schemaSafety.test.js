@@ -29,8 +29,8 @@ test('financial report reads do not convert database failures into empty dataset
     source.indexOf("app.get('/api/ai/skills'"),
   );
 
-  assert.match(transactionRead, /strictQuery\\(/u);
-  assert.match(reportRead, /strictQuery\\(/u);
-  assert.match(reportMetrics, /strictQuery\\(/u);
-  assert.doesNotMatch(reportMetrics, /safeQuery\\(/u);
+  assert.match(transactionRead, /strictQuery\(/u);
+  assert.match(reportRead, /strictQuery\(/u);
+  assert.match(reportMetrics, /strictQuery\(/u);
+  assert.doesNotMatch(reportMetrics, /safeQuery\(/u);
 });
