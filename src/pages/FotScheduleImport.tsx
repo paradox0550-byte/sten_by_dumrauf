@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { calculateEmployeeMonth, calculateTotalFOT, inferFotPayType, type FotPayType, type FotEmployeeCalculation } from '../lib/fotCalculator';
 import { AlertCircle, FileSpreadsheet, UploadCloud, FileDown, Printer } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 import { parseScheduleCell } from '../domain/labor/imports/parseScheduleMatrix';
 import { api, ApiError } from '../lib/api';
 import './FotScheduleImport.css';

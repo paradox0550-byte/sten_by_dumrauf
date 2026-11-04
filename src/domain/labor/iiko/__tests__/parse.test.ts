@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 import { aggregateByHourZone } from '../aggregate';
 import { parseIikoSalesFile } from '../parse';
 

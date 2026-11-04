@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 import { parseLocalizedNumber, normalizeHeader } from '../imports/normalize';
 
 export type HourlySalesObservation = {

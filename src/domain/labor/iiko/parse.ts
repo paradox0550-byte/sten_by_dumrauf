@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 import { IikoParsedRow, type IikoParsedSales, type IikoUnmappedRow, type ZoneId } from './schema';
 import { mapCategoryToZone, normalizeCategory } from './zoneMap';
 import { parseLocalizedNumber } from '../imports/normalize';
