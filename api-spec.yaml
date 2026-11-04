@@ -1429,3 +1429,156 @@ paths:
           description: Internal error
       security:
         - BearerAuth: []
+  /api/fot/schedule-history:
+    get:
+      operationId: get-api-fot-schedule-history
+      responses:
+        '200':
+          description: Shared schedule history for the authorized organization scope
+        '400':
+          description: Invalid scope
+        '401':
+          description: Authentication required
+        '403':
+          description: Scope access denied
+        '503':
+          description: Database migration is not applied or database is unavailable
+      security:
+        - BearerAuth: []
+    put:
+      operationId: put-api-fot-schedule-history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [period, scope, fileName, normHours, ndfl, calculations, totals]
+              properties:
+                period:
+                  type: string
+                  pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+                scope:
+                  type: object
+                  additionalProperties: false
+                fileName:
+                  type: string
+                normHours:
+                  type: number
+                  minimum: 0
+                ndfl:
+                  type: number
+                  nullable: true
+                  minimum: 0
+                calculations:
+                  type: array
+                  maxItems: 5000
+                  items:
+                    type: object
+                totals:
+                  type: object
+                savedAt:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Schedule history saved
+        '400':
+          description: Invalid history payload
+        '401':
+          description: Authentication required
+        '403':
+          description: Write permission or scope access denied
+        '413':
+          description: Payload too large
+        '503':
+          description: Database migration is not applied or database is unavailable
+      security:
+        - BearerAuth: []
+  /api/fot/staffing-plan:
+    get:
+      operationId: get-api-fot-staffing-plan
+      parameters:
+        - name: period
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+        - name: project_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: branch_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: restaurant_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: department_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Shared staffing plan and custom positions
+        '400':
+          description: Invalid period or scope
+        '401':
+          description: Authentication required
+        '403':
+          description: Scope access denied
+        '503':
+          description: Database migration is not applied or database is unavailable
+      security:
+        - BearerAuth: []
+    put:
+      operationId: put-api-fot-staffing-plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [period, scope, plan, customPositions]
+              properties:
+                period:
+                  type: string
+                  pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+                scope:
+                  type: object
+                  additionalProperties: false
+                plan:
+                  type: object
+                  maxProperties: 500
+                customPositions:
+                  type: array
+                  maxItems: 300
+                  items:
+                    type: object
+                    required: [id, department, position]
+      responses:
+        '200':
+          description: Staffing plan saved
+        '400':
+          description: Invalid staffing plan
+        '401':
+          description: Authentication required
+        '403':
+          description: Write permission or scope access denied
+        '413':
+          description: Payload too large
+        '503':
+          description: Database migration is not applied or database is unavailable
+      security:
+        - BearerAuth: []
