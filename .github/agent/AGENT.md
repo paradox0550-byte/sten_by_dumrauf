@@ -21,8 +21,7 @@ STEN использует документы, историю и результа
 Backend должен использовать актуальный YandexGPT model URI, например `gpt://<folder_id>/yandexgpt/latest`, либо явно заданную актуальную модель. Секреты хранить вне репозитория, предпочтительно через Yandex Cloud secrets/Lockbox.
 
 ## Auth
-Единственный пользовательский UX: персональная разблокировка /auth/unlock. Email, login, password и регистрация не являются частью интерфейса.
-Аутентификация только серверная: unlock обязан получить действительный JWT от API Gateway. При отсутствии сети или недоступности API пользователь не считается аутентифицированным. Никакого offline-auth, synthetic user или локального обхода авторизации.
+Единственный активный пользовательский UX: вход по email и паролю через POST /auth/login, затем проверка JWT через GET /auth/me. Legacy POST /auth/unlock возвращает HTTP 410 и не должен выпускать токен. При отсутствии сети или недоступности API пользователь не считается аутентифицированным. Никакого offline-auth, synthetic user или локального обхода авторизации.
 
 ## UI
 Светлая, системная и тёмная тема. Спокойный premium B2B/fintech стиль: много воздуха, строгая типографика, табличные цифры, без glassmorphism/aurora/градиентного визуального шума.
@@ -55,12 +54,12 @@ AI endpoint не вызывается из компонентов.
 - создавать новую функцию без полного рабочего пути: UI → API → backend → данные → ответ → UI.
 
 ## Definition of Done
-Typecheck PASS + build PASS + статический smoke PASS + routes без 404 + персональный unlock + темы + реальные API-контракты + реальные данные + YandexGPT integration path + отсутствие demo/mock production screens.
+Typecheck PASS + build PASS + статический smoke PASS + routes без 404 + email/password login + темы + реальные API-контракты + реальные данные + YandexGPT integration path + отсутствие demo/mock production screens.
 ## Skills
 Перед изменением выбирай применимые playbooks из `.github/agent/skills/`: ui-visual, root-cause, api-contract, finance-integrity, sten-yandexgpt, security-secrets, deploy-smoke, mobile-ux. Для комплексного изменения используй несколько skill-проходов, а не один общий чек-лист.
 
 ## Secret boundary
-Следующие классы конфигурации существуют только во внешнем backend/CI secret store: AWS access credentials, JWT secret, DB password, YandexGPT API key, unlock secret. DB_USER, DB_NAME, DB_HOST, bucket, folder ID и endpoint — конфигурационные значения; их наличие в backend configuration не означает, что их можно переносить во frontend. Никогда не копировать реальные значения секретов в Git, Vite env или dist.
+Следующие классы конфигурации существуют только во внешнем backend/CI secret store: AWS access credentials, JWT secret, DB password, YandexGPT API key. Legacy UNLOCK_CODE_HASH больше не используется. DB_USER, DB_NAME, DB_HOST, bucket, folder ID и endpoint — конфигурационные значения; их наличие в backend configuration не означает, что их можно переносить во frontend. Никогда не копировать реальные значения секретов в Git, Vite env или dist.
 
 ## Learning loop
 После каждого аудита фиксировать новую подтверждённую причину/решение в PROJECT_MEMORY.md или соответствующем skill. Не запоминать догадки как факты. Повторный дефект должен ссылаться на предыдущую проверку и объяснять, почему новый fix не повторяет старую ошибку.
