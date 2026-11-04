@@ -20,7 +20,7 @@
 | `LOCKBOX_MIGRATION.md` | План переноса секретов из environment в Lockbox без потери ключей |
 | `POSTGRESQL_NETWORK_IAM.md` | Рабочая БД, TLS, VPC, Security Group и IAM |
 | `MANUAL_RELEASE_CHECKLIST.md` | Пошаговый порядок ручной публикации и отката |
-| `.github/workflows/package-yandex-backend.yml` | Ручная сборка ZIP-артефакта Backend в GitHub Actions |
+| `.github/workflows/package-yandex-backend.yml` | Ручная сборка двух ZIP: Node.js Backend и отдельной Python-функции MarkItDown |
 
 ## Получение ZIP Backend
 
@@ -31,7 +31,7 @@
 5. Внутри будут ZIP с исходниками Backend, `release-manifest.txt` и SHA-256.
 6. Перед загрузкой в Yandex Cloud сравни commit SHA из манифеста с проверенной веткой/PR.
 
-ZIP устроен так, что `index.js`, `package.json` и `package-lock.json` находятся в корне архива. Каталог Python-конвертера `backend/markitdown/` в Node.js ZIP не включается.
+Node.js ZIP устроен так, что `index.js`, `package.json` и `package-lock.json` находятся в корне архива. Python-конвертер собирается отдельным ZIP: `function.py` и `requirements.txt` находятся в его корне.
 
 ## Важные запреты
 
