@@ -13,7 +13,14 @@ The following settings were supplied in the infrastructure inventory on 2026-11-
 - Concurrency: 1
 - Runtime service account: `serviakk` / `ajeoat76avsvv6jtmjar`
 - API Gateway: `qww` / `d5d5p4eof6ra03bsva7a`
-- Gateway URL: `https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net`\n\n## Gateway function bindings in repository source (not live-verified)\n\n- Node API: `d4epijnhj7h9sd5ppa66`, tag `$latest`; the `/healthz` and `/{proxy+}` integrations must target this same function.\n- MarkItDown: `d4e4ai8895c3kq3b0ds5`, tag `$latest`; only `/markitdown/{proxy+}` targets this separate converter.\n- `api-gateway.yaml` does not set `service_account_id`. The Cloud Function runtime service account `serviakk` is not proof of Gateway invocation permission. Confirm the Gateway invocation model in Yandex Console; if the functions are private, confirm a dedicated invoker identity has `functions.functionInvoker` on both functions. Do not invent or silently reuse an identity.\n- These are source-file bindings, not proof that the currently deployed Gateway has imported this spec or that the IDs/tags/permissions match live Cloud resources.
+- Gateway URL: `https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net`
+
+## Gateway function bindings in repository source (not live-verified)
+
+- Node API: `d4epijnhj7h9sd5ppa66`, tag `$latest`; the `/healthz` and `/{proxy+}` integrations must target this same function.
+- MarkItDown: `d4e4ai8895c3kq3b0ds5`, tag `$latest`; only `/markitdown/{proxy+}` targets this separate converter.
+- `api-gateway.yaml` does not set `service_account_id`. The Cloud Function runtime service account `serviakk` is not proof of Gateway invocation permission. Confirm the Gateway invocation model in Yandex Console; if the functions are private, confirm a dedicated invoker identity has `functions.functionInvoker` on both functions. Do not invent or silently reuse an identity.
+- These are source-file bindings, not proof that the currently deployed Gateway has imported this spec or that the IDs/tags/permissions match live Cloud resources.
 
 ## Source of truth
 
