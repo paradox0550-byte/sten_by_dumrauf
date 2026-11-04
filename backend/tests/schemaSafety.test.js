@@ -38,7 +38,8 @@ test('financial report reads do not convert database failures into empty dataset
 test('Yandex Cloud Functions PostgreSQL TLS uses the platform CA with verification enabled', () => {
   assert.match(source, /fs\.readFileSync\('\/usr\/local\/share\/ca-certificates\/yandex-internal-ca\.crt'\)/u);
   assert.doesNotMatch(source, /DB_SSL_CA_BASE64/u);
-  assert.match(source, /return \{ ca, rejectUnauthorized: true \}/u);
+  const resolver = source.slice(source.indexOf('function resolveDbSsl()'), source.indexOf('let _pool = null;'));
+  assert.match(resolver, /return \{[\s\S]*?ca,[\s\S]*?rejectUnauthorized:\s*true/u);
 });
 
 test('PostgreSQL TLS never silently disables verification in production', () => {
@@ -46,6 +47,8 @@ test('PostgreSQL TLS never silently disables verification in production', () => 
     source.indexOf('function resolveDbSsl()'),
     source.indexOf('let _pool = null;'),
   );
-  assert.match(resolver, /ENV\.NODE_ENV === 'production' && !allowInsecure/u);
-  assert.match(resolver, /DB_SSL_ALLOW_INSECURE/u);
+  assert.match(resolver, /process\.env\.DB_SSL_MODE === 'disable'/u);
+  assert.match(resolver, /ENV\.NODE_ENV === 'production'/u);
+  assert.match(resolver, /production запрещён/u);
+  assert.doesNotMatch(resolver, /allowInsecure|DB_SSL_ALLOW_INSECURE/u);
 });
