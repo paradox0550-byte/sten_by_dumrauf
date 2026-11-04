@@ -1,0 +1,62 @@
+name: Temporary ESLint 9 compatibility verification
+
+on:
+  pull_request:
+    branches: [fix/security-vitest-2026-11]
+
+permissions:
+  contents: read
+
+jobs:
+  generate-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Generate ESLint 9 lock patch
+        run: |
+          cp package-lock.json /tmp/package-lock.before.json
+          npm install --save-exact -D eslint@9 @eslint/js@9 @typescript-eslint/parser@latest @typescript-eslint/eslint-plugin@latest eslint-plugin-react-hooks@latest eslint-plugin-react-refresh@latest globals@latest --package-lock-only --ignore-scripts --legacy-peer-deps
+          npm ci --legacy-peer-deps
+      - name: Report remaining npm advisories
+        run: |
+          npm audit --json > /tmp/audit-full.json || true
+          npm audit --omit=dev --json > /tmp/audit-prod.json || true
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          for (const [label, path] of [['FULL','/tmp/audit-full.json'],['PROD','/tmp/audit-prod.json']]) {
+            const audit = JSON.parse(fs.readFileSync(path, 'utf8'));
+            const packages = Object.entries(audit.vulnerabilities || {}).map(([name, v]) => ({
+              name, severity: v.severity, range: v.range, direct: v.isDirect, fixAvailable: v.fixAvailable,
+              via: (v.via || []).map(x => typeof x === 'string' ? x : {name:x.name, range:x.range, title:x.title})
+            }));
+            console.log('AUDIT_' + label + '_START');
+            console.log(JSON.stringify({counts:audit.metadata?.vulnerabilities, packages}));
+            console.log('AUDIT_' + label + '_END');
+          }
+          NODE
+      - name: Print compact lock patch
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const before = JSON.parse(fs.readFileSync('/tmp/package-lock.before.json', 'utf8'));
+          const after = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const changed = {};
+          for (const [key, value] of Object.entries(after.packages)) {
+            if (JSON.stringify(before.packages[key]) !== JSON.stringify(value)) changed[key] = value;
+          }
+          const removed = Object.keys(before.packages).filter(key => !(key in after.packages));
+          const manifest = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          console.log('LOCK_PATCH_START');
+          console.log(JSON.stringify({manifest, changed, removed}));
+          console.log('LOCK_PATCH_END');
+          NODE
+      - name: Frontend validation
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+          npm run build
