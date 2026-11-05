@@ -22,27 +22,27 @@
   html[data-theme="light"] { background: var(--bg-base, #F7F8FA); }
   html[data-theme="dark"] { background: var(--bg-base, #0C1216); }
 </style>
-<meta name="theme-color" content="#F7F8FA" id="sten-theme-color"><meta name="description" content="STEN — Smart Tracking &amp; Economic Navigator. Исполнительный контур управления ресторанным бизнесом.">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=8.0.0"><link rel="apple-touch-icon" href="./icon-192.svg?v=8.0.0"><link rel="manifest" href="./manifest.json?v=8.0.0">
-<title>STEN — Smart Tracking &amp; Economic Navigator</title>
+<meta name="theme-color" content="#F7F8FA" id="dumrauf-theme-color"><meta name="description" content="Dumrauf — Calm Intelligence. Исполнительный контур управления ресторанным бизнесом.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="icon" type="image/svg+xml" href="/favicon.svg?v=8.0.0"><link rel="apple-touch-icon" href="./icon-192.svg?v=8.0.0"><link rel="manifest" href="./manifest.json?v=8.0.0">
+<title>Dumrauf — Calm Intelligence</title>
 <style>
-.topbar  { view-transition-name: sten-topbar; }
-.sidebar { view-transition-name: sten-sidebar; }
-.content { view-transition-name: sten-content; }
-@keyframes sten-view-fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes sten-view-slide-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-::view-transition-old(sten-content) { animation: 120ms ease sten-view-fade-in reverse; }
-::view-transition-new(sten-content) { animation: 220ms ease sten-view-slide-up; }
-::view-transition-old(sten-sidebar),
-::view-transition-new(sten-sidebar),
-::view-transition-old(sten-topbar),
-::view-transition-new(sten-topbar) { animation-duration: 0.001ms; }
+.topbar  { view-transition-name: dumrauf-topbar; }
+.sidebar { view-transition-name: dumrauf-sidebar; }
+.content { view-transition-name: dumrauf-content; }
+@keyframes dumrauf-view-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dumrauf-view-slide-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+::view-transition-old(dumrauf-content) { animation: 120ms ease dumrauf-view-fade-in reverse; }
+::view-transition-new(dumrauf-content) { animation: 220ms ease dumrauf-view-slide-up; }
+::view-transition-old(dumrauf-sidebar),
+::view-transition-new(dumrauf-sidebar),
+::view-transition-old(dumrauf-topbar),
+::view-transition-new(dumrauf-topbar) { animation-duration: 0.001ms; }
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(sten-content),
-  ::view-transition-new(sten-content) { animation: none; }
+  ::view-transition-old(dumrauf-content),
+  ::view-transition-new(dumrauf-content) { animation: none; }
 }
 </style>
-<style id="sten-critical-css">
+<style id="dumrauf-critical-css">
 html,body,#root{min-height:100%;margin:0}
 html{background:var(--bg-base,#F7F8FA);color:var(--text-primary,#101828);font-family:var(--font-ui,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
 body{min-width:320px;line-height:1.5}
