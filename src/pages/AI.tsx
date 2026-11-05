@@ -615,7 +615,7 @@ function AIContent({user}:{user:User|null}){
              storageKey={meetingNotesKey}
              disabled={busy || upload}
              onSummarize={(transcript) => {
-               void ask('Разбери заметки встречи. Подготовь краткое резюме, ключевые решения, список задач с ответственными и сроками, а также вопросы без ответа. Не придумывай имена, сроки или решения, которых нет в тексте.\\n\\nЗАМЕТКИ ВСТРЕЧИ:\\n' + transcript);
+               void ask('Разбери заметки встречи. Подготовь краткое резюме, ключевые решения, список задач с ответственными и сроками, а также вопросы без ответа. Не придумывай имена, сроки или решения, которых нет в тексте.\n\nЗАМЕТКИ ВСТРЕЧИ:\n' + transcript);
              }}
            />
            <textarea ref={promptRef} value={prompt} onFocus={()=>{setComposerFocused(true);const textarea=promptRef.current;if(textarea)requestAnimationFrame(()=>textarea.scrollIntoView({behavior:'auto',block:'nearest'}))}} onBlur={()=>setComposerFocused(false)} onChange={e=>setPrompt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void ask()}}} placeholder={listening?'Говорите…':'Спросите про P&L, ФОТ или ситуацию в смене…'} rows={1} aria-label="Запрос к STEN AI"/>
