@@ -1,12 +1,26 @@
-# Dumrauf brand assets
+# DUMRAUF brand assets
 
 ## Identity
 - Product name: DUMRAUF
 - Descriptor: CALM INTELLIGENCE
-- Mark: geometric D with a single teal control point.
-- Palette: graphite #0F1419, surface #161C24, elevated #1E2630, text #E8F0F3, secondary #9FB0B8, teal #2DD4BF.
-- Typography: Plus Jakarta Sans for interface and display; IBM Plex Mono for metrics.
+- Slogan: Умный контроль вашего ресторана
+- Categories: Аналитика · AI · Решения
+- Mark: a right-facing speech/control D with a triangular left notch and a mint control point in the right bowl.
 
-Historical `sten-*` asset paths remain temporarily as compatibility aliases, but their artwork now carries the Dumrauf identity. Use the React logo component for in-app UI and the favicon/PWA icons for browser and install surfaces.
+## Palette
+- Deep navy: #0B0F19
+- Slate blue: #3D4A5C
+- Mint teal: #5FB3A1
+- Pure white: #FFFFFF
+- Dark surfaces: #141A27 and #1E2536
+- Muted text: #8A94A6
+- Success: #4ADE80
+- Attention: #C94C7C
 
-Do not add gradients, glow, blur, drop shadows, decorative framing, or restaurant-themed pictograms. Preserve mark proportions and keep status colors separate from brand decoration.
+## Typography
+- Plus Jakarta Sans for headings, interface and body copy.
+- IBM Plex Mono for financial values, metrics and tabular numbers.
+
+Historical `sten-*` file names remain compatibility paths for existing imports and install metadata. Their artwork carries the DUMRAUF identity. Use the React logo component for in-app UI and favicon/PWA icons for browser and install surfaces.
+
+Keep the mark simple and legible at small sizes. Use flat white on dark surfaces and dark ink on light surfaces; the control point remains mint teal. The app icon may use the dark gradient and soft dimensional finish from the 2026 presentation board.
