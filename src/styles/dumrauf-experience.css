@@ -10,9 +10,11 @@
   --dumrauf-sidebar-hover: #EEF2F6;
   --dumrauf-sidebar-active-bg: rgba(15,118,110,.09);
   --dumrauf-sidebar-active-text: #202B36;
+  --dumrauf-sidebar-active-border: rgba(15,118,110,.18);
   --dumrauf-sidebar-border: #E0E6EC;
   --dumrauf-topbar-bg: rgba(245,247,249,.96);
   --dumrauf-mobile-nav-bg: rgba(255,255,255,.97);
+  --dumrauf-mobile-nav-shadow: 0 12px 32px rgba(15,23,42,.12);
   --dumrauf-avatar-bg: #E8EDF2;
   --dumrauf-avatar-text: #202B36;
   --dumrauf-scrollbar-thumb: #CBD5E1;
@@ -30,9 +32,11 @@ html[data-theme='dark'] {
   --dumrauf-sidebar-hover: rgba(159,176,184,.07);
   --dumrauf-sidebar-active-bg: rgba(45,212,191,.10);
   --dumrauf-sidebar-active-text: #E8F0F3;
+  --dumrauf-sidebar-active-border: rgba(45,212,191,.18);
   --dumrauf-sidebar-border: rgba(159,176,184,.13);
   --dumrauf-topbar-bg: rgba(15,20,25,.94);
   --dumrauf-mobile-nav-bg: rgba(22,28,36,.97);
+  --dumrauf-mobile-nav-shadow: 0 12px 32px rgba(0,0,0,.30);
   --dumrauf-avatar-bg: #26313A;
   --dumrauf-avatar-text: #E8F0F3;
   --dumrauf-scrollbar-thumb: #46545D;
@@ -145,7 +149,7 @@ button, input, select, textarea { font-family: inherit; }
 .executive-shell .sten-primary-nav .nav-group-children a.active {
   color: var(--dumrauf-sidebar-active-text) !important;
   background: var(--dumrauf-sidebar-active-bg) !important;
-  border-color: var(--dumrauf-sidebar-border) !important;
+  border-color: var(--dumrauf-sidebar-active-border) !important;
   font-weight: 650 !important;
 }
 .executive-shell .sten-primary-nav a.active svg { color: var(--color-brand) !important; }
@@ -180,7 +184,7 @@ button, input, select, textarea { font-family: inherit; }
   height: 34px !important;
   border: 1px solid var(--dumrauf-sidebar-border) !important;
   background: var(--dumrauf-avatar-bg) !important;
-  color: var(--text-primary) !important;
+  color: var(--dumrauf-avatar-text) !important;
   font-size: 12px !important;
 }
 .executive-shell .sidebar-profile-copy b,
@@ -578,7 +582,7 @@ button, input, select, textarea { font-family: inherit; }
     border: 1px solid var(--dumrauf-sidebar-border) !important;
     border-radius: 15px !important;
     background: var(--dumrauf-mobile-nav-bg) !important;
-    box-shadow: 0 12px 32px rgba(0,0,0,.30) !important;
+    box-shadow: var(--dumrauf-mobile-nav-shadow) !important;
     backdrop-filter: none !important;
   }
   .executive-shell .mobile-bottom-nav a {
