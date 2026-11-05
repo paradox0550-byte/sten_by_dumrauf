@@ -41,7 +41,7 @@ const applyTheme = (theme: Theme) => {
   document.documentElement.setAttribute('data-theme', resolved);
   document.documentElement.style.colorScheme = resolved;
   document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-    ?.setAttribute('content', resolved === 'dark' ? '#0C1216' : '#F5F3ED');
+    ?.setAttribute('content', resolved === 'dark' ? '#0F1419' : '#F5F7F9');
 };
 
 const viewNavigate = (nav: ReturnType<typeof useNavigate>, to: string) => nav(to);
@@ -84,13 +84,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     if (matchesPath(financePaths)) setFinanceExpanded(true);
   }, [location.pathname]);
 
+  // System preference changes are synchronized once in main.tsx before React mounts.
+  // Layout only applies the selected mode when the setting changes.
   useEffect(() => {
     applyTheme(theme);
-    if (theme !== 'system') return;
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const syncSystemTheme = () => applyTheme('system');
-    media.addEventListener('change', syncSystemTheme);
-    return () => media.removeEventListener('change', syncSystemTheme);
   }, [theme]);
 
   useEffect(() => {
