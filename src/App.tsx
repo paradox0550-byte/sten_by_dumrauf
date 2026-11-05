@@ -34,9 +34,9 @@ function Protected({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) {
     return (
-      <main className="loading sten-loading" aria-label="Загрузка STEN" aria-busy="true">
-        <StenLogo size={76} animated aria-label="STEN" />
-        <span className="sten-state-eyebrow">STEN · РАБОЧЕЕ ПРОСТРАНСТВО</span>
+      <main className="loading sten-loading" aria-label="Загрузка Dumrauf" aria-busy="true">
+        <StenLogo size={76} animated aria-label="Dumrauf" />
+        <span className="sten-state-eyebrow">DUMRAUF · РАБОЧЕЕ ПРОСТРАНСТВО</span>
         <span className="sten-loading-message">Проверяем сессию…</span>
         <span className="sten-loading-track" aria-hidden="true"><span /></span>
       </main>
@@ -51,8 +51,8 @@ export default function App() {
       <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Suspense
           fallback={
-            <main className="loading sten-loading" aria-label="Загрузка STEN" aria-busy="true">
-              <span className="sten-state-eyebrow">STEN · РАБОЧЕЕ ПРОСТРАНСТВО</span>
+            <main className="loading sten-loading" aria-label="Загрузка Dumrauf" aria-busy="true">
+              <span className="sten-state-eyebrow">DUMRAUF · РАБОЧЕЕ ПРОСТРАНСТВО</span>
               <span className="sten-loading-message">Открываем раздел…</span>
             </main>
           }

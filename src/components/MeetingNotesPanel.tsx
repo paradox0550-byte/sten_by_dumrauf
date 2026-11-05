@@ -150,11 +150,11 @@ export default function MeetingNotesPanel({ storageKey, onSummarize, disabled = 
         <div className="sten-meeting-notes__backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setOpen(false); }}>
           <section className="sten-meeting-notes__panel" role="dialog" aria-modal="true" aria-labelledby="sten-meeting-notes-title">
             <header className="sten-meeting-notes__header">
-              <div><span className="sten-meeting-notes__eyebrow">STEN AI</span><h2 id="sten-meeting-notes-title">Заметки встречи</h2></div>
+              <div><span className="sten-meeting-notes__eyebrow">Dumrauf AI</span><h2 id="sten-meeting-notes-title">Заметки встречи</h2></div>
               <button type="button" className="sten-meeting-notes__close" onClick={() => setOpen(false)} aria-label="Закрыть заметки"><X size={18}/></button>
             </header>
             <p className="sten-meeting-notes__privacy">
-              Надиктуйте или вставьте текст встречи. Заметки сохраняются в этом браузере отдельно для пользователя и выбранного рабочего контура. Распознавание может обрабатываться речевым сервисом браузера; STEN не записывает системный звук или собеседников.
+              Надиктуйте или вставьте текст встречи. Заметки сохраняются в этом браузере отдельно для пользователя и выбранного рабочего контура. Распознавание может обрабатываться речевым сервисом браузера; Dumrauf не записывает системный звук или собеседников.
             </p>
             <textarea
               aria-label="Текст заметок встречи"
@@ -176,7 +176,7 @@ export default function MeetingNotesPanel({ storageKey, onSummarize, disabled = 
                 className="sten-meeting-notes__primary"
                 onClick={() => { setOpen(false); onSummarize(transcript.trim()); }}
                 disabled={disabled || !transcript.trim() || listening}
-              ><Send size={15} /> Разобрать в STEN AI</button>
+              ><Send size={15} /> Разобрать в Dumrauf AI</button>
             </div>
           </section>
         </div>,

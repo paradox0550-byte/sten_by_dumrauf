@@ -54,7 +54,7 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren, { error: Er
   static getDerivedStateFromError(error: Error) { return { error }; }
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     // Keep the original error and React component stack together for production diagnosis.
-    console.error('[STEN] UI render failure', {
+    console.error('[Dumrauf] UI render failure', {
       message: error.message,
       stack: error.stack,
       componentStack: info.componentStack,
@@ -67,8 +67,8 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren, { error: Er
       return (
         <main className="fatal sten-fatal">
           <section>
-            <StenLogo size={64} animated aria-label="STEN" />
-            <span className="sten-state-eyebrow">STEN · СИСТЕМА УПРАВЛЕНИЯ</span>
+            <StenLogo size={64} animated aria-label="Dumrauf" />
+            <span className="sten-state-eyebrow">Dumrauf · СИСТЕМА УПРАВЛЕНИЯ</span>
             <h1>Не удалось открыть рабочее пространство</h1>
             <p>Произошла ошибка интерфейса. Данные не изменены. Попробуйте обновить приложение.</p>
             <button onClick={() => window.location.reload()}>Обновить приложение</button>

@@ -114,7 +114,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const items = useMemo(() => [
     ['/dashboard', 'Главная'],
     ['/ops', 'Мой день'],
-    ['/sten', 'STEN AI'],
+    ['/sten', 'Dumrauf AI'],
     ['/staff', 'Команда и ФОТ'],
     ['/pnl', 'Финансы'],
     ['/telegram-monitor', 'Мониторинг Telegram'],
@@ -137,7 +137,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const mobileItems = [
     ['/dashboard', 'Обзор', 'overview'],
-    ['/sten', 'STEN AI', Bot],
+    ['/sten', 'Dumrauf AI', Bot],
     ['/telegram-monitor', 'Мониторинг', MessageSquareText],
     ['/pnl', 'Финансы', 'pnl'],
     ['/ops', 'Мой день', 'report'],
@@ -150,12 +150,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="brand">
             <div className="brand-mark" aria-hidden="true"><StenLogo size={34} /></div>
             <div className="brand-copy">
-              <b>STEN</b>
+              <b>DUMRAUF</b>
             </div>
             <button className="mobile-close" onClick={() => setMobileMenu(false)} aria-label="Закрыть меню"><X size={18} /></button>
           </div>
 
-          <nav className="sten-primary-nav" aria-label="Навигация STEN">
+          <nav className="sten-primary-nav" aria-label="Навигация Dumrauf">
             <div className="nav-section-label">РАБОЧЕЕ ПРОСТРАНСТВО</div>
             <NavLink to="/dashboard" end onClick={() => setMobileMenu(false)}>
               <NavIcon icon="overview" size={17} />
@@ -170,11 +170,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </NavLink>
             <NavLink to="/sten" onClick={() => setMobileMenu(false)}>
               <Bot size={17} aria-hidden="true" />
-              <span>STEN AI</span>
+              <span>Dumrauf AI</span>
             </NavLink>
-            <div className="nav-subsection" aria-label="Разделы STEN AI">
+            <div className="nav-subsection" aria-label="Разделы Dumrauf AI">
               <NavLink to="/documents" onClick={() => setMobileMenu(false)}><span>Документы</span></NavLink>
-              <NavLink to="/memory" onClick={() => setMobileMenu(false)}><span>Память STEN</span></NavLink>
+              <NavLink to="/memory" onClick={() => setMobileMenu(false)}><span>Память Dumrauf</span></NavLink>
             </div>
             <NavLink to="/staff" onClick={() => setMobileMenu(false)}>
               <Users size={17} aria-hidden="true" />

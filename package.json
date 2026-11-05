@@ -1,9 +1,9 @@
 {
-  "name": "smenavkarmane-kabinet",
+  "name": "dumrauf",
   "private": true,
   "version": "1.1.0",
   "type": "module",
-  "description": "Личный кабинет управляющего — Смена в кармане",
+  "description": "Dumrauf — Calm Intelligence для управления ресторанным бизнесом",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

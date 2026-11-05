@@ -132,14 +132,14 @@ export default function FloatingAIAssistant() {
         <section className="sten-floating-ai__menu" role="dialog" aria-label="Быстрые действия">
           <header className="sten-floating-ai__menu-header">
             <div>
-              <span className="sten-floating-ai__eyebrow">STEN · УМНЫЙ ДОСТУП</span>
+              <span className="sten-floating-ai__eyebrow">Dumrauf · УМНЫЙ ДОСТУП</span>
               <strong>Быстрые действия</strong>
               <small>Рабочее пространство и период сохраняются</small>
             </div>
             <button type="button" className="sten-floating-ai__dismiss" onClick={() => setMenuOpen(false)} aria-label="Закрыть меню"><X size={17} /></button>
           </header>
           <div className="sten-floating-ai__menu-actions">
-            <button role="menuitem" onClick={openChat}><MessageCircle size={17} /><span><strong>Открыть STEN AI</strong><small>Продолжить диалог</small></span><ChevronRight size={16} /></button>
+            <button role="menuitem" onClick={openChat}><MessageCircle size={17} /><span><strong>Открыть Dumrauf AI</strong><small>Продолжить диалог</small></span><ChevronRight size={16} /></button>
             <button role="menuitem" onClick={startNew}><Plus size={17} /><span><strong>Новый диалог</strong><small>Начать с чистого запроса</small></span><ChevronRight size={16} /></button>
             {visibleActions.map(action => {
               const Icon = action.icon;
@@ -151,14 +151,14 @@ export default function FloatingAIAssistant() {
           </div>
           <footer className="sten-floating-ai__menu-footer">
             <button type="button" onClick={() => setShowRecent(value => !value)}><Clock3 size={14} />{showRecent ? 'Контекстные действия' : 'Недавние разделы'}</button>
-            <span><Activity size={13} /> {status === 'working' ? 'STEN работает' : status === 'error' ? 'Есть ошибка' : 'STEN готов'}</span>
+            <span><Activity size={13} /> {status === 'working' ? 'Dumrauf работает' : status === 'error' ? 'Есть ошибка' : 'Dumrauf готов'}</span>
           </footer>
         </section>
       )}
       <button
         type="button"
         className={`sten-floating-ai__button is-${status}${menuOpen ? ' is-open' : ''}`}
-        aria-label="Открыть STEN AI"
+        aria-label="Открыть Dumrauf AI"
         aria-haspopup="dialog"
         aria-expanded={menuOpen}
         onPointerDown={onPointerDown}
