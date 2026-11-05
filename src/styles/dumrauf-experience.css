@@ -3,35 +3,43 @@
    Keeps routes, data contracts, calculations and interaction behavior intact. */
 
 :root {
+  --dumrauf-sidebar-bg: #F8FAFC; #F8FAFC;
+  --dumrauf-sidebar-text: #475569;
+  --dumrauf-sidebar-muted: #64748B;
+  --dumrauf-sidebar-icon: #64748B;
+  --dumrauf-sidebar-hover: #EEF2F6;
+  --dumrauf-sidebar-active-bg: rgba(15,118,110,.09);
+  --dumrauf-sidebar-active-text: #202B36;
+  --dumrauf-sidebar-border: #E0E6EC;
+  --dumrauf-topbar-bg: rgba(245,247,249,.96);
+  --dumrauf-mobile-nav-bg: rgba(255,255,255,.97);
+  --dumrauf-avatar-bg: #E8EDF2;
+  --dumrauf-avatar-text: #202B36;
+  --dumrauf-scrollbar-thumb: #CBD5E1;
+  --dumrauf-scrollbar-track: #F5F7F9;
   --dumrauf-sidebar: 248px;
   --dumrauf-page-max: 1480px;
   --dumrauf-ease: 180ms cubic-bezier(.2,.7,.2,1);
 }
 
-html[data-theme='dark'], [data-theme='dark'] {
-  --bg-base: #0F1419;
-  --bg-app: #0F1419;
-  --bg-surface: #161C24;
-  --bg-surface-muted: #1B232D;
-  --bg-surface-subtle: #1E2630;
-  --bg-surface-hover: #222C37;
-  --bg-elevated: #1E2630;
-  --bg-inset: #0B0F14;
-  --text-primary: #E8F0F3;
-  --text-secondary: #9FB0B8;
-  --text-muted: #7F9099;
-  --border-subtle: rgba(159,176,184,.10);
-  --border-default: rgba(159,176,184,.17);
-  --border-strong: rgba(159,176,184,.28);
-  --color-brand: #2DD4BF;
-  --color-brand-hover: #20BFAE;
-  --color-brand-strong: #5EEAD4;
-  --text-on-accent: #0B1516;
-  --shadow-sm: none;
-  --shadow-md: 0 12px 32px rgba(0,0,0,.24);
+html[data-theme='dark'] {
+  --dumrauf-sidebar-bg: #111820;
+  --dumrauf-sidebar-text: #A0AFB7;
+  --dumrauf-sidebar-muted: #71828C;
+  --dumrauf-sidebar-icon: #82939C;
+  --dumrauf-sidebar-hover: rgba(159,176,184,.07);
+  --dumrauf-sidebar-active-bg: rgba(45,212,191,.10);
+  --dumrauf-sidebar-active-text: #E8F0F3;
+  --dumrauf-sidebar-border: rgba(159,176,184,.13);
+  --dumrauf-topbar-bg: rgba(15,20,25,.94);
+  --dumrauf-mobile-nav-bg: rgba(22,28,36,.97);
+  --dumrauf-avatar-bg: #26313A;
+  --dumrauf-avatar-text: #E8F0F3;
+  --dumrauf-scrollbar-thumb: #46545D;
+  --dumrauf-scrollbar-track: #0F1419;
 }
 
-html, body { scrollbar-color: #46545D #0F1419; scrollbar-width: thin; }
+html, body { scrollbar-color: var(--dumrauf-scrollbar-thumb) var(--dumrauf-scrollbar-track); scrollbar-width: thin; }
 body { font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; }
 button, input, select, textarea { font-family: inherit; }
 
@@ -45,8 +53,8 @@ button, input, select, textarea { font-family: inherit; }
     width: var(--dumrauf-sidebar) !important;
     min-width: var(--dumrauf-sidebar) !important;
     padding: 18px 14px 12px !important;
-    background: #111820 !important;
-    border-right: 1px solid rgba(159,176,184,.09) !important;
+    background: var(--dumrauf-sidebar-bg) !important;
+    border-right: 1px solid var(--dumrauf-sidebar-border) !important;
   }
   .executive-shell .main {
     margin-left: var(--dumrauf-sidebar) !important;
@@ -64,7 +72,7 @@ button, input, select, textarea { font-family: inherit; }
   .executive-shell .topbar {
     min-height: 72px !important;
     padding: 0 clamp(22px, 3vw, 42px) !important;
-    background: rgba(15,20,25,.94) !important;
+    background: var(--dumrauf-topbar-bg) !important;
     border-bottom: 1px solid var(--border-subtle) !important;
     box-shadow: none !important;
   }
@@ -92,7 +100,7 @@ button, input, select, textarea { font-family: inherit; }
 }
 .executive-shell .brand-mark svg { width: 34px !important; height: 34px !important; }
 .executive-shell .brand-copy b {
-  color: #E8F0F3 !important;
+  color: var(--text-primary) !important;
   font-size: 13px !important;
   font-weight: 750 !important;
   letter-spacing: .16em !important;
@@ -101,7 +109,7 @@ button, input, select, textarea { font-family: inherit; }
 .executive-shell .sten-primary-nav .nav-section-label {
   margin: 18px 8px 7px !important;
   padding: 0 !important;
-  color: #71828C !important;
+  color: var(--dumrauf-sidebar-muted) !important;
   font-size: 9px !important;
   font-weight: 700 !important;
   letter-spacing: .14em !important;
@@ -116,7 +124,7 @@ button, input, select, textarea { font-family: inherit; }
   border: 1px solid transparent !important;
   border-radius: 9px !important;
   background: transparent !important;
-  color: #A0AFB7 !important;
+  color: var(--dumrauf-sidebar-text) !important;
   font-size: 12px !important;
   font-weight: 550 !important;
   transition: color var(--dumrauf-ease), background var(--dumrauf-ease), border-color var(--dumrauf-ease) !important;
@@ -125,26 +133,26 @@ button, input, select, textarea { font-family: inherit; }
 .executive-shell .sten-primary-nav .nav-group-toggle svg {
   width: 17px !important;
   height: 17px !important;
-  color: #82939C !important;
+  color: var(--dumrauf-sidebar-icon) !important;
   stroke-width: 1.7 !important;
 }
 .executive-shell .sten-primary-nav a:hover,
 .executive-shell .sten-primary-nav .nav-group-toggle:hover {
-  color: #E8F0F3 !important;
-  background: rgba(159,176,184,.07) !important;
+  color: var(--text-primary) !important;
+  background: var(--dumrauf-sidebar-hover) !important;
 }
-.executive-shell .sten-primary-nav a.active,
+ .executive-shell .sten-primary-nav a.active,
 .executive-shell .sten-primary-nav .nav-group-children a.active {
-  color: #E8F0F3 !important;
-  background: rgba(45,212,191,.10) !important;
-  border-color: rgba(45,212,191,.12) !important;
+  color: var(--dumrauf-sidebar-active-text) !important;
+  background: var(--dumrauf-sidebar-active-bg) !important;
+  border-color: var(--dumrauf-sidebar-border) !important;
   font-weight: 650 !important;
 }
-.executive-shell .sten-primary-nav a.active svg { color: #2DD4BF !important; }
+.executive-shell .sten-primary-nav a.active svg { color: var(--color-brand) !important; }
 .executive-shell .sten-primary-nav .nav-group-children {
   margin: 2px 0 5px 28px !important;
   padding-left: 10px !important;
-  border-left: 1px solid rgba(159,176,184,.13) !important;
+  border-left: 1px solid var(--dumrauf-sidebar-border) !important;
 }
 .executive-shell .sten-primary-nav .nav-group-children a {
   min-height: 34px !important;
@@ -154,7 +162,7 @@ button, input, select, textarea { font-family: inherit; }
 .executive-shell .sten-primary-nav .nav-subsection {
   margin: 1px 0 5px 28px !important;
   padding-left: 10px !important;
-  border-left: 1px solid rgba(159,176,184,.13) !important;
+  border-left: 1px solid var(--dumrauf-sidebar-border) !important;
 }
 .executive-shell .sten-primary-nav .nav-subsection a {
   min-height: 32px !important;
@@ -163,21 +171,21 @@ button, input, select, textarea { font-family: inherit; }
 }
 .executive-shell .sidebar-bottom {
   padding: 12px 5px 4px !important;
-  border-top: 1px solid rgba(159,176,184,.10) !important;
+  border-top: 1px solid var(--dumrauf-sidebar-border) !important;
 }
 .executive-shell .sidebar-profile-link { gap: 10px !important; }
 .executive-shell .sidebar-profile .avatar,
 .executive-shell .top-profile .avatar {
   width: 34px !important;
   height: 34px !important;
-  border: 1px solid rgba(159,176,184,.16) !important;
-  background: #26313A !important;
-  color: #E8F0F3 !important;
+  border: 1px solid var(--dumrauf-sidebar-border) !important;
+  background: var(--dumrauf-avatar-bg) !important;
+  color: var(--text-primary) !important;
   font-size: 12px !important;
 }
 .executive-shell .sidebar-profile-copy b,
 .executive-shell .top-profile-info b {
-  color: #E8F0F3 !important;
+  color: var(--text-primary) !important;
   font-size: 11px !important;
   font-weight: 650 !important;
 }
@@ -186,7 +194,7 @@ button, input, select, textarea { font-family: inherit; }
   height: 34px !important;
   border: 1px solid rgba(159,176,184,.12) !important;
   background: transparent !important;
-  color: #82939C !important;
+  color: var(--dumrauf-sidebar-icon) !important;
 }
 
 .executive-shell .top-context { gap: 7px !important; }
@@ -326,13 +334,13 @@ button, input, select, textarea { font-family: inherit; }
     width: min(88vw, 330px) !important;
     min-width: 0 !important;
     padding: 16px 12px 12px !important;
-    background: #111820 !important;
+    background: var(--dumrauf-sidebar-bg) !important;
   }
   .executive-shell .main { width: 100% !important; margin-left: 0 !important; }
   .executive-shell .topbar {
     min-height: 62px !important;
     padding: max(7px, env(safe-area-inset-top)) 12px 7px !important;
-    background: rgba(15,20,25,.97) !important;
+    background: var(--dumrauf-topbar-bg) !important;
     border-bottom: 1px solid var(--border-subtle) !important;
   }
   .executive-shell .content {
@@ -477,7 +485,7 @@ button, input, select, textarea { font-family: inherit; }
   min-height: 48px !important;
   margin-top: 6px !important;
   border-radius: 8px !important;
-  color: #0B1516 !important;
+  color: var(--text-on-accent) !important;
   font-size: 13px !important;
   font-weight: 700 !important;
 }
@@ -521,7 +529,7 @@ button, input, select, textarea { font-family: inherit; }
 .executive-shell .page :is(.primary-button, .secondary-button, .danger-button, button.button) {
   min-height: 38px; border-radius: 8px !important; font-size: 11px !important; font-weight: 650; box-shadow: none !important;
 }
-.executive-shell .page .primary-button { background: var(--color-brand) !important; border-color: var(--color-brand) !important; color: #0B1516 !important; }
+.executive-shell .page .primary-button { background: var(--color-brand) !important; border-color: var(--color-brand) !important; color: var(--text-on-accent) !important; }
 .executive-shell .page .secondary-button { background: transparent !important; border: 1px solid var(--border-default) !important; color: var(--text-primary) !important; }
 .executive-shell .page .secondary-button:hover:not(:disabled) { background: var(--bg-surface-hover) !important; border-color: var(--border-strong) !important; }
 .executive-shell .page table th { color: var(--text-muted); background: var(--bg-surface-muted); font-size: 10px; font-weight: 700; letter-spacing: .035em; }
@@ -567,9 +575,9 @@ button, input, select, textarea { font-family: inherit; }
     width: auto !important;
     height: 62px !important;
     padding: 5px 7px !important;
-    border: 1px solid rgba(159,176,184,.16) !important;
+    border: 1px solid var(--dumrauf-sidebar-border) !important;
     border-radius: 15px !important;
-    background: rgba(22,28,36,.97) !important;
+    background: var(--dumrauf-mobile-nav-bg) !important;
     box-shadow: 0 12px 32px rgba(0,0,0,.30) !important;
     backdrop-filter: none !important;
   }
@@ -577,15 +585,15 @@ button, input, select, textarea { font-family: inherit; }
     min-height: 48px !important;
     gap: 4px !important;
     border-radius: 9px !important;
-    color: #8F9FA8 !important;
+    color: var(--text-secondary) !important;
     font-size: 9px !important;
     font-weight: 600 !important;
   }
   .executive-shell .mobile-bottom-nav a.active {
-    color: #E8F0F3 !important;
-    background: rgba(45,212,191,.10) !important;
+    color: var(--text-primary) !important;
+    background: var(--dumrauf-sidebar-active-bg) !important;
   }
-  .executive-shell .mobile-bottom-nav a.active svg { color: #2DD4BF !important; }
+  .executive-shell .mobile-bottom-nav a.active svg { color: var(--color-brand) !important; }
   .executive-shell .content { padding-bottom: calc(100px + env(safe-area-inset-bottom)) !important; }
 }
 @media (min-width: 391px) and (max-width: 767px) {
