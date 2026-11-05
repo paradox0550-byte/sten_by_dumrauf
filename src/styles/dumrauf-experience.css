@@ -14,6 +14,7 @@
   --du-content-max: 1560px;
   --du-page-gutter: clamp(18px, 2.2vw, 34px);
   --du-ease: cubic-bezier(.2,.7,.2,1);
+  --sten-ease: var(--du-ease);
   --du-fast: 150ms;
   --du-normal: 210ms;
   --du-card-radius: 16px;
