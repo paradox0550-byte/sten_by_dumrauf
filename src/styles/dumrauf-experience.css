@@ -501,3 +501,58 @@ button, input, select, textarea { font-family: inherit; }
   .login-brand { margin-bottom: 38px !important; }
   .login-heading h1 { font-size: 23px !important; }
 }
+
+
+/* Product-wide surface language — shared across finance, operations, AI and admin. */
+.executive-shell .page { color: var(--text-primary); }
+.executive-shell .page :is(.page-head, .section-head, .panel-head) { gap: 14px; }
+.executive-shell .page :is(.page-head h1, .page h1, .director-topbar h1) { color: var(--text-primary); letter-spacing: -.04em; }
+.executive-shell .page :is(.panel, .card, .section-card, .settings-card, .docs-panel, .memory-card, .analytics-gap-section, .pnl-kpi, .budget-kpi, .metric-card) {
+  border: 1px solid var(--border-subtle) !important; border-radius: 11px !important;
+  background: var(--bg-surface) !important; background-image: none !important; box-shadow: none !important;
+}
+.executive-shell .page :is(.panel-title, .section-title) { color: var(--text-primary); font-size: 14px; font-weight: 650; letter-spacing: -.02em; }
+.executive-shell .page :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), select, textarea) {
+  min-height: 40px; border: 1px solid var(--border-default); border-radius: 8px !important;
+  background: var(--bg-inset); color: var(--text-primary); font-size: 12px;
+}
+.executive-shell .page :is(input, select, textarea)::placeholder { color: var(--text-muted); }
+.executive-shell .page :is(input, select, textarea):focus { border-color: var(--color-brand) !important; outline: 0; box-shadow: 0 0 0 2px rgba(45,212,191,.12) !important; }
+.executive-shell .page :is(.primary-button, .secondary-button, .danger-button, button.button) {
+  min-height: 38px; border-radius: 8px !important; font-size: 11px !important; font-weight: 650; box-shadow: none !important;
+}
+.executive-shell .page .primary-button { background: var(--color-brand) !important; border-color: var(--color-brand) !important; color: #0B1516 !important; }
+.executive-shell .page .secondary-button { background: transparent !important; border: 1px solid var(--border-default) !important; color: var(--text-primary) !important; }
+.executive-shell .page .secondary-button:hover:not(:disabled) { background: var(--bg-surface-hover) !important; border-color: var(--border-strong) !important; }
+.executive-shell .page table th { color: var(--text-muted); background: var(--bg-surface-muted); font-size: 10px; font-weight: 700; letter-spacing: .035em; }
+.executive-shell .page table td { color: var(--text-primary); font-size: 11px; }
+.executive-shell .page table :is(th, td) { border-color: var(--border-subtle); }
+.executive-shell .page table tbody tr:hover { background: var(--bg-surface-hover); }
+.executive-shell .page :is(.muted, .helper-text, .field-hint, .description) { color: var(--text-secondary); }
+.executive-shell .page :is(.empty, .empty-state, .chart-empty) { border: 1px dashed var(--border-default) !important; border-radius: 11px !important; background: var(--bg-surface-muted) !important; color: var(--text-secondary) !important; }
+
+/* Dumrauf AI: conversational hierarchy without heavy message tiles. */
+.sten-ai-page .sten-ai-topbar { border-bottom: 1px solid var(--border-subtle) !important; background: var(--bg-base) !important; }
+.sten-ai-page .sten-ai-topbar__name h1 { color: var(--text-primary); font-size: 17px !important; font-weight: 650 !important; letter-spacing: -.035em !important; }
+.sten-ai-page .sten-ai-welcome__hero h2 {
+  max-width: 17ch; color: var(--text-primary) !important; font-size: clamp(28px, 3vw, 42px) !important;
+  font-weight: 600 !important; line-height: 1.12 !important; letter-spacing: -.05em !important;
+}
+.sten-ai-page .sten-ai-welcome__hero h2 span { color: var(--color-brand) !important; }
+.sten-ai-page .sten-ai-starter { border: 1px solid var(--border-subtle) !important; border-radius: 10px !important; background: var(--bg-surface) !important; box-shadow: none !important; }
+.sten-ai-page .sten-ai-starter:hover { border-color: var(--border-strong) !important; background: var(--bg-surface-hover) !important; }
+.sten-ai-page :is(.sten-composer, .composer-box) { border: 1px solid var(--border-default) !important; border-radius: 12px !important; background: var(--bg-surface) !important; box-shadow: none !important; }
+.sten-ai-page :is(.sten-composer, .composer-box):focus-within { border-color: var(--color-brand) !important; box-shadow: 0 0 0 2px rgba(45,212,191,.10) !important; }
+.sten-ai-page :is(.message-row--user .message-bubble, .chat-body .message-row--user .message-bubble) {
+  border: 1px solid var(--border-subtle) !important; border-radius: 12px 12px 4px 12px !important;
+  background: var(--bg-surface-subtle) !important; color: var(--text-primary) !important; box-shadow: none !important;
+}
+.sten-ai-page :is(.message-row--assistant .message-bubble, .chat-body .message-row--assistant .message-bubble) {
+  border: 1px solid transparent !important; border-radius: 4px 12px 12px 12px !important;
+  background: transparent !important; color: var(--text-primary) !important; box-shadow: none !important;
+}
+@media (max-width: 767px) {
+  .executive-shell .page :is(.panel, .card, .section-card, .settings-card, .docs-panel, .memory-card, .analytics-gap-section, .pnl-kpi, .budget-kpi, .metric-card) { border-radius: 10px !important; }
+  .executive-shell .page :is(.primary-button, .secondary-button, .danger-button, button.button) { min-height: 42px; }
+  .sten-ai-page .sten-ai-welcome__hero h2 { font-size: clamp(26px, 8vw, 36px) !important; }
+}
