@@ -66,7 +66,7 @@
   --row-border: #D5DDE5;
   --sten-jade: #5FB3A1;
   --sten-graphite: #0B0F19;
-  --sten-paper: #F5F7F9;
+  --sten-paper: #F5F7FA;
   --bg-surface-1: #FFFFFF;
   --bg-surface-2: #F1F4F7;
   --bg-surface-3: #E8EDF2;
@@ -86,8 +86,8 @@
   --chart-series-4: #7A8794;
   --chart-series-5: #94A3B8;
   --chart-series-6: #CBD5E1;
-  --bg-base: #F5F7F9;
-  --bg-app: #F5F7F9;
+  --bg-base: #F5F7FA;
+  --bg-app: #F5F7FA;
   --bg-surface: #FFFFFF;
   --bg-surface-muted: #F1F4F7;
   --bg-surface-subtle: #E8EDF2;
@@ -102,9 +102,9 @@
   --bg-success-subtle: rgb(22 163 74 / 6%);
   --bg-warning-subtle: rgb(217 119 6 / 6%);
   --bg-danger-subtle: rgb(220 38 38 / 6%);
-  --text-primary: #202B36;
-  --text-secondary: #526170;
-  --text-muted: #5F6B78;
+  --text-primary: #0B0F19;
+  --text-secondary: #6B7280;
+  --text-muted: #6B7280;
   --text-tertiary: var(--text-secondary);
   --text-disabled: #7C8996;
   --text-on-accent: #0B0F19;
