@@ -39,7 +39,7 @@
   --color-sten-bg-success: var(--bg-success);
   --color-sten-bg-warning: var(--bg-warning);
   --color-sten-bg-danger: var(--bg-danger);
-  --font-ui: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --font-ui: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
   --text-page-title: 30px;
   --text-page-title--line-height: 1.2;
@@ -144,8 +144,8 @@
   --skeleton-gradient: none;
   --skeleton-base: #E8EDF2;
   --skeleton-shine: #F1F4F7;
-  --font-ui: 'IBM Plex Sans', 'Segoe UI', sans-serif;
-  --font-sans: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --font-ui: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+  --font-sans: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
   --text-page-title: 30px;
   --text-section-title: 21px;

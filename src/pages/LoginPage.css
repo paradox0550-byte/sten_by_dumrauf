@@ -1,4 +1,4 @@
-/* STEN login — спокойная, понятная и адаптивная страница входа. */
+/* DUMRAUF login — спокойная, понятная и адаптивная страница входа. */
 .login-screen {
   box-sizing: border-box;
   display: grid;
@@ -40,7 +40,7 @@
   margin-bottom: 12px;
 }
 
-.login-logo .sten-logo {
+.login-logo .dumrauf-logo {
   display: block;
   flex: none;
   width: 88px;
@@ -197,13 +197,13 @@
   .login-card { padding: 28px 22px 20px; border-radius: 18px; }
   .login-brand { margin-bottom: 28px; }
   .login-logo { width: 92px; height: 92px; }
-  .login-logo .sten-logo { width: 82px; height: 82px; }
+  .login-logo .dumrauf-logo { width: 82px; height: 82px; }
   .login-code-fields { gap: 9px; }
   .login-code-fields input { height: 58px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .login-card, .login-logo .sten-logo, .login-spinner { animation: none; }
+  .login-card, .login-logo .dumrauf-logo, .login-spinner { animation: none; }
   .login-code-fields input, .login-submit { transition: none; }
 }
 
@@ -212,5 +212,5 @@
 .login-password-toggle:hover:not(:disabled){background:var(--bg-surface-subtle);color:var(--text-primary)}.login-password-toggle:focus-visible{outline:2px solid var(--color-brand);outline-offset:1px}
 .login-help{margin:-5px 0 0;color:var(--text-muted);text-align:center;font-size:12px;line-height:1.5}.login-help a{color:var(--text-secondary);text-decoration:underline;text-underline-offset:3px}.login-help a:hover{color:var(--text-primary)}
 .login-submit:disabled{opacity:.72;background:color-mix(in srgb,var(--color-brand) 55%,var(--bg-elevated));border-color:color-mix(in srgb,var(--color-brand) 55%,var(--border-default));color:var(--text-primary)}
-.login-brand{margin-bottom:26px}.login-logo{width:82px;height:82px;margin-bottom:0}.login-logo .sten-logo{width:78px;height:78px}.login-heading{margin-bottom:22px}
+.login-brand{margin-bottom:26px}.login-logo{width:82px;height:82px;margin-bottom:0}.login-logo .dumrauf-logo{width:78px;height:78px}.login-heading{margin-bottom:22px}
 .login-field input{border-color:var(--border-strong,var(--border-default));background:var(--bg-elevated,var(--bg-base))}.login-screen{background:var(--bg-base)}

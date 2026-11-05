@@ -277,7 +277,7 @@ function AIContent({user}:{user:User|null}){
             `Пользователя зовут ${user?.firstName?.trim()||'Александр'}. ${user?.position?.trim()?`Должность пользователя: ${user.position.trim()}.`:''} Обращайся по имени естественно и уместно, не повторяй имя в каждом сообщении. Отвечай на русском языке.`,
             PERSONAL_MODES.find(mode=>mode.id===personalMode)?.instruction||PERSONAL_MODES[1].instruction,
             voiceModeRef.current?'Голосовой диалог: отвечай естественно и кратко для устной речи. Для расчётов называй ключевые цифры, формулу и период; отделяй подтверждённые данные от предположений. Если данных нет, прямо скажи об этом. Не утверждай, что выполнил действие без подтверждения результата.': '',
-            'Правила STEN: не выдумывай показатели; отсутствие данных не равно нулю; явно указывай источник, формулу и ограничения, когда это важно. Не утверждай, что выполнил действие, если оно не выполнено. Не предлагай прямые записи в БД, SQL-команды для изменения данных, обход API или ручное редактирование серверного хранилища. Для изменения данных направляй только через штатные функции интерфейса STEN и отдельно обозначай, что требуется подтверждение пользователя. Не утверждай, что изменение выполнено без подтверждённого результата. Не переключай ресторан, филиал, проект или организацию самостоятельно. Если рабочий контекст не выбран, отвечай на общие вопросы без него; для анализа данных конкретного ресторана используй только доступные пользователю данные и явно уточни, какой контекст нужен, если без него нельзя ответить. Никогда не подставляй данные другого ресторана и не придумывай отсутствующие показатели.'
+            'Правила Dumrauf: не выдумывай показатели; отсутствие данных не равно нулю; явно указывай источник, формулу и ограничения, когда это важно. Не утверждай, что выполнил действие, если оно не выполнено. Не предлагай прямые записи в БД, SQL-команды для изменения данных, обход API или ручное редактирование серверного хранилища. Для изменения данных направляй только через штатные функции интерфейса Dumrauf и отдельно обозначай, что требуется подтверждение пользователя. Не утверждай, что изменение выполнено без подтверждённого результата. Не переключай ресторан, филиал, проект или организацию самостоятельно. Если рабочий контекст не выбран, отвечай на общие вопросы без него; для анализа данных конкретного ресторана используй только доступные пользователю данные и явно уточни, какой контекст нужен, если без него нельзя ответить. Никогда не подставляй данные другого ресторана и не придумывай отсутствующие показатели.'
           ].join(' ') },
           ...nextMsgs.slice(-49).map(m => ({ role: m.role, content: m.text })),
         ],
@@ -419,7 +419,7 @@ function AIContent({user}:{user:User|null}){
     voiceModeRef.current=true;setVoiceMode(true);
     if(!SR){
       promptRef.current?.focus();
-      showChatToast('Встроенное распознавание речи недоступно. Используйте микрофон диктовки на клавиатуре — ответ STEN будет озвучен.');
+      showChatToast('Встроенное распознавание речи недоступно. Используйте микрофон диктовки на клавиатуре — ответ Dumrauf будет озвучен.');
       return;
     }
     if(!('speechSynthesis' in window))showChatToast('Голосовой ответ не поддерживается этим браузером.');
@@ -440,7 +440,7 @@ function AIContent({user}:{user:User|null}){
  const createSecretaryEvent=async(answer:string)=>{
    try{
      const start=new Date(Date.now()+60*60*1000);
-     await api.post('/api/secretary/events',{title:'Разобрать ответ STEN AI',description:answer,start_at:start.toISOString(),event_type:'task',status:'planned',reminder_minutes:30});
+     await api.post('/api/secretary/events',{title:'Разобрать ответ Dumrauf AI',description:answer,start_at:start.toISOString(),event_type:'task',status:'planned',reminder_minutes:30});
      showChatToast('Задача добавлена в Секретарь');
    }catch(e){showChatToast(e instanceof Error?e.message:'Не удалось создать задачу в Секретаре');}
  };
@@ -486,7 +486,7 @@ function AIContent({user}:{user:User|null}){
      <div className="sten-ai-topbar__brand">
        <span className="sten-ai-topbar__mark" aria-hidden="true"><StenLogo variant="mark" size={28} /></span>
        <div className="sten-ai-topbar__title">
-         <div className="sten-ai-topbar__name"><h1>STEN AI</h1><span className="sten-ai-topbar__status" aria-label={busy?'STEN AI формирует ответ':'STEN AI готов к анализу'} title={busy?'Формирует ответ':'Готов к анализу'}/></div>
+         <div className="sten-ai-topbar__name"><h1>Dumrauf AI</h1><span className="sten-ai-topbar__status" aria-label={busy?'Dumrauf AI формирует ответ':'Dumrauf AI готов к анализу'} title={busy?'Формирует ответ':'Готов к анализу'}/></div>
          <p>Аналитический партнёр руководителя</p>
        </div>
      </div>
@@ -527,14 +527,14 @@ function AIContent({user}:{user:User|null}){
          <span className="chat-head__documents"><FileText size={13}/>{readyCount} {readyCount===1?'документ готов':'документов готовы'}</span>
        </div>
 
-       <div ref={chatBodyRef} className="chat-body" role="log" aria-live="polite" aria-label="История чата со STEN" onScroll={()=>{const element=chatBodyRef.current;if(element)shouldAutoScrollRef.current=element.scrollHeight-element.scrollTop-element.clientHeight<120;}}>
+       <div ref={chatBodyRef} className="chat-body" role="log" aria-live="polite" aria-label="История чата со Dumrauf" onScroll={()=>{const element=chatBodyRef.current;if(element)shouldAutoScrollRef.current=element.scrollHeight-element.scrollTop-element.clientHeight<120;}}>
          <ChatBackground kind={settings.background}/>
          {!messages.length?<div className="welcome sten-ai-welcome">
            <div className="sten-ai-welcome__eyebrow"><span className="sten-ai-welcome__pulse"/><Sparkles size={13}/> ИНТЕЛЛЕКТУАЛЬНЫЙ РАБОЧИЙ КОНТУР</div>
            <div className="sten-ai-welcome__hero">
              <div className="welcome-mark"><Bot size={27}/></div>
              <h2>Давайте разберёмся,<br/><span>что происходит в бизнесе.</span></h2>
-             <p>STEN AI помогает увидеть причины отклонений, расставить приоритеты и превратить данные в конкретные действия. Без выдуманных цифр — только доступный контекст и проверяемые выводы.</p>
+             <p>Dumrauf AI помогает увидеть причины отклонений, расставить приоритеты и превратить данные в конкретные действия. Без выдуманных цифр — только доступный контекст и проверяемые выводы.</p>
            </div>
            <div className="sten-ai-welcome__context">
              <div className="sten-ai-welcome__context-item"><span className="sten-ai-welcome__context-icon"><Database size={16}/></span><span><b>Рабочий контур</b><small>{hasScopeId(scope)?'Выбранная область данных':'Не выбран — точность анализа ограничена'}</small></span></div>
@@ -590,7 +590,7 @@ function AIContent({user}:{user:User|null}){
              )}
            </Fragment>;
          })}
-         {busy&&<div className="typing" role="status" aria-live="polite" aria-label="STEN AI обрабатывает запрос"><span className="typing__label">STEN AI думает...</span><i/><i/><i/></div>}
+         {busy&&<div className="typing" role="status" aria-live="polite" aria-label="Dumrauf AI обрабатывает запрос"><span className="typing__label">Dumrauf AI думает...</span><i/><i/><i/></div>}
          {meetingDraft&&<section className="sten-meeting-confirm" aria-label="Подтверждение встречи">
            <div className="sten-meeting-confirm__heading"><CalendarDays size={18}/><div><strong>{meetingDraft.awaitingConfirmation?'Подтверди встречу':'Уточняем детали встречи'}</strong><span>Запись в Секретарь — только после подтверждения</span></div></div>
            <dl>
@@ -599,7 +599,7 @@ function AIContent({user}:{user:User|null}){
              <div><dt>Время</dt><dd>{meetingDraft.time||'Нужно уточнить'}</dd></div>
              <div><dt>Место</dt><dd>{meetingDraft.location||'Нужно уточнить'}</dd></div>
            </dl>
-           {meetingDraft.awaitingConfirmation?<div className="sten-meeting-confirm__actions"><button type="button" className="primary-button" disabled={meetingSaving} onClick={()=>void confirmMeeting(meetingDraft)}>{meetingSaving?'Сохраняем…':'Подтвердить и записать'}</button><button type="button" className="secondary-button" disabled={meetingSaving} onClick={()=>{setMeetingDraft(null);appendLocalAssistant('Встреча отменена и не была записана.')}}>Отменить</button></div>:<p className="sten-meeting-confirm__hint">Ответь голосом или текстом на уточнение STEN. После заполнения деталей можно будет подтвердить запись.</p>}
+           {meetingDraft.awaitingConfirmation?<div className="sten-meeting-confirm__actions"><button type="button" className="primary-button" disabled={meetingSaving} onClick={()=>void confirmMeeting(meetingDraft)}>{meetingSaving?'Сохраняем…':'Подтвердить и записать'}</button><button type="button" className="secondary-button" disabled={meetingSaving} onClick={()=>{setMeetingDraft(null);appendLocalAssistant('Встреча отменена и не была записана.')}}>Отменить</button></div>:<p className="sten-meeting-confirm__hint">Ответь голосом или текстом на уточнение Dumrauf. После заполнения деталей можно будет подтвердить запись.</p>}
          </section>}
        </div>
        {chatToast&&<div className="chat-toast" role="status" aria-live="polite">{chatToast}</div>}
@@ -608,7 +608,7 @@ function AIContent({user}:{user:User|null}){
          onDragOver={e=>{e.preventDefault();if(!upload)setDragOver(true)}}
          onDragLeave={()=>setDragOver(false)}
          onDrop={e=>{e.preventDefault();setDragOver(false);void uploadFiles(e.dataTransfer.files)}}>
-         {dragOver&&<div className="composer-drop-hint"><UploadCloud size={16}/> Отпустите файл — STEN добавит его в документы</div>}
+         {dragOver&&<div className="composer-drop-hint"><UploadCloud size={16}/> Отпустите файл — Dumrauf добавит его в документы</div>}
          <div className="composer-box" onPointerDown={e=>{if((e.target as HTMLElement).closest("button,textarea"))return;promptRef.current?.focus()}} onClick={e=>{if((e.target as HTMLElement).closest("button"))return;promptRef.current?.focus()}}>
            <button className="icon-button composer-attach" onClick={()=>file.current?.click()} aria-label="Прикрепить документ" title="Добавить документ"><Paperclip size={18}/></button>
            <MeetingNotesPanel
@@ -618,8 +618,8 @@ function AIContent({user}:{user:User|null}){
                void ask('Разбери заметки встречи. Подготовь краткое резюме, ключевые решения, список задач с ответственными и сроками, а также вопросы без ответа. Не придумывай имена, сроки или решения, которых нет в тексте.\n\nЗАМЕТКИ ВСТРЕЧИ:\n' + transcript);
              }}
            />
-           <textarea ref={promptRef} value={prompt} onFocus={()=>setComposerFocused(true)} onBlur={()=>setComposerFocused(false)} onChange={e=>setPrompt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void ask()}}} placeholder={listening?'Говорите…':'Спросите про P&L, ФОТ или ситуацию в смене…'} rows={1} aria-label="Запрос к STEN AI"/>
-           {voiceState==='speaking'&&<button className="icon-button voice-stop" onClick={interruptVoice} aria-label="Перебить ответ STEN" title="Перебить ответ"><MicOff size={18}/></button>}
+           <textarea ref={promptRef} value={prompt} onFocus={()=>setComposerFocused(true)} onBlur={()=>setComposerFocused(false)} onChange={e=>setPrompt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void ask()}}} placeholder={listening?'Говорите…':'Спросите про P&L, ФОТ или ситуацию в смене…'} rows={1} aria-label="Запрос к Dumrauf AI"/>
+           {voiceState==='speaking'&&<button className="icon-button voice-stop" onClick={interruptVoice} aria-label="Перебить ответ Dumrauf" title="Перебить ответ"><MicOff size={18}/></button>}
            <button className={'icon-button'+(listening?' mic-active':'')+(voiceMode?' voice-mode-active':'')} onClick={toggleVoice} aria-label={voiceMode?'Завершить голосовой диалог':'Начать голосовой диалог'} title={SR?'Голосовой диалог (Chrome / Edge)':'Голосовой ввод не поддерживается этим браузером'}>
              {listening?<MicOff size={18}/>:<Mic size={18}/>}
            </button>
