@@ -599,3 +599,130 @@ button, input, select, textarea { font-family: inherit; }
 @media (max-width: 350px) {
   .director-metrics { grid-template-columns: minmax(0,1fr) !important; }
 }
+
+
+/* Financial workspace: P&L and Budget */
+.pnl-v4-head {
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  padding-bottom:16px; border-bottom:1px solid var(--border-subtle);
+}
+.pnl-v4-head h1 { font-size:25px !important; font-weight:650 !important; letter-spacing:-.045em !important; }
+.pnl-v4-controls { display:flex; align-items:center; gap:9px; }
+.pnl-v4-period input { min-height:38px !important; border-radius:8px !important; background:var(--bg-surface) !important; }
+.pnl-kpis { display:grid !important; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px !important; }
+.pnl-kpi {
+  min-width:0; padding:16px !important; border:1px solid var(--border-subtle) !important;
+  border-radius:11px !important; background:var(--bg-surface) !important;
+}
+.pnl-kpi :is(span,small,label) { color:var(--text-secondary); font-size:10px; }
+.pnl-kpi strong { color:var(--text-primary); font:600 clamp(18px,2vw,25px)/1.25 var(--font-mono); letter-spacing:-.05em; }
+.pnl-v4-panel { border-radius:12px !important; background:var(--bg-surface) !important; }
+.pnl-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.pnl-scale-toggle { border-radius:8px !important; background:var(--bg-surface-muted) !important; }
+.pnl-scale-toggle button { min-height:34px; border-radius:6px !important; }
+.pnl-summary { border-radius:10px !important; background:var(--bg-surface-muted) !important; }
+.budget-kpis { display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px !important; }
+.budget-kpi { padding:16px !important; border-radius:11px !important; }
+.budget-grid { overflow:hidden; border:1px solid var(--border-subtle); border-radius:10px; }
+.budget-grid > .head { background:var(--bg-surface-muted) !important; color:var(--text-secondary) !important; }
+
+/* My Day: operational control room */
+.flash-page .operational-control-toolbar {
+  border:1px solid var(--border-subtle) !important; border-radius:11px !important;
+  background:var(--bg-surface) !important; padding:16px !important;
+}
+.flash-page .operational-day-overview {
+  border:1px solid var(--border-subtle) !important; border-radius:12px !important;
+  background:var(--bg-surface) !important; padding:18px !important;
+}
+.flash-page .operational-overview-heading h2 { font-size:15px !important; font-weight:650 !important; }
+.flash-page .operational-overview-metrics {
+  display:grid !important; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px !important;
+}
+.flash-page .operational-overview-metric {
+  min-width:0; padding:13px !important; border:1px solid var(--border-subtle);
+  border-radius:9px !important; background:var(--bg-surface-muted) !important;
+}
+.flash-page .operational-overview-metric :is(b,strong) { font:600 19px/1.25 var(--font-mono); letter-spacing:-.04em; }
+.flash-page .operational-day-section,
+.flash-page .operational-day-summary { border-radius:11px !important; }
+.flash-page .operational-section-heading { padding-bottom:10px; border-bottom:1px solid var(--border-subtle); }
+.flash-page .operational-transaction-panel { border-radius:12px !important; }
+.flash-page .operational-attention { border-left:2px solid var(--color-warning); }
+
+/* Analytics: one hierarchy for summaries, driver tables and exceptions */
+.analytics-page .analytics-summary {
+  display:grid; gap:10px; padding:17px !important; border-radius:11px !important;
+}
+.analytics-page .analytics-summary-delta { font:600 12px/1.4 var(--font-mono); }
+.analytics-page .analytics-kpi-strip { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+.analytics-page .analytics-kpi-strip > * {
+  min-width:0; padding:14px; border:1px solid var(--border-subtle); border-radius:10px; background:var(--bg-surface);
+}
+.analytics-page .analytics-report-section { padding:16px !important; border-radius:12px !important; }
+.analytics-page .analytics-report-section > .panel-title { margin-bottom:12px; }
+.analytics-page .analytics-report-table { border:1px solid var(--border-subtle); border-radius:9px; overflow:hidden; }
+.analytics-page .analytics-report-head { background:var(--bg-surface-muted) !important; }
+.analytics-page .analytics-gap-section { padding:16px !important; }
+.analytics-page .analytics-footer { color:var(--text-muted); font-size:10px; }
+
+/* Team & payroll: dense but calm data presentation */
+.team-page .fot-kpi-grid { display:grid !important; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px !important; }
+.team-page .fot-kpi {
+  min-width:0; padding:15px !important; border:1px solid var(--border-subtle) !important;
+  border-radius:11px !important; background:var(--bg-surface) !important;
+}
+.team-page .fot-kpi-icon { color:var(--text-secondary) !important; }
+.team-page .fot-kpi :is(strong,b) { font:600 20px/1.25 var(--font-mono); letter-spacing:-.04em; }
+.team-page .fot-section { padding:17px !important; border:1px solid var(--border-subtle); border-radius:12px; background:var(--bg-surface); }
+.team-page .fot-section-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.team-page .fot-table-wrap { border:1px solid var(--border-subtle); border-radius:9px; overflow:auto; }
+.team-page .fot-table { min-width:680px; }
+.team-page .fot-table th { background:var(--bg-surface-muted); }
+.team-page .fot-department-card,
+.team-page .fot-forecast-card { border:1px solid var(--border-subtle) !important; border-radius:10px !important; background:var(--bg-surface-muted) !important; }
+
+/* Memory and documents: structured knowledge, not decorative tiles */
+.memory-page__inner { max-width:var(--dumrauf-page-max); margin-inline:auto; }
+.memory-page .executive-memory-overview,
+.memory-page .executive-chain,
+.memory-page .memory-filters { border:1px solid var(--border-subtle) !important; border-radius:12px !important; background:var(--bg-surface) !important; }
+.memory-page .executive-memory-overview { padding:18px !important; }
+.memory-page .executive-chain { padding:18px !important; }
+.memory-page .executive-chain__step { border-color:var(--border-subtle) !important; background:var(--bg-surface-muted) !important; border-radius:9px !important; }
+.memory-page .memory-card { padding:15px !important; border-radius:10px !important; }
+.memory-page .memory-card__meta { color:var(--text-muted); font-size:10px; }
+.document-upload-panel { border:1px dashed var(--border-default) !important; border-radius:12px !important; background:var(--bg-surface) !important; }
+.document-upload-panel .upload-box { border-radius:9px !important; background:var(--bg-surface-muted) !important; }
+.doc-row { border-bottom:1px solid var(--border-subtle) !important; padding:12px 0 !important; }
+
+/* Settings: grouped configuration with clear section boundaries */
+.settings-page .settings-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px !important; }
+.settings-page .settings-workspace,
+.settings-page .settings-ai-panel,
+.settings-page .messenger-settings,
+.settings-page .analytics-settings {
+  padding:17px !important; border:1px solid var(--border-subtle) !important;
+  border-radius:12px !important; background:var(--bg-surface) !important;
+}
+.settings-page .settings-subsection { border-top:1px solid var(--border-subtle); padding-top:14px; }
+.settings-page .settings-label { color:var(--text-secondary); font-size:10px; font-weight:650; }
+.settings-page .toggle-row { border-bottom:1px solid var(--border-subtle); padding-block:11px; }
+
+@media (max-width: 900px) {
+  .pnl-kpis, .analytics-page .analytics-kpi-strip, .team-page .fot-kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+  .flash-page .operational-overview-metrics { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+  .settings-page .settings-grid { grid-template-columns:minmax(0,1fr) !important; }
+}
+@media (max-width: 600px) {
+  .pnl-v4-head { align-items:flex-start; flex-direction:column; }
+  .pnl-v4-controls { width:100%; justify-content:space-between; }
+  .pnl-kpis, .budget-kpis, .analytics-page .analytics-kpi-strip, .team-page .fot-kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+  .flash-page .operational-overview-metrics { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+  .team-page .fot-section { padding:13px !important; }
+  .memory-page .executive-memory-overview, .memory-page .executive-chain { padding:14px !important; }
+}
+@media (max-width: 360px) {
+  .pnl-kpis, .budget-kpis, .analytics-page .analytics-kpi-strip, .team-page .fot-kpi-grid,
+  .flash-page .operational-overview-metrics { grid-template-columns:minmax(0,1fr) !important; }
+}

@@ -112,7 +112,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }, []);
 
   const items = useMemo(() => [
-    ['/dashboard', 'Главная'],
+    ['/dashboard', 'Сводка'],
     ['/ops', 'Мой день'],
     ['/sten', 'Dumrauf AI'],
     ['/staff', 'Команда и ФОТ'],
@@ -136,7 +136,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     .replace(/^./, char => char.toUpperCase());
 
   const mobileItems = [
-    ['/dashboard', 'Обзор', 'overview'],
+    ['/dashboard', 'Сводка', 'overview'],
     ['/sten', 'Dumrauf AI', Bot],
     ['/telegram-monitor', 'Мониторинг', MessageSquareText],
     ['/pnl', 'Финансы', 'pnl'],
@@ -159,7 +159,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="nav-section-label">РАБОЧЕЕ ПРОСТРАНСТВО</div>
             <NavLink to="/dashboard" end onClick={() => setMobileMenu(false)}>
               <NavIcon icon="overview" size={17} />
-              <span>Главная</span>
+              <span>Сводка</span>
             </NavLink>
             <NavLink to="/ops" onClick={() => setMobileMenu(false)}>
               <ClipboardList size={17} aria-hidden="true" />
