@@ -54,6 +54,18 @@ export default function AuthSetup() {
 
   return (
     <main className="login-screen">
+      <aside className="login-story" aria-label="Dumrauf — Calm Intelligence">
+        <div className="login-story__brand">
+          <StenLogo variant="mark" size={42} aria-label="Dumrauf" />
+          <span>DUMRAUF</span>
+        </div>
+        <div className="login-story__copy">
+          <span className="login-story__eyebrow">CALM INTELLIGENCE</span>
+          <h2>Управление рестораном начинается с ясности.</h2>
+          <p>Финансы, операции и команда — в одном рабочем пространстве руководителя.</p>
+        </div>
+        <div className="login-story__footer">CONTROL ROOM <span>·</span> RESTAURANT BUSINESS</div>
+      </aside>
       <section className="login-card" aria-labelledby="auth-title">
         <header className="login-brand">
           <div className="login-logo"><StenLogo variant="mark" size={88} aria-label="Dumrauf" /></div>
