@@ -61,8 +61,8 @@ export default function AuthSetup() {
         </div>
         <div className="login-story__copy">
           <span className="login-story__eyebrow">CALM INTELLIGENCE</span>
-          <h2>Управление рестораном начинается с ясности.</h2>
-          <p>Финансы, операции и команда — в одном рабочем пространстве руководителя.</p>
+          <h2>Умный контроль вашего ресторана.</h2>
+          <p>Аналитика, AI и решения — в одном рабочем пространстве руководителя.</p>
         </div>
         <div className="login-story__footer">CONTROL ROOM <span>·</span> RESTAURANT BUSINESS</div>
       </aside>
