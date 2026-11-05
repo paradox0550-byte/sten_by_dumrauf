@@ -57,7 +57,8 @@ export default function AuthSetup() {
       <section className="login-card" aria-labelledby="auth-title">
         <header className="login-brand">
           <div className="login-logo"><StenLogo variant="mark" size={88} aria-label="Dumrauf" /></div>
-          <p className="login-brand-caption">Управление ресторанным бизнесом</p>
+          <div className="login-brand-name">DUMRAUF</div>
+          <p className="login-brand-caption">CALM INTELLIGENCE · Управление ресторанным бизнесом</p>
         </header>
 
         <div className="login-heading">
