@@ -252,7 +252,7 @@ export default function Memory() {
       const response = await listMemory({ ...activeFilters, limit: 500 });
       const exportedMemories = response.memories ?? [];
       const md = buildMemoryMarkdown(exportedMemories, {
-        organizationName: organizationName || user?.organizationId || 'STEN',
+        organizationName: organizationName || user?.organizationId || 'Dumrauf',
         exportedAt: new Date().toISOString(),
         filters: activeFilters,
         total: exportedMemories.length,
@@ -311,7 +311,7 @@ export default function Memory() {
           <div>
             <span className="eyebrow"><Brain size={14} /> ИСТОРИЯ РУКОВОДИТЕЛЯ</span>
             <h1>Память руководителя</h1>
-            <p>Решения, проблемы, действия и закономерности — из сохранённых записей STEN.</p>
+            <p>Решения, проблемы, действия и закономерности — из сохранённых записей Dumrauf.</p>
             <button type="button" className="secondary-button memory-page__export-btn" onClick={() => void exportMarkdown()} disabled={!memories.length || exporting} aria-label="Скачать память в формате Markdown">
               {exporting ? <Loader2 size={15} className="memory-export-spinner" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
               {exporting ? 'Выгрузка…' : 'Скачать Markdown ↓'}
@@ -471,8 +471,8 @@ export default function Memory() {
               <div className="memory-empty">
                 <Brain size={30} />
                 <h2>Память пока пуста</h2>
-                <p>STEN начнёт запоминать, когда вы подтвердите предложения из чата</p>
-                <button type="button" className="primary-button" onClick={() => navigate('/ai')}>Открыть чат STEN AI →</button>
+                <p>Dumrauf начнёт запоминать, когда вы подтвердите предложения из чата</p>
+                <button type="button" className="primary-button" onClick={() => navigate('/ai')}>Открыть чат Dumrauf AI →</button>
               </div>
             )}
         </main>

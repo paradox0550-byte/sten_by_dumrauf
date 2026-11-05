@@ -314,7 +314,7 @@ export default function Settings() {
           ['settings-integrations', 'Интеграции'],
           ['settings-analytics', 'Финансы и аналитика'],
           ['settings-reports', 'Отчёты и уведомления'],
-          ['settings-ai', 'STEN AI и голос'],
+          ['settings-ai', 'Dumrauf AI и голос'],
           ['settings-appearance', 'Внешний вид'],
           ['settings-session', 'Вход и выход'],
         ] as const).map(([id, label]) => (
@@ -325,7 +325,7 @@ export default function Settings() {
       <div className="settings-grid">
         <section className="panel settings-workspace" id="settings-workspace">
           <h2>Рабочий контур</h2>
-          <p className="muted">Контекст влияет на финансовые отчёты и аналитику, но не нужен для общих вопросов к STEN AI. Выбор сохраняется автоматически.</p>
+          <p className="muted">Контекст влияет на финансовые отчёты и аналитику, но не нужен для общих вопросов к Dumrauf AI. Выбор сохраняется автоматически.</p>
           <WorkspaceSelector value={scope} onChange={setScope} />
           {scopeMessage && <div className="pnl-message error" role="alert">{scopeMessage}</div>}
         </section>
@@ -336,7 +336,7 @@ export default function Settings() {
 
         <section className="panel" id="settings-profile">
           <h2>Профиль</h2>
-          <p className="muted">Имя и должность отображаются в STEN. Telegram ID используется для адресной отправки отчётов. После изменений нажмите «Сохранить данные».</p>
+          <p className="muted">Имя и должность отображаются в Dumrauf. Telegram ID используется для адресной отправки отчётов. После изменений нажмите «Сохранить данные».</p>
           <label className="settings-field">
             <span>Имя</span>
             <input maxLength={80} value={profile.firstName} onChange={(event) => { const value = normalizeProfileText(event.target.value); setProfile((current) => ({ ...current, firstName: value })); setProfileErrors((current) => ({ ...current, firstName: undefined })); }} placeholder="Александр" />
@@ -360,7 +360,7 @@ export default function Settings() {
               onChange={(event) => { const value = normalizeProfileText(event.target.value); setProfile((current) => ({ ...current, telegramChatId: value })); setProfileErrors((current) => ({ ...current, telegramChatId: undefined })); }}
               placeholder="Например, 123456789"
             />
-            <small className="muted">Нужен, чтобы STEN мог отправлять Вам отчёты в Telegram.</small>
+            <small className="muted">Нужен, чтобы Dumrauf мог отправлять Вам отчёты в Telegram.</small>
           </label>
           {profileErrors.telegramChatId && <small className="field-error" role="alert">{profileErrors.telegramChatId}</small>}
           <button className="primary-button" disabled={profileSaving} onClick={() => void saveProfile()}>
@@ -371,24 +371,24 @@ export default function Settings() {
         </section>
 
         <section className="panel settings-ai-panel" id="settings-ai">
-          <h2>STEN AI и голос</h2>
+          <h2>Dumrauf AI и голос</h2>
           <p className="muted">Все настройки общения и оформления чата собраны здесь. Панель чата остаётся свободной от дополнительных меню.</p>
-          <label className="settings-field"><span>Стиль ответов STEN AI</span>
+          <label className="settings-field"><span>Стиль ответов Dumrauf AI</span>
             <select value={personalMode} onChange={(event) => setPersonalMode(event.target.value as PersonalMode)}>
               <option value="concise">Кратко и по делу</option><option value="analyst">Аналитик — факты, причины и риски</option><option value="coach">Наставник управляющего</option>
             </select>
           </label>
-          <label className="toggle-row"><span><b>Озвучивать ответы STEN</b><small>Голосовой ответ после отправки вопроса. Работает независимо от поддержки распознавания речи.</small></span>
+          <label className="toggle-row"><span><b>Озвучивать ответы Dumrauf</b><small>Голосовой ответ после отправки вопроса. Работает независимо от поддержки распознавания речи.</small></span>
             <input type="checkbox" checked={voiceAutoplay} onChange={(event) => setVoiceAutoplay(event.target.checked)} /><i />
           </label>
-          <label className="settings-field"><span>Голос STEN</span>
+          <label className="settings-field"><span>Голос Dumrauf</span>
             <select value={voiceGender} onChange={(event) => setVoiceGender(event.target.value === 'system' ? 'system' : 'male')}>
               <option value="male">Мужской — по умолчанию</option>
               <option value="system">Системный голос устройства</option>
             </select>
-            <small className="muted">Мужской русский голос выбирается из голосов, доступных браузеру и устройству. Если он не предоставлен, STEN использует доступный русский голос.</small>
+            <small className="muted">Мужской русский голос выбирается из голосов, доступных браузеру и устройству. Если он не предоставлен, Dumrauf использует доступный русский голос.</small>
           </label>
-          <p className="settings-help">Нажмите микрофон в чате, чтобы начать голосовой диалог. Во время ответа можно перебить STEN новым голосовым вводом. На iPhone доступность распознавания зависит от браузера; если оно недоступно, используйте диктовку клавиатуры.</p>
+          <p className="settings-help">Нажмите микрофон в чате, чтобы начать голосовой диалог. Во время ответа можно перебить Dumrauf новым голосовым вводом. На iPhone доступность распознавания зависит от браузера; если оно недоступно, используйте диктовку клавиатуры.</p>
           <div className="settings-subsection"><span className="settings-label">Тема чата</span><div className="choice-grid">
             {THEME_OPTIONS.map((option) => <button key={option.id} type="button" className={'choice ' + (chatAppearance.theme === option.id ? 'active' : '')} onClick={() => updateChatAppearance('theme', option.id as ThemeId)} aria-pressed={chatAppearance.theme === option.id}><span>{option.label}</span>{chatAppearance.theme === option.id && <Check size={16} />}</button>)}
           </div></div>
@@ -449,7 +449,7 @@ export default function Settings() {
 
         <section className="panel messenger-settings" id="settings-reports">
           <h2>Отчёты в Telegram</h2>
-          <p className="muted">STEN будет отправлять выбранные показатели на указанный выше Telegram ID.</p>
+          <p className="muted">Dumrauf будет отправлять выбранные показатели на указанный выше Telegram ID.</p>
           <label className="settings-field">
             <span>Время отправки</span>
             <input type="time" value={sendTime} onChange={(event) => setSendTime(event.target.value)} />
@@ -472,7 +472,7 @@ export default function Settings() {
 
         <section className="panel analytics-settings" id="settings-analytics">
           <h2>Аналитика</h2>
-          <p className="muted">Выберите, какие показатели STEN использует в аналитике.</p>
+          <p className="muted">Выберите, какие показатели Dumrauf использует в аналитике.</p>
           <label className="toggle-row">
             <span><b>Финансовая аналитика</b><small>Выручка, себестоимость, ФОТ, прибыль и сигналы.</small></span>
             <input type="checkbox" checked={analyticsDraft.financial} onChange={(event) => setAnalyticsDraft((value) => ({ ...value, financial: event.target.checked }))} />
@@ -506,8 +506,8 @@ export default function Settings() {
 
         <section className="panel" id="settings-session">
           <h2>Вход и выход</h2>
-          <p className="muted">Вы вошли как <b>{user?.email || 'учётная запись STEN'}</b>. Для изменения имени и должности откройте раздел «Аккаунт и профиль».</p>
-          <button className="danger-button" onClick={signOut}>Выйти из STEN</button>
+          <p className="muted">Вы вошли как <b>{user?.email || 'учётная запись Dumrauf'}</b>. Для изменения имени и должности откройте раздел «Аккаунт и профиль».</p>
+          <button className="danger-button" onClick={signOut}>Выйти из Dumrauf</button>
         </section>
       </div>
     </div>
