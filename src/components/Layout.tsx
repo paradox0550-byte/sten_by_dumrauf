@@ -67,6 +67,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
 
   const financePaths = ['/pnl', '/pnl/import', '/budget', '/analytics', '/finances'];
+  const operationsPaths = ['/ops', '/plan'];
   const matchesPath = (paths: string[]) => paths.some(path => location.pathname === path || location.pathname.startsWith(`${path}/`));
   const [financeExpanded, setFinanceExpanded] = useState(() => matchesPath(financePaths));
 
@@ -212,7 +213,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {user?.role === 'super_admin' && <div className="nav-subsection" aria-label="Инструменты администратора">
               <NavLink to="/ai-quality" onClick={() => setMobileMenu(false)}><span>Лаборатория AI</span></NavLink>
             </div>}
-            <NavLink to="/legal" onClick={() => setMobileMenu(false)} className="nav-legal-link">
+            <NavLink to="/legal" onClick={() => setMobileMenu(false)} className={({ isActive }) => isActive ? 'nav-legal-link active' : 'nav-legal-link'}>
               <span>Правовая информация</span>
             </NavLink>
           </nav>
