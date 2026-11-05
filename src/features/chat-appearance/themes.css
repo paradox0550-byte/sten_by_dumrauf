@@ -73,6 +73,7 @@
   --chat-drawer: var(--bg-surface);
   --chat-input: var(--bg-surface-subtle);
   --chat-on-accent: var(--text-on-accent);
+  color-scheme: inherit;
 }
 
 .sten-ai-page.theme-system .chat {
@@ -86,6 +87,7 @@
   --chat-drawer: var(--bg-surface);
   --chat-input: var(--bg-surface-subtle);
   --chat-on-accent: var(--text-on-accent);
+  color-scheme: inherit;
 }
 
 
