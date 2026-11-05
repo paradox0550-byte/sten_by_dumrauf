@@ -49,6 +49,7 @@ export function MessageRow({ message, previousMessage, user, onCopy, onToSecreta
   const grouped=previousMessage?.role===message.role;
   const isAssistant=message.role==='assistant';
   const accessibleLabel=isAssistant?'Сообщение STEN':'Ваше сообщение';
+  const isAffirmativeStatus=!isAssistant && message.content.trim().toLocaleLowerCase('ru-RU')==='да';
   const sourceItems=message.sources??[];
 
   return (
@@ -62,7 +63,9 @@ export function MessageRow({ message, previousMessage, user, onCopy, onToSecreta
       <div className="message-content">
         {settings.showTime && message.createdAt && <time className="message-time" dateTime={message.createdAt}>{formatTime(message.createdAt)}</time>}
         {children}
-        <div className="message-bubble">{message.role === 'assistant' ? <MarkdownMessage content={message.content} /> : message.content}</div>
+        {isAffirmativeStatus
+          ? <span className="message-affirmative-status">ДА</span>
+          : <div className="message-bubble">{message.role === 'assistant' ? <MarkdownMessage content={message.content} /> : message.content}</div>}
         {settings.showSources && sourceItems.length>0 && (
           <>
             <div className="message-sources" aria-label="Источники">

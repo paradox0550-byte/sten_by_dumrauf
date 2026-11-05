@@ -832,3 +832,21 @@
     font-size: 10px;
   }
 }
+
+/* Dense Calm composer capsule and ChatGPT-like message surface. */
+.sten-ai-page .composer{padding:8px 12px 10px;background:transparent;border-top:0}
+.sten-ai-page .composer-box{display:grid;grid-template-columns:34px 34px minmax(0,1fr) 34px 38px;align-items:end;gap:4px;min-height:52px;padding:6px 7px;border:1px solid var(--border-subtle);border-radius:24px;background:var(--bg-surface-2);box-shadow:none;transition:border-color .16s ease,box-shadow .16s ease}
+.sten-ai-page .composer-box:focus-within,.sten-ai-page .composer.is-focused .composer-box{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 14%,transparent)}
+.sten-ai-page .composer-box textarea{grid-column:3;align-self:center;min-height:34px;padding:7px 3px;border:0!important;border-radius:0;background:transparent!important;box-shadow:none!important;color:var(--text-primary)}
+.sten-ai-page .composer-box .composer-attach{grid-column:1;grid-row:1}
+.sten-ai-page .composer-box .sten-meeting-notes__toggle{grid-column:2;grid-row:1}
+.sten-ai-page .composer-box .icon-button:not(.composer-attach){grid-column:4;grid-row:1}
+.sten-ai-page .composer-box .send{grid-column:5;grid-row:1;border-radius:50%;background:var(--accent);color:var(--text-on-accent,var(--bg-base))}
+.sten-ai-page .composer-box .icon-button,.sten-ai-page .composer-box .send{width:34px;height:34px;min-width:34px;border-radius:50%;border:0;box-shadow:none}
+.sten-ai-page .composer-box .send{width:38px;min-width:38px;height:38px}
+.sten-ai-page .chat-body .message-row--assistant .message-bubble{padding:0;border:0;border-left:0!important;border-radius:0;background:transparent;box-shadow:none;color:var(--text-primary)}
+.sten-ai-page .chat-body .message-row--user .message-bubble{border:1px solid var(--border-subtle);border-radius:16px 4px 16px 16px;background:var(--bg-surface-2)!important;color:var(--text-primary)!important;box-shadow:none}
+.sten-ai-page .chat-body .message-row--assistant .message-content{max-width:min(92%,960px)}
+@media(max-width:560px){.sten-ai-page .composer-box{grid-template-columns:32px 32px minmax(0,1fr) 32px 36px;gap:2px;padding:5px}.sten-ai-page .composer-box .icon-button,.sten-ai-page .composer-box .sten-meeting-notes__toggle{width:32px;height:32px;min-width:32px}.sten-ai-page .composer-box .send{width:36px;min-width:36px;height:36px}}
+
+.sten-ai-page .message-affirmative-status{align-self:flex-end;margin:2px 0 4px;color:var(--text-muted);font-size:11px;font-weight:600;letter-spacing:.04em}
