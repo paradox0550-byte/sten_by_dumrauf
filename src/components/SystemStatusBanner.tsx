@@ -52,7 +52,7 @@ export default function SystemStatusBanner() {
     },
     service: {
       icon: <CloudAlert size={18} aria-hidden="true" />,
-      title: 'STEN временно не может связаться с сервисом',
+      title: 'Dumrauf временно не может связаться с сервисом',
       detail: 'Это может быть временный сетевой сбой. Повторите действие чуть позже.',
       className: 'sten-system-status--service',
     },

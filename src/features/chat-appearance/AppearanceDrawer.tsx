@@ -11,7 +11,7 @@ export function AppearanceDrawer({ onClose }: { onClose: () => void }) {
       <div className="chat-appearance-drawer-head">
         <div>
           <span className="eyebrow">ВИД ЧАТА</span>
-          <strong>Оформление STEN AI</strong>
+          <strong>Оформление Dumrauf AI</strong>
         </div>
         <button className="icon-button compact" onClick={onClose} aria-label="Закрыть оформление">
           <X size={16} />
