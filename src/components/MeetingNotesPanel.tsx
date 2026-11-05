@@ -144,7 +144,7 @@ export default function MeetingNotesPanel({ storageKey, onSummarize, disabled = 
       <button type="button" className="sten-meeting-notes__toggle" aria-label="Открыть заметки встречи" title="Заметки встречи" aria-expanded={open} onClick={() => setOpen(value => !value)}>
         <ClipboardList size={17} />
         <span className="sten-meeting-notes__sr-only">Заметки встречи</span>
-        {transcript.trim() && <span className="sten-meeting-notes__count" aria-label={transcript.trim().split(/\\s+/).length + ' слов'} />}
+        {transcript.trim() && <span className="sten-meeting-notes__count" aria-label={transcript.trim().split(/\s+/).length + ' слов'} />}
       </button>
       {open && createPortal(
         <div className="sten-meeting-notes__backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setOpen(false); }}>
