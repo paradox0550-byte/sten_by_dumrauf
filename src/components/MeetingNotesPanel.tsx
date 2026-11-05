@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { ClipboardList, Mic, MicOff, Send, Trash2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ClipboardList, Mic, MicOff, Send, Trash2, X } from 'lucide-react';
 import './MeetingNotesPanel.css';
 
 type RecognitionResult = { isFinal: boolean; 0?: { transcript?: string } };
@@ -131,41 +132,56 @@ export default function MeetingNotesPanel({ storageKey, onSummarize, disabled = 
     setError('');
   }
 
+  useEffect(() => {
+    if (!open) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [open]);
+
   return (
     <section className="sten-meeting-notes" aria-label="Заметки встречи">
-      <button type="button" className="sten-meeting-notes__toggle" aria-expanded={open} onClick={() => setOpen(value => !value)}>
-        <ClipboardList size={16} />
-        <span>Заметки встречи</span>
-        {transcript.trim() && <span className="sten-meeting-notes__count">{transcript.trim().split(/\s+/).length} слов</span>}
-        <span className="sten-meeting-notes__chevron">{open ? 'Скрыть' : 'Открыть'}</span>
+      <button type="button" className="sten-meeting-notes__toggle" aria-label="Открыть заметки встречи" title="Заметки встречи" aria-expanded={open} onClick={() => setOpen(value => !value)}>
+        <ClipboardList size={17} />
+        <span className="sten-meeting-notes__sr-only">Заметки встречи</span>
+        {transcript.trim() && <span className="sten-meeting-notes__count" aria-label={transcript.trim().split(/\\s+/).length + ' слов'} />}
       </button>
-      {open && <div className="sten-meeting-notes__panel">
-        <p className="sten-meeting-notes__privacy">
-          Надиктуйте или вставьте текст встречи. Заметки сохраняются в этом браузере отдельно для пользователя и выбранного рабочего контура. Распознавание может обрабатываться речевым сервисом браузера; STEN не записывает системный звук или собеседников.
-        </p>
-        <textarea
-          aria-label="Текст заметок встречи"
-          value={transcript}
-          onChange={event => { setTranscript(event.target.value); finalText.current = event.target.value; }}
-          placeholder="Например: договорились пересмотреть food cost, ответственный — управляющий, срок — пятница…"
-          rows={4}
-          disabled={disabled || listening}
-        />
-        {interim && <p className="sten-meeting-notes__interim" aria-live="polite">Распознано: {interim}</p>}
-        {error && <p className="sten-meeting-notes__error" role="status">{error}</p>}
-        <div className="sten-meeting-notes__actions">
-          {listening
-            ? <button type="button" onClick={stop}><MicOff size={15} /> Остановить диктовку</button>
-            : <button type="button" onClick={start} disabled={disabled}><Mic size={15} /> Надиктовать</button>}
-          <button type="button" onClick={clear} disabled={!transcript && !interim}><Trash2 size={15} /> Очистить</button>
-          <button
-            type="button"
-            className="sten-meeting-notes__primary"
-            onClick={() => onSummarize(transcript.trim())}
-            disabled={disabled || !transcript.trim() || listening}
-          ><Send size={15} /> Разобрать в STEN AI</button>
-        </div>
-      </div>}
+      {open && createPortal(
+        <div className="sten-meeting-notes__backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setOpen(false); }}>
+          <section className="sten-meeting-notes__panel" role="dialog" aria-modal="true" aria-labelledby="sten-meeting-notes-title">
+            <header className="sten-meeting-notes__header">
+              <div><span className="sten-meeting-notes__eyebrow">STEN AI</span><h2 id="sten-meeting-notes-title">Заметки встречи</h2></div>
+              <button type="button" className="sten-meeting-notes__close" onClick={() => setOpen(false)} aria-label="Закрыть заметки"><X size={18}/></button>
+            </header>
+            <p className="sten-meeting-notes__privacy">
+              Надиктуйте или вставьте текст встречи. Заметки сохраняются в этом браузере отдельно для пользователя и выбранного рабочего контура. Распознавание может обрабатываться речевым сервисом браузера; STEN не записывает системный звук или собеседников.
+            </p>
+            <textarea
+              aria-label="Текст заметок встречи"
+              value={transcript}
+              onChange={event => { setTranscript(event.target.value); finalText.current = event.target.value; }}
+              placeholder="Например: договорились пересмотреть food cost, ответственный — управляющий, срок — пятница…"
+              rows={6}
+              disabled={disabled || listening}
+            />
+            {interim && <p className="sten-meeting-notes__interim" aria-live="polite">Распознано: {interim}</p>}
+            {error && <p className="sten-meeting-notes__error" role="status">{error}</p>}
+            <div className="sten-meeting-notes__actions">
+              {listening
+                ? <button type="button" onClick={stop}><MicOff size={15} /> Остановить диктовку</button>
+                : <button type="button" onClick={start} disabled={disabled}><Mic size={15} /> Надиктовать</button>}
+              <button type="button" onClick={clear} disabled={!transcript && !interim}><Trash2 size={15} /> Очистить</button>
+              <button
+                type="button"
+                className="sten-meeting-notes__primary"
+                onClick={() => { setOpen(false); onSummarize(transcript.trim()); }}
+                disabled={disabled || !transcript.trim() || listening}
+              ><Send size={15} /> Разобрать в STEN AI</button>
+            </div>
+          </section>
+        </div>,
+        document.body
+      )}
     </section>
   );
 }
