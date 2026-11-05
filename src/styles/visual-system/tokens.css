@@ -64,6 +64,12 @@
   --sten-jade: #115E59;
   --sten-graphite: #0F1419;
   --sten-paper: #F5F7F9;
+  --bg-surface-1: #FFFFFF;
+  --bg-surface-2: #F1F4F7;
+  --bg-surface-3: #E8EDF2;
+  --border-active: var(--border-default);
+  --accent-bg: rgba(15,118,110,.09);
+  --sten-control-height: 40px;
   --sten-lime: #D8E0E7;
   --sten-profit: #18794E;
   --sten-risk: #B42318;
