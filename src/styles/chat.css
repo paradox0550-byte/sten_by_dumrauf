@@ -703,3 +703,5 @@
 .sten-ai-page .chat-body .message-row--user .message-bubble{border:1px solid var(--border-subtle);border-radius:16px 4px 16px 16px;background:var(--bg-surface-2)!important;color:var(--text-primary)!important;box-shadow:none}
 .sten-ai-page .chat-body .message-row--assistant .message-content{max-width:min(92%,960px)}
 @media(max-width:560px){.sten-ai-page .composer-box{grid-template-columns:32px 32px minmax(0,1fr) 32px 36px;gap:2px;padding:5px}.sten-ai-page .composer-box .icon-button,.sten-ai-page .composer-box .sten-meeting-notes__toggle{width:32px;height:32px;min-width:32px}.sten-ai-page .composer-box .send{width:36px;min-width:36px;height:36px}}
+
+.sten-ai-page .message-affirmative-status{align-self:flex-end;margin:2px 0 4px;color:var(--text-muted);font-size:11px;font-weight:600;letter-spacing:.04em}
