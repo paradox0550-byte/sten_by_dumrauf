@@ -695,3 +695,13 @@ table tbody tr:hover td { background: var(--bg-surface-hover); }
 @media (max-width: 767px) {
   :where(button, [role="button"], input[type="button"], input[type="submit"], input[type="reset"]) { min-height: 44px; }
 }
+
+.sidebar-profile-link {
+  display: flex; align-items: center; flex: 1 1 auto; gap: 8px; min-width: 0;
+  padding: 0; border: 0; background: transparent; color: var(--text-primary);
+  text-align: left; cursor: pointer;
+}
+.sidebar-profile-link:hover .sidebar-profile-copy b { color: var(--color-brand); }
+.sidebar-profile-link:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 3px; border-radius: 8px; }
+.sidebar-logout { color: var(--text-secondary) !important; }
+.sidebar-logout:hover { color: var(--color-danger) !important; background: var(--bg-surface-hover) !important; }
