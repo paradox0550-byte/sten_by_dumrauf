@@ -63,47 +63,31 @@
 }
 
 .sten-ai-page.theme-sten .chat {
-  --chat-bg: #0A0E17;
-  --chat-panel: #0F1521;
-  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126b67) 18%, #0F1521);
-  --chat-bubble-ai: #111927;
-  --chat-text: #F3F6F8;
-  --chat-muted: #98A4B7;
-  --chat-border: rgba(18, 107, 103, 0.16);
-  --chat-drawer: #111927;
-  --chat-input: #0C121D;
-  --chat-on-accent: #0C1216;
+  --chat-bg: var(--bg-base);
+  --chat-panel: var(--bg-surface);
+  --chat-bubble-user: var(--bg-surface-subtle);
+  --chat-bubble-ai: var(--bg-surface);
+  --chat-text: var(--text-primary);
+  --chat-muted: var(--text-muted);
+  --chat-border: var(--border-default);
+  --chat-drawer: var(--bg-surface);
+  --chat-input: var(--bg-surface-subtle);
+  --chat-on-accent: var(--text-on-accent);
 }
 
 .sten-ai-page.theme-system .chat {
-  --chat-bg: #F3F5F7;
-  --chat-panel: #FFFFFF;
-  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126B67) 9%, #FFFFFF);
-  --chat-bubble-ai: #FFFFFF;
-  --chat-text: #17212B;
-  --chat-muted: #64748B;
-  --chat-border: #DCE4E8;
-  --chat-drawer: #FFFFFF;
-  --chat-input: #FFFFFF;
-  --chat-on-accent: #0C1216;
-  color-scheme: light;
+  --chat-bg: var(--bg-base);
+  --chat-panel: var(--bg-surface);
+  --chat-bubble-user: var(--bg-surface-subtle);
+  --chat-bubble-ai: var(--bg-surface);
+  --chat-text: var(--text-primary);
+  --chat-muted: var(--text-muted);
+  --chat-border: var(--border-default);
+  --chat-drawer: var(--bg-surface);
+  --chat-input: var(--bg-surface-subtle);
+  --chat-on-accent: var(--text-on-accent);
 }
 
-@media (prefers-color-scheme: dark) {
-  .sten-ai-page.theme-system .chat {
-    --chat-bg: #0B1015;
-    --chat-panel: #141B22;
-    --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126B67) 14%, #141B22);
-    --chat-bubble-ai: #1A232C;
-    --chat-text: #F3F6F8;
-    --chat-muted: #9AA8B4;
-    --chat-border: #2B3742;
-    --chat-drawer: #1A232C;
-    --chat-input: #080D12;
-    --chat-on-accent: #0C1216;
-    color-scheme: dark;
-  }
-}
 
 .sten-ai-page .chat-body {
   position: relative;
