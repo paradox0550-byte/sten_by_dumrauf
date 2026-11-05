@@ -102,7 +102,7 @@ button, a, [role='button'] { -webkit-tap-highlight-color: transparent; }
     min-width: 0;
     background: var(--bg-base) !important;
   }
-  .executive-shell .main.sidebar-collapsed {
+  .executive-shell .sidebar.is-collapsed ~ .main {
     margin-left: var(--du-sidebar-collapsed) !important;
     width: calc(100% - var(--du-sidebar-collapsed)) !important;
   }
@@ -383,9 +383,11 @@ button, a, [role='button'] { -webkit-tap-highlight-color: transparent; }
 .mobile-bottom-nav a { min-height: 58px; color: var(--text-muted) !important; }
 .mobile-bottom-nav a span { font-size: 10px !important; font-weight: 600; }
 .mobile-bottom-nav a.active, .mobile-bottom-nav a[aria-current='page'] {
-  color: var(--color-brand) !important;
+  border-radius: 999px;
+  background: var(--color-brand) !important;
+  color: #0B0F19 !important;
 }
-.mobile-bottom-nav a.active svg, .mobile-bottom-nav a[aria-current='page'] svg { color: var(--color-brand) !important; }
+.mobile-bottom-nav a.active svg, .mobile-bottom-nav a[aria-current='page'] svg { color: #0B0F19 !important; }
 .sten-floating-ai { z-index: 90; }
 .sten-system-status { z-index: 110; }
 .cookie-banner { z-index: 120; max-width: min(900px, calc(100vw - 24px)); }
