@@ -114,7 +114,6 @@ export default function OperationalControlPage() {
   const periodLabel = /^\d{4}-\d{2}$/.test(scope.period)
     ? new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' }).format(new Date(Number(scope.period.slice(0, 4)), Number(scope.period.slice(5, 7)) - 1, 1))
     : scope.period;
-  const selectedScope = [scope.projectId && `Проект ${scope.projectId}`, scope.branchId && `Филиал ${scope.branchId}`, scope.restaurantId && `Ресторан ${scope.restaurantId}`, scope.departmentId && `Отдел ${scope.departmentId}`].filter(Boolean).join(' · ');
   const attentionSignals = [
     ...(error && !r ? [`Не удалось загрузить данные: ${error}`] : !error && missingFields.length ? [`Не заполнены поля отчёта: ${missingFields.map(field => field.label.split(',')[0]).join(', ')}.`] : []),
     ...(pnlError ? [`P&L недоступен: ${pnlError}`] : []),
@@ -175,9 +174,8 @@ export default function OperationalControlPage() {
       <section className="panel operational-control-toolbar">
         <div className="operational-scope-context">
           <strong>{scope.period === DAY_MODE_SENTINEL ? `Дата: ${date}` : `Выбран период: ${periodLabel}`}</strong>
-          <span>{selectedScope || 'Область учёта не выбрана'}</span>
         </div>
-        {scope.period !== DAY_MODE_SENTINEL && <div className="operational-period-warning" role="note">Выбран период: {periodLabel}. В этом экране отчёт дня загружается по дате {date}; подтверждённый агрегат за весь период текущим API-потоком не формируется.</div>}
+        {scope.period !== DAY_MODE_SENTINEL && <div className="operational-period-warning" role="note">В этом экране отчёт дня загружается по дате {date}; подтверждённый агрегат за весь период текущим API-потоком не формируется.</div>}
         <label className="settings-field operational-control-date"><span>Дата дня / смены</span><input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
         <div className="operational-day-actions">
           <button className="secondary-button" onClick={() => { setTxDate(date); setTxType('income'); setTxArticle(articles[0] ?? ''); setTxOpen(true); }}><Plus size={15} /> Доход</button>
