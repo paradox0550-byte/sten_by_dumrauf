@@ -256,64 +256,13 @@ html[data-theme='dark'], [data-theme='dark'] {
   --skeleton-base: #1B232D;
   --skeleton-shine: #242D38;
 
-  /* Dense Calm · dark theme semantic palette and legacy aliases */
-  --bg-surface-1: #161B22;
-  --bg-surface-2: #1F242D;
-  --bg-surface-3: #262C36;
-  --border-subtle: rgba(240, 246, 252, 0.08);
-  --border-active: rgba(240, 246, 252, 0.15);
-  --accent: #2DD4BF;
-  --accent-bg: rgba(45, 212, 191, 0.12);
-  --danger: #F85149;
-  --warning: #D29922;
-  --success: #3FB950;
-  --bg-base: #0D1117;
-  --bg-app: var(--bg-base);
-  --bg-surface: var(--bg-surface-1);
-  --bg-surface-muted: var(--bg-surface-2);
-  --bg-surface-subtle: var(--bg-surface-2);
-  --bg-surface-hover: var(--bg-surface-2);
-  --bg-elevated: var(--bg-surface-3);
-  --bg-inset: #0D1117;
-  --bg-subtle: var(--bg-surface-2);
-  --text-primary: #E6EDF3;
-  --text-secondary: #8B949E;
-  --text-muted: #7D8590;
-  --text-tertiary: var(--text-secondary);
-  --color-brand: var(--accent);
-  --color-brand-hover: #25BFAE;
-  --color-brand-strong: var(--accent);
-  --color-brand-glow: transparent;
-  --color-accent: var(--accent);
-  --color-success: var(--success);
-  --color-warning: var(--warning);
-  --color-danger: var(--danger);
-  --border-default: var(--border-active);
-  --border-strong: rgba(240, 246, 252, 0.22);
-  --text-on-accent: #0D1117;
-  --primary-pressed: #20B9A8;
-  --focus-outline: 1px solid var(--accent);
-  --bg-success: #1B3023;
-  --bg-warning: #332B1A;
-  --bg-danger: #35201F;
-  --bg-success-subtle: rgba(63, 185, 80, 0.08);
-  --bg-warning-subtle: rgba(210, 153, 34, 0.08);
-  --bg-danger-subtle: rgba(248, 81, 73, 0.08);
-  --shadow-sm: none;
-  --shadow-md: none;
-  --shadow-lg: none;
-  --ui-shadow: none;
-  --focus: 0 0 0 2px rgba(45, 212, 191, 0.16);
-  --row-hover: var(--bg-surface-2);
-  --row-selected: #262C36;
-  --row-border: var(--border-subtle);
-  --ui-control-h: 36px;
-  --sten-control-height: 36px;
-  --text-page-title: 22px;
-  --text-section-title: 16px;
-  --text-body: 14px;
-  --text-caption: 12px;
-}
+  /* DUMRAUF graphite surfaces — one canonical dark palette. */
+  --bg-surface-1: #161C24;
+  --bg-surface-2: #1B232D;
+  --bg-surface-3: #1E2630;
+  --border-active: rgba(159,176,184,.17);
+  --accent-bg: rgba(45,212,191,.10);
+  --sten-control-height: 40px;
 
 html[data-theme='light'], [data-theme='light'] {
   color-scheme: light;
