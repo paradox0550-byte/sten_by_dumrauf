@@ -608,3 +608,90 @@ body { overflow-x: clip; }
 @media (prefers-reduced-motion: reduce) {
   .mobile-bottom-nav, .sidebar, .modal, .modal-card { scroll-behavior: auto; transition-duration: .01ms !important; }
 }
+
+
+/* Shared legacy component families retained during page-by-page migration. */
+:root {
+  --sten-radius-sm: var(--radius-sm);
+  --sten-radius-md: var(--radius-md);
+  --sten-radius-lg: var(--radius-lg);
+  --sten-radius-xl: var(--radius-xl);
+  --sten-motion-fast: 140ms;
+  --sten-motion: 220ms;
+}
+.page :is(
+  .pnl-kpi, .budget-kpi, .analytics-summary, .analytics-gap-section,
+  .director-attention, .director-prime, .director-metric, .flash-prime,
+  .prime-card, .operational-day-summary, .operational-insight-panel,
+  .operational-transaction-panel, .settings-card, .docs-panel,
+  .memory-card, .insight-card, .deviations-widget__card
+) {
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--du-card-radius);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: var(--du-card-shadow);
+}
+.page :is(.pnl-kpi, .budget-kpi, .director-metric, .prime-card) { padding: 16px; }
+.page :is(.metric-card, .pnl-kpi, .budget-kpi, .director-metric, .prime-card) strong {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.035em;
+}
+.page :is(.metric-card, .pnl-kpi, .budget-kpi) > span,
+.page :is(.metric-card, .pnl-kpi, .budget-kpi) .label { color: var(--text-secondary) !important; font-weight: 600; }
+:where(.primary-button, .secondary-button, .danger-button, .quick-entry-save, .workspace-btn, .choice) {
+  min-height: 42px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select, textarea) {
+  border-radius: 10px;
+  border-color: var(--border-default);
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
+:where(input, select, textarea):focus-visible { box-shadow: var(--du-focus); }
+th { color: var(--text-muted); font-weight: 750; }
+td, th { border-color: var(--border-subtle); }
+table tbody tr:hover td { background: var(--bg-surface-hover); }
+.sten-ai-page .message-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px !important; }
+.sten-ai-page .chat-body .message-actions button {
+  display: inline-grid !important; place-items: center !important;
+  width: 38px !important; min-width: 38px !important; min-height: 38px !important;
+  padding: 0 !important; border: 1px solid var(--border-subtle) !important;
+  border-radius: 10px !important; background: var(--bg-surface-subtle) !important;
+  color: var(--text-secondary) !important;
+}
+.sten-ai-page .chat-body .message-actions button:hover {
+  color: var(--text-primary) !important; background: var(--bg-surface-hover) !important;
+  border-color: var(--border-default) !important;
+}
+.sten-ai-page .chat-body .message-actions button svg { width: 16px; height: 16px; }
+.sten-primary-nav .nav-subsection {
+  display: flex; flex-direction: column; gap: 3px;
+  margin: 0 0 6px 14px; padding-left: 9px;
+  border-left: 1px solid var(--du-shell-border);
+}
+.sten-primary-nav .nav-subsection a {
+  display: flex; align-items: center; min-height: 36px; padding: 7px 10px;
+  border-radius: 8px; color: var(--du-sidebar-fg) !important; font-size: 12px !important;
+}
+.sten-primary-nav .nav-subsection a:hover { background: var(--du-sidebar-hover) !important; color: var(--text-primary) !important; }
+.sten-primary-nav .nav-subsection a.active { background: var(--du-sidebar-active-bg) !important; color: var(--du-sidebar-active-fg) !important; }
+.sten-primary-nav .nav-subitem-label { padding-left: 26px; }
+.sten-primary-nav .nav-legal-link { margin-top: 8px; }
+:where(.modal, .modal-card, .dialog, .modal-dialog, [role="dialog"], [role="listbox"], .dropdown-menu, .menu-popover, .popover-content, .sten-install-help) {
+  background-color: var(--bg-elevated) !important;
+  border-color: var(--border-default) !important;
+  color: var(--text-primary);
+}
+:where(.dropdown-menu, .menu-popover, .popover-content, [role="listbox"]) :where(button, a, [role="option"], [role="menuitem"]):hover {
+  background-color: var(--bg-surface-hover) !important;
+  color: var(--text-primary) !important;
+}
+:where(svg.lucide) { stroke-width: 1.85; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+@media (max-width: 767px) {
+  :where(button, [role="button"], input[type="button"], input[type="submit"], input[type="reset"]) { min-height: 44px; }
+}
