@@ -41,7 +41,7 @@ const applyTheme = (theme: Theme) => {
   document.documentElement.setAttribute('data-theme', resolved);
   document.documentElement.style.colorScheme = resolved;
   document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-    ?.setAttribute('content', resolved === 'dark' ? '#0F1419' : '#F5F7F9');
+    ?.setAttribute('content', resolved === 'dark' ? '#0B0F19' : '#F5F7FA');
 };
 
 const viewNavigate = (nav: ReturnType<typeof useNavigate>, to: string) => nav(to);
