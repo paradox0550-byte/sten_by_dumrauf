@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError } from '../lib/api';
@@ -24,6 +26,7 @@ export default function AuthSetup() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -54,12 +57,11 @@ export default function AuthSetup() {
       <section className="login-card" aria-labelledby="auth-title">
         <header className="login-brand">
           <div className="login-logo"><StenLogo variant="mark" size={88} aria-label="STEN" /></div>
-          <div className="login-brand-name">STEN</div>
           <p className="login-brand-caption">Управление ресторанным бизнесом</p>
         </header>
 
         <div className="login-heading">
-          <h1 id="auth-title">Вход в STEN</h1>
+          <h1 id="auth-title">Вход в рабочее пространство</h1>
           <p>Войдите с помощью email и пароля</p>
         </div>
 
@@ -82,20 +84,15 @@ export default function AuthSetup() {
           </label>
           <label className="login-field">
             <span>Пароль</span>
-            <input
-              type="password"
-              name="password"
-              autoComplete="current-password"
-              placeholder="Введите пароль"
-              value={password}
-              onChange={event => setPassword(event.target.value)}
-              disabled={busy}
-              required
-            />
+            <div className="login-password-control">
+              <input type={showPassword ? 'text' : 'password'} name="password" autoComplete="current-password" placeholder="Введите пароль" value={password} onChange={event => setPassword(event.target.value)} disabled={busy} required />
+              <button className="login-password-toggle" type="button" onClick={() => setShowPassword(value => !value)} aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'} aria-pressed={showPassword} disabled={busy}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button>
+            </div>
           </label>
           <button className="login-submit" type="submit" disabled={busy || !email.trim() || !password}>
             {busy ? <><LoginSpinner />Входим…</> : 'Войти'}
           </button>
+          <p className="login-help">Не удаётся войти? <Link to="/legal/contacts">Связаться с поддержкой</Link></p>
         </form>
 
         {error && <p className="login-error" role="alert">{error}</p>}

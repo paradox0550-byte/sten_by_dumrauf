@@ -115,3 +115,8 @@ body {
 @media (max-width: 900px) {
   .sidebar-profile-copy b { max-width: 150px; }
 }
+
+/* Mobile navigation contrast in both appearance modes. */
+.mobile-bottom-nav a{color:var(--text-secondary);font-weight:550}.mobile-bottom-nav a.active{color:var(--text-primary)!important;font-weight:650}
+.mobile-bottom-nav a.active svg{color:var(--color-brand);stroke-width:2.25}
+[data-theme="light"] .mobile-bottom-nav a{color:var(--text-secondary)}[data-theme="light"] .mobile-bottom-nav a.active{color:var(--text-primary)!important}
