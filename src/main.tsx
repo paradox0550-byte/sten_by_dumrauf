@@ -30,7 +30,7 @@ function applyTheme(mode: string | null = readStorage(THEME_KEY)) {
   const resolved = resolveTheme(mode);
   document.documentElement.dataset.theme = resolved;
   document.documentElement.style.colorScheme = resolved;
-  const themeColor = resolved === 'dark' ? '#111816' : '#F3F5F3';
+  const themeColor = resolved === 'dark' ? '#0F1419' : '#F5F7F9';
   document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute('content', themeColor);
 }
 
