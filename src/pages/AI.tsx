@@ -610,13 +610,6 @@ function AIContent({user}:{user:User|null}){
          onDrop={e=>{e.preventDefault();setDragOver(false);void uploadFiles(e.dataTransfer.files)}}>
          {dragOver&&<div className="composer-drop-hint"><UploadCloud size={16}/> Отпустите файл — STEN добавит его в документы</div>}
          <div className="composer-box" onPointerDown={e=>{if((e.target as HTMLElement).closest("button,textarea"))return;promptRef.current?.focus()}} onClick={e=>{if((e.target as HTMLElement).closest("button"))return;promptRef.current?.focus()}}>
-           <MeetingNotesPanel
-             storageKey={meetingNotesKey}
-             disabled={busy || upload}
-             onSummarize={(transcript) => {
-               void ask('Разбери заметки встречи. Подготовь краткое резюме, ключевые решения, список задач с ответственными и сроками, а также вопросы без ответа. Не придумывай имена, сроки или решения, которых нет в тексте.\n\nЗАМЕТКИ ВСТРЕЧИ:\n' + transcript);
-             }}
-           />
            <button className="icon-button composer-attach" onClick={()=>file.current?.click()} aria-label="Прикрепить документ" title="Добавить документ"><Paperclip size={18}/></button>
            <MeetingNotesPanel
              storageKey={meetingNotesKey}

@@ -6,8 +6,7 @@ export interface StenLogoProps extends Omit<SVGProps<SVGSVGElement>, 'children'>
   animated?: boolean;
   size?: number | string;
 }
-const MARK_TOP = 'M183 41 Q186 42 187 45 Q187 48 184 50 L108 91 Q104 93 104 97 L104 120 Q104 127 99 131 Q94 135 88 132 L55 115 Q48 112 48 104 L49 69 Q49 66 53 64 L124 23 Q133 18 142 21 Z';
-const MARK_BOTTOM = 'M202 105 Q202 100 197 97 L165 82 Q159 79 153 83 L143 88 L140 120 Q140 125 135 128 L59 169 Q53 172 58 176 L105 198 Q112 201 119 197 L196 153 Q202 149 202 143 Z';
+const MARK_PATH = 'M176 55 C158 38 111 39 86 58 C61 77 74 103 111 116 L151 130 C190 144 196 171 167 190 C139 208 93 203 75 184';
 
 export function StenLogo({ variant = 'mark', animated = false, size = 32, className, style, ...svgProps }: StenLogoProps) {
   const mark = variant === 'mark';
@@ -28,10 +27,9 @@ export function StenLogo({ variant = 'mark', animated = false, size = 32, classN
       role={svgProps['aria-label'] ? 'img' : undefined}
       aria-hidden={svgProps['aria-label'] ? undefined : true}
       style={{ ...cssVars, ...style }}>
-      {mark && <rect x="7" y="7" width="242" height="242" rx="47" fill="#0B0D10" />}
       <g transform={mark ? undefined : 'translate(0 8) scale(.46)'}>
-        <path d={MARK_TOP} fill="#5B7CFA" />
-        <path d={MARK_BOTTOM} fill="#5B7CFA" />
+        <path d={MARK_PATH} fill="none" stroke="var(--accent, #7D9F96)" strokeWidth="20" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="176" cy="55" r="11" fill="var(--accent, #7D9F96)" />
       </g>
       {(lockup || wordmark) && <>
         <text x={wordmark ? 0 : 148} y={wordmark ? 58 : 72} fill="var(--sten-ink)" fontFamily="Inter, Arial, sans-serif" fontSize={wordmark ? 54 : 56} fontWeight="700" letterSpacing="1">STEN</text>
