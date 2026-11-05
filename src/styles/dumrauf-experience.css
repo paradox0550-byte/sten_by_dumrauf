@@ -3,7 +3,7 @@
    Keeps routes, data contracts, calculations and interaction behavior intact. */
 
 :root {
-  --dumrauf-sidebar-bg: #F8FAFC; #F8FAFC;
+  --dumrauf-sidebar-bg: #F8FAFC;
   --dumrauf-sidebar-text: #475569;
   --dumrauf-sidebar-muted: #64748B;
   --dumrauf-sidebar-icon: #64748B;
@@ -192,7 +192,7 @@ button, input, select, textarea { font-family: inherit; }
 .executive-shell .sidebar-logout {
   width: 34px !important;
   height: 34px !important;
-  border: 1px solid rgba(159,176,184,.12) !important;
+  border: 1px solid var(--dumrauf-sidebar-border) !important;
   background: transparent !important;
   color: var(--dumrauf-sidebar-icon) !important;
 }
