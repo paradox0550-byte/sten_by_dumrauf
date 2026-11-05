@@ -1,4 +1,4 @@
-/* Legacy compatibility styles only. Shared shell and final visual overrides are owned by src/styles/unified-interface.css; tokens live in src/styles/tokens.css. */
+/* Compatibility foundations for legacy page modules. Canonical application visuals live in dumrauf-experience.css; shared tokens live in styles/tokens.css. */
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @layer legacy {
