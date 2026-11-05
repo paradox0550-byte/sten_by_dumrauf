@@ -59,9 +59,6 @@
   --bg-slate: #EEF2F6;
   --color-attention: #C94C7C;
   --sten-green: #5FB3A1;
-  --color-slate: #3D4A5C;
-  --bg-slate: #3D4A5C;
-  --color-attention: #C94C7C;
   --primary-pressed: #4A9B8B;
   --focus-outline: 2px solid var(--color-brand);
   --row-hover: #F1F5F9;
@@ -179,6 +176,9 @@
 
 html[data-theme='dark'], [data-theme='dark'] {
   color-scheme: dark;
+  --color-slate: #3D4A5C;
+  --bg-slate: #3D4A5C;
+  --color-attention: #C94C7C;
   --sten-green: #5FB3A1;
   --primary-pressed: #4A9B8B;
   --focus-outline: 2px solid #5FB3A1;
