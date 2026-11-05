@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -86,7 +86,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   // System preference changes are synchronized once in main.tsx before React mounts.
   // Layout only applies the selected mode when the setting changes.
-  useEffect(() => {
+  useLayoutEffect(() => {
     applyTheme(theme);
   }, [theme]);
 
