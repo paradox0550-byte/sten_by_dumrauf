@@ -269,6 +269,7 @@ html[data-theme='dark'], [data-theme='dark'] {
   --border-active: rgba(159,176,184,.17);
   --accent-bg: rgba(45,212,191,.10);
   --sten-control-height: 40px;
+}
 
 html[data-theme='light'], [data-theme='light'] {
   color-scheme: light;
