@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bot, Save, ShieldCheck, Clock3, Bell, RefreshCw, AlertCircle } from 'lucide-react';
 import { api, ApiError } from '../../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
 import '../../styles/telegram-bot-control.css';
 
 type Chat = { chat_id: string; title: string | null; restaurant_id: string | null; restaurant_name: string | null; organization_id: string | null };
@@ -14,6 +15,8 @@ type Settings = {
 const defaults: Settings = { mode: 'secretary', notification_level: 'deviations', morning_report_time: '10:00', evening_report_time: '21:00', escalation_minutes: 120 };
 
 export default function TelegramBotControl() {
+  const { user } = useAuth();
+  const settingsRequest = useRef(0);
   const [chats, setChats] = useState<Chat[]>([]);
   const [chatId, setChatId] = useState('');
   const [settings, setSettings] = useState<Settings>(defaults);
@@ -29,27 +32,33 @@ export default function TelegramBotControl() {
     setLoading(true); setError(''); setNotice('');
     try {
       const response = await api.get<{ chats: Chat[] }>('/api/telegram-monitor/chats');
-      const bound = (response.chats || []).filter(chat => chat.organization_id && chat.restaurant_id);
+      const bound = (response.chats || []).filter(chat => chat.organization_id === user?.organizationId && chat.restaurant_id);
       setChats(bound);
       setChatId(current => bound.some(chat => chat.chat_id === current) ? current : bound[0]?.chat_id || '');
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Не удалось загрузить подключённые группы.');
     } finally { setLoading(false); }
-  }, []);
+  }, [user?.organizationId]);
 
   const loadSettings = useCallback(async (id: string) => {
+    const request = ++settingsRequest.current;
     if (!id) { setSettings(defaults); setSettingsConfigured(false); setSettingsLoadFailed(false); return; }
+    setSettings(defaults);
+    setSettingsConfigured(false);
     setSettingsLoading(true);
     setSettingsLoadFailed(false);
     setError('');
     try {
       const response = await api.get<{ settings: Settings | null }>('/api/telegram-bot/settings?chat_id=' + encodeURIComponent(id));
+      if (request !== settingsRequest.current) return;
       setSettings({ ...defaults, ...(response.settings || {}) });
       setSettingsConfigured(Boolean(response.settings));
     } catch (e) {
-      setSettingsLoadFailed(true);
-      setError(e instanceof ApiError ? e.message : 'Не удалось загрузить настройки бота.');
-    } finally { setSettingsLoading(false); }
+      if (request === settingsRequest.current) {
+        setSettingsLoadFailed(true);
+        setError(e instanceof ApiError ? e.message : 'Не удалось загрузить настройки бота.');
+      }
+    } finally { if (request === settingsRequest.current) setSettingsLoading(false); }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
