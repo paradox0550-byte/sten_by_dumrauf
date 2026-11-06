@@ -7,6 +7,223 @@ info:
     This is the application API contract, not the Yandex API Gateway integration file.
 servers:
   - url: https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net
+  /api/operational-control/actions/{id}/events:
+    get:
+      operationId: get--api-operational-control-actions-id-events
+      responses:
+        '200':
+          description: Request processed
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required or rejected
+        '403':
+          description: Access denied
+        '404':
+          description: Resource not found
+        '409':
+          description: State conflict
+        '500':
+          description: Internal error
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+  /api/telegram-monitor/chats/{chatId}/diagnose:
+    post:
+      operationId: post--api-telegram-monitor-chats-chatid-diagnose
+      responses:
+        '200':
+          description: Request processed
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required or rejected
+        '403':
+          description: Access denied
+        '404':
+          description: Resource not found
+        '409':
+          description: State conflict
+        '500':
+          description: Internal error
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          schema:
+            type: string
+  /api/telegram-monitor/chats/{chatId}/diagnostics:
+    get:
+      operationId: get--api-telegram-monitor-chats-chatid-diagnostics
+      responses:
+        '200':
+          description: Request processed
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required or rejected
+        '403':
+          description: Access denied
+        '404':
+          description: Resource not found
+        '409':
+          description: State conflict
+        '500':
+          description: Internal error
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          schema:
+            type: string
+  /api/telegram-monitor/deliveries:
+    get:
+      operationId: get--api-telegram-monitor-deliveries
+      responses:
+        '200':
+          description: Request processed
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required or rejected
+        '403':
+          description: Access denied
+        '404':
+          description: Resource not found
+        '409':
+          description: State conflict
+        '500':
+          description: Internal error
+      security:
+        - BearerAuth: []
+  /api/telegram-monitor/findings:
+    get:
+      operationId: get--api-telegram-monitor-findings
+      responses:
+        '200':
+          description: Request processed
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required or rejected
+        '403':
+          description: Access denied
+        '404':
+          description: Resource not found
+        '409':
+          description: State conflict
+        '500':
+          description: Internal error
+      security:
+        - BearerAuth: []
+  /api/telegram-monitor/findings/{findingId}/approve:
+    post:
+      operationId: post--api-telegram-monitor-findings-findingid-approve
+      responses:
+        '200':
+          description: Request processed
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required or rejected
+        '403':
+          description: Access denied
+        '404':
+          description: Resource not found
+        '409':
+          description: State conflict
+        '500':
+          description: Internal error
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: findingId
+          in: path
+          required: true
+          schema:
+            type: string
+  /api/telegram-monitor/findings/{findingId}/events:
+    get:
+      operationId: get--api-telegram-monitor-findings-findingid-events
+      responses:
+        '200':
+          description: Request processed
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required or rejected
+        '403':
+          description: Access denied
+        '404':
+          description: Resource not found
+        '409':
+          description: State conflict
+        '500':
+          description: Internal error
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: findingId
+          in: path
+          required: true
+          schema:
+            type: string
+  /api/telegram-monitor/findings/{findingId}/reject:
+    post:
+      operationId: post--api-telegram-monitor-findings-findingid-reject
+      responses:
+        '200':
+          description: Request processed
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required or rejected
+        '403':
+          description: Access denied
+        '404':
+          description: Resource not found
+        '409':
+          description: State conflict
+        '500':
+          description: Internal error
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: findingId
+          in: path
+          required: true
+          schema:
+            type: string
+  /api/telegram-monitor/health:
+    get:
+      operationId: get--api-telegram-monitor-health
+      responses:
+        '200':
+          description: Request processed
+        '400':
+          description: Invalid request
+        '401':
+          description: Authentication required or rejected
+        '403':
+          description: Access denied
+        '404':
+          description: Resource not found
+        '409':
+          description: State conflict
+        '500':
+          description: Internal error
+      security:
+        - BearerAuth: []
+
 components:
   securitySchemes:
     BearerAuth:
