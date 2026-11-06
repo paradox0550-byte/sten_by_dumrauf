@@ -33,6 +33,11 @@ The existing `operational_actions` workflow remains the task source of truth:
 
 ## Webhook and group diagnostics
 
+The dedicated monitor ingestion endpoint is preserved:
+- `POST /api/telegram/webhook` validates `x-telegram-bot-api-secret-token` against `TELEGRAM_MONITOR_SECRET`, persists the raw update and parsed chat/message records, and acknowledges accepted updates.
+- `POST /api/ingest/message` remains the general ingest endpoint and continues to validate `TELEGRAM_WEBHOOK_SECRET`; its existing WhatsApp handling is unchanged.
+
+
 - `GET /api/telegram-monitor/health` returns organization-scoped webhook-ingest processing counts/errors and Telegram `getWebhookInfo` status.
 - `POST /api/telegram-monitor/chats/:chatId/diagnose` checks Telegram `getMe`, `getChat`, and `getChatMember`, then persists the result.
 - `GET /api/telegram-monitor/chats/:chatId/diagnostics` returns diagnostic history.
