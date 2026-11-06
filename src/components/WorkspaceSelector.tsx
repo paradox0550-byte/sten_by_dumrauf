@@ -205,7 +205,32 @@ export default function WorkspaceSelector({
 
   const modal = adding ? (
     <div className="modal-backdrop" onMouseDown={e => e.currentTarget === e.target && setAdding(null)}>
-      <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="workspace-create-title">
+      <section
+        className="modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="workspace-create-title"
+        onKeyDown={event => {
+          if (event.key === 'Escape') {
+            event.stopPropagation();
+            setAdding(null);
+            return;
+          }
+          if (event.key !== 'Tab') return;
+          const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
+            'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])',
+          )).filter(element => !element.hasAttribute('hidden'));
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last?.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first?.focus();
+          }
+        }}
+      >
         <button className="modal-close" onClick={() => setAdding(null)} aria-label="Закрыть"><X size={18} /></button>
         <small>СОЗДАТЬ · {KIND_LABEL[adding].toUpperCase()}</small>
         <h2 id="workspace-create-title">Новый {KIND_LABEL[adding].toLowerCase()}</h2>
