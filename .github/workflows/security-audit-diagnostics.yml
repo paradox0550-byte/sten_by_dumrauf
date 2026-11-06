@@ -1,0 +1,51 @@
+name: Security audit diagnostics
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  npm-audit:
+    name: npm audit (full + production)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install exact lockfile
+        run: npm ci --legacy-peer-deps
+      - name: Collect full and production audit reports
+        shell: bash
+        run: |
+          mkdir -p security-audit
+          npm audit --json > security-audit/audit-full.json || true
+          npm audit --omit=dev --json > security-audit/audit-prod.json || true
+          echo "=== FULL AUDIT COUNTS ==="
+          jq '.metadata.vulnerabilities' security-audit/audit-full.json
+          echo "=== PRODUCTION AUDIT COUNTS ==="
+          jq '.metadata.vulnerabilities' security-audit/audit-prod.json
+          echo "=== FULL VULNERABILITY DETAILS ==="
+          jq -r '
+            .vulnerabilities | to_entries[] |
+            "PACKAGE: \(.key)\nSEVERITY: \(.value.severity)\nRANGE: \(.value.range)\nDIRECT: \(.value.isDirect)\nFIX: \(.value.fixAvailable|tojson)\nVIA: \(.value.via|tojson)\nEFFECTS: \((.value.effects // [])|join(", "))\n---"
+          ' security-audit/audit-full.json
+          echo "=== PRODUCTION VULNERABILITY DETAILS ==="
+          jq -r '
+            .vulnerabilities | to_entries[] |
+            "PACKAGE: \(.key)\nSEVERITY: \(.value.severity)\nRANGE: \(.value.range)\nDIRECT: \(.value.isDirect)\nFIX: \(.value.fixAvailable|tojson)\nVIA: \(.value.via|tojson)\nEFFECTS: \((.value.effects // [])|join(", "))\n---"
+          ' security-audit/audit-prod.json
+      - name: Upload raw audit reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-security-audit-reports
+          path: security-audit/
+          if-no-files-found: error
+          retention-days: 14
