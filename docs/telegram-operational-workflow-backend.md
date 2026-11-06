@@ -47,7 +47,7 @@ Telegram API availability, group membership, bot privacy mode, webhook configura
 
 ## Tables added or extended
 
-- `telegram_message_analyses`: stable finding id, decision status, reviewer, note, linked task.
+- `telegram_message_analyses`: stable finding id, decision status, reviewer, note, linked task, and immutable source-message snapshot. Editing a Telegram message invalidates only a still-pending analysis; reviewed findings and their source snapshots remain auditable.
 - `telegram_ai_finding_events`: manager decision history.
 - `operational_action_events`: task lifecycle history.
 - `telegram_outbox`: scheduled summaries and escalation delivery queue.
