@@ -11,9 +11,8 @@ type Settings = {
   morning_report_time: string;
   evening_report_time: string;
   escalation_minutes: number;
-  timezone: string;
 };
-const defaults: Settings = { mode: 'secretary', notification_level: 'deviations', morning_report_time: '10:00', evening_report_time: '21:00', escalation_minutes: 120, timezone: 'Europe/Moscow' };
+const defaults: Settings = { mode: 'secretary', notification_level: 'deviations', morning_report_time: '10:00', evening_report_time: '21:00', escalation_minutes: 120 };
 
 export default function TelegramBotControl() {
   const { user } = useAuth();
@@ -106,7 +105,6 @@ export default function TelegramBotControl() {
         <label className="telegram-bot-control__field"><span><Bell size={14} /> Интервал эскалации после срока</span><select value={settings.escalation_minutes} onChange={e => setSettings(v => ({ ...v, escalation_minutes: Number(e.target.value) }))}>
           <option value={60}>1 час</option><option value={120}>2 часа</option><option value={240}>4 часа</option><option value={480}>8 часов</option><option value={1440}>24 часа</option>
         </select></label>
-        <label className="telegram-bot-control__field"><span>Часовой пояс ресторана (IANA)</span><input type="text" value={settings.timezone} onChange={e => setSettings(v => ({ ...v, timezone: e.target.value }))} placeholder="Europe/Moscow" /></label>
       </div>
       <div className="telegram-bot-control__approval"><ShieldCheck size={17} /><span><strong>Подтверждение руководителя обязательно.</strong> AI только предлагает действие. Руководитель подтверждает создание задачи, исполнитель отмечает выполнение, другой руководитель независимо проверяет результат. Просрочка запускает эскалацию по сохранённому интервалу после включения новой версии backend.</span></div>
       <p className="telegram-bot-control__filter-note">Уровень событий пока сохраняется как настройка; фактическая фильтрация по urgent_only / deviations / all ещё не реализована. Сводки и эскалация добавлены в backend PR, но потребуют публикации функции и минутного Timer trigger.</p>
