@@ -71,7 +71,7 @@ Do not treat these as active backend requirements:
 | `NETWORK_ID` | Not read by backend code; VPC/network is a Cloud Function resource setting. |
 | `ASK_RATE_LIMIT`, `ASK_RATE_WINDOW_SEC` | Not read by backend code. AI tool policy currently has its own fixed per-user limit in `backend/core/policy.js`; these variables do not configure it. |
 | `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Not used by the current Google Identity Services browser-token flow. |
-| `TELEGRAM_MONITOR_SECRET` | Not read by backend code. The webhook validates `TELEGRAM_WEBHOOK_SECRET`. |
+| `TELEGRAM_MONITOR_SECRET` | Consumed by the dedicated `POST /api/telegram/webhook` route added in the Telegram operational workflow. Set it to the exact secret configured in Telegram's `secret_token`; keep it separate from `TELEGRAM_WEBHOOK_SECRET`. |
 | `UNLOCK_CODE_HASH` | Legacy PIN authentication is disabled; `/auth/unlock` returns HTTP 410. Do not include this variable in the next function version. |
 | `MARKITDOWN_AUTH_MODE` | Declared in runtime configuration but not consumed by the current MarkItDown bridge; token behavior is controlled by `MARKITDOWN_TOKEN`. |
 
