@@ -93,7 +93,7 @@
   padding: 12px 14px;
   border: 1px solid var(--color-warning, var(--color-warning));
   border-radius: 9px;
-  background: color-mix(in srgb, var(--color-warning, #a87932) 9%, var(--bg-surface));
+  background: color-mix(in srgb, var(--color-warning, #925F00) 9%, var(--bg-surface));
   color: var(--text-primary);
   font-size: 12px;
   line-height: 1.5;
@@ -101,7 +101,7 @@
 .telegram-bot-control__automation-status svg {
   flex: 0 0 auto;
   margin-top: 1px;
-  color: var(--color-warning, #a87932);
+  color: var(--color-warning, #925F00);
 }
 .telegram-bot-control__automation-status strong {
   display: block;
