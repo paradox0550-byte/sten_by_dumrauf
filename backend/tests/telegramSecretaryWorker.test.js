@@ -15,6 +15,7 @@ test('worker analyzes only messages from chats bound to a restaurant and stores 
     }] };
     if (sql.includes('SELECT sender_name, message_text')) return { rows: [{ sender_name: 'Менеджер', message_text: 'Проверяем кухню', message_date: '2026-11-03T11:00:00.000Z' }] };
     if (sql.includes('INSERT INTO telegram_message_analyses')) return { rows: [{ message_id: '55' }] };
+    if (sql.includes('INSERT INTO telegram_action_proposals')) return { rows: [{ id: 'proposal-1' }] };
     throw new Error('Unexpected query');
   };
   let promptSeen = '';
