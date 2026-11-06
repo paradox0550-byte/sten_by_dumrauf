@@ -3691,7 +3691,7 @@ app.post('/api/telegram-monitor/chats/:chatId/diagnose', requireAuth, requireOrg
         can_send_messages: member.status === 'administrator' || member.status === 'creator'
           || chat.permissions?.can_send_messages !== false,
       };
-      status = details.can_receive_group_updates ? 'connected' : 'needs_attention';
+      status = details.can_receive_group_updates && details.can_read_all_group_messages && details.can_send_messages ? 'connected' : 'needs_attention';
     } catch (diagnosticError) {
       details = {
         error_code: diagnosticError?.code || 'TELEGRAM_DIAGNOSTIC_FAILED',
