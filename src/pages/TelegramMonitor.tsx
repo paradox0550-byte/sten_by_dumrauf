@@ -3,6 +3,7 @@ import { MessageSquareText, RefreshCw, Search, Link2, AlertCircle, CheckCircle2,
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import TelegramBotControl from '../features/telegram/TelegramBotControl';
+import TelegramOperationalWorkflow from '../features/telegram/TelegramOperationalWorkflow';
 import '../styles/telegram-monitor.css';
 
 type TelegramChat = {
@@ -311,6 +312,8 @@ export default function TelegramMonitor() {
         <small>Счётчики относятся только к этому запуску. Они не являются количеством активных проблем или поручений.</small>
       </div>}
     </section>
+
+    <TelegramOperationalWorkflow selectedChatId={selected && isBound(selected) ? selected.chat_id : undefined} />
 
     {error && <div className="dashboard-note" role="alert"><AlertCircle size={16} />{error}</div>}
     {notice && <div className="dashboard-note" role="status"><CheckCircle2 size={16} />{notice}</div>}
