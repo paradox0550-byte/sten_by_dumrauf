@@ -112,10 +112,10 @@ async function processTelegramAutomationJobs({ queryWithRetry, sendMessage, buil
             to_char(now() AT TIME ZONE COALESCE(s.timezone, 'Europe/Moscow'), 'YYYY-MM-DD') AS local_date,
             CASE
               WHEN (now() AT TIME ZONE COALESCE(s.timezone, 'Europe/Moscow'))::time >= s.morning_report_time
-               AND (now() AT TIME ZONE COALESCE(s.timezone, 'Europe/Moscow'))::time < s.morning_report_time + interval '5 minutes'
+               AND (now() AT TIME ZONE COALESCE(s.timezone, 'Europe/Moscow'))::time < s.morning_report_time + interval '30 minutes'
               THEN 'morning'
               WHEN (now() AT TIME ZONE COALESCE(s.timezone, 'Europe/Moscow'))::time >= s.evening_report_time
-               AND (now() AT TIME ZONE COALESCE(s.timezone, 'Europe/Moscow'))::time < s.evening_report_time + interval '5 minutes'
+               AND (now() AT TIME ZONE COALESCE(s.timezone, 'Europe/Moscow'))::time < s.evening_report_time + interval '30 minutes'
               THEN 'evening'
               ELSE NULL
             END AS digest_kind
@@ -124,64 +124,80 @@ async function processTelegramAutomationJobs({ queryWithRetry, sendMessage, buil
        JOIN org_units u ON u.id=s.restaurant_id AND u.organization_id=s.organization_id
       WHERE (
         ((now() AT TIME ZONE COALESCE(s.timezone, 'Europe/Moscow'))::time >= s.morning_report_time
-          AND (now() AT TIME ZONE COALESCE(s.timezone, 'Europe/Moscow'))::time < s.morning_report_time + interval '5 minutes')
+          AND (now() AT TIME ZONE COALESCE(s.timezone, 'Europe/Moscow'))::time < s.morning_report_time + interval '30 minutes')
         OR
         ((now() AT TIME ZONE COALESCE(s.timezone, 'Europe/Moscow'))::time >= s.evening_report_time
-          AND (now() AT TIME ZONE COALESCE(s.timezone, 'Europe/Moscow'))::time < s.evening_report_time + interval '5 minutes')
+          AND (now() AT TIME ZONE COALESCE(s.timezone, 'Europe/Moscow'))::time < s.evening_report_time + interval '30 minutes')
       )
       ORDER BY s.organization_id, s.restaurant_id LIMIT $1`,
     [limit],
     {}
-  );
-
-  for (const schedule of schedules.rows || []) {
+    for (const schedule of schedules.rows || []) {
     if (!schedule.digest_kind) continue;
     const key = 'digest:' + schedule.chat_id + ':' + schedule.digest_kind + ':' + schedule.local_date;
     const claimed = await queryWithRetry(
       `INSERT INTO telegram_outbox
         (organization_id, restaurant_id, chat_id, kind, idempotency_key, message_text, scheduled_for, status)
        VALUES($1::uuid,$2::uuid,$3,$4,$5,'',now(),'building')
-       ON CONFLICT(idempotency_key) DO NOTHING RETURNING id`,
+       ON CONFLICT(idempotency_key) DO UPDATE
+         SET status='building',message_text='',last_error=NULL,
+             attempts=telegram_outbox.attempts+1,updated_at=now()
+       WHERE telegram_outbox.attempts < 5
+         AND (telegram_outbox.status='failed'
+           OR (telegram_outbox.status='building' AND telegram_outbox.updated_at < now()-interval '5 minutes'))
+       RETURNING id`,
       [schedule.organization_id, schedule.restaurant_id, schedule.chat_id, schedule.digest_kind, key],
       { orgId: schedule.organization_id }
     );
     if (!claimed.rows?.length) { result.skipped += 1; continue; }
-    const [findings, actions] = await Promise.all([
-      queryWithRetry(
-        `SELECT analysis_json, status FROM telegram_message_analyses
-          WHERE organization_id=$1::uuid AND restaurant_id=$2::uuid
-            AND created_at >= now() - interval '24 hours'
-          ORDER BY created_at DESC LIMIT 100`,
-        [schedule.organization_id, schedule.restaurant_id], { orgId: schedule.organization_id }
-      ),
-      queryWithRetry(
-        `SELECT title, assignee_name, due_at, status FROM operational_actions
-          WHERE organization_id=$1::uuid AND restaurant_id=$2::uuid
-            AND status IN ('open','overdue','awaiting_verification')
-          ORDER BY due_at ASC LIMIT 100`,
-        [schedule.organization_id, schedule.restaurant_id], { orgId: schedule.organization_id }
-      ),
-    ]);
-    const operationalDigest = buildOperationalDigest({
-      restaurantName: schedule.restaurant_name,
-      kind: schedule.digest_kind,
-      dateLabel: schedule.local_date,
-      timezone: schedule.timezone,
-      findings: (findings.rows || []).map(row => ({ ...row, ...(row.analysis_json || {}) })),
-      actions: actions.rows || [],
-    });
-    let financialReport = '';
-    if (typeof buildFinancialReport === 'function') {
-      try { financialReport = await buildFinancialReport(schedule); }
-      catch { financialReport = ''; }
+    const outboxId = claimed.rows[0].id;
+    try {
+      const [findings, actions] = await Promise.all([
+        queryWithRetry(
+          `SELECT analysis_json, status FROM telegram_message_analyses
+            WHERE organization_id=$1::uuid AND restaurant_id=$2::uuid
+              AND created_at >= now() - interval '24 hours'
+            ORDER BY created_at DESC LIMIT 100`,
+          [schedule.organization_id, schedule.restaurant_id], { orgId: schedule.organization_id }
+        ),
+        queryWithRetry(
+          `SELECT title, assignee_name, due_at, status FROM operational_actions
+            WHERE organization_id=$1::uuid AND restaurant_id=$2::uuid
+              AND status IN ('open','overdue','awaiting_verification')
+            ORDER BY due_at ASC LIMIT 100`,
+          [schedule.organization_id, schedule.restaurant_id], { orgId: schedule.organization_id }
+        ),
+      ]);
+      const operationalDigest = buildOperationalDigest({
+        restaurantName: schedule.restaurant_name,
+        kind: schedule.digest_kind,
+        dateLabel: schedule.local_date,
+        timezone: schedule.timezone,
+        findings: (findings.rows || []).map(row => ({ ...row, ...(row.analysis_json || {}) })),
+        actions: actions.rows || [],
+      });
+      let financialReport = '';
+      if (typeof buildFinancialReport === 'function') {
+        try { financialReport = await buildFinancialReport(schedule); }
+        catch { financialReport = ''; }
+      }
+      const message = [financialReport || 'Финансовая часть сводки временно недоступна.', operationalDigest].filter(Boolean).join('\\n\\n');
+      await queryWithRetry(
+        "UPDATE telegram_outbox SET message_text=$1,status='pending',last_error=NULL,updated_at=now() WHERE id=$2::uuid AND status='building'",
+        [message, outboxId], { orgId: schedule.organization_id }
+      );
+      result.summariesQueued += 1;
+    } catch (error) {
+      await queryWithRetry(
+        "UPDATE telegram_outbox SET status='failed',attempts=attempts+1,last_error=$1,updated_at=now() WHERE id=$2::uuid AND status='building'",
+        [cleanText(error?.code || error?.message || 'digest_build_failed', 300), outboxId],
+        { orgId: schedule.organization_id }
+      );
+      result.failed += 1;
     }
-    const message = [financialReport || 'Финансовая часть сводки временно недоступна.', operationalDigest].filter(Boolean).join('\n\n');
-    await queryWithRetry(
-      "UPDATE telegram_outbox SET message_text=$1,status='pending',updated_at=now() WHERE id=$2::uuid AND status='building'",
-      [message, claimed.rows[0].id], { orgId: schedule.organization_id }
-    );
-    result.summariesQueued += 1;
   }
+
+ }
 
   const pending = await queryWithRetry(
     `WITH claimable AS (
