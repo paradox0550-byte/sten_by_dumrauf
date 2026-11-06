@@ -30,6 +30,9 @@ test('worker analyzes only messages from chats bound to a restaurant and stores 
   assert.match(calls[0].sql, /telegram_chat_bindings/u);
   assert.match(calls[2].sql, /ON CONFLICT\(chat_id,message_id\) DO NOTHING/u);
   assert.equal(calls[2].params[4], '7001');
+  assert.equal(calls[2].params[6], 'Иван, проверь холодильник до 18:00');
+  assert.equal(calls[2].params[7], '2026-11-03T12:00:00.000Z');
+  assert.equal(calls[2].params[8], 'Анна');
 });
 
 test('worker does not store malformed model output and continues safely', async () => {

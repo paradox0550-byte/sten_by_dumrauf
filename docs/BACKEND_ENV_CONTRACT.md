@@ -39,7 +39,8 @@ It is not a copy of the current Yandex Cloud environment. Secret values must nev
 | `MARKITDOWN_TOKEN` | Shared secret for the MarkItDown function when token authentication is enabled. |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token; also used as fallback for the monitor bot. |
 | `TELEGRAM_MONITOR_BOT_TOKEN` | Optional dedicated monitor-bot token; takes precedence over `TELEGRAM_BOT_TOKEN`. |
-| `TELEGRAM_WEBHOOK_SECRET` | Telegram webhook secret header validation. This is the variable the webhook actually checks. |
+| `TELEGRAM_MONITOR_SECRET` | Dedicated `/api/telegram/webhook` monitor endpoint secret header validation. |
+| `TELEGRAM_WEBHOOK_SECRET` | Secret header validation for the general Telegram ingest path at `/api/ingest/message`. |
 | `WHATSAPP_APP_SECRET` | WhatsApp webhook signature validation, if WhatsApp inbound is enabled. |
 | `WHATSAPP_ACCESS_TOKEN` | WhatsApp outbound messaging, if enabled. |
 
@@ -70,7 +71,7 @@ Do not treat these as active backend requirements:
 | `NETWORK_ID` | Not read by backend code; VPC/network is a Cloud Function resource setting. |
 | `ASK_RATE_LIMIT`, `ASK_RATE_WINDOW_SEC` | Not read by backend code. AI tool policy currently has its own fixed per-user limit in `backend/core/policy.js`; these variables do not configure it. |
 | `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Not used by the current Google Identity Services browser-token flow. |
-| `TELEGRAM_MONITOR_SECRET` | Not read by backend code. The webhook validates `TELEGRAM_WEBHOOK_SECRET`. |
+| `TELEGRAM_MONITOR_SECRET` | Consumed by the dedicated `POST /api/telegram/webhook` route added in the Telegram operational workflow. Set it to the exact secret configured in Telegram's `secret_token`; keep it separate from `TELEGRAM_WEBHOOK_SECRET`. |
 | `UNLOCK_CODE_HASH` | Legacy PIN authentication is disabled; `/auth/unlock` returns HTTP 410. Do not include this variable in the next function version. |
 | `MARKITDOWN_AUTH_MODE` | Declared in runtime configuration but not consumed by the current MarkItDown bridge; token behavior is controlled by `MARKITDOWN_TOKEN`. |
 

@@ -68,6 +68,7 @@ test('ordinary group messages retain their existing persistence path', async () 
     },
   });
   assert.match(sqlSeen, /telegram_messages/);
+  assert.match(sqlSeen, /a\.status='pending'/u);
   assert.equal(result.stored, true);
   assert.equal(result.duplicate, false);
 });

@@ -2,7 +2,7 @@ name: STEN CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/telegram-operational-workflow-backend]
   push:
     branches: [main]
   workflow_dispatch:

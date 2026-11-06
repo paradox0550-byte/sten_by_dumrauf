@@ -17,6 +17,7 @@ const { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand, Dele
 const { buildSkillPrompt } = require('./core/skills');
 const { persistTelegramUpdate, claimTelegramUpdate, completeTelegramUpdate, failTelegramUpdate } = require('./telegramMonitor');
 const { processTelegramMessageBatch } = require('./telegramSecretaryWorker');
+const { processTelegramAutomationJobs } = require('./telegramControl');
 const { resolveAgent, toolsForAgent, agentAllowsTool } = require('./core/agents');
 const { TOOLS, executeTool } = require('./core/tools');
 const { createMemory, listMemory, updateMemoryConfidence, deleteMemory, loadMemoryContext } = require('./core/memory');
@@ -379,6 +380,112 @@ await query(`CREATE TABLE IF NOT EXISTS telegram_message_analyses (
   FOREIGN KEY (chat_id, message_id) REFERENCES telegram_messages(chat_id, message_id) ON DELETE CASCADE
 );`);
 await query(`CREATE INDEX IF NOT EXISTS idx_telegram_message_analyses_scope ON telegram_message_analyses(organization_id, restaurant_id, created_at DESC);`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS id UUID;`);
+await query(`UPDATE telegram_message_analyses SET id=gen_random_uuid() WHERE id IS NULL;`);
+await query(`ALTER TABLE telegram_message_analyses ALTER COLUMN id SET DEFAULT gen_random_uuid();`);
+await query(`ALTER TABLE telegram_message_analyses ALTER COLUMN id SET NOT NULL;`);
+await query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_message_analyses_id ON telegram_message_analyses(id);`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending';`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS reviewed_by TEXT;`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS review_note TEXT;`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS action_id UUID;`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS source_message_text TEXT;`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS source_message_date TIMESTAMPTZ;`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS source_sender_name TEXT;`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS source_sender_username TEXT;`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS source_chat_title TEXT;`);
+
+await query(`DO $body$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='telegram_message_analyses_status_check') THEN
+    ALTER TABLE telegram_message_analyses ADD CONSTRAINT telegram_message_analyses_status_check
+      CHECK (status IN ('pending','approved','rejected','action_created'));
+  END IF;
+END $body$;`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_message_analyses_review
+  ON telegram_message_analyses(organization_id, status, created_at DESC);`);
+await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS last_escalated_at TIMESTAMPTZ;`);
+await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS escalation_count INTEGER NOT NULL DEFAULT 0;`);
+await query(`CREATE TABLE IF NOT EXISTS telegram_ai_finding_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  finding_id UUID NOT NULL,
+  organization_id UUID NOT NULL,
+  restaurant_id UUID NOT NULL,
+  event_type TEXT NOT NULL,
+  from_status TEXT,
+  to_status TEXT,
+  actor_id TEXT NOT NULL,
+  action_id UUID,
+  payload_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_ai_finding_events_scope
+  ON telegram_ai_finding_events(organization_id, restaurant_id, finding_id, created_at DESC);`);
+await query(`CREATE TABLE IF NOT EXISTS operational_action_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  action_id UUID NOT NULL,
+  organization_id UUID NOT NULL,
+  restaurant_id UUID NOT NULL,
+  event_type TEXT NOT NULL,
+  from_status TEXT,
+  to_status TEXT,
+  actor_id TEXT NOT NULL,
+  payload_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_operational_action_events_scope
+  ON operational_action_events(organization_id, restaurant_id, action_id, created_at DESC);`);
+await query(`CREATE TABLE IF NOT EXISTS telegram_outbox (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL,
+  restaurant_id UUID NOT NULL,
+  chat_id TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('morning','evening','escalation','manual')),
+  idempotency_key TEXT NOT NULL UNIQUE,
+  message_text TEXT NOT NULL DEFAULT '',
+  scheduled_for TIMESTAMPTZ NOT NULL DEFAULT now(),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('building','pending','sending','sent','failed')),
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
+  sent_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_outbox_due ON telegram_outbox(status, scheduled_for, created_at);`);
+await query(`CREATE TABLE IF NOT EXISTS telegram_deliveries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID,
+  restaurant_id UUID,
+  chat_id TEXT NOT NULL,
+  method TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('sent','failed')),
+  telegram_message_id TEXT,
+  error_code TEXT,
+  error_message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_deliveries_scope
+  ON telegram_deliveries(organization_id, restaurant_id, chat_id, created_at DESC);`);
+await query(`CREATE TABLE IF NOT EXISTS telegram_group_diagnostics (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL,
+  restaurant_id UUID NOT NULL,
+  chat_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  details_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  checked_by TEXT NOT NULL,
+  checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_group_diagnostics_scope
+  ON telegram_group_diagnostics(organization_id, restaurant_id, chat_id, checked_at DESC);`);
+await query(`CREATE TABLE IF NOT EXISTS telegram_worker_runs (
+  worker_key TEXT NOT NULL,
+  run_date DATE NOT NULL,
+  status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running','completed','failed')),
+  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY(worker_key, run_date)
+);`);
+await query(`ALTER TABLE telegram_worker_runs ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'running';`);
 await query(`CREATE TABLE IF NOT EXISTS telegram_bot_settings (
   chat_id TEXT PRIMARY KEY REFERENCES telegram_chat_bindings(chat_id) ON DELETE CASCADE,
   organization_id UUID NOT NULL,
@@ -394,6 +501,7 @@ await query(`CREATE TABLE IF NOT EXISTS telegram_bot_settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );`);
 await query(`CREATE INDEX IF NOT EXISTS idx_telegram_bot_settings_scope ON telegram_bot_settings(organization_id, restaurant_id);`);
+await query(`ALTER TABLE telegram_bot_settings ADD COLUMN IF NOT EXISTS timezone TEXT NOT NULL DEFAULT 'Europe/Moscow';`);
 await query(`CREATE TABLE IF NOT EXISTS payroll_records (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id UUID NOT NULL, user_id UUID, period TEXT NOT NULL, department TEXT, hours NUMERIC(10,2), amount NUMERIC(18,2), created_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
 await query(`ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS project_id    TEXT NOT NULL DEFAULT '';`);
 await query(`ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS branch_id     TEXT NOT NULL DEFAULT '';`);
@@ -838,6 +946,7 @@ const TelegramBotSettingsSchema = z.object({
   morning_report_time: z.string().regex(TIME_RE),
   evening_report_time: z.string().regex(TIME_RE),
   escalation_minutes: z.number().int().min(60).max(1440),
+  timezone: z.string().trim().min(3).max(64).default('Europe/Moscow'),
 }).strict();
 const ReportsSendSchema = z.object({
 date: z.string().regex(DATE_RE),
@@ -1927,12 +2036,26 @@ if(metrics.ebitda)lines.push('📊 EBITDA: '+fmtRub(p.ebitda)+(p.ebitdaMargin!==
 if(metrics.deviation)lines.push('⚠️ Отклонение от плана: '+(Number.isFinite(deviation)?fmtPct(deviation):'Нет данных'));
 return lines.join('\n');
 }
-async function sendTelegram(chatId,textBody){
+async function sendTelegram(chatId,textBody,organizationId=null,restaurantId=null){
 const token=process.env.TELEGRAM_BOT_TOKEN;
-if(!token)throw httpError(503,'Telegram Bot API не настроен (TELEGRAM_BOT_TOKEN)','MESSENGER_NOT_CONFIGURED');
-const r=await fetch('https://api.telegram.org/bot'+token+'/sendMessage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,text:textBody})});
-if(!r.ok)throw httpError(502,'Telegram не принял отчёт','MESSENGER_UPSTREAM_ERROR');
+const context={organizationId,restaurantId};
+if(!token){
+const error=httpError(503,'Telegram Bot API не настроен (TELEGRAM_BOT_TOKEN)','MESSENGER_NOT_CONFIGURED');
+await recordTelegramDelivery(chatId,'sendMessage','failed',null,error,context);
+throw error;
+}
+try{
+const response=await fetch('https://api.telegram.org/bot'+token+'/sendMessage',{
+method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,text:textBody}),
+});
+const result=await response.json().catch(()=>({}));
+if(!response.ok||result.ok===false)throw httpError(502,'Telegram не принял отчёт','MESSENGER_UPSTREAM_ERROR');
+await recordTelegramDelivery(chatId,'sendMessage','sent',result.result?.message_id,null,context);
 return {provider:'telegram',sent:true};
+}catch(error){
+await recordTelegramDelivery(chatId,'sendMessage','failed',null,error,context);
+throw error;
+}
 }
 async function sendWhatsApp(phone,textBody){
 const token=process.env.WHATSAPP_ACCESS_TOKEN,phoneId=process.env.WHATSAPP_PHONE_NUMBER_ID,version=process.env.WHATSAPP_API_VERSION;
@@ -2205,7 +2328,7 @@ await assertScopeAccess(req.user,scope);
 const data=await loadReportMetrics(req.user,b.date,scope);
 const restaurant=scope.restaurant_id||data.values.restaurant||null;
 const textBody=reportText(b.date,restaurant,data.values,data.pnlData,metrics);
-const result=provider==='telegram'?await sendTelegram(recipient,textBody):await sendWhatsApp(recipient,textBody);
+const result=provider==='telegram'?await sendTelegram(recipient,textBody,req.user.organizationId,scope.restaurant_id || null):await sendWhatsApp(recipient,textBody);
 await audit(req.user,'report.sent','daily_reports',b.date,{provider,metrics});
 ok(res,{...result,date:b.date,preview:textBody});
 }catch(e){next(e)}});
@@ -3142,6 +3265,13 @@ app.post('/api/operational-control/actions', requireAuth, requireOrg, requirePri
       {orgId:req.user.organizationId});
     const action = inserted.rows?.[0];
     if (!action) throw httpError(500, 'Создание задачи не подтверждено', 'SAVE_NOT_CONFIRMED');
+    await queryWithRetry(
+      `INSERT INTO operational_action_events
+        (action_id,organization_id,restaurant_id,event_type,from_status,to_status,actor_id,payload_json)
+       VALUES($1::uuid,$2::uuid,$3::uuid,'created',NULL,'open',$4,$5::jsonb)`,
+      [id, req.user.organizationId, restaurant.id, String(req.user.id), JSON.stringify({ source: 'operational_control' })],
+      { orgId: req.user.organizationId }
+    );
     await audit(req.user, 'operational.action.created', 'operational_actions', id, { restaurant_id: restaurant.id, observation_id: body.observation_id, assignee_id: assignee[0].id });
     ok(res, { action, confirmed: true }, 201);
   } catch (e) { next(e); }
@@ -3189,9 +3319,9 @@ app.patch('/api/operational-control/actions/:id', requireAuth, requireOrg, async
                     completed_by,completed_at,verified_by,verified_at,reopen_reason,updated_at
        ), updated_observation AS (
          UPDATE operational_observations o
-            SET verification_status=CASE WHEN $12='reopen' THEN 'reported' ELSE 'verified' END,
-                verified_by=CASE WHEN $12='verify' THEN $13 ELSE NULL END,
-                verified_at=CASE WHEN $12='verify' THEN now() ELSE NULL END
+            SET verification_status=CASE WHEN $12='reopen' THEN 'reported' WHEN $12='verify' THEN 'verified' ELSE o.verification_status END,
+                verified_by=CASE WHEN $12='verify' THEN $13 WHEN $12='reopen' THEN NULL ELSE o.verified_by END,
+                verified_at=CASE WHEN $12='verify' THEN now() WHEN $12='reopen' THEN NULL ELSE o.verified_at END
           WHERE o.id=$14::uuid AND o.organization_id=$10::uuid
             AND EXISTS (SELECT 1 FROM updated_action)
             AND (
@@ -3203,11 +3333,18 @@ app.patch('/api/operational-control/actions/:id', requireAuth, requireOrg, async
               ))
             )
           RETURNING o.id
+       ), inserted_event AS (
+         INSERT INTO operational_action_events
+           (action_id,organization_id,restaurant_id,event_type,from_status,to_status,actor_id,payload_json)
+         SELECT id,$10::uuid,restaurant_id,$12,$11,$1,$13,
+                CASE WHEN $15::text IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('reason',$15::text) END
+           FROM updated_action
+         RETURNING id
        )
        SELECT ua.*, (SELECT count(*)::int FROM updated_observation) AS observation_updated
-         FROM updated_action ua`,
+         FROM updated_action ua CROSS JOIN inserted_event`,
       [nextStatus,completedBy,completedAt,verifiedBy,verifiedAt,reopenedBy,reopenedAt,reopenReason,
-       current.id,req.user.organizationId,current.status,body.type,actorId,current.observation_id],
+       current.id,req.user.organizationId,current.status,body.type,actorId,current.observation_id,body.reason || null],
       {orgId:req.user.organizationId});
     if (!updated.rows?.[0]) throw httpError(409, 'Задача уже изменилась. Обновите список и повторите действие.', 'CONCURRENT_UPDATE');
     await audit(req.user, 'operational.action.'+body.type, 'operational_actions', current.id, { from:current.status, to:nextStatus });
@@ -3224,7 +3361,7 @@ app.get('/api/telegram-bot/settings', requireAuth, requireOrg, async (req, res, 
       `SELECT b.restaurant_id, s.mode,s.notification_level,
               to_char(s.morning_report_time,'HH24:MI') AS morning_report_time,
               to_char(s.evening_report_time,'HH24:MI') AS evening_report_time,
-              s.escalation_minutes
+              s.escalation_minutes, COALESCE(s.timezone,'Europe/Moscow') AS timezone
          FROM telegram_chat_bindings b
          LEFT JOIN telegram_bot_settings s ON s.chat_id=b.chat_id AND s.organization_id=b.organization_id
         WHERE b.chat_id=$1 AND b.organization_id=$2::uuid LIMIT 1`,
@@ -3239,6 +3376,8 @@ app.get('/api/telegram-bot/settings', requireAuth, requireOrg, async (req, res, 
 app.put('/api/telegram-bot/settings', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
   try {
     const body = parseOr400(TelegramBotSettingsSchema, req.body ?? {});
+    try { new Intl.DateTimeFormat('en', { timeZone: body.timezone }).format(new Date()); }
+    catch { throw httpError(400, 'Укажите корректную временную зону IANA.', 'TIMEZONE_INVALID'); }
     const binding = await strictQuery(
       'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
       [body.chat_id, req.user.organizationId], { orgId: req.user.organizationId });
@@ -3246,14 +3385,14 @@ app.put('/api/telegram-bot/settings', requireAuth, requireOrg, requirePrivileged
     await assertRestaurantAccess(req.user, binding[0].restaurant_id);
     await queryWithRetry(
       `INSERT INTO telegram_bot_settings
-        (chat_id,organization_id,restaurant_id,mode,notification_level,morning_report_time,evening_report_time,escalation_minutes,created_by,updated_by)
-       VALUES($1,$2::uuid,$3::uuid,$4,$5,$6::time,$7::time,$8,$9,$9)
+        (chat_id,organization_id,restaurant_id,mode,notification_level,morning_report_time,evening_report_time,escalation_minutes,timezone,created_by,updated_by)
+       VALUES($1,$2::uuid,$3::uuid,$4,$5,$6::time,$7::time,$8,$9,$10,$10)
        ON CONFLICT(chat_id) DO UPDATE SET organization_id=EXCLUDED.organization_id,
          restaurant_id=EXCLUDED.restaurant_id,mode=EXCLUDED.mode,notification_level=EXCLUDED.notification_level,
          morning_report_time=EXCLUDED.morning_report_time,evening_report_time=EXCLUDED.evening_report_time,
-         escalation_minutes=EXCLUDED.escalation_minutes,updated_by=EXCLUDED.updated_by,updated_at=now()`,
+         escalation_minutes=EXCLUDED.escalation_minutes,timezone=EXCLUDED.timezone,updated_by=EXCLUDED.updated_by,updated_at=now()`,
       [body.chat_id,req.user.organizationId,binding[0].restaurant_id,body.mode,body.notification_level,
-       body.morning_report_time,body.evening_report_time,body.escalation_minutes,String(req.user.id)],
+       body.morning_report_time,body.evening_report_time,body.escalation_minutes,body.timezone,String(req.user.id)],
       { orgId: req.user.organizationId });
     await audit(req.user,'telegram.bot.settings.updated','telegram_bot_settings',body.chat_id,
       { mode: body.mode, notification_level: body.notification_level });
@@ -3278,6 +3417,353 @@ app.post('/api/telegram-monitor/analyze', requireAuth, requireOrg, requirePrivil
       orgId: organizationId,
     });
     ok(res, { analysis });
+  } catch (e) { next(e); }
+});
+
+const TelegramFindingApprovalSchema = z.object({
+  assignee_id: z.string().trim().min(1).max(120),
+  due_at: z.string().datetime({ offset: true }),
+  title: z.string().trim().min(1).max(180).optional(),
+  description: z.string().trim().max(1000).optional(),
+}).strict();
+const TelegramFindingRejectSchema = z.object({
+  note: z.string().trim().max(500).default(''),
+}).strict();
+
+app.get('/api/telegram-monitor/findings', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const status = req.query.status ? String(req.query.status) : null;
+    if (status && !['pending','approved','rejected','action_created'].includes(status)) {
+      throw httpError(400, 'Некорректный статус AI-находки.', 'FINDING_STATUS_INVALID');
+    }
+    const restaurantId = req.query.restaurant_id ? String(req.query.restaurant_id) : null;
+    if (restaurantId) {
+      if (!UUID_RE.test(restaurantId)) throw httpError(400, 'Некорректный ресторан.', 'RESTAURANT_REQUIRED');
+      await assertOperationalRestaurant(req.user, restaurantId);
+    }
+    const limit = Math.max(1, Math.min(100, Number.parseInt(String(req.query.limit || '50'), 10) || 50));
+    const role = String(req.user.role || '').toLowerCase();
+    const canSeeAll = role === 'super_admin' || role === 'owner';
+    const rows = await strictQuery(
+      `SELECT a.id AS finding_id, a.status, a.reviewed_by, a.reviewed_at, a.review_note, a.action_id,
+              a.analysis_json, a.created_at, a.restaurant_id, u.name AS restaurant_name,
+              oa.status AS action_status, oa.assignee_name AS action_assignee, oa.due_at AS action_due_at,
+              oa.completed_at AS action_completed_at, oa.verified_at AS action_verified_at,
+              m.chat_id, m.message_id,
+              COALESCE(a.source_sender_name,m.sender_name) AS sender_name,
+              COALESCE(a.source_sender_username,m.sender_username) AS sender_username,
+              COALESCE(a.source_message_text,m.message_text) AS message_text,
+              COALESCE(a.source_message_date,m.message_date) AS message_date,
+              COALESCE(a.source_chat_title,c.title) AS chat_title
+         FROM telegram_message_analyses a
+         JOIN telegram_messages m ON m.chat_id=a.chat_id AND m.message_id=a.message_id
+         JOIN telegram_chats c ON c.chat_id=a.chat_id
+         JOIN org_units u ON u.id=a.restaurant_id AND u.organization_id=a.organization_id
+         LEFT JOIN operational_actions oa ON oa.id=a.action_id AND oa.organization_id=a.organization_id
+        WHERE a.organization_id=$1::uuid
+          AND ($2::text IS NULL OR a.status=$2)
+          AND ($3::uuid IS NULL OR a.restaurant_id=$3::uuid)
+          AND ($4::boolean OR EXISTS (
+            SELECT 1 FROM org_unit_access access
+             WHERE access.organization_id=a.organization_id
+               AND access.user_id=$5 AND access.unit_id=a.restaurant_id
+          ))
+        ORDER BY CASE WHEN a.status='pending' THEN 0 ELSE 1 END, a.created_at DESC
+        LIMIT $6`,
+      [req.user.organizationId, status, restaurantId, canSeeAll, String(req.user.id), limit],
+      { orgId: req.user.organizationId }
+    );
+    ok(res, { findings: rows });
+  } catch (e) { next(e); }
+});
+
+app.post('/api/telegram-monitor/findings/:findingId/approve', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.findingId)) throw httpError(400, 'Некорректный id AI-находки.', 'BAD_ID');
+    const body = parseOr400(TelegramFindingApprovalSchema, req.body ?? {});
+    const dueAt = new Date(body.due_at);
+    if (dueAt.getTime() <= Date.now()) throw httpError(400, 'Срок задачи должен быть в будущем.', 'DUE_DATE_INVALID');
+    const rows = await strictQuery(
+      'SELECT id, restaurant_id, analysis_json, sender_id FROM telegram_message_analyses WHERE id=$1::uuid AND organization_id=$2::uuid AND status=\'pending\' LIMIT 1',
+      [req.params.findingId, req.user.organizationId], { orgId: req.user.organizationId }
+    );
+    const finding = rows[0];
+    if (!finding) throw httpError(404, 'Ожидающая решения AI-находка не найдена.', 'FINDING_NOT_FOUND');
+    const restaurant = await assertOperationalRestaurant(req.user, finding.restaurant_id);
+    const assignees = await strictQuery(
+      `SELECT u.id, u.first_name, u.last_name
+         FROM users u
+        WHERE u.id::text=$1 AND u.organization_id=$2::uuid AND u.is_active=true
+          AND (lower(u.role) IN ('super_admin','owner') OR EXISTS (
+            SELECT 1 FROM org_unit_access a
+             WHERE a.organization_id=$2::uuid AND a.user_id=u.id::text AND a.unit_id=$3::uuid
+          )) LIMIT 1`,
+      [body.assignee_id, req.user.organizationId, restaurant.id], { orgId: req.user.organizationId }
+    );
+    if (!assignees[0]) throw httpError(400, 'Исполнитель не найден или не имеет доступа к ресторану.', 'ASSIGNEE_NOT_FOUND');
+    const analysis = finding.analysis_json || {};
+    const proposal = analysis.actionProposal || {};
+    if (!proposal || typeof proposal !== 'object' || !Object.keys(proposal).length) {
+      throw httpError(409, 'У этой AI-находки нет предложения действия для подтверждения.', 'ACTION_PROPOSAL_MISSING');
+    }
+    const findingId = finding.id;
+    const observationId = uuid();
+    const actionId = uuid();
+    const assigneeName = [assignees[0].first_name, assignees[0].last_name].filter(Boolean).join(' ');
+    const title = body.title || proposal.title || analysis.title || analysis.summary || 'Задача по AI-находке';
+    const description = body.description ?? proposal.description ?? analysis.details ?? analysis.summary ?? '';
+    const inserted = await queryWithRetry(
+      `WITH locked_finding AS (
+         SELECT a.* FROM telegram_message_analyses a
+          WHERE a.id=$1::uuid AND a.organization_id=$2::uuid AND a.status='pending'
+          FOR UPDATE
+       ), observation AS (
+         INSERT INTO operational_observations
+           (id,organization_id,restaurant_id,checkpoint_key,checkpoint_title,status,note,reporter_id,reporter_name,source_chat_id,source_message_id)
+         SELECT $3::uuid, f.organization_id, f.restaurant_id, 'ai_finding',
+                'AI: ' || COALESCE(NULLIF(f.analysis_json->>'summary',''),'Обнаружено отклонение'),
+                'problem', left(concat_ws(E'\\n',f.analysis_json->>'summary',f.analysis_json->>'details',COALESCE(f.source_message_text,m.message_text)),1000),
+                'ai:' || f.sender_id, 'Dumrauf AI', m.chat_id, m.message_id
+           FROM locked_finding f
+           JOIN telegram_messages m ON m.chat_id=f.chat_id AND m.message_id=f.message_id
+         RETURNING id
+       ), created_action AS (
+         INSERT INTO operational_actions
+           (id,organization_id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,created_by)
+         SELECT $4::uuid,f.organization_id,f.restaurant_id,o.id,$5,$6,$7,$8,$9::timestamptz,$10
+           FROM locked_finding f CROSS JOIN observation o
+         RETURNING *
+       ), updated_finding AS (
+         UPDATE telegram_message_analyses a
+            SET status='action_created',reviewed_by=$10,reviewed_at=now(),action_id=$4::uuid
+           FROM locked_finding f, created_action ca
+          WHERE a.id=f.id
+         RETURNING a.id,a.organization_id,a.restaurant_id,a.status,a.action_id
+       ), finding_event AS (
+         INSERT INTO telegram_ai_finding_events
+           (finding_id,organization_id,restaurant_id,event_type,from_status,to_status,actor_id,action_id,payload_json)
+         SELECT id,organization_id,restaurant_id,'approved','pending','action_created',$10,$4::uuid,
+                jsonb_build_object('assignee_id',$7,'due_at',$9::text)
+           FROM updated_finding
+         RETURNING id
+       ), action_event AS (
+         INSERT INTO operational_action_events
+           (action_id,organization_id,restaurant_id,event_type,from_status,to_status,actor_id,payload_json)
+         SELECT id,organization_id,restaurant_id,'created',NULL,'open',$10,
+                jsonb_build_object('source','telegram_ai_finding','finding_id',$1::text)
+           FROM created_action
+         RETURNING id
+       )
+       SELECT ca.*, uf.id AS finding_id
+         FROM created_action ca CROSS JOIN updated_finding uf`,
+      [findingId, req.user.organizationId, observationId, actionId, title, description,
+       assignees[0].id, assigneeName, dueAt.toISOString(), String(req.user.id)],
+      { orgId: req.user.organizationId }
+    );
+    if (!inserted.rows?.[0]) throw httpError(409, 'AI-находка уже обработана. Обновите список.', 'FINDING_ALREADY_REVIEWED');
+    await audit(req.user, 'telegram.ai_finding.approved', 'telegram_message_analyses', findingId, { action_id: actionId, restaurant_id: restaurant.id });
+    ok(res, { finding_id: findingId, action: inserted.rows[0], confirmed: true }, 201);
+  } catch (e) { next(e); }
+});
+
+app.post('/api/telegram-monitor/findings/:findingId/reject', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.findingId)) throw httpError(400, 'Некорректный id AI-находки.', 'BAD_ID');
+    const body = parseOr400(TelegramFindingRejectSchema, req.body ?? {});
+    const updated = await queryWithRetry(
+      `WITH changed AS (
+         UPDATE telegram_message_analyses
+            SET status='rejected',reviewed_by=$1,reviewed_at=now(),review_note=NULLIF($2,'')
+          WHERE id=$3::uuid AND organization_id=$4::uuid AND status='pending'
+          RETURNING id,organization_id,restaurant_id
+       )
+       INSERT INTO telegram_ai_finding_events
+         (finding_id,organization_id,restaurant_id,event_type,from_status,to_status,actor_id,payload_json)
+       SELECT id,organization_id,restaurant_id,'rejected','pending','rejected',$1,
+              jsonb_build_object('note',$2)
+         FROM changed
+       RETURNING finding_id`,
+      [String(req.user.id), body.note, req.params.findingId, req.user.organizationId],
+      { orgId: req.user.organizationId }
+    );
+    if (!updated.rows?.length) throw httpError(409, 'AI-находка уже обработана или недоступна.', 'FINDING_ALREADY_REVIEWED');
+    await audit(req.user, 'telegram.ai_finding.rejected', 'telegram_message_analyses', req.params.findingId, {});
+    ok(res, { finding_id: req.params.findingId, status: 'rejected', confirmed: true });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/telegram-monitor/findings/:findingId/events', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.findingId)) throw httpError(400, 'Некорректный id AI-находки.', 'BAD_ID');
+    const finding = await strictQuery(
+      'SELECT restaurant_id FROM telegram_message_analyses WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
+      [req.params.findingId, req.user.organizationId], { orgId: req.user.organizationId }
+    );
+    if (!finding[0]) throw httpError(404, 'AI-находка не найдена.', 'FINDING_NOT_FOUND');
+    await assertOperationalRestaurant(req.user, finding[0].restaurant_id);
+    const events = await strictQuery(
+      `SELECT id,event_type,from_status,to_status,actor_id,action_id,payload_json,created_at
+         FROM telegram_ai_finding_events
+        WHERE finding_id=$1::uuid AND organization_id=$2::uuid
+        ORDER BY created_at ASC LIMIT 100`,
+      [req.params.findingId, req.user.organizationId], { orgId: req.user.organizationId }
+    );
+    ok(res, { events });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/operational-control/actions/:id/events', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный id задачи.', 'BAD_ID');
+    const action = await strictQuery(
+      'SELECT restaurant_id FROM operational_actions WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
+      [req.params.id, req.user.organizationId], { orgId: req.user.organizationId }
+    );
+    if (!action[0]) throw httpError(404, 'Задача не найдена.', 'NOT_FOUND');
+    await assertOperationalRestaurant(req.user, action[0].restaurant_id);
+    const events = await strictQuery(
+      `SELECT id,event_type,from_status,to_status,actor_id,payload_json,created_at
+         FROM operational_action_events
+        WHERE action_id=$1::uuid AND organization_id=$2::uuid
+        ORDER BY created_at ASC LIMIT 200`,
+      [req.params.id, req.user.organizationId], { orgId: req.user.organizationId }
+    );
+    ok(res, { events });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/telegram-monitor/health', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const [updates, failures] = await Promise.all([
+      strictQuery(
+        `SELECT max(t.received_at) AS last_received_at,
+                count(*) FILTER (WHERE t.received_at >= now()-interval '24 hours')::int AS received_24h,
+                count(*) FILTER (WHERE t.processing_status='pending')::int AS pending,
+                count(*) FILTER (WHERE t.processing_status='processing')::int AS processing
+           FROM telegram_updates t
+           JOIN telegram_chat_bindings b
+             ON b.chat_id=COALESCE(t.update_json->'message'->'chat'->>'id',
+                                   t.update_json->'edited_message'->'chat'->>'id',
+                                   t.update_json->'callback_query'->'message'->'chat'->>'id')
+            AND b.organization_id=$1::uuid`,
+        [req.user.organizationId], { orgId: req.user.organizationId }
+      ),
+      strictQuery(
+        `SELECT t.update_id,t.received_at,t.last_error,t.processing_attempts
+           FROM telegram_updates t
+           JOIN telegram_chat_bindings b
+             ON b.chat_id=COALESCE(t.update_json->'message'->'chat'->>'id',
+                                   t.update_json->'edited_message'->'chat'->>'id',
+                                   t.update_json->'callback_query'->'message'->'chat'->>'id')
+            AND b.organization_id=$1::uuid
+          WHERE t.last_error IS NOT NULL
+          ORDER BY t.received_at DESC LIMIT 5`,
+        [req.user.organizationId], { orgId: req.user.organizationId }
+      ),
+    ]);
+    let botApi = { status: 'not_configured' };
+    try {
+      const info = await telegramBotRequest('getWebhookInfo', {});
+      botApi = {
+        status: 'connected',
+        webhook_url_configured: Boolean(info?.url),
+        webhook_path: info?.url ? new URL(info.url).pathname : null,
+        pending_update_count: Number(info?.pending_update_count || 0),
+        last_error_date: info?.last_error_date ? new Date(info.last_error_date * 1000).toISOString() : null,
+        last_error_message: info?.last_error_message || null,
+        allowed_updates: Array.isArray(info?.allowed_updates) ? info.allowed_updates : [],
+      };
+    } catch (error) {
+      botApi = { status: 'unavailable', error_code: error?.code || 'TELEGRAM_UNAVAILABLE', message: error?.message || 'Telegram Bot API недоступен' };
+    }
+    ok(res, { database: updates[0] || {}, recent_processing_errors: failures, bot_api: botApi });
+  } catch (e) { next(e); }
+});
+
+app.post('/api/telegram-monitor/chats/:chatId/diagnose', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
+  try {
+    const chatId = String(req.params.chatId || '').trim().slice(0, 100);
+    const bindings = await strictQuery(
+      'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
+      [chatId, req.user.organizationId], { orgId: req.user.organizationId }
+    );
+    if (!bindings[0]) throw httpError(404, 'Группа не привязана к вашей организации.', 'CHAT_NOT_FOUND');
+    await assertOperationalRestaurant(req.user, bindings[0].restaurant_id);
+    let details = {};
+    let status = 'failed';
+    try {
+      const me = await telegramBotRequest('getMe', {});
+      const chat = await telegramBotRequest('getChat', { chat_id: chatId });
+      const member = await telegramBotRequest('getChatMember', { chat_id: chatId, user_id: me.id });
+      details = {
+        bot_username: me.username || null,
+        chat_title: chat.title || null,
+        chat_type: chat.type || null,
+        bot_status: member.status || 'unknown',
+        can_read_all_group_messages: Boolean(me.can_read_all_group_messages),
+        can_receive_group_updates: member.status !== 'left' && member.status !== 'kicked',
+        can_send_messages: member.status === 'administrator' || member.status === 'creator'
+          || chat.permissions?.can_send_messages !== false,
+      };
+      status = details.can_receive_group_updates && details.can_read_all_group_messages && details.can_send_messages ? 'connected' : 'needs_attention';
+    } catch (diagnosticError) {
+      details = {
+        error_code: diagnosticError?.code || 'TELEGRAM_DIAGNOSTIC_FAILED',
+        error_message: String(diagnosticError?.message || 'Не удалось проверить группу').slice(0, 300),
+      };
+    }
+    const saved = await queryWithRetry(
+      `INSERT INTO telegram_group_diagnostics
+        (organization_id,restaurant_id,chat_id,status,details_json,checked_by)
+       VALUES($1::uuid,$2::uuid,$3,$4,$5::jsonb,$6)
+       RETURNING id,checked_at`,
+      [req.user.organizationId, bindings[0].restaurant_id, chatId, status, JSON.stringify(details), String(req.user.id)],
+      { orgId: req.user.organizationId }
+    );
+    ok(res, { diagnostic: { ...details, status, ...(saved.rows?.[0] || {}) }, confirmed: true });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/telegram-monitor/chats/:chatId/diagnostics', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const chatId = String(req.params.chatId || '').trim().slice(0, 100);
+    const bindings = await strictQuery(
+      'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
+      [chatId, req.user.organizationId], { orgId: req.user.organizationId }
+    );
+    if (!bindings[0]) throw httpError(404, 'Группа не привязана к вашей организации.', 'CHAT_NOT_FOUND');
+    await assertOperationalRestaurant(req.user, bindings[0].restaurant_id);
+    const diagnostics = await strictQuery(
+      `SELECT id,status,details_json,checked_by,checked_at
+         FROM telegram_group_diagnostics
+        WHERE organization_id=$1::uuid AND restaurant_id=$2::uuid AND chat_id=$3
+        ORDER BY checked_at DESC LIMIT 20`,
+      [req.user.organizationId, bindings[0].restaurant_id, chatId], { orgId: req.user.organizationId }
+    );
+    ok(res, { diagnostics });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/telegram-monitor/deliveries', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const chatId = req.query.chat_id ? String(req.query.chat_id).trim().slice(0, 100) : null;
+    if (chatId) {
+      const binding = await strictQuery(
+        'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
+        [chatId, req.user.organizationId], { orgId: req.user.organizationId }
+      );
+      if (!binding[0]) throw httpError(404, 'Группа не найдена в организации.', 'CHAT_NOT_FOUND');
+      await assertOperationalRestaurant(req.user, binding[0].restaurant_id);
+    }
+    const limit = Math.max(1, Math.min(100, Number.parseInt(String(req.query.limit || '50'), 10) || 50));
+    const deliveries = await strictQuery(
+      `SELECT id,chat_id,method,status,telegram_message_id,error_code,error_message,created_at
+         FROM telegram_deliveries
+        WHERE organization_id=$1::uuid AND ($2::text IS NULL OR chat_id=$2)
+        ORDER BY created_at DESC LIMIT $3`,
+      [req.user.organizationId, chatId, limit], { orgId: req.user.organizationId }
+    );
+    ok(res, { deliveries });
   } catch (e) { next(e); }
 });
 
@@ -3373,9 +3859,33 @@ if (token && String(req.query['hub.verify_token'] || '') === token) return res.s
 return res.status(403).json({ error: { message: 'Webhook verification failed', code: 'WEBHOOK_VERIFY_FAILED' } });
 });
 
-async function telegramBotRequest(method, payload) {
+async function recordTelegramDelivery(chatId, method, status, telegramMessageId, error, context = {}) {
+  try {
+    const bindings = await safeQuery(
+      'SELECT organization_id, restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 LIMIT 1',
+      [String(chatId)], null
+    );
+    const binding = bindings?.[0] || {};
+    await queryWithRetry(
+      `INSERT INTO telegram_deliveries
+        (organization_id,restaurant_id,chat_id,method,status,telegram_message_id,error_code,error_message)
+       VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8)`,
+      [binding.organization_id || context.organizationId || null, binding.restaurant_id || context.restaurantId || null, String(chatId), String(method),
+       status, telegramMessageId ? String(telegramMessageId) : null,
+       error?.code || null, error ? String(error.message || error).slice(0, 500) : null],
+      binding.organization_id ? { orgId: binding.organization_id } : {}
+    );
+  } catch (logError) {
+    log('telegram delivery log failed:', logError?.code || logError?.message || 'UNKNOWN');
+  }
+}
+async function telegramBotRequest(method, payload, context = {}) {
   const token = process.env.TELEGRAM_MONITOR_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) throw httpError(503, 'Монитор-бот Telegram не настроен', 'TELEGRAM_MONITOR_NOT_CONFIGURED');
+  if (!token) {
+    const error = httpError(503, 'Монитор-бот Telegram не настроен', 'TELEGRAM_MONITOR_NOT_CONFIGURED');
+    if (method === 'sendMessage' && payload?.chat_id !== undefined) await recordTelegramDelivery(payload.chat_id, method, 'failed', null, error, context);
+    throw error;
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 4500);
   try {
@@ -3387,10 +3897,18 @@ async function telegramBotRequest(method, payload) {
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok || result.ok === false) throw httpError(502, 'Telegram Bot API отклонил запрос', 'TELEGRAM_UPSTREAM_ERROR');
+    if (method === 'sendMessage' && payload?.chat_id !== undefined) {
+      await recordTelegramDelivery(payload.chat_id, method, 'sent', result.result?.message_id, null, context);
+    }
     return result.result;
   } catch (error) {
-    if (error?.name === 'AbortError') throw httpError(504, 'Telegram Bot API не ответил вовремя', 'TELEGRAM_TIMEOUT');
-    throw error;
+    const normalized = error?.name === 'AbortError'
+      ? httpError(504, 'Telegram Bot API не ответил вовремя', 'TELEGRAM_TIMEOUT')
+      : error;
+    if (method === 'sendMessage' && payload?.chat_id !== undefined) {
+      await recordTelegramDelivery(payload.chat_id, method, 'failed', null, normalized, context);
+    }
+    throw normalized;
   } finally {
     clearTimeout(timeout);
   }
@@ -3523,6 +4041,31 @@ async function handleOperationalTelegramUpdate(update) {
   }
   return { handled: false };
 }
+
+app.post('/api/telegram/webhook', async (req, res) => {
+  const expected = String(process.env.TELEGRAM_MONITOR_SECRET || '');
+  const provided = String(req.headers['x-telegram-bot-api-secret-token'] || '');
+  if (!expected) return res.status(503).json({ ok: false, error: 'telegram_monitor_secret_not_configured' });
+  const actualBytes = Buffer.from(provided);
+  const expectedBytes = Buffer.from(expected);
+  if (actualBytes.length !== expectedBytes.length || !crypto.timingSafeEqual(actualBytes, expectedBytes)) {
+    return res.status(403).json({ ok: false, error: 'forbidden' });
+  }
+  try {
+    if (!ENV.DB_HOST) return res.status(200).json({ ok: false, error: 'database_not_configured' });
+    const stored = await persistTelegramUpdate(query, req.body);
+    if (!stored.kind || !Number.isSafeInteger(req.body?.update_id)) {
+      return res.status(200).json({ ok: true, ...stored });
+    }
+    const claim = await claimTelegramUpdate(query, req.body.update_id);
+    if (claim.processed) return res.status(200).json({ ok: true, duplicate: true, processed: true, ...stored });
+    if (claim.claimed) await completeTelegramUpdate(query, req.body.update_id, claim.attempts);
+    return res.status(200).json({ ok: true, ...stored, persisted: true, processed: Boolean(claim.claimed) });
+  } catch (error) {
+    console.error('[sten] monitor webhook failed:', error?.code || error?.message || 'UNKNOWN');
+    return res.status(200).json({ ok: false, error: 'telegram_monitor_processing_failed' });
+  }
+});
 
 app.post('/api/ingest/message', async (req, res) => {
 try {
@@ -3998,19 +4541,58 @@ return { statusCode: 400, headers: { 'Content-Type': 'application/json; charset=
 if (isTimerEvent(event)) {
 try {
 const suspended = await suspendExpiredOrganizations();
-let telegramAnalysis = { scanned: 0, analyzed: 0, skipped: 0, failed: 0 };
-try {
-  telegramAnalysis = await processTelegramMessageBatch({
-    queryWithRetry,
-    analyze: prompt => callYandexGPT([{ role: 'user', text: prompt }]),
-    limit: 20,
-  });
-} catch (analysisError) {
-  log('telegram secretary batch failed:', analysisError?.code || analysisError?.message || 'UNKNOWN');
+let telegramAnalysis = { scanned: 0, analyzed: 0, skipped: 0, failed: 0, status: 'already_ran_today' };
+const analysisClaim = await queryWithRetry(
+  `INSERT INTO telegram_worker_runs(worker_key,run_date,status,started_at)
+   VALUES('daily_ai_analysis',CURRENT_DATE,'running',now())
+   ON CONFLICT(worker_key,run_date) DO UPDATE SET status='running',started_at=now()
+    WHERE telegram_worker_runs.status='failed' OR (telegram_worker_runs.status='running' AND telegram_worker_runs.started_at < now()-interval '2 hours')
+   RETURNING worker_key`,
+  [], {}
+);
+if (analysisClaim.rows?.length) {
+  try {
+    telegramAnalysis = await processTelegramMessageBatch({
+      queryWithRetry,
+      analyze: prompt => callYandexGPT([{ role: 'user', text: prompt }]),
+      limit: 50,
+    });
+    await queryWithRetry(
+      "UPDATE telegram_worker_runs SET status='completed' WHERE worker_key='daily_ai_analysis' AND run_date=CURRENT_DATE",
+      [], {}
+    );
+    telegramAnalysis.status = 'completed';
+  } catch (analysisError) {
+    await queryWithRetry(
+      "UPDATE telegram_worker_runs SET status='failed' WHERE worker_key='daily_ai_analysis' AND run_date=CURRENT_DATE",
+      [], {}
+    );
+    telegramAnalysis = { ...telegramAnalysis, status: 'failed' };
+    log('telegram secretary batch failed:', analysisError?.code || analysisError?.message || 'UNKNOWN');
+  }
 }
-return { ok: true, suspended, telegramAnalysis };
+let telegramAutomation = { escalationsQueued: 0, summariesQueued: 0, sent: 0, failed: 0, skipped: 0 };
+try {
+  telegramAutomation = await processTelegramAutomationJobs({
+    queryWithRetry,
+    sendMessage: sendOperationalTelegramMessage,
+    buildFinancialReport: async schedule => {
+      const scope = { period: String(schedule.local_date).slice(0,7), project_id: '', branch_id: '',
+        restaurant_id: schedule.restaurant_id, department_id: '' };
+      const report = await loadReportMetrics({ organizationId: schedule.organization_id }, schedule.local_date, scope);
+      return reportText(schedule.local_date, schedule.restaurant_name, report.values, report.pnlData,
+        { revenue: true, cashCard: true, discounts: true, avgCheck: true, checks: true,
+          primeCost: true, ebitda: true, deviation: true });
+    },
+    batchSize: 50,
+  });
+} catch (automationError) {
+  log('telegram automation worker failed:', automationError?.code || automationError?.message || 'UNKNOWN');
+  telegramAutomation = { ...telegramAutomation, status: 'failed' };
+}
+return { ok: true, suspended, telegramAnalysis, telegramAutomation };
 } catch (e) {
-console.error('[sten] subscription expiry failed:', e && e.stack ? e.stack : e);
+console.error('[sten] timer worker failed:', e && e.stack ? e.stack : e);
 throw e;
 }
 }
