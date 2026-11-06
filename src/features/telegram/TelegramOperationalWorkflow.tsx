@@ -365,6 +365,7 @@ export default function TelegramOperationalWorkflow({ selectedChatId }: { select
         <div><span>Сообщений за 24 часа</span><strong>{health?.database?.received_24h ?? '—'}</strong></div>
         <div><span>Ожидают обработки</span><strong>{health?.database?.pending ?? '—'}</strong></div>
         <div><span>Последнее сообщение</span><strong>{dateTime(health?.database?.last_received_at)}</strong></div>
+        <div><span>Очередь Telegram</span><strong>{health?.bot_api?.pending_update_count ?? '—'}</strong></div>
       </div>
       {health?.bot_api?.last_error_message && <p className="telegram-workflow__message is-error"><AlertCircle size={14} /> {health.bot_api.last_error_message}</p>}
       {health?.recent_processing_errors?.length ? <div className="telegram-workflow__errors">
@@ -385,6 +386,9 @@ export default function TelegramOperationalWorkflow({ selectedChatId }: { select
         {diagnostics.slice(0, 5).map(item => <p key={item.id}>
           <span className={item.status === 'connected' ? 'is-good' : 'is-warning'}>{item.status === 'connected' ? 'Подключена' : 'Требует внимания'}</span>
           {' · '}{dateTime(item.checked_at)}
+          {item.details_json.bot_status ? ' · бот: ' + String(item.details_json.bot_status) : ''}
+          {item.details_json.can_read_all_group_messages === true ? ' · читает все сообщения' : item.details_json.can_read_all_group_messages === false ? ' · ограничен режимом приватности' : ''}
+          {item.details_json.error_code ? ' · ' + String(item.details_json.error_code) : ''}
         </p>)}
       </div>}
       <div className="telegram-workflow__history">
