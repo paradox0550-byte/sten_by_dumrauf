@@ -405,8 +405,8 @@ await query(`CREATE TABLE IF NOT EXISTS telegram_action_proposals (
   action_id UUID REFERENCES operational_actions(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE(chat_id,message_id)
-);`);
+ );`);
+await query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_action_proposals_pending_source ON telegram_action_proposals(chat_id,message_id) WHERE status='pending';`);
 await query(`CREATE INDEX IF NOT EXISTS idx_telegram_action_proposals_scope ON telegram_action_proposals(organization_id,restaurant_id,status,created_at DESC);`);
 await query(`CREATE TABLE IF NOT EXISTS telegram_bot_settings (
   chat_id TEXT PRIMARY KEY REFERENCES telegram_chat_bindings(chat_id) ON DELETE CASCADE,
@@ -3516,7 +3516,7 @@ app.get('/api/telegram-monitor/health', requireAuth, requireOrg, async (req, res
       last_received_at:rows[0]?.last_received_at || null,last_processed_at:rows[0]?.last_processed_at || null,
       pending:rows[0]?.pending ?? null,processing:rows[0]?.processing ?? null,failed:rows[0]?.failed ?? null,
       last_error_at:rows[0]?.last_error_at || null},groups:groupRows[0] || {bound_groups:0,last_message_at:null},
-      scheduler:{enabled:true,required_trigger_interval:'every minute'}});
+      scheduler:{implemented:true,runtime_verified:false,required_trigger_interval:'every minute'}});
   } catch (e) { next(e); }
 });
 
