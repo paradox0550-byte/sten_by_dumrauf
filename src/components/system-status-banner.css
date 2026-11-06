@@ -26,12 +26,12 @@
 }
 .sten-system-status--offline .sten-system-status__icon,
 .sten-system-status--service .sten-system-status__icon {
-  background: color-mix(in srgb, #E6A23C 14%, transparent);
-  color: #E6A23C;
+  background: color-mix(in srgb, var(--color-warning, #FBBF24) 14%, transparent);
+  color: var(--color-warning, #FBBF24);
 }
 .sten-system-status--restored .sten-system-status__icon {
-  background: color-mix(in srgb, #36B37E 14%, transparent);
-  color: #36B37E;
+  background: color-mix(in srgb, var(--color-success, #4ADE80) 14%, transparent);
+  color: var(--color-success, #4ADE80);
 }
 .sten-system-status__copy {
   display: grid;
@@ -68,7 +68,7 @@
   color: var(--text-primary, #F5F7FC);
 }
 .sten-system-status__close:focus-visible {
-  outline: 2px solid var(--color-brand, #5B7CFA);
+  outline: 2px solid var(--color-brand, #5FB3A1);
   outline-offset: 2px;
 }
 @keyframes sten-status-enter {

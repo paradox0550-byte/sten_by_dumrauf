@@ -87,7 +87,7 @@
   .pnl-kpis-expanded .pnl-kpi > div span { display:flex; justify-content:space-between; gap:6px; align-items:baseline; }
   .pnl-kpis-expanded .pnl-kpi b { font-variant-numeric:tabular-nums; }
   .pnl-calculation-warning { border-color:var(--color-warning, var(--color-warning)); background:var(--surface-warning, transparent); }
-  .pnl-calculation-warning strong { color:var(--color-warning, #b7791f); }
+  .pnl-calculation-warning strong { color:var(--color-warning, #925F00); }
   .pnl-calculation-note { display:flex; align-items:flex-start; gap:8px; margin:0 0 12px; padding:10px 12px; border:1px solid var(--border-subtle); border-radius:var(--ui-radius-sm); color:var(--text-secondary); font-size:12px; line-height:1.45; }
   .pnl-calculation-note strong { color:var(--text-primary); white-space:nowrap; }
   @media (max-width:900px) { .pnl-kpis-expanded { grid-template-columns:repeat(2,minmax(0,1fr)); } }
@@ -119,7 +119,7 @@
   .pnl-expense-name { min-width:0; display:grid; gap:3px; color:var(--text-primary); font-size:12px; overflow-wrap:anywhere; }
   .pnl-expense-name small { color:var(--text-secondary); font-size:10px; }
   .pnl-expense-item select { flex:none; max-width:170px; min-height:34px; padding:4px 8px; border:1px solid var(--border-default); border-radius:var(--ui-radius-sm, 6px); background:var(--bg-base); color:var(--text-primary); font-size:12px; }
-  .pnl-expense-warning { display:flex; flex-direction:column; gap:3px; margin-top:10px; padding:10px 12px; border:1px solid var(--color-warning, #b7791f); border-radius:var(--ui-radius-sm, 6px); color:var(--text-secondary); font-size:12px; line-height:1.45; }
+  .pnl-expense-warning { display:flex; flex-direction:column; gap:3px; margin-top:10px; padding:10px 12px; border:1px solid var(--color-warning, #925F00); border-radius:var(--ui-radius-sm, 6px); color:var(--text-secondary); font-size:12px; line-height:1.45; }
   .pnl-expense-warning strong { color:var(--text-primary); }
   .pnl-expense-empty { margin:0; color:var(--text-secondary); font-size:12px; }
   .pnl-expense-footnote { margin-top:10px; }
