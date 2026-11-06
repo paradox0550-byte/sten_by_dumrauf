@@ -17,6 +17,7 @@ const { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand, Dele
 const { buildSkillPrompt } = require('./core/skills');
 const { persistTelegramUpdate, claimTelegramUpdate, completeTelegramUpdate, failTelegramUpdate } = require('./telegramMonitor');
 const { processTelegramMessageBatch } = require('./telegramSecretaryWorker');
+const { processTelegramAutomationJobs } = require('./telegramControl');
 const { resolveAgent, toolsForAgent, agentAllowsTool } = require('./core/agents');
 const { TOOLS, executeTool } = require('./core/tools');
 const { createMemory, listMemory, updateMemoryConfidence, deleteMemory, loadMemoryContext } = require('./core/memory');
@@ -2028,10 +2029,7 @@ if(metrics.deviation)lines.push('⚠️ Отклонение от плана: '+
 return lines.join('\n');
 }
 async function sendTelegram(chatId,textBody){
-const token=process.env.TELEGRAM_BOT_TOKEN;
-if(!token)throw httpError(503,'Telegram Bot API не настроен (TELEGRAM_BOT_TOKEN)','MESSENGER_NOT_CONFIGURED');
-const r=await fetch('https://api.telegram.org/bot'+token+'/sendMessage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,text:textBody})});
-if(!r.ok)throw httpError(502,'Telegram не принял отчёт','MESSENGER_UPSTREAM_ERROR');
+await telegramBotRequest('sendMessage',{chat_id:chatId,text:textBody});
 return {provider:'telegram',sent:true};
 }
 async function sendWhatsApp(phone,textBody){
@@ -3310,6 +3308,14 @@ app.patch('/api/operational-control/actions/:id', requireAuth, requireOrg, async
        current.id,req.user.organizationId,current.status,body.type,actorId,current.observation_id],
       {orgId:req.user.organizationId});
     if (!updated.rows?.[0]) throw httpError(409, 'Задача уже изменилась. Обновите список и повторите действие.', 'CONCURRENT_UPDATE');
+    await queryWithRetry(
+      `INSERT INTO operational_action_events
+        (action_id,organization_id,restaurant_id,event_type,from_status,to_status,actor_id,payload_json)
+       VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8::jsonb)`,
+      [current.id, req.user.organizationId, current.restaurant_id, body.type, current.status, nextStatus,
+       actorId, JSON.stringify(body.reason ? { reason: body.reason } : {})],
+      { orgId: req.user.organizationId }
+    );
     await audit(req.user, 'operational.action.'+body.type, 'operational_actions', current.id, { from:current.status, to:nextStatus });
     ok(res, { action: updated.rows[0], confirmed: true });
   } catch (e) { next(e); }
@@ -3566,6 +3572,120 @@ app.get('/api/operational-control/actions/:id/events', requireAuth, requireOrg, 
   } catch (e) { next(e); }
 });
 
+app.get('/api/telegram-monitor/health', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const [updates, failures] = await Promise.all([
+      strictQuery(
+        `SELECT max(received_at) AS last_received_at,
+                count(*) FILTER (WHERE received_at >= now()-interval '24 hours')::int AS received_24h,
+                count(*) FILTER (WHERE processing_status='pending')::int AS pending,
+                count(*) FILTER (WHERE processing_status='processing')::int AS processing
+           FROM telegram_updates`,
+        []
+      ),
+      strictQuery(
+        `SELECT update_id,received_at,last_error,processing_attempts
+           FROM telegram_updates WHERE last_error IS NOT NULL
+           ORDER BY received_at DESC LIMIT 5`,
+        []
+      ),
+    ]);
+    let botApi = { status: 'not_configured' };
+    try {
+      const info = await telegramBotRequest('getWebhookInfo', {});
+      botApi = {
+        status: 'connected',
+        webhook_url_configured: Boolean(info?.url),
+        pending_update_count: Number(info?.pending_update_count || 0),
+        last_error_date: info?.last_error_date ? new Date(info.last_error_date * 1000).toISOString() : null,
+        last_error_message: info?.last_error_message || null,
+        allowed_updates: Array.isArray(info?.allowed_updates) ? info.allowed_updates : [],
+      };
+    } catch (error) {
+      botApi = { status: 'unavailable', error_code: error?.code || 'TELEGRAM_UNAVAILABLE', message: error?.message || 'Telegram Bot API недоступен' };
+    }
+    ok(res, { database: updates[0] || {}, recent_processing_errors: failures, bot_api: botApi });
+  } catch (e) { next(e); }
+});
+
+app.post('/api/telegram-monitor/chats/:chatId/diagnose', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
+  try {
+    const chatId = String(req.params.chatId || '').trim().slice(0, 100);
+    const bindings = await strictQuery(
+      'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
+      [chatId, req.user.organizationId], { orgId: req.user.organizationId }
+    );
+    if (!bindings[0]) throw httpError(404, 'Группа не привязана к вашей организации.', 'CHAT_NOT_FOUND');
+    await assertOperationalRestaurant(req.user, bindings[0].restaurant_id);
+    const [me, chat] = await Promise.all([
+      telegramBotRequest('getMe', {}),
+      telegramBotRequest('getChat', { chat_id: chatId }),
+    ]);
+    const member = await telegramBotRequest('getChatMember', { chat_id: chatId, user_id: me.id });
+    const details = {
+      bot_username: me.username || null,
+      chat_title: chat.title || null,
+      chat_type: chat.type || null,
+      bot_status: member.status || 'unknown',
+      can_read_messages: member.status !== 'left' && member.status !== 'kicked',
+      can_send_messages: member.status === 'administrator' || member.status === 'creator',
+    };
+    const status = details.can_read_messages ? 'connected' : 'needs_attention';
+    const saved = await queryWithRetry(
+      `INSERT INTO telegram_group_diagnostics
+        (organization_id,restaurant_id,chat_id,status,details_json,checked_by)
+       VALUES($1::uuid,$2::uuid,$3,$4,$5::jsonb,$6)
+       RETURNING id,checked_at`,
+      [req.user.organizationId, bindings[0].restaurant_id, chatId, status, JSON.stringify(details), String(req.user.id)],
+      { orgId: req.user.organizationId }
+    );
+    ok(res, { diagnostic: { ...details, status, ...(saved.rows?.[0] || {}) }, confirmed: true });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/telegram-monitor/chats/:chatId/diagnostics', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const chatId = String(req.params.chatId || '').trim().slice(0, 100);
+    const bindings = await strictQuery(
+      'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
+      [chatId, req.user.organizationId], { orgId: req.user.organizationId }
+    );
+    if (!bindings[0]) throw httpError(404, 'Группа не привязана к вашей организации.', 'CHAT_NOT_FOUND');
+    await assertOperationalRestaurant(req.user, bindings[0].restaurant_id);
+    const diagnostics = await strictQuery(
+      `SELECT id,status,details_json,checked_by,checked_at
+         FROM telegram_group_diagnostics
+        WHERE organization_id=$1::uuid AND restaurant_id=$2::uuid AND chat_id=$3
+        ORDER BY checked_at DESC LIMIT 20`,
+      [req.user.organizationId, bindings[0].restaurant_id, chatId], { orgId: req.user.organizationId }
+    );
+    ok(res, { diagnostics });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/telegram-monitor/deliveries', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const chatId = req.query.chat_id ? String(req.query.chat_id).trim().slice(0, 100) : null;
+    if (chatId) {
+      const binding = await strictQuery(
+        'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
+        [chatId, req.user.organizationId], { orgId: req.user.organizationId }
+      );
+      if (!binding[0]) throw httpError(404, 'Группа не найдена в организации.', 'CHAT_NOT_FOUND');
+      await assertOperationalRestaurant(req.user, binding[0].restaurant_id);
+    }
+    const limit = Math.max(1, Math.min(100, Number.parseInt(String(req.query.limit || '50'), 10) || 50));
+    const deliveries = await strictQuery(
+      `SELECT id,chat_id,method,status,telegram_message_id,error_code,error_message,created_at
+         FROM telegram_deliveries
+        WHERE organization_id=$1::uuid AND ($2::text IS NULL OR chat_id=$2)
+        ORDER BY created_at DESC LIMIT $3`,
+      [req.user.organizationId, chatId, limit], { orgId: req.user.organizationId }
+    );
+    ok(res, { deliveries });
+  } catch (e) { next(e); }
+});
+
 app.get('/api/telegram-monitor/chats', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const role = String(req.user.role || '').toLowerCase();
@@ -3658,6 +3778,26 @@ if (token && String(req.query['hub.verify_token'] || '') === token) return res.s
 return res.status(403).json({ error: { message: 'Webhook verification failed', code: 'WEBHOOK_VERIFY_FAILED' } });
 });
 
+async function recordTelegramDelivery(chatId, method, status, telegramMessageId, error) {
+  try {
+    const bindings = await safeQuery(
+      'SELECT organization_id, restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 LIMIT 1',
+      [String(chatId)], null
+    );
+    const binding = bindings?.[0] || {};
+    await queryWithRetry(
+      `INSERT INTO telegram_deliveries
+        (organization_id,restaurant_id,chat_id,method,status,telegram_message_id,error_code,error_message)
+       VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8)`,
+      [binding.organization_id || null, binding.restaurant_id || null, String(chatId), String(method),
+       status, telegramMessageId ? String(telegramMessageId) : null,
+       error?.code || null, error ? String(error.message || error).slice(0, 500) : null],
+      binding.organization_id ? { orgId: binding.organization_id } : {}
+    );
+  } catch (logError) {
+    log('telegram delivery log failed:', logError?.code || logError?.message || 'UNKNOWN');
+  }
+}
 async function telegramBotRequest(method, payload) {
   const token = process.env.TELEGRAM_MONITOR_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
   if (!token) throw httpError(503, 'Монитор-бот Telegram не настроен', 'TELEGRAM_MONITOR_NOT_CONFIGURED');
@@ -3672,10 +3812,18 @@ async function telegramBotRequest(method, payload) {
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok || result.ok === false) throw httpError(502, 'Telegram Bot API отклонил запрос', 'TELEGRAM_UPSTREAM_ERROR');
+    if (method === 'sendMessage' && payload?.chat_id !== undefined) {
+      await recordTelegramDelivery(payload.chat_id, method, 'sent', result.result?.message_id, null);
+    }
     return result.result;
   } catch (error) {
-    if (error?.name === 'AbortError') throw httpError(504, 'Telegram Bot API не ответил вовремя', 'TELEGRAM_TIMEOUT');
-    throw error;
+    const normalized = error?.name === 'AbortError'
+      ? httpError(504, 'Telegram Bot API не ответил вовремя', 'TELEGRAM_TIMEOUT')
+      : error;
+    if (method === 'sendMessage' && payload?.chat_id !== undefined) {
+      await recordTelegramDelivery(payload.chat_id, method, 'failed', null, normalized);
+    }
+    throw normalized;
   } finally {
     clearTimeout(timeout);
   }
