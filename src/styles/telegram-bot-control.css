@@ -124,3 +124,20 @@
   .telegram-bot-control__scope { align-items: flex-start; }
   .telegram-bot-control__footer .primary-button { min-height: 44px; }
 }
+
+
+.telegram-bot-control__config-state,
+.telegram-bot-control__filter-note {
+  margin: 10px 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.telegram-bot-control__config-state {
+  padding: 9px 11px;
+  border-left: 2px solid var(--color-brand);
+  background: var(--bg-surface-muted);
+}
+.telegram-bot-control__filter-note {
+  margin-top: 12px;
+}
