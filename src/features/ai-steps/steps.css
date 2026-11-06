@@ -84,16 +84,16 @@
 .sten-ai-page .step-row__tech { display: inline-block; max-width: 100%; margin-left: 6px; color: var(--text-muted); font: 10px/1.5 var(--font-mono); overflow-wrap: anywhere; }
 .sten-ai-page .step-row__detail { margin-top: 3px; color: var(--text-muted); font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
 .sten-ai-page .step-row__label, .sten-ai-page .step-row__ms, .sten-ai-page .ai-steps__index { cursor: default; user-select: none; -webkit-user-select: none; }
-.sten-ai-page .step-row__badge { color: var(--color-warning, #fbbf24); }
+.sten-ai-page .step-row__badge { color: var(--color-warning, var(--color-warning)); }
 .sten-ai-page .step-row__ms { color: var(--text-secondary); font: 10px/1.5 var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .sten-ai-page .step-row__dot { width: 6px; height: 6px; flex: 0 0 6px; margin-top: 5px; border-radius: 50%; display: inline-block; }
-.sten-ai-page .step-row__dot--ok { background: var(--color-success, #5bfa9a); }
-.sten-ai-page .step-row__dot--warn { background: var(--color-warning, #fa9a5b); }
-.sten-ai-page .step-row__dot--danger { background: var(--color-danger, #ff4d6d); }
+.sten-ai-page .step-row__dot--ok { background: var(--color-success, var(--color-success)); }
+.sten-ai-page .step-row__dot--warn { background: var(--color-warning, var(--color-warning)); }
+.sten-ai-page .step-row__dot--danger { background: var(--color-danger, var(--color-danger)); }
 .sten-ai-page .step-row__badge {
   display: inline-block; margin-left: 7px; padding: 2px 6px;
-  color: #fbbf24; background: rgb(245 158 11 / 14%);
-  border: 1px solid rgb(245 158 11 / 30%);
+  color: var(--color-warning); background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);
   border-radius: var(--ui-radius-sm); font-size: 10px; line-height: 1.3;
   vertical-align: middle; white-space: nowrap;
 }

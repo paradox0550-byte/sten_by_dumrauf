@@ -38,8 +38,8 @@ const requiredTokens = {
 };
 
 const tokensCss = await readFile(new URL('../src/styles/visual-system/tokens.css', import.meta.url), 'utf8');
-const stenCss = await readFile(new URL('../src/styles/sten-visual-system.css', import.meta.url), 'utf8');
-const html = `<!doctype html><html data-theme="light"><head><meta charset="utf-8"><style>${tokensCss}\n${stenCss}</style></head><body></body></html>`;
+const dumraufCss = (await readFile(new URL('../src/styles/dumrauf-experience.css', import.meta.url), 'utf8')).replace(/^@import[^\n]*\n/, '');
+const html = `<!doctype html><html data-theme="light"><head><meta charset="utf-8"><style>${tokensCss}\n${dumraufCss}</style></head><body></body></html>`;
 
 function parseColor(value) {
   const match = value.match(/rgba?\(([^)]+)\)/i);

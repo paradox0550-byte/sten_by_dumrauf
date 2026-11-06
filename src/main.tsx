@@ -4,11 +4,7 @@ import App from './App';
 import { StenLogo } from './components/brand/StenLogo';
 import './styles/tokens.css';
 import './app.css';
-import './styles/unified-interface.css';
 import './styles/operations-calm.css';
-import './styles/mobile-experience.css';
-import './styles/sten-visual-system.css';
-import './styles/visual-system/index.css';
 import './styles/dumrauf-experience.css';
 
 const THEME_KEY = 'sten_theme_v5';
@@ -30,7 +26,7 @@ function applyTheme(mode: string | null = readStorage(THEME_KEY)) {
   const resolved = resolveTheme(mode);
   document.documentElement.dataset.theme = resolved;
   document.documentElement.style.colorScheme = resolved;
-  const themeColor = resolved === 'dark' ? '#111816' : '#F3F5F3';
+  const themeColor = resolved === 'dark' ? '#0B0F19' : '#F5F7FA';
   document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute('content', themeColor);
 }
 

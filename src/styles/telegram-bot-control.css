@@ -91,7 +91,7 @@
   gap: 10px;
   margin-top: 14px;
   padding: 12px 14px;
-  border: 1px solid var(--color-warning, #a87932);
+  border: 1px solid var(--color-warning, var(--color-warning));
   border-radius: 9px;
   background: color-mix(in srgb, var(--color-warning, #a87932) 9%, var(--bg-surface));
   color: var(--text-primary);

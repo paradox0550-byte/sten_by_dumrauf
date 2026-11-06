@@ -110,7 +110,7 @@
 .fot-custom-position-form label { display: grid; gap: 6px; color: var(--text-secondary); font-size: 12px; }
 .fot-custom-position-form input, .fot-custom-position-form select { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--border-default); border-radius: 6px; background: var(--bg-inset); color: var(--text-primary); font: inherit; }
 .fot-custom-position-form .secondary-button { min-height: 36px; white-space: nowrap; }
-.fot-custom-position-error { grid-column: 1 / -1; color: var(--color-danger, #d14343); font-size: 12px; }
+.fot-custom-position-error { grid-column: 1 / -1; color: var(--color-danger, var(--color-danger)); font-size: 12px; }
 @media (max-width: 900px) {
   .fot-custom-position-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .fot-custom-position-form > div, .fot-custom-position-error { grid-column: 1 / -1; }
