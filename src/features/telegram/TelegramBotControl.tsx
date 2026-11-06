@@ -10,9 +10,8 @@ type Settings = {
   morning_report_time: string;
   evening_report_time: string;
   escalation_minutes: number;
-  timezone: string;
 };
-const defaults: Settings = { mode: 'secretary', notification_level: 'deviations', morning_report_time: '10:00', evening_report_time: '21:00', escalation_minutes: 120, timezone: 'Europe/Moscow' };
+const defaults: Settings = { mode: 'secretary', notification_level: 'deviations', morning_report_time: '10:00', evening_report_time: '21:00', escalation_minutes: 120 };
 
 export default function TelegramBotControl() {
   const [chats, setChats] = useState<Chat[]>([]);
@@ -51,7 +50,7 @@ export default function TelegramBotControl() {
     setSaving(true); setError(''); setNotice('');
     try {
       await api.put('/api/telegram-bot/settings', { chat_id: chatId, ...settings });
-      setNotice('Правила сохранены. Сводки и эскалации начнут отправляться после публикации backend и настройки минутного Timer.');
+      setNotice('Настройки сохранены для выбранной группы. Это не включает автоматическую отправку.');
     } catch (e) { setError(e instanceof ApiError ? e.message : 'Не удалось сохранить настройки.'); }
     finally { setSaving(false); }
   };
@@ -67,7 +66,7 @@ export default function TelegramBotControl() {
       {selected && <div className="telegram-bot-control__scope"><ShieldCheck size={15} /> {selected.restaurant_name || 'Ресторан'} · настройки изолированы от остальных групп</div>}
       <div className="telegram-bot-control__automation-status" role="status" aria-live="polite">
         <AlertCircle size={17} />
-        <span><strong>Расписание поддерживается новой версией backend.</strong> Утренние и вечерние сводки, а также эскалация станут активны после публикации функции и настройки Yandex Timer с интервалом не более одной минуты. До этого сохранённые значения не означают, что сообщения уже отправляются.</span>
+        <span><strong>Автоматическая отправка отключена.</strong> Утренние и вечерние сводки, а также эскалация по расписанию пока не отправляются. Время и интервал ниже сохраняются только как предпочтения.</span>
       </div>
       <div className="telegram-bot-control__grid">
         <label className="telegram-bot-control__field"><span>Режим работы</span><select value={settings.mode} onChange={e => setSettings(v => ({ ...v, mode: e.target.value as Settings['mode'] }))}>
@@ -80,13 +79,11 @@ export default function TelegramBotControl() {
         </select></label>
         <label className="telegram-bot-control__field"><span><Clock3 size={14} /> Желаемое время утренней сводки</span><input type="time" value={settings.morning_report_time} onChange={e => setSettings(v => ({ ...v, morning_report_time: e.target.value }))} /></label>
         <label className="telegram-bot-control__field"><span><Clock3 size={14} /> Желаемое время вечерней сводки</span><input type="time" value={settings.evening_report_time} onChange={e => setSettings(v => ({ ...v, evening_report_time: e.target.value }))} /></label>
-        <label className="telegram-bot-control__field"><span><Bell size={14} /> Интервал эскалации после срока</span><select value={settings.escalation_minutes} onChange={e => setSettings(v => ({ ...v, escalation_minutes: Number(e.target.value) }))}>
+        <label className="telegram-bot-control__field"><span><Bell size={14} /> Желаемый интервал эскалации</span><select value={settings.escalation_minutes} onChange={e => setSettings(v => ({ ...v, escalation_minutes: Number(e.target.value) }))}>
           <option value={60}>1 час</option><option value={120}>2 часа</option><option value={240}>4 часа</option><option value={480}>8 часов</option><option value={1440}>24 часа</option>
         </select></label>
-        <label className="telegram-bot-control__field"><span>Часовой пояс ресторана (IANA)</span><input type="text" value={settings.timezone} onChange={e => setSettings(v => ({ ...v, timezone: e.target.value }))} placeholder="Europe/Moscow" /></label>
       </div>
-      <div className="telegram-bot-control__approval"><ShieldCheck size={17} /><span><strong>Подтверждение руководителя обязательно.</strong> AI только предлагает действие. Руководитель подтверждает создание задачи, исполнитель отмечает выполнение, другой руководитель независимо проверяет результат. Просрочка запускает эскалацию по сохранённому интервалу после включения новой версии backend.</span></div>
-      <p className="telegram-bot-control__filter-note">Уровень событий пока сохраняется как настройка; фактическая фильтрация по urgent_only / deviations / all ещё не реализована. Сводки и эскалация добавлены в backend PR, но потребуют публикации функции и минутного Timer trigger.</p>
+      <div className="telegram-bot-control__approval"><ShieldCheck size={17} /><span><strong>Подтверждение руководителя обязательно.</strong> В режиме «Секретарь» STEN готовит предложения. Автоматическая отправка команд, контроль исполнения и закрытие поручений пока не включены — они требуют отдельного контура утверждения и проверки.</span></div>
       <div className="telegram-bot-control__footer">{error && <p role="alert" className="telegram-bot-control__error">{error}</p>}{notice && <p role="status" className="telegram-bot-control__success">{notice}</p>}<button type="button" className="primary-button" onClick={() => void save()} disabled={saving || !chatId}><Save size={16} /> {saving ? 'Сохраняем…' : 'Сохранить настройки'}</button></div>
     </>}
   </section>;
