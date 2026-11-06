@@ -3,6 +3,7 @@ import { MessageSquareText, RefreshCw, Search, Link2, AlertCircle, CheckCircle2,
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import TelegramBotControl from '../features/telegram/TelegramBotControl';
+import TelegramOperationalWorkflow from '../features/telegram/TelegramOperationalWorkflow';
 import '../styles/telegram-monitor.css';
 
 type TelegramChat = {
@@ -281,6 +282,8 @@ export default function TelegramMonitor() {
     </header>
 
     <TelegramBotControl />
+
+    <TelegramOperationalWorkflow selectedChatId={selected && isBound(selected) ? selected.chat_id : undefined} />
 
     <section className="telegram-analysis-panel" aria-labelledby="telegram-analysis-title">
       <div className="telegram-analysis-panel__head">
