@@ -3381,6 +3381,191 @@ app.post('/api/telegram-monitor/analyze', requireAuth, requireOrg, requirePrivil
   } catch (e) { next(e); }
 });
 
+const TelegramFindingApprovalSchema = z.object({
+  assignee_id: z.string().trim().min(1).max(120),
+  due_at: z.string().datetime({ offset: true }),
+  title: z.string().trim().min(1).max(180).optional(),
+  description: z.string().trim().max(1000).optional(),
+}).strict();
+const TelegramFindingRejectSchema = z.object({
+  note: z.string().trim().max(500).default(''),
+}).strict();
+
+app.get('/api/telegram-monitor/findings', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const status = req.query.status ? String(req.query.status) : null;
+    if (status && !['pending','approved','rejected','action_created'].includes(status)) {
+      throw httpError(400, 'Некорректный статус AI-находки.', 'FINDING_STATUS_INVALID');
+    }
+    const restaurantId = req.query.restaurant_id ? String(req.query.restaurant_id) : null;
+    if (restaurantId) {
+      if (!UUID_RE.test(restaurantId)) throw httpError(400, 'Некорректный ресторан.', 'RESTAURANT_REQUIRED');
+      await assertOperationalRestaurant(req.user, restaurantId);
+    }
+    const limit = Math.max(1, Math.min(100, Number.parseInt(String(req.query.limit || '50'), 10) || 50));
+    const role = String(req.user.role || '').toLowerCase();
+    const canSeeAll = role === 'super_admin' || role === 'owner';
+    const rows = await strictQuery(
+      `SELECT a.id AS finding_id, a.status, a.reviewed_by, a.reviewed_at, a.review_note, a.action_id,
+              a.analysis_json, a.created_at, a.restaurant_id, u.name AS restaurant_name,
+              m.chat_id, m.message_id, m.sender_name, m.sender_username, m.message_text,
+              m.message_date, c.title AS chat_title
+         FROM telegram_message_analyses a
+         JOIN telegram_messages m ON m.chat_id=a.chat_id AND m.message_id=a.message_id
+         JOIN telegram_chats c ON c.chat_id=a.chat_id
+         JOIN org_units u ON u.id=a.restaurant_id AND u.organization_id=a.organization_id
+        WHERE a.organization_id=$1::uuid
+          AND ($2::text IS NULL OR a.status=$2)
+          AND ($3::uuid IS NULL OR a.restaurant_id=$3::uuid)
+          AND ($4::boolean OR EXISTS (
+            SELECT 1 FROM org_unit_access access
+             WHERE access.organization_id=a.organization_id
+               AND access.user_id=$5 AND access.unit_id=a.restaurant_id
+          ))
+        ORDER BY CASE WHEN a.status='pending' THEN 0 ELSE 1 END, a.created_at DESC
+        LIMIT $6`,
+      [req.user.organizationId, status, restaurantId, canSeeAll, String(req.user.id), limit],
+      { orgId: req.user.organizationId }
+    );
+    ok(res, { findings: rows });
+  } catch (e) { next(e); }
+});
+
+app.post('/api/telegram-monitor/findings/:findingId/approve', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.findingId)) throw httpError(400, 'Некорректный id AI-находки.', 'BAD_ID');
+    const body = parseOr400(TelegramFindingApprovalSchema, req.body ?? {});
+    const dueAt = new Date(body.due_at);
+    if (dueAt.getTime() <= Date.now()) throw httpError(400, 'Срок задачи должен быть в будущем.', 'DUE_DATE_INVALID');
+    const rows = await strictQuery(
+      'SELECT id, restaurant_id, analysis_json, sender_id FROM telegram_message_analyses WHERE id=$1::uuid AND organization_id=$2::uuid AND status=\'pending\' LIMIT 1',
+      [req.params.findingId, req.user.organizationId], { orgId: req.user.organizationId }
+    );
+    const finding = rows[0];
+    if (!finding) throw httpError(404, 'Ожидающая решения AI-находка не найдена.', 'FINDING_NOT_FOUND');
+    const restaurant = await assertOperationalRestaurant(req.user, finding.restaurant_id);
+    const assignees = await strictQuery(
+      `SELECT u.id, u.first_name, u.last_name
+         FROM users u
+        WHERE u.id::text=$1 AND u.organization_id=$2::uuid AND u.is_active=true
+          AND (lower(u.role) IN ('super_admin','owner') OR EXISTS (
+            SELECT 1 FROM org_unit_access a
+             WHERE a.organization_id=$2::uuid AND a.user_id=u.id::text AND a.unit_id=$3::uuid
+          )) LIMIT 1`,
+      [body.assignee_id, req.user.organizationId, restaurant.id], { orgId: req.user.organizationId }
+    );
+    if (!assignees[0]) throw httpError(400, 'Исполнитель не найден или не имеет доступа к ресторану.', 'ASSIGNEE_NOT_FOUND');
+    const analysis = finding.analysis_json || {};
+    const proposal = analysis.actionProposal || {};
+    if (!proposal || typeof proposal !== 'object' || !Object.keys(proposal).length) {
+      throw httpError(409, 'У этой AI-находки нет предложения действия для подтверждения.', 'ACTION_PROPOSAL_MISSING');
+    }
+    const findingId = finding.id;
+    const observationId = uuid();
+    const actionId = uuid();
+    const assigneeName = [assignees[0].first_name, assignees[0].last_name].filter(Boolean).join(' ');
+    const title = body.title || proposal.title || analysis.title || analysis.summary || 'Задача по AI-находке';
+    const description = body.description ?? proposal.description ?? analysis.details ?? analysis.summary ?? '';
+    const inserted = await queryWithRetry(
+      `WITH locked_finding AS (
+         SELECT a.* FROM telegram_message_analyses a
+          WHERE a.id=$1::uuid AND a.organization_id=$2::uuid AND a.status='pending'
+          FOR UPDATE
+       ), observation AS (
+         INSERT INTO operational_observations
+           (id,organization_id,restaurant_id,checkpoint_key,checkpoint_title,status,note,reporter_id,reporter_name,source_chat_id,source_message_id)
+         SELECT $3::uuid, f.organization_id, f.restaurant_id, 'ai_finding',
+                'AI: ' || COALESCE(NULLIF(f.analysis_json->>'summary',''),'Обнаружено отклонение'),
+                'problem', left(concat_ws(E'\\n',f.analysis_json->>'summary',f.analysis_json->>'details'),1000),
+                'ai:' || f.sender_id, 'Dumrauf AI', m.chat_id, m.message_id
+           FROM locked_finding f
+           JOIN telegram_messages m ON m.chat_id=f.chat_id AND m.message_id=f.message_id
+         RETURNING id
+       ), created_action AS (
+         INSERT INTO operational_actions
+           (id,organization_id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,created_by)
+         SELECT $4::uuid,f.organization_id,f.restaurant_id,o.id,$5,$6,$7,$8,$9::timestamptz,$10
+           FROM locked_finding f CROSS JOIN observation o
+         RETURNING *
+       ), updated_finding AS (
+         UPDATE telegram_message_analyses a
+            SET status='action_created',reviewed_by=$10,reviewed_at=now(),action_id=$4::uuid
+           FROM locked_finding f, created_action ca
+          WHERE a.id=f.id
+         RETURNING a.id,a.organization_id,a.restaurant_id,a.status,a.action_id
+       ), finding_event AS (
+         INSERT INTO telegram_ai_finding_events
+           (finding_id,organization_id,restaurant_id,event_type,from_status,to_status,actor_id,action_id,payload_json)
+         SELECT id,organization_id,restaurant_id,'approved','pending','action_created',$10,$4::uuid,
+                jsonb_build_object('assignee_id',$7,'due_at',$9::text)
+           FROM updated_finding
+         RETURNING id
+       ), action_event AS (
+         INSERT INTO operational_action_events
+           (action_id,organization_id,restaurant_id,event_type,from_status,to_status,actor_id,payload_json)
+         SELECT id,organization_id,restaurant_id,'created',NULL,'open',$10,
+                jsonb_build_object('source','telegram_ai_finding','finding_id',$1::text)
+           FROM created_action
+         RETURNING id
+       )
+       SELECT ca.*, uf.id AS finding_id
+         FROM created_action ca CROSS JOIN updated_finding uf`,
+      [findingId, req.user.organizationId, observationId, actionId, title, description,
+       assignees[0].id, assigneeName, dueAt.toISOString(), String(req.user.id)],
+      { orgId: req.user.organizationId }
+    );
+    if (!inserted.rows?.[0]) throw httpError(409, 'AI-находка уже обработана. Обновите список.', 'FINDING_ALREADY_REVIEWED');
+    await audit(req.user, 'telegram.ai_finding.approved', 'telegram_message_analyses', findingId, { action_id: actionId, restaurant_id: restaurant.id });
+    ok(res, { finding_id: findingId, action: inserted.rows[0], confirmed: true }, 201);
+  } catch (e) { next(e); }
+});
+
+app.post('/api/telegram-monitor/findings/:findingId/reject', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.findingId)) throw httpError(400, 'Некорректный id AI-находки.', 'BAD_ID');
+    const body = parseOr400(TelegramFindingRejectSchema, req.body ?? {});
+    const updated = await queryWithRetry(
+      `WITH changed AS (
+         UPDATE telegram_message_analyses
+            SET status='rejected',reviewed_by=$1,reviewed_at=now(),review_note=NULLIF($2,'')
+          WHERE id=$3::uuid AND organization_id=$4::uuid AND status='pending'
+          RETURNING id,organization_id,restaurant_id
+       )
+       INSERT INTO telegram_ai_finding_events
+         (finding_id,organization_id,restaurant_id,event_type,from_status,to_status,actor_id,payload_json)
+       SELECT id,organization_id,restaurant_id,'rejected','pending','rejected',$1,
+              jsonb_build_object('note',$2)
+         FROM changed
+       RETURNING finding_id`,
+      [String(req.user.id), body.note, req.params.findingId, req.user.organizationId],
+      { orgId: req.user.organizationId }
+    );
+    if (!updated.rows?.length) throw httpError(409, 'AI-находка уже обработана или недоступна.', 'FINDING_ALREADY_REVIEWED');
+    await audit(req.user, 'telegram.ai_finding.rejected', 'telegram_message_analyses', req.params.findingId, {});
+    ok(res, { finding_id: req.params.findingId, status: 'rejected', confirmed: true });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/operational-control/actions/:id/events', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный id задачи.', 'BAD_ID');
+    const action = await strictQuery(
+      'SELECT restaurant_id FROM operational_actions WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
+      [req.params.id, req.user.organizationId], { orgId: req.user.organizationId }
+    );
+    if (!action[0]) throw httpError(404, 'Задача не найдена.', 'NOT_FOUND');
+    await assertOperationalRestaurant(req.user, action[0].restaurant_id);
+    const events = await strictQuery(
+      `SELECT id,event_type,from_status,to_status,actor_id,payload_json,created_at
+         FROM operational_action_events
+        WHERE action_id=$1::uuid AND organization_id=$2::uuid
+        ORDER BY created_at ASC LIMIT 200`,
+      [req.params.id, req.user.organizationId], { orgId: req.user.organizationId }
+    );
+    ok(res, { events });
+  } catch (e) { next(e); }
+});
+
 app.get('/api/telegram-monitor/chats', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const role = String(req.user.role || '').toLowerCase();
