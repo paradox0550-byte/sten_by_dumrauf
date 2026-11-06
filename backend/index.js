@@ -2031,8 +2031,25 @@ if(metrics.deviation)lines.push('⚠️ Отклонение от плана: '+
 return lines.join('\n');
 }
 async function sendTelegram(chatId,textBody,organizationId=null,restaurantId=null){
-await telegramBotRequest('sendMessage',{chat_id:chatId,text:textBody},{organizationId,restaurantId});
+const token=process.env.TELEGRAM_BOT_TOKEN;
+const context={organizationId,restaurantId};
+if(!token){
+const error=httpError(503,'Telegram Bot API не настроен (TELEGRAM_BOT_TOKEN)','MESSENGER_NOT_CONFIGURED');
+await recordTelegramDelivery(chatId,'sendMessage','failed',null,error,context);
+throw error;
+}
+try{
+const response=await fetch('https://api.telegram.org/bot'+token+'/sendMessage',{
+method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,text:textBody}),
+});
+const result=await response.json().catch(()=>({}));
+if(!response.ok||result.ok===false)throw httpError(502,'Telegram не принял отчёт','MESSENGER_UPSTREAM_ERROR');
+await recordTelegramDelivery(chatId,'sendMessage','sent',result.result?.message_id,null,context);
 return {provider:'telegram',sent:true};
+}catch(error){
+await recordTelegramDelivery(chatId,'sendMessage','failed',null,error,context);
+throw error;
+}
 }
 async function sendWhatsApp(phone,textBody){
 const token=process.env.WHATSAPP_ACCESS_TOKEN,phoneId=process.env.WHATSAPP_PHONE_NUMBER_ID,version=process.env.WHATSAPP_API_VERSION;
@@ -3651,22 +3668,29 @@ app.post('/api/telegram-monitor/chats/:chatId/diagnose', requireAuth, requireOrg
     );
     if (!bindings[0]) throw httpError(404, 'Группа не привязана к вашей организации.', 'CHAT_NOT_FOUND');
     await assertOperationalRestaurant(req.user, bindings[0].restaurant_id);
-    const [me, chat] = await Promise.all([
-      telegramBotRequest('getMe', {}),
-      telegramBotRequest('getChat', { chat_id: chatId }),
-    ]);
-    const member = await telegramBotRequest('getChatMember', { chat_id: chatId, user_id: me.id });
-    const details = {
-      bot_username: me.username || null,
-      chat_title: chat.title || null,
-      chat_type: chat.type || null,
-      bot_status: member.status || 'unknown',
-      can_read_all_group_messages: Boolean(me.can_read_all_group_messages),
-      can_receive_group_updates: member.status !== 'left' && member.status !== 'kicked',
-      can_send_messages: member.status === 'administrator' || member.status === 'creator'
-        || chat.permissions?.can_send_messages !== false,
-    };
-    const status = details.can_read_messages ? 'connected' : 'needs_attention';
+    let details = {};
+    let status = 'failed';
+    try {
+      const me = await telegramBotRequest('getMe', {});
+      const chat = await telegramBotRequest('getChat', { chat_id: chatId });
+      const member = await telegramBotRequest('getChatMember', { chat_id: chatId, user_id: me.id });
+      details = {
+        bot_username: me.username || null,
+        chat_title: chat.title || null,
+        chat_type: chat.type || null,
+        bot_status: member.status || 'unknown',
+        can_read_all_group_messages: Boolean(me.can_read_all_group_messages),
+        can_receive_group_updates: member.status !== 'left' && member.status !== 'kicked',
+        can_send_messages: member.status === 'administrator' || member.status === 'creator'
+          || chat.permissions?.can_send_messages !== false,
+      };
+      status = details.can_receive_group_updates ? 'connected' : 'needs_attention';
+    } catch (diagnosticError) {
+      details = {
+        error_code: diagnosticError?.code || 'TELEGRAM_DIAGNOSTIC_FAILED',
+        error_message: String(diagnosticError?.message || 'Не удалось проверить группу').slice(0, 300),
+      };
+    }
     const saved = await queryWithRetry(
       `INSERT INTO telegram_group_diagnostics
         (organization_id,restaurant_id,chat_id,status,details_json,checked_by)
