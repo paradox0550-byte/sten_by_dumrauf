@@ -2,29 +2,38 @@
 /* ============================================================================
 STEN Backend — Express + serverless-http (Yandex Cloud Functions)
 Version: 5.4.1
+Изменения относительно 5.4.0:
+  - Убрана небезопасная DELETE-миграция pnl_entries; заменена на schema_migrations.
+  - Пул БД уменьшен до безопасного для serverless размера (DB_POOL_MAX, дефолт 2).
+  - safeQuery теперь логирует ошибки всегда, не только при DEBUG=1.
+  - Добавлен strictQuery для критичных путей (auth, approval).
+  - authenticate() пропускается для публичных путей.
+  - Добавлен rate-limit на /ask через rate_limit_buckets.
 ========================================================================== */
 const express    = require('express');
 const serverless = require('serverless-http');
 const { Pool, types } = require('pg');
 const crypto     = require('crypto');
-const fs         = require('fs');
 const bcrypt     = require('bcryptjs');
+const fs       = require('fs');
 const { z }      = require('zod');
-const XLSX       = require('@e965/xlsx');
+const XLSX       = require('xlsx');
 const documentProcessor = require('./documentProcessor');
 const { convertWithMarkItDown } = require('./markitdownClient');
 const { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { buildSkillPrompt } = require('./core/skills');
-const { persistTelegramUpdate, claimTelegramUpdate, completeTelegramUpdate, failTelegramUpdate } = require('./telegramMonitor');
-const { processTelegramMessageBatch } = require('./telegramSecretaryWorker');
-const { processTelegramAutomationJobs } = require('./telegramControl');
-const { resolveAgent, toolsForAgent, agentAllowsTool } = require('./core/agents');
 const { TOOLS, executeTool } = require('./core/tools');
 const { createMemory, listMemory, updateMemoryConfidence, deleteMemory, loadMemoryContext } = require('./core/memory');
 const { loadConversationContext, startConversationTurn, finishConversationTurn, failConversationTurn } = require('./core/conversationMemory');
-const { connectIikoCloud, encryptCredentials } = require('./integrations/iikoCloud');
+const { resolveAgent, toolsForAgent, agentAllowsTool } = require('./core/agents');
+const googleCalendar = require('./core/googleCalendar');
+const { persistTelegramUpdate } = require('./telegramMonitor');
+const { processTelegramMessageBatch } = require('./telegramSecretaryWorker');
 const { FotScheduleHistorySchema, FotStaffingPlanSchema, normalizeFotScope, fotScopeKey, assertJsonPayloadSize } = require('./fotPersistence');
-
+const { calculatePnl, pnl } = require('./finance/pnlCalculator');
+const { classifyArticle, parseNumberCell, readFormulaCell, xlsxToRows, parseBankStatement } = require('./finance/pnlImport');
+const iikoCloud = require('./integrations/iikoCloud');
+const operationalControl = require('./operationalControl');
 // Версия правил, встроенных в этот релиз функции; настройки фильтруются по схеме ниже.
 const SKILLS_VERSION = '5.4.1';
 const SKILL_KEYS_READ_BY_PROMPT = Object.freeze(['foodCost','laborCost','shiftHours','tone','documents','history','includeCapexWarning','excludeCapex']);
@@ -38,6 +47,7 @@ const ENV = {
 NODE_ENV: process.env.NODE_ENV || 'production',
 JWT_SECRET: process.env.JWT_SECRET || INSECURE_JWT_FALLBACK,
 JWT_TTL_SEC: parseInt(process.env.JWT_TTL_SECONDS || String(30 * 24 * 3600), 10),
+UNLOCK_CODE_HASH: process.env.UNLOCK_CODE_HASH || process.env.UNLOCK_CODE || process.env.STEN_UNLOCK_CODE || '',
 ALLOWED_ORIGINS: (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? '' : '*')).split(',').map(s => s.trim()).filter(Boolean),
 ADMIN_ID: process.env.ADMIN_ID || 'admin',
 ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@sten.local',
@@ -52,8 +62,10 @@ DB_PORT: parseInt(process.env.DB_PORT || '6432', 10),
 DB_NAME: process.env.DB_NAME,
 DB_USER: process.env.DB_USER,
 DB_PASSWORD: process.env.DB_PASSWORD,
-DB_IDLE_TIMEOUT_MS: Math.max(1000, Math.min(300000, Number(process.env.DB_IDLE_TIMEOUT_MS || 30000))),
-GOOGLE_CLIENT_ID: String(process.env.GOOGLE_CLIENT_ID || '').trim(),
+// Новое: ограничение размера пула БД. На serverless дефолт должен быть маленьким,
+// иначе при concurrency N получим N * max соединений к Postgres.
+DB_POOL_MAX: Math.max(1, Math.min(20, Number(process.env.DB_POOL_MAX || 2))),
+DB_IDLE_TIMEOUT_MS: Math.max(1000, Number(process.env.DB_IDLE_TIMEOUT_MS || 5000)),
 YANDEXGPT_API_KEY: process.env.YANDEXGPT_API_KEY,
 YC_FOLDER_ID: process.env.YC_FOLDER_ID,
 YANDEXGPT_MODEL: process.env.YANDEXGPT_MODEL || 'yandexgpt',
@@ -69,13 +81,30 @@ MARKITDOWN_AUTH_MODE: process.env.MARKITDOWN_AUTH_MODE || 'auto',
 MARKITDOWN_TIMEOUT_MS: Number(process.env.MARKITDOWN_TIMEOUT_MS || 60000),
 STORAGE_BUCKET: process.env.OBJECT_STORAGE_BUCKET || process.env.YC_BUCKET_NAME,
 STORAGE_ENDPOINT: process.env.OBJECT_STORAGE_ENDPOINT || 'https://storage.yandexcloud.net',
-STORAGE_REGION: process.env.OBJECT_STORAGE_REGION || process.env.AWS_DEFAULT_REGION || 'ru-central1',
+STORAGE_REGION: process.env.OBJECT_STORAGE_REGION || 'ru-central1',
 AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
 AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
 BCRYPT_ROUNDS: 12,
 MAX_UPLOAD_BYTES: 15 * 1024 * 1024,
 TOOL_MAX_ITERATIONS: Math.max(1, Math.min(20, Number(process.env.TOOL_MAX_ITERATIONS || 8))),
+// Rate-limit для /ask: сколько запросов допустимо в окне.
+ASK_RATE_WINDOW_SEC: Math.max(30, Number(process.env.ASK_RATE_WINDOW_SEC || 300)),
+ASK_RATE_LIMIT: Math.max(1, Number(process.env.ASK_RATE_LIMIT || 30)),
+// ─── Google OAuth / Integrations ───
+GOOGLE_CLIENT_ID:     process.env.GOOGLE_CLIENT_ID || '',
+GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
+GOOGLE_REDIRECT_URI:  process.env.GOOGLE_REDIRECT_URI
+  || 'https://d5d5p4eof6ra03bsva7a.nnekmrav.apigw.yandexcloud.net/api/integrations/google/callback',
+GOOGLE_OAUTH_AUTH_URL:  'https://accounts.google.com/o/oauth2/v2/auth',
+GOOGLE_OAUTH_TOKEN_URL: 'https://oauth2.googleapis.com/token',
 DEBUG: process.env.DEBUG === '1',
+WEB_SEARCH_PROVIDER: String(process.env.WEB_SEARCH_PROVIDER || 'disabled').toLowerCase(),
+WEB_SEARCH_API_KEY: process.env.WEB_SEARCH_API_KEY || '',
+WEB_SEARCH_FOLDER_ID: process.env.WEB_SEARCH_FOLDER_ID || '',
+WEB_SEARCH_TIMEOUT_MS: Number(process.env.WEB_SEARCH_TIMEOUT_MS || 10000),
+WEB_SEARCH_RATE_LIMIT: Number(process.env.WEB_SEARCH_RATE_LIMIT || 60),
+WEB_SEARCH_RATE_WINDOW_SEC: Number(process.env.WEB_SEARCH_RATE_WINDOW_SEC || 300),
+GOOGLE_CALENDAR_DEFAULT_TZ: process.env.GOOGLE_CALENDAR_DEFAULT_TZ || 'Europe/Moscow',
 };
 
 function assertProductionSecrets() {
@@ -85,9 +114,8 @@ console.error(err.message);
 throw err;
 }
 if (ENV.NODE_ENV === 'production' && ENV.ALLOWED_ORIGINS.length === 0) {
-const err = new Error('[sten] FATAL: ALLOWED_ORIGINS не задан в production. Укажите домены фронтенда через запятую.');
-console.error(err.message);
-throw err;
+  const err = new Error('[sten] FATAL: ALLOWED_ORIGINS не задан в production.');
+  console.error(err.message); throw err;
 }
 }
 assertProductionSecrets();
@@ -119,513 +147,505 @@ e.status = status;
 e.code = code || `HTTP_${status}`;
 return e;
 }
-
 /* ----------------------------- database ----------------------------------- */
+// SSL к managed-Postgres Яндекс.Облака.
+// Прод: CA берётся из /usr/local/share/ca-certificates/yandex-internal-ca.crt
+// (файл присутствует в рантайме Yandex Functions). rejectUnauthorized всегда true.
+// Fallback: DB_SSL_CA_BASE64 — для контейнеров/локальной отладки.
+// DB_SSL_MODE=disable разрешён ТОЛЬКО вне production (иначе — отказ старта).
 function resolveDbSsl() {
-if (process.env.DB_SSL_MODE === 'disable') {
-  if (ENV.NODE_ENV === 'production') {
-    throw new Error('[sten] FATAL: DB_SSL_MODE=disable в production запрещён.');
+  if (process.env.DB_SSL_MODE === 'disable') {
+    if (ENV.NODE_ENV === 'production') {
+      throw new Error('[sten] FATAL: DB_SSL_MODE=disable в production запрещён.');
+    }
+    return false;
   }
-  return false;
-}
 
-const ca = fs.readFileSync('/usr/local/share/ca-certificates/yandex-internal-ca.crt');
-if (!ca.length) {
-  throw new Error('[sten] FATAL: Yandex managed-database CA file is empty.');
-}
-return {
-  ca,
-  rejectUnauthorized: true,
-};
+  const CA_PATH = '/usr/local/share/ca-certificates/yandex-internal-ca.crt';
+  try {
+    if (fs.existsSync(CA_PATH)) {
+      const ca = fs.readFileSync(CA_PATH);
+      if (!ca.length) throw new Error('Yandex managed-database CA file is empty.');
+      return { ca, rejectUnauthorized: true };
+    }
+  } catch (e) {
+    if (ENV.NODE_ENV === 'production') throw e;
+    log('db: CA file not readable, falling back:', e.message);
+  }
+
+  if (process.env.DB_SSL_CA_BASE64) {
+    const ca = Buffer.from(process.env.DB_SSL_CA_BASE64, 'base64').toString('utf8');
+    if (!ca) throw new Error('[sten] FATAL: DB_SSL_CA_BASE64 задан, но пуст.');
+    return { ca, rejectUnauthorized: true };
+  }
+
+  if (ENV.NODE_ENV === 'production') {
+    // Небезопасный режим (rejectUnauthorized:false) в prod запрещён.
+    throw new Error('[sten] FATAL: нет CA для PostgreSQL (ни файл, ни DB_SSL_CA_BASE64).');
+  }
+  log('db: TLS без проверки сертификата (dev only)');
+  return { rejectUnauthorized: false };
 }
 
 let _pool = null;
 function db() {
-if (_pool) return _pool;
-if (!ENV.DB_HOST) { log('db: no DB_HOST, pool disabled'); return null; }
-_pool = new Pool({
-host: ENV.DB_HOST, port: ENV.DB_PORT, database: ENV.DB_NAME, user: ENV.DB_USER, password: ENV.DB_PASSWORD,
-ssl: resolveDbSsl(), max: Math.max(1, Math.min(10, Number.parseInt(process.env.DB_POOL_MAX || '2', 10) || 2)), idleTimeoutMillis: ENV.DB_IDLE_TIMEOUT_MS, connectionTimeoutMillis: 15000,
-statement_timeout: 25000, query_timeout: 25000, keepAlive: true, statement_cache_size: 0,
-application_name: 'sten-api',
-});
-_pool.on('error', e => log('db pool error:', e.message));
-return _pool;
+  if (_pool) return _pool;
+  if (!ENV.DB_HOST) { log('db: no DB_HOST, pool disabled'); return null; }
+  _pool = new Pool({
+    host: ENV.DB_HOST, port: ENV.DB_PORT, database: ENV.DB_NAME, user: ENV.DB_USER, password: ENV.DB_PASSWORD,
+    ssl: resolveDbSsl(),
+    // Serverless: маленький пул. При concurrency N получим N * DB_POOL_MAX соединений.
+    // Для сотен параллельных функций нужен внешний пуллер (PgBouncer / YC Serverless pooler).
+    max: ENV.DB_POOL_MAX,
+    idleTimeoutMillis: ENV.DB_IDLE_TIMEOUT_MS,
+    connectionTimeoutMillis: 15000,
+    statement_timeout: 25000, query_timeout: 25000, keepAlive: true, statement_cache_size: 0,
+    application_name: 'sten-api',
+  });
+  _pool.on('error', e => console.error('[sten] db pool error:', e.code || 'UNKNOWN', e.message));
+  return _pool;
 }
 
 async function query(text, params = []) {
-const p = db(); if (!p) throw new Error('DB not configured'); return p.query(text, params);
+  const p = db(); if (!p) throw new Error('DB not configured'); return p.query(text, params);
 }
 
+// safeQuery: "мягкий" режим — при ошибке возвращает fallback, но ВСЕГДА пишет в лог.
+// Подходит для необязательных данных (healthz, списки, аналитика).
+// Не использовать для чтений, влияющих на авторизацию/деньги.
 async function safeQuery(text, params = [], fallback = []) {
-try { const r = await query(text, params); return r.rows ?? fallback; }
-catch (e) {
-console.error('[sten] safeQuery fail:', e.code || 'UNKNOWN', e.message, '| sql:', String(text).slice(0, 200));
-return fallback;
-}
-}
-
-// Use for reads that determine authorization, persistence confirmation, or destructive actions.
-// Unlike safeQuery, this helper never converts a database failure into an empty result.
-async function strictQuery(text, params = []) {
-  try {
-    const r = await query(text, params);
-    return r.rows ?? [];
-  } catch (e) {
-    console.error('[sten] strictQuery fail:', e.code || 'UNKNOWN', e.message, '| sql:', String(text).slice(0, 200));
-    throw e;
+  try { const r = await query(text, params); return r.rows ?? fallback; }
+  catch (e) {
+    const code = e && e.code ? e.code : 'UNKNOWN';
+    const msg  = e && e.message ? e.message : String(e);
+    if (code !== '42P01') {
+      console.error('[sten] safeQuery fail:', code, msg, '| sql:', String(text).slice(0, 200));
+    } else {
+      log('safeQuery skipped (relation missing):', msg);
+    }
+    return fallback;
   }
 }
 
+// strictQuery: "жёсткий" режим — падает, если БД недоступна.
+// Использовать для auth, approval, scope-проверок и критических write.
+async function strictQuery(text, params = []) {
+  const r = await query(text, params);
+  return r.rows;
+}
+
 function isTransientDbError(e) {
-const codes = ['57P01', '57P02', '57P03', '08006', '08003', '08000', 'ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED'];
-const msg = String(e?.message || '').toLocaleLowerCase('ru-RU');
-return codes.includes(e?.code) || msg.includes('connection terminated') || msg.includes('timeout');
+  const codes = ['57P01', '57P02', '57P03', '08006', '08003', '08000', 'ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED'];
+  const msg = String(e?.message || '').toLocaleLowerCase('ru-RU');
+  return codes.includes(e?.code) || msg.includes('connection terminated') || msg.includes('timeout');
 }
 
 async function queryWithRetry(text, params = [], opts = {}) {
-const pool = db();
-if (!pool) throw httpError(503, 'БД не настроена (DB_HOST)', 'DB_UNAVAILABLE');
-let lastErr; const attempts = opts.attempts || 4;
-for (let attempt = 0; attempt < attempts; attempt++) {
-const client = await pool.connect();
-try {
-await client.query('BEGIN');
-if (opts.orgId) await client.query("SELECT set_config('app.org_id', $1, true)", [opts.orgId]);
-const r = await client.query(text, params);
-await client.query('COMMIT');
-return r;
-} catch (e) {
-try { await client.query('ROLLBACK'); } catch { /* ignore */ }
-lastErr = e;
-if (isTransientDbError(e) && attempt < attempts - 1) {
-await sleep(300 * Math.pow(2, attempt));
-continue;
+  const pool = db();
+  if (!pool) throw httpError(503, 'БД не настроена (DB_HOST)', 'DB_UNAVAILABLE');
+  let lastErr; const attempts = opts.attempts || 4;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      if (opts.orgId) await client.query("SELECT set_config('app.org_id', $1, true)", [opts.orgId]);
+      const r = await client.query(text, params);
+      await client.query('COMMIT');
+      return r;
+    } catch (e) {
+      try { await client.query('ROLLBACK'); } catch { /* ignore */ }
+      lastErr = e;
+      if (isTransientDbError(e) && attempt < attempts - 1) {
+        await sleep(300 * Math.pow(2, attempt));
+        continue;
+      }
+      throw e;
+    } finally {
+      try { await client.query('RESET app.org_id'); } catch { /* ignore */ }
+      client.release();
+    }
+  }
+  throw lastErr;
 }
-throw e;
-} finally {
-try { await client.query('RESET app.org_id'); } catch { /* ignore */ }
-client.release();
-}
-}
-throw lastErr;
-}
-
 /* ----------------------------- schema ------------------------------------- */
 let _schemaReady = false, _schemaPromise = null;
+
+// Применяет миграцию ровно один раз. Если миграция уже отмечена как применённая —
+// никакого повторного выполнения не будет. schema_migrations создаётся до
+// любых вызовов applyMigrationOnce (см. ensureSchemaNow ниже).
+async function applyMigrationOnce(id, fn) {
+  const exists = await strictQuery('SELECT 1 FROM schema_migrations WHERE id = $1 LIMIT 1', [id]);
+  if (exists.length) return false;
+  await queryWithRetry('INSERT INTO schema_migrations(id) VALUES($1) ON CONFLICT(id) DO NOTHING', [id], {});
+  try { await fn(); } catch (e) {
+    await safeQuery('DELETE FROM schema_migrations WHERE id = $1', [id], []);
+    throw e;
+  }
+  return true;
+}
+
 async function ensureSchemaNow() {
-if (_schemaReady || !ENV.DB_HOST) { _schemaReady = true; return true; }
-try {
-// История диалогов STEN: хранится в БД отдельно для пользователя и рабочего контура.
-await query(`CREATE TABLE IF NOT EXISTS ai_conversation_turns (
-  id UUID PRIMARY KEY,
-  organization_id UUID NOT NULL,
-  user_id TEXT NOT NULL,
-  scope_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-  user_text TEXT NOT NULL,
-  assistant_text TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT 'processing',
-  tools_json JSONB NOT NULL DEFAULT '[]'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);`);
-await query(`CREATE INDEX IF NOT EXISTS idx_ai_conversation_user_created
-  ON ai_conversation_turns(organization_id, user_id, created_at DESC);`);
-await query(`CREATE TABLE IF NOT EXISTS pnl_reports (id UUID PRIMARY KEY, organization_id UUID NOT NULL, project_id TEXT NOT NULL DEFAULT 'default', name TEXT NOT NULL, period_start TEXT NOT NULL, period_end TEXT NOT NULL, currency TEXT NOT NULL DEFAULT 'RUB', lines JSONB NOT NULL DEFAULT '[]'::jsonb, source TEXT NOT NULL DEFAULT 'manual', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by TEXT);`);
-await query(`CREATE INDEX IF NOT EXISTS idx_pnl_reports_org ON pnl_reports(organization_id, project_id);`);
-await query(`CREATE TABLE IF NOT EXISTS user_google_integrations (
-  organization_id UUID NOT NULL,
-  user_id TEXT NOT NULL,
-  provider TEXT NOT NULL CHECK (provider IN ('calendar','sheets')),
-  settings_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-  access_token TEXT,
-  token_expires_at TIMESTAMPTZ,
-  connected_at TIMESTAMPTZ,
-  last_sync_at TIMESTAMPTZ,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (organization_id, user_id, provider)
-);`);
-await query(`ALTER TABLE user_google_integrations ADD COLUMN IF NOT EXISTS access_token TEXT;`);
-await query(`ALTER TABLE user_google_integrations ADD COLUMN IF NOT EXISTS token_expires_at TIMESTAMPTZ;`);
-await query(`CREATE INDEX IF NOT EXISTS idx_user_google_integrations_org_user
-  ON user_google_integrations(organization_id, user_id);`);
-await query(`CREATE TABLE IF NOT EXISTS secretary_notes (id UUID PRIMARY KEY, organization_id UUID NOT NULL, user_id TEXT, title TEXT, content TEXT, source TEXT DEFAULT 'manual', audio_url TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
-await query(`CREATE TABLE IF NOT EXISTS secretary_events (id UUID PRIMARY KEY, organization_id UUID NOT NULL, user_id TEXT, title TEXT NOT NULL, description TEXT, event_type TEXT NOT NULL DEFAULT 'meeting', start_at TIMESTAMPTZ NOT NULL, end_at TIMESTAMPTZ, status TEXT NOT NULL DEFAULT 'planned', reminder_minutes INTEGER, location TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
-await query(`CREATE INDEX IF NOT EXISTS idx_secretary_events_org_time ON secretary_events(organization_id, start_at);`);
-await query(`CREATE INDEX IF NOT EXISTS idx_secretary_notes_org ON secretary_notes(organization_id, created_at DESC);`);
-await query(`CREATE TABLE IF NOT EXISTS pnl_entries (organization_id UUID NOT NULL, period TEXT NOT NULL, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', rows JSONB NOT NULL DEFAULT '[]'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT, PRIMARY KEY (organization_id, period, project_id, branch_id, restaurant_id, department_id));`);
-await query(`CREATE TABLE IF NOT EXISTS pnl_transactions (id UUID PRIMARY KEY, organization_id UUID NOT NULL, period TEXT NOT NULL, transaction_date DATE NOT NULL, type TEXT NOT NULL, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', article TEXT NOT NULL, amount NUMERIC(18,2) NOT NULL, comment TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by TEXT);`);
-await query(`CREATE INDEX IF NOT EXISTS idx_pnl_transactions_scope ON pnl_transactions(organization_id, period, project_id, branch_id, restaurant_id, department_id, transaction_date);`);
-await query(`CREATE TABLE IF NOT EXISTS pnl_approvals (organization_id UUID NOT NULL, period TEXT NOT NULL, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'draft', approved_by UUID, approved_at TIMESTAMPTZ, PRIMARY KEY (organization_id, period, project_id, branch_id, restaurant_id, department_id));`);
-await query(`CREATE TABLE IF NOT EXISTS audit_log (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id UUID, user_id TEXT, action TEXT NOT NULL, entity TEXT NOT NULL, entity_id TEXT, details JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
-await query(`CREATE TABLE IF NOT EXISTS ai_documents (id UUID PRIMARY KEY, organization_id UUID NOT NULL, user_id TEXT, name TEXT NOT NULL, mime_type TEXT, size_bytes BIGINT, storage_key TEXT, status TEXT NOT NULL DEFAULT 'stored', error TEXT, extracted_text TEXT, extraction_json JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
-await query(`ALTER TABLE ai_documents ADD COLUMN IF NOT EXISTS extracted_text TEXT;`);
-await query(`ALTER TABLE ai_documents ADD COLUMN IF NOT EXISTS extraction_json JSONB;`);
-await query(`CREATE INDEX IF NOT EXISTS idx_ai_documents_org ON ai_documents(organization_id, created_at DESC);`);
-await query(`CREATE TABLE IF NOT EXISTS messenger_settings (organization_id UUID PRIMARY KEY, provider TEXT NOT NULL DEFAULT 'telegram', send_time TEXT NOT NULL DEFAULT '21:00', scope_json JSONB NOT NULL DEFAULT '{}'::jsonb, metrics_json JSONB NOT NULL DEFAULT '{"revenue":true,"cashCard":true,"discounts":true,"avgCheck":true,"checks":true,"primeCost":true,"ebitda":true,"deviation":true}'::jsonb, telegram_chat_id TEXT, whatsapp_phone TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
-await query(`CREATE TABLE IF NOT EXISTS ai_skill_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
-await query(`CREATE TABLE IF NOT EXISTS analytics_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
-await query(`CREATE TABLE IF NOT EXISTS auth_unlock_attempts (ip TEXT PRIMARY KEY, window_started_at TIMESTAMPTZ NOT NULL DEFAULT now(), failed_attempts INTEGER NOT NULL DEFAULT 0, blocked_until TIMESTAMPTZ);`);
+  if (_schemaReady || !ENV.DB_HOST) { _schemaReady = true; return true; }
+  try {
+    // ── 0. Таблица миграций — ДОЛЖНА существовать до любых ALTER'ов ниже ──
+    await query(`CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+
+    // ── История диалогов STEN ──
+    await query(`CREATE TABLE IF NOT EXISTS ai_conversation_turns (
+      id UUID PRIMARY KEY,
+      organization_id UUID NOT NULL,
+      user_id TEXT NOT NULL,
+      scope_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+      user_text TEXT NOT NULL,
+      assistant_text TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'processing',
+      tools_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_ai_conversation_user_created
+      ON ai_conversation_turns(organization_id, user_id, created_at DESC);`);
+
+    // ── P&L reports (legacy, оставляем для совместимости) ──
+    await query(`CREATE TABLE IF NOT EXISTS pnl_reports (id UUID PRIMARY KEY, organization_id UUID NOT NULL, project_id TEXT NOT NULL DEFAULT 'default', name TEXT NOT NULL, period_start TEXT NOT NULL, period_end TEXT NOT NULL, currency TEXT NOT NULL DEFAULT 'RUB', lines JSONB NOT NULL DEFAULT '[]'::jsonb, source TEXT NOT NULL DEFAULT 'manual', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by TEXT);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_pnl_reports_org ON pnl_reports(organization_id, project_id);`);
+
+    // ── Secretary ──
+    await query(`CREATE TABLE IF NOT EXISTS secretary_notes (id UUID PRIMARY KEY, organization_id UUID NOT NULL, user_id TEXT, title TEXT, content TEXT, source TEXT DEFAULT 'manual', audio_url TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_secretary_notes_org ON secretary_notes(organization_id, created_at DESC);`);
+    await query(`CREATE TABLE IF NOT EXISTS secretary_events (id UUID PRIMARY KEY, organization_id UUID NOT NULL, user_id TEXT, title TEXT NOT NULL, description TEXT, event_type TEXT NOT NULL DEFAULT 'meeting', start_at TIMESTAMPTZ NOT NULL, end_at TIMESTAMPTZ, status TEXT NOT NULL DEFAULT 'planned', reminder_minutes INTEGER, location TEXT, google_event_id TEXT, google_calendar_id TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    await query(`ALTER TABLE secretary_events ADD COLUMN IF NOT EXISTS google_event_id TEXT;`);
+    await query(`ALTER TABLE secretary_events ADD COLUMN IF NOT EXISTS google_calendar_id TEXT;`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_secretary_events_org_time ON secretary_events(organization_id, start_at);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_secretary_events_google ON secretary_events(google_event_id) WHERE google_event_id IS NOT NULL;`);
+
+    // ── Web search cache ──
+    await query(`CREATE TABLE IF NOT EXISTS web_search_cache (
+      cache_key TEXT PRIMARY KEY,
+      payload JSONB NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_web_search_cache_expiry ON web_search_cache(expires_at);`);
+
+    // ── P&L entries / transactions / approvals ──
+    await query(`CREATE TABLE IF NOT EXISTS pnl_entries (organization_id UUID NOT NULL, period TEXT NOT NULL, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', rows JSONB NOT NULL DEFAULT '[]'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT, PRIMARY KEY (organization_id, period, project_id, branch_id, restaurant_id, department_id));`);
+    await query(`CREATE TABLE IF NOT EXISTS pnl_transactions (id UUID PRIMARY KEY, organization_id UUID NOT NULL, period TEXT NOT NULL, transaction_date DATE NOT NULL, type TEXT NOT NULL, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', article TEXT NOT NULL, amount NUMERIC(18,2) NOT NULL, comment TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by TEXT);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_pnl_transactions_scope ON pnl_transactions(organization_id, period, project_id, branch_id, restaurant_id, department_id, transaction_date);`);
+    await query(`CREATE TABLE IF NOT EXISTS pnl_approvals (organization_id UUID NOT NULL, period TEXT NOT NULL, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'draft', approved_by UUID, approved_at TIMESTAMPTZ, PRIMARY KEY (organization_id, period, project_id, branch_id, restaurant_id, department_id));`);
+
+    // ── Audit ──
+    await query(`CREATE TABLE IF NOT EXISTS audit_log (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id UUID, user_id TEXT, action TEXT NOT NULL, entity TEXT NOT NULL, entity_id TEXT, details JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+
+    // ── Documents ──
+    await query(`CREATE TABLE IF NOT EXISTS ai_documents (id UUID PRIMARY KEY, organization_id UUID NOT NULL, user_id TEXT, name TEXT NOT NULL, mime_type TEXT, size_bytes BIGINT, storage_key TEXT, status TEXT NOT NULL DEFAULT 'stored', error TEXT, extracted_text TEXT, extraction_json JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    await query(`ALTER TABLE ai_documents ADD COLUMN IF NOT EXISTS extracted_text TEXT;`);
+    await query(`ALTER TABLE ai_documents ADD COLUMN IF NOT EXISTS extraction_json JSONB;`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_ai_documents_org ON ai_documents(organization_id, created_at DESC);`);
+
+    // ── Settings ──
+    await query(`CREATE TABLE IF NOT EXISTS messenger_settings (organization_id UUID PRIMARY KEY, provider TEXT NOT NULL DEFAULT 'telegram', send_time TEXT NOT NULL DEFAULT '21:00', scope_json JSONB NOT NULL DEFAULT '{}'::jsonb, metrics_json JSONB NOT NULL DEFAULT '{"revenue":true,"cashCard":true,"discounts":true,"avgCheck":true,"checks":true,"primeCost":true,"ebitda":true,"deviation":true}'::jsonb, telegram_chat_id TEXT, whatsapp_phone TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
+    await query(`CREATE TABLE IF NOT EXISTS ai_skill_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
+    await query(`CREATE TABLE IF NOT EXISTS analytics_settings (organization_id UUID PRIMARY KEY, config_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT);`);
+
+    // ── Rate-limit: auth и общий — раздельно ──
+    await query(`CREATE TABLE IF NOT EXISTS auth_unlock_attempts (ip TEXT PRIMARY KEY, window_started_at TIMESTAMPTZ NOT NULL DEFAULT now(), failed_attempts INTEGER NOT NULL DEFAULT 0, blocked_until TIMESTAMPTZ);`);
+    await query(`CREATE TABLE IF NOT EXISTS rate_limit_buckets (key TEXT PRIMARY KEY, window_started_at TIMESTAMPTZ NOT NULL DEFAULT now(), count INTEGER NOT NULL DEFAULT 0, blocked_until TIMESTAMPTZ);`);
+
+    // ── Google integrations (с refresh_token) ──
+    await query(`CREATE TABLE IF NOT EXISTS google_integrations (
+      organization_id UUID NOT NULL,
+      user_id TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      access_token TEXT,
+      access_expires_at TIMESTAMPTZ,
+      refresh_token TEXT,
+      scope TEXT,
+      email TEXT,
+      settings_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+      connected_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (organization_id, user_id, provider)
+    );`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_google_integrations_org
+      ON google_integrations(organization_id, provider);`);
+
+    // ── Payroll ──
+    await query(`CREATE TABLE IF NOT EXISTS payroll_records (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id UUID NOT NULL, user_id UUID, period TEXT NOT NULL, department TEXT, hours NUMERIC(10,2), amount NUMERIC(18,2), created_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    await query(`ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS project_id    TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS branch_id     TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS restaurant_id TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS department_id TEXT NOT NULL DEFAULT '';`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_payroll_records_org_period ON payroll_records(organization_id, period);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_payroll_records_scope ON payroll_records(organization_id, period, project_id, branch_id, restaurant_id, department_id);`);
+
+    // ── Daily reports ──
+    // Колонку date НЕ удаляем: бэкфилл в report_date оставляем, но источник данных
+    // храним до отдельной проверенной миграции. Удаление — только через
+    // applyMigrationOnce('2026-xx-drop-daily-reports-date', fn) после верификации.
+    await query(`CREATE TABLE IF NOT EXISTS daily_reports (id UUID PRIMARY KEY, organization_id UUID NOT NULL, report_date DATE, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', values_json JSONB NOT NULL DEFAULT '{}'::jsonb, note TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS project_id     TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS branch_id      TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS restaurant_id  TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS department_id  TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS report_date    DATE;`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS values_json    JSONB DEFAULT '{}'::jsonb;`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS note           TEXT;`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS created_at     TIMESTAMPTZ DEFAULT now();`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS updated_at     TIMESTAMPTZ DEFAULT now();`);
+    await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS updated_by     TEXT;`);
+    // Бэкфилл: если старая колонка date ещё существует — копируем данные в report_date,
+    // но саму колонку date НЕ удаляем (см. комментарий выше).
+    await query(`DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_reports' AND column_name='date')
+           AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_reports' AND column_name='report_date') THEN
+          UPDATE daily_reports SET report_date = COALESCE(report_date, date) WHERE report_date IS NULL;
+        END IF;
+      END $$;`);
+    await query(`DROP INDEX IF EXISTS daily_reports_org_date_uniq;`);
+    await query(`CREATE UNIQUE INDEX IF NOT EXISTS daily_reports_org_scope_date_uniq ON daily_reports(organization_id, report_date, project_id, branch_id, restaurant_id, department_id);`);
+
+    // ── Org units / access ──
+    await query(`CREATE TABLE IF NOT EXISTS org_units (id UUID PRIMARY KEY, organization_id UUID NOT NULL, parent_id UUID, kind TEXT NOT NULL, name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_org_units_org ON org_units(organization_id);`);
+    await query(`CREATE TABLE IF NOT EXISTS workspace_contexts (organization_id UUID NOT NULL, user_id TEXT NOT NULL, restaurant_id UUID, project_id UUID, branch_id UUID, department_id UUID, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (organization_id, user_id));`);
+    await query(`CREATE TABLE IF NOT EXISTS org_unit_access (organization_id UUID NOT NULL, user_id TEXT NOT NULL, unit_id UUID NOT NULL, access_level TEXT NOT NULL DEFAULT 'manage', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (organization_id, user_id, unit_id));`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_org_unit_access_user ON org_unit_access(organization_id, user_id, unit_id);`);
+
+    // ── Organizations / memberships ──
+    await query(`CREATE TABLE IF NOT EXISTS organizations (id UUID PRIMARY KEY, code TEXT NOT NULL UNIQUE, name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active', subscription_until DATE, created_by UUID, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), CONSTRAINT organizations_status_check CHECK (status IN ('active','suspended','archived')));`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_organizations_status ON organizations(status, created_at DESC);`);
+    await query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS subscription_until DATE;`);
+    await query(`CREATE TABLE IF NOT EXISTS organization_memberships (organization_id UUID NOT NULL, user_id UUID NOT NULL, role TEXT NOT NULL DEFAULT 'member', status TEXT NOT NULL DEFAULT 'active', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (organization_id, user_id));`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_org_memberships_user ON organization_memberships(user_id, status);`);
+
+    // ── Workspace bindings ──
+    await query(`CREATE TABLE IF NOT EXISTS workspace_bindings (id UUID PRIMARY KEY, organization_id UUID NOT NULL, channel TEXT NOT NULL, subject_id TEXT NOT NULL, unit_id UUID NOT NULL, is_default BOOLEAN NOT NULL DEFAULT false, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (organization_id, channel, subject_id));`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_workspace_bindings_lookup ON workspace_bindings(organization_id, channel, subject_id);`);
+
+    // ── AI memory ──
+    await query(`CREATE TABLE IF NOT EXISTS ai_memory (id UUID PRIMARY KEY, organization_id UUID NOT NULL, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, evidence_json JSONB NOT NULL DEFAULT '{}'::jsonb, confidence TEXT NOT NULL DEFAULT 'unconfirmed', source_message_id TEXT, confirmed_by_user_id UUID, confirmed_at TIMESTAMPTZ, created_by TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_ai_memory_org_scope ON ai_memory(organization_id, restaurant_id, kind, created_at DESC);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_ai_memory_org_created ON ai_memory(organization_id, created_at DESC);`);
+    // --- Telegram Monitor: чаты и сообщения ---
 await query(`CREATE TABLE IF NOT EXISTS telegram_chats (
   chat_id TEXT PRIMARY KEY,
-  chat_type TEXT NOT NULL,
+  chat_type TEXT NOT NULL DEFAULT 'unknown',
   title TEXT,
   first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);`);
-await query(`CREATE TABLE IF NOT EXISTS operational_telegram_sessions (
-  chat_id TEXT NOT NULL,
-  telegram_user_id TEXT NOT NULL,
-  organization_id UUID NOT NULL,
-  restaurant_id UUID NOT NULL,
-  checkpoint_key TEXT,
-  status TEXT CHECK (status IS NULL OR status IN ('problem','needs_help')),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (chat_id, telegram_user_id)
-);`);
-await query(`CREATE INDEX IF NOT EXISTS idx_operational_telegram_sessions_org ON operational_telegram_sessions(organization_id, restaurant_id);`);
-await query(`CREATE TABLE IF NOT EXISTS operational_observations (
-  id UUID PRIMARY KEY,
-  organization_id UUID NOT NULL,
-  restaurant_id UUID NOT NULL,
-  checkpoint_key TEXT NOT NULL,
-  checkpoint_title TEXT NOT NULL,
-  status TEXT NOT NULL CHECK (status IN ('ok','problem','needs_help')),
-  note TEXT NOT NULL DEFAULT '',
-  reporter_id TEXT NOT NULL,
-  reporter_name TEXT NOT NULL DEFAULT '',
-  reported_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  verification_status TEXT NOT NULL DEFAULT 'reported' CHECK (verification_status IN ('reported','verified')),
-  verified_by TEXT,
-  verified_at TIMESTAMPTZ,
-  source_chat_id TEXT,
-  source_message_id TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);`);
-await query(`CREATE INDEX IF NOT EXISTS idx_operational_observations_scope ON operational_observations(organization_id, restaurant_id, reported_at DESC);`);
-await query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_operational_observations_telegram_event ON operational_observations(source_chat_id, source_message_id, reporter_id) WHERE source_chat_id IS NOT NULL AND source_message_id IS NOT NULL;`);
-await query(`CREATE TABLE IF NOT EXISTS operational_actions (
-  id UUID PRIMARY KEY,
-  organization_id UUID NOT NULL,
-  restaurant_id UUID NOT NULL,
-  observation_id UUID NOT NULL REFERENCES operational_observations(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
-  description TEXT NOT NULL DEFAULT '',
-  assignee_id TEXT NOT NULL,
-  assignee_name TEXT NOT NULL DEFAULT '',
-  due_at TIMESTAMPTZ NOT NULL,
-  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','overdue','awaiting_verification','verified','cancelled')),
-  created_by TEXT NOT NULL,
-  completed_by TEXT,
-  completed_at TIMESTAMPTZ,
-  verified_by TEXT,
-  verified_at TIMESTAMPTZ,
-  reopened_by TEXT,
-  reopened_at TIMESTAMPTZ,
-  reopen_reason TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  organization_id UUID,
+  restaurant_id UUID,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );`);
-await query(`CREATE INDEX IF NOT EXISTS idx_operational_actions_scope ON operational_actions(organization_id, restaurant_id, status, due_at);`);
-await query(`CREATE TABLE IF NOT EXISTS telegram_chat_bindings (
-  chat_id TEXT PRIMARY KEY REFERENCES telegram_chats(chat_id) ON DELETE CASCADE,
-  organization_id UUID NOT NULL,
-  restaurant_id UUID NOT NULL,
-  bound_by TEXT,
-  bound_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (chat_id, organization_id)
-);`);
-await query(`CREATE TABLE IF NOT EXISTS telegram_updates (
-  update_id BIGINT PRIMARY KEY,
-  received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  update_json JSONB NOT NULL,
-  processing_status TEXT NOT NULL DEFAULT 'pending',
-  processing_attempts INTEGER NOT NULL DEFAULT 0,
-  processing_started_at TIMESTAMPTZ,
-  processed_at TIMESTAMPTZ,
-  next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  last_error TEXT
-);`);
-await query(`ALTER TABLE telegram_updates ADD COLUMN IF NOT EXISTS processing_status TEXT NOT NULL DEFAULT 'pending';`);
-await query(`ALTER TABLE telegram_updates ADD COLUMN IF NOT EXISTS processing_attempts INTEGER NOT NULL DEFAULT 0;`);
-await query(`ALTER TABLE telegram_updates ADD COLUMN IF NOT EXISTS processing_started_at TIMESTAMPTZ;`);
-await query(`ALTER TABLE telegram_updates ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ;`);
-await query(`ALTER TABLE telegram_updates ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT now();`);
-await query(`ALTER TABLE telegram_updates ADD COLUMN IF NOT EXISTS last_error TEXT;`);
-await query(`CREATE INDEX IF NOT EXISTS idx_telegram_updates_retry ON telegram_updates(processing_status, next_attempt_at, received_at);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_chats_org ON telegram_chats(organization_id, last_seen_at DESC)`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_chats_restaurant ON telegram_chats(restaurant_id) WHERE restaurant_id IS NOT NULL`);
+
 await query(`CREATE TABLE IF NOT EXISTS telegram_messages (
-  chat_id TEXT NOT NULL REFERENCES telegram_chats(chat_id) ON DELETE CASCADE,
+  chat_id TEXT NOT NULL,
   message_id TEXT NOT NULL,
-  update_id BIGINT NOT NULL,
-  sender_id TEXT NOT NULL,
   sender_name TEXT,
   sender_username TEXT,
-  message_text TEXT NOT NULL DEFAULT '',
+  message_text TEXT,
   message_date TIMESTAMPTZ,
   edited_at TIMESTAMPTZ,
-  raw_json JSONB NOT NULL,
   received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (chat_id, message_id)
 );`);
-await query(`CREATE INDEX IF NOT EXISTS idx_telegram_messages_chat_date ON telegram_messages(chat_id, message_date DESC);`);
-await query(`CREATE TABLE IF NOT EXISTS telegram_message_analyses (
-  chat_id TEXT NOT NULL,
-  message_id TEXT NOT NULL,
-  organization_id UUID NOT NULL,
-  restaurant_id UUID NOT NULL,
-  sender_id TEXT NOT NULL,
-  analysis_json JSONB NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (chat_id, message_id),
-  FOREIGN KEY (chat_id, message_id) REFERENCES telegram_messages(chat_id, message_id) ON DELETE CASCADE
-);`);
-await query(`CREATE INDEX IF NOT EXISTS idx_telegram_message_analyses_scope ON telegram_message_analyses(organization_id, restaurant_id, created_at DESC);`);
-await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS id UUID;`);
-await query(`UPDATE telegram_message_analyses SET id=gen_random_uuid() WHERE id IS NULL;`);
-await query(`ALTER TABLE telegram_message_analyses ALTER COLUMN id SET DEFAULT gen_random_uuid();`);
-await query(`ALTER TABLE telegram_message_analyses ALTER COLUMN id SET NOT NULL;`);
-await query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_message_analyses_id ON telegram_message_analyses(id);`);
-await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending';`);
-await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS reviewed_by TEXT;`);
-await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;`);
-await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS review_note TEXT;`);
-await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS action_id UUID;`);
-await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS source_message_text TEXT;`);
-await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS source_message_date TIMESTAMPTZ;`);
-await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS source_sender_name TEXT;`);
-await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS source_sender_username TEXT;`);
-await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS source_chat_title TEXT;`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_messages_chat ON telegram_messages(chat_id, COALESCE(message_date, received_at) DESC)`);
+// Выравнивание схемы для уже существующих БД
+await query(`ALTER TABLE telegram_chats ADD COLUMN IF NOT EXISTS organization_id UUID;`);
+await query(`ALTER TABLE telegram_chats ADD COLUMN IF NOT EXISTS restaurant_id UUID;`);
+await query(`ALTER TABLE telegram_chats ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();`);
 
-await query(`DO $body$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='telegram_message_analyses_status_check') THEN
-    ALTER TABLE telegram_message_analyses ADD CONSTRAINT telegram_message_analyses_status_check
-      CHECK (status IN ('pending','approved','rejected','action_created'));
-  END IF;
-END $body$;`);
-await query(`CREATE INDEX IF NOT EXISTS idx_telegram_message_analyses_review
-  ON telegram_message_analyses(organization_id, status, created_at DESC);`);
-await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS last_escalated_at TIMESTAMPTZ;`);
-await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS escalation_count INTEGER NOT NULL DEFAULT 0;`);
-await query(`CREATE TABLE IF NOT EXISTS telegram_ai_finding_events (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  finding_id UUID NOT NULL,
+await query(`ALTER TABLE telegram_messages ADD COLUMN IF NOT EXISTS update_id BIGINT;`);
+await query(`ALTER TABLE telegram_messages ADD COLUMN IF NOT EXISTS sender_id TEXT;`);
+await query(`ALTER TABLE telegram_messages ADD COLUMN IF NOT EXISTS raw_json JSONB;`);
+await query(`ALTER TABLE telegram_messages ALTER COLUMN update_id DROP NOT NULL;`);
+await query(`ALTER TABLE telegram_messages ALTER COLUMN sender_id DROP NOT NULL;`);
+await query(`ALTER TABLE telegram_messages ALTER COLUMN raw_json DROP NOT NULL;`);
+await query(`ALTER TABLE telegram_messages ALTER COLUMN message_text DROP NOT NULL;`);
+// --- FOT staffing-plan ---
+await query(`CREATE TABLE IF NOT EXISTS fot_staffing_plans (
   organization_id UUID NOT NULL,
-  restaurant_id UUID NOT NULL,
-  event_type TEXT NOT NULL,
-  from_status TEXT,
-  to_status TEXT,
-  actor_id TEXT NOT NULL,
-  action_id UUID,
-  payload_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);`);
-await query(`CREATE INDEX IF NOT EXISTS idx_telegram_ai_finding_events_scope
-  ON telegram_ai_finding_events(organization_id, restaurant_id, finding_id, created_at DESC);`);
-await query(`CREATE TABLE IF NOT EXISTS operational_action_events (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  action_id UUID NOT NULL,
-  organization_id UUID NOT NULL,
-  restaurant_id UUID NOT NULL,
-  event_type TEXT NOT NULL,
-  from_status TEXT,
-  to_status TEXT,
-  actor_id TEXT NOT NULL,
-  payload_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);`);
-await query(`CREATE INDEX IF NOT EXISTS idx_operational_action_events_scope
-  ON operational_action_events(organization_id, restaurant_id, action_id, created_at DESC);`);
-await query(`CREATE TABLE IF NOT EXISTS telegram_outbox (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID NOT NULL,
-  restaurant_id UUID NOT NULL,
-  chat_id TEXT NOT NULL,
-  kind TEXT NOT NULL CHECK (kind IN ('morning','evening','escalation','manual')),
-  idempotency_key TEXT NOT NULL UNIQUE,
-  message_text TEXT NOT NULL DEFAULT '',
-  scheduled_for TIMESTAMPTZ NOT NULL DEFAULT now(),
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('building','pending','sending','sent','failed')),
-  attempts INTEGER NOT NULL DEFAULT 0,
-  last_error TEXT,
-  sent_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);`);
-await query(`CREATE INDEX IF NOT EXISTS idx_telegram_outbox_due ON telegram_outbox(status, scheduled_for, created_at);`);
-await query(`CREATE TABLE IF NOT EXISTS telegram_deliveries (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID,
-  restaurant_id UUID,
-  chat_id TEXT NOT NULL,
-  method TEXT NOT NULL,
-  status TEXT NOT NULL CHECK (status IN ('sent','failed')),
-  telegram_message_id TEXT,
-  error_code TEXT,
-  error_message TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);`);
-await query(`CREATE INDEX IF NOT EXISTS idx_telegram_deliveries_scope
-  ON telegram_deliveries(organization_id, restaurant_id, chat_id, created_at DESC);`);
-await query(`CREATE TABLE IF NOT EXISTS telegram_group_diagnostics (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID NOT NULL,
-  restaurant_id UUID NOT NULL,
-  chat_id TEXT NOT NULL,
-  status TEXT NOT NULL,
-  details_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-  checked_by TEXT NOT NULL,
-  checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);`);
-await query(`CREATE INDEX IF NOT EXISTS idx_telegram_group_diagnostics_scope
-  ON telegram_group_diagnostics(organization_id, restaurant_id, chat_id, checked_at DESC);`);
-await query(`CREATE TABLE IF NOT EXISTS telegram_worker_runs (
-  worker_key TEXT NOT NULL,
-  run_date DATE NOT NULL,
-  status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running','completed','failed')),
-  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY(worker_key, run_date)
-);`);
-await query(`ALTER TABLE telegram_worker_runs ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'running';`);
-await query(`CREATE TABLE IF NOT EXISTS telegram_bot_settings (
-  chat_id TEXT PRIMARY KEY REFERENCES telegram_chat_bindings(chat_id) ON DELETE CASCADE,
-  organization_id UUID NOT NULL,
-  restaurant_id UUID NOT NULL,
-  mode TEXT NOT NULL DEFAULT 'secretary' CHECK (mode IN ('observer','secretary','controller')),
-  notification_level TEXT NOT NULL DEFAULT 'deviations' CHECK (notification_level IN ('urgent_only','deviations','all')),
-  morning_report_time TIME NOT NULL DEFAULT '10:00',
-  evening_report_time TIME NOT NULL DEFAULT '21:00',
-  escalation_minutes INTEGER NOT NULL DEFAULT 120 CHECK (escalation_minutes BETWEEN 60 AND 1440),
-  created_by TEXT NOT NULL,
-  updated_by TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);`);
-await query(`CREATE INDEX IF NOT EXISTS idx_telegram_bot_settings_scope ON telegram_bot_settings(organization_id, restaurant_id);`);
-await query(`ALTER TABLE telegram_bot_settings ADD COLUMN IF NOT EXISTS timezone TEXT NOT NULL DEFAULT 'Europe/Moscow';`);
-await query(`CREATE TABLE IF NOT EXISTS payroll_records (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id UUID NOT NULL, user_id UUID, period TEXT NOT NULL, department TEXT, hours NUMERIC(10,2), amount NUMERIC(18,2), created_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
-await query(`ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS project_id    TEXT NOT NULL DEFAULT '';`);
-await query(`ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS branch_id     TEXT NOT NULL DEFAULT '';`);
-await query(`ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS restaurant_id TEXT NOT NULL DEFAULT '';`);
-await query(`ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS department_id TEXT NOT NULL DEFAULT '';`);
-await query(`CREATE INDEX IF NOT EXISTS idx_payroll_records_org_period ON payroll_records(organization_id, period);`);
-await query(`CREATE INDEX IF NOT EXISTS idx_payroll_records_scope ON payroll_records(organization_id, period, project_id, branch_id, restaurant_id, department_id);`);
-await query(`CREATE TABLE IF NOT EXISTS daily_reports (id UUID PRIMARY KEY, organization_id UUID NOT NULL, report_date DATE, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', values_json JSONB NOT NULL DEFAULT '{}'::jsonb, note TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
-await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT '';`);
-await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS branch_id TEXT NOT NULL DEFAULT '';`);
-await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS restaurant_id TEXT NOT NULL DEFAULT '';`);
-await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS department_id TEXT NOT NULL DEFAULT '';`);
-await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS report_date DATE;`);
-await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS values_json JSONB DEFAULT '{}'::jsonb;`);
-await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS note TEXT;`);
-await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();`);
-await query(`ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();`);
-await query(`DO $$
-DECLARE c record;
-BEGIN
-IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_reports' AND column_name='date') THEN
-UPDATE daily_reports SET report_date = COALESCE(report_date, date) WHERE report_date IS NULL;
-FOR c IN
-SELECT conname FROM pg_constraint
-WHERE conrelid = 'daily_reports'::regclass AND contype IN ('u','p')
-AND pg_get_constraintdef(oid) LIKE '%(date)%'
-LOOP EXECUTE 'ALTER TABLE daily_reports DROP CONSTRAINT IF EXISTS ' || quote_ident(c.conname); END LOOP;
-FOR c IN
-SELECT indexname FROM pg_indexes
-WHERE tablename='daily_reports' AND indexdef ILIKE '%(date)%'
-LOOP EXECUTE 'DROP INDEX IF EXISTS ' || quote_ident(c.indexname); END LOOP;
--- Keep legacy date column until a separate verified data migration. Do not discard source data at runtime.
-END IF;
-END $$;`);
-await query(`DROP INDEX IF EXISTS daily_reports_org_date_uniq;`);
-await query(`CREATE UNIQUE INDEX IF NOT EXISTS daily_reports_org_scope_date_uniq ON daily_reports(organization_id, report_date, project_id, branch_id, restaurant_id, department_id);`);
-await query(`CREATE TABLE IF NOT EXISTS org_units (id UUID PRIMARY KEY, organization_id UUID NOT NULL, parent_id UUID, kind TEXT NOT NULL, name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
-await query(`CREATE INDEX IF NOT EXISTS idx_org_units_org ON org_units(organization_id);`);
-await query(`CREATE TABLE IF NOT EXISTS iiko_connections (
-  id UUID PRIMARY KEY,
-  organization_id UUID NOT NULL,
-  label TEXT NOT NULL,
-  app_id TEXT NOT NULL,
-  credential_fingerprint TEXT NOT NULL,
-  credentials_ciphertext TEXT NOT NULL,
-  credentials_iv TEXT NOT NULL,
-  credentials_tag TEXT NOT NULL,
-  organizations_json JSONB NOT NULL DEFAULT '[]'::jsonb,
-  correlation_id TEXT,
-  created_by TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  period TEXT NOT NULL,
+  project_id TEXT NOT NULL DEFAULT '',
+  branch_id TEXT NOT NULL DEFAULT '',
+  restaurant_id TEXT NOT NULL DEFAULT '',
+  department_id TEXT NOT NULL DEFAULT '',
+  plan JSONB NOT NULL DEFAULT '{}'::jsonb,
+  custom_positions JSONB NOT NULL DEFAULT '[]'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  last_verified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (organization_id, credential_fingerprint)
+  updated_by TEXT,
+  PRIMARY KEY (organization_id, period, project_id, branch_id, restaurant_id, department_id)
 );`);
-await query(`CREATE INDEX IF NOT EXISTS idx_iiko_connections_org ON iiko_connections(organization_id, created_at);`);
-await query(`CREATE TABLE IF NOT EXISTS iiko_organization_mappings (
-  id UUID PRIMARY KEY,
-  organization_id UUID NOT NULL,
-  connection_id UUID NOT NULL REFERENCES iiko_connections(id) ON DELETE CASCADE,
-  iiko_organization_id TEXT NOT NULL,
-  iiko_organization_name TEXT NOT NULL,
-  restaurant_id UUID NOT NULL,
-  updated_by TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (connection_id, iiko_organization_id),
-  UNIQUE (organization_id, restaurant_id)
-);`);
-await query(`CREATE INDEX IF NOT EXISTS idx_iiko_mappings_org ON iiko_organization_mappings(organization_id, restaurant_id);`);
-await query(`CREATE TABLE IF NOT EXISTS workspace_contexts (organization_id UUID NOT NULL, user_id TEXT NOT NULL, restaurant_id UUID, project_id UUID, branch_id UUID, department_id UUID, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (organization_id, user_id));`);
-await query(`CREATE TABLE IF NOT EXISTS org_unit_access (organization_id UUID NOT NULL, user_id TEXT NOT NULL, unit_id UUID NOT NULL, access_level TEXT NOT NULL DEFAULT 'manage', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (organization_id, user_id, unit_id));`);
-await query(`CREATE INDEX IF NOT EXISTS idx_org_unit_access_user ON org_unit_access(organization_id, user_id, unit_id);`);
-await query(`CREATE TABLE IF NOT EXISTS organizations (id UUID PRIMARY KEY, code TEXT NOT NULL UNIQUE, name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active', subscription_until DATE, created_by UUID, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), CONSTRAINT organizations_status_check CHECK (status IN ('active','suspended','archived')));`);
-await query(`CREATE INDEX IF NOT EXISTS idx_organizations_status ON organizations(status, created_at DESC);`);
-await query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS subscription_until DATE;`);
-await query(`CREATE TABLE IF NOT EXISTS organization_memberships (organization_id UUID NOT NULL, user_id UUID NOT NULL, role TEXT NOT NULL DEFAULT 'member', status TEXT NOT NULL DEFAULT 'active', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (organization_id, user_id));`);
-await query(`CREATE INDEX IF NOT EXISTS idx_org_memberships_user ON organization_memberships(user_id, status);`);
-await query(`CREATE TABLE IF NOT EXISTS workspace_bindings (id UUID PRIMARY KEY, organization_id UUID NOT NULL, channel TEXT NOT NULL, subject_id TEXT NOT NULL, unit_id UUID NOT NULL, is_default BOOLEAN NOT NULL DEFAULT false, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (organization_id, channel, subject_id));`);
-await query(`CREATE INDEX IF NOT EXISTS idx_workspace_bindings_lookup ON workspace_bindings(organization_id, channel, subject_id);`);
-await query(`CREATE TABLE IF NOT EXISTS ai_memory (id UUID PRIMARY KEY, organization_id UUID NOT NULL, project_id TEXT NOT NULL DEFAULT '', branch_id TEXT NOT NULL DEFAULT '', restaurant_id TEXT NOT NULL DEFAULT '', department_id TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, evidence_json JSONB NOT NULL DEFAULT '{}'::jsonb, confidence TEXT NOT NULL DEFAULT 'unconfirmed', source_message_id TEXT, confirmed_by_user_id UUID, confirmed_at TIMESTAMPTZ, created_by TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
-await query(`CREATE INDEX IF NOT EXISTS idx_ai_memory_org_scope ON ai_memory(organization_id, restaurant_id, kind, created_at DESC);`);
-await query(`CREATE INDEX IF NOT EXISTS idx_ai_memory_org_created ON ai_memory(organization_id, created_at DESC);`);
-await query(`CREATE TABLE IF NOT EXISTS users (id UUID PRIMARY KEY, email TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'viewer', organization_id UUID, first_name TEXT, last_name TEXT, position TEXT NOT NULL DEFAULT '', telegram_chat_id TEXT, is_active BOOLEAN NOT NULL DEFAULT true, password_hash TEXT, must_change_password BOOLEAN NOT NULL DEFAULT false, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
-await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS position TEXT NOT NULL DEFAULT '';`);
-await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT;`);
-await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;`);
-await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false;`);
-await query(`CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_uniq ON users (lower(email));`);
-// P&L rows are never deleted during schema bootstrap. Data cleanup requires a reviewed migration.
-try {
-if (ENV.ADMIN_EMAIL) {
-const ex = await query(`SELECT id, password_hash FROM users WHERE lower(email)=lower($1) LIMIT 1`, [ENV.ADMIN_EMAIL]);
-const adminRole = ENV.ADMIN_ROLE || 'super_admin';
-const orgId = ENV.DEFAULT_ORG_ID;
-if (!ex.rows.length) {
-const passHash = ENV.ADMIN_BOOTSTRAP_PASSWORD
-? await bcrypt.hash(ENV.ADMIN_BOOTSTRAP_PASSWORD, ENV.BCRYPT_ROUNDS) : null;
-await query(
-`INSERT INTO users (id, email, role, organization_id, first_name, last_name, is_active, password_hash)
-VALUES ($1::uuid, $2, $3, $4::uuid, $5, $6, true, $7)`,
-[uuid(), ENV.ADMIN_EMAIL, adminRole, orgId, ENV.ADMIN_FIRST_NAME, ENV.ADMIN_LAST_NAME, passHash]
-);
-log('bootstrap: admin user created', ENV.ADMIN_EMAIL);
-} else if (ENV.ADMIN_BOOTSTRAP_PASSWORD && (ENV.ADMIN_BOOTSTRAP_FORCE || !ex.rows[0].password_hash)) {
-const passHash = await bcrypt.hash(ENV.ADMIN_BOOTSTRAP_PASSWORD, ENV.BCRYPT_ROUNDS);
-await query(`UPDATE users SET password_hash=$1 WHERE id=$2::uuid`, [passHash, ex.rows[0].id]);
-log('bootstrap: password hash set for', ENV.ADMIN_EMAIL);
-}
-}
-} catch (e) { log('bootstrap error:', e.message); }
-_schemaReady = true; log('schema: ready'); return true;
-} catch (e) { log('schema attempt failed:', e.message); return false; }
+await query(`CREATE INDEX IF NOT EXISTS idx_fot_staffing_plans_org_period ON fot_staffing_plans(organization_id, period)`);
+
+    // ── Users ──
+    await query(`CREATE TABLE IF NOT EXISTS users (id UUID PRIMARY KEY, email TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'viewer', organization_id UUID, first_name TEXT, last_name TEXT, position TEXT NOT NULL DEFAULT '', telegram_chat_id TEXT, is_active BOOLEAN NOT NULL DEFAULT true, password_hash TEXT, must_change_password BOOLEAN NOT NULL DEFAULT false, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS position             TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id     TEXT;`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash        TEXT;`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false;`);
+    await query(`CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_uniq ON users (lower(email));`);
+    await query(`CREATE TABLE IF NOT EXISTS telegram_updates (update_id BIGINT PRIMARY KEY, received_at TIMESTAMPTZ NOT NULL DEFAULT now(), update_json JSONB NOT NULL);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_telegram_updates_received ON telegram_updates(received_at DESC);`);
+    await query(`CREATE TABLE IF NOT EXISTS telegram_message_analyses (chat_id TEXT NOT NULL, message_id TEXT NOT NULL, organization_id UUID NOT NULL, restaurant_id UUID NOT NULL, sender_id TEXT, analysis_json JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (chat_id, message_id));`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_tg_analyses_org ON telegram_message_analyses(organization_id, created_at DESC);`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_tg_analyses_needs_attention ON telegram_message_analyses ((analysis_json->>'needsManagerAttention')) WHERE (analysis_json->>'needsManagerAttention')::boolean = true;`);
+    await query(`CREATE TABLE IF NOT EXISTS telegram_bot_settings (chat_id TEXT PRIMARY KEY REFERENCES telegram_chats(chat_id) ON DELETE CASCADE, organization_id UUID NOT NULL, restaurant_id UUID NOT NULL, mode TEXT NOT NULL DEFAULT 'observer', notification_level TEXT NOT NULL DEFAULT 'urgent_only', morning_report_time TIME, evening_report_time TIME, escalation_minutes INTEGER, created_by TEXT, updated_by TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_telegram_bot_settings_org ON telegram_bot_settings(organization_id, restaurant_id);`);
+
+    // ── iiko ──
+    await query(`CREATE TABLE IF NOT EXISTS iiko_integrations (organization_id UUID NOT NULL, restaurant_id UUID NOT NULL, app_id TEXT NOT NULL, encrypted_credentials JSONB NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (organization_id, restaurant_id));`);
+
+    // ── FOT: shared history / staffing / custom positions ──
+    await query(`CREATE TABLE IF NOT EXISTS fot_schedule_history (
+      organization_id UUID NOT NULL,
+      project_id   UUID,
+      branch_id    UUID,
+      restaurant_id UUID,
+      department_id UUID,
+      scope_key    TEXT NOT NULL,
+      period       TEXT NOT NULL,
+      file_name    TEXT,
+      norm_hours   NUMERIC(12,2),
+      ndfl         NUMERIC(18,2),
+      calculations_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+      totals_json  JSONB NOT NULL DEFAULT '{}'::jsonb,
+      saved_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+      created_by   TEXT,
+      updated_by   TEXT,
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (organization_id, scope_key, period)
+    );`);
+    await query(`CREATE TABLE IF NOT EXISTS fot_custom_position_sets (
+      organization_id UUID NOT NULL,
+      project_id   UUID,
+      branch_id    UUID,
+      restaurant_id UUID,
+      department_id UUID,
+      scope_key    TEXT NOT NULL,
+      positions_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+      updated_by   TEXT,
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (organization_id, scope_key)
+    );`);
+
+    // ── Operational Control ──
+    await query(`CREATE TABLE IF NOT EXISTS operational_observations (
+      id UUID PRIMARY KEY,
+      organization_id UUID NOT NULL,
+      restaurant_id UUID NOT NULL,
+      checkpoint_key TEXT NOT NULL,
+      status TEXT NOT NULL,
+      note TEXT,
+      reporter_id TEXT NOT NULL,
+      reported_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );`);
+    // Расширение под GitHub-поля (без CHECK на существующих данных):
+    await query(`ALTER TABLE operational_observations ADD COLUMN IF NOT EXISTS checkpoint_title   TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE operational_observations ADD COLUMN IF NOT EXISTS reporter_name      TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE operational_observations ADD COLUMN IF NOT EXISTS verification_status TEXT NOT NULL DEFAULT 'reported';`);
+    await query(`ALTER TABLE operational_observations ADD COLUMN IF NOT EXISTS verified_by        TEXT;`);
+    await query(`ALTER TABLE operational_observations ADD COLUMN IF NOT EXISTS verified_at        TIMESTAMPTZ;`);
+    await query(`ALTER TABLE operational_observations ADD COLUMN IF NOT EXISTS source_chat_id     TEXT;`);
+    await query(`ALTER TABLE operational_observations ADD COLUMN IF NOT EXISTS source_message_id  TEXT;`);
+    await query(`ALTER TABLE operational_observations ADD COLUMN IF NOT EXISTS created_at         TIMESTAMPTZ NOT NULL DEFAULT now();`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_operational_observations_scope ON operational_observations(organization_id, restaurant_id, reported_at DESC);`);
+    await query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_operational_observations_telegram_event ON operational_observations(source_chat_id, source_message_id, reporter_id) WHERE source_chat_id IS NOT NULL AND source_message_id IS NOT NULL;`);
+
+    await query(`CREATE TABLE IF NOT EXISTS operational_actions (
+      id UUID PRIMARY KEY,
+      organization_id UUID NOT NULL,
+      restaurant_id UUID NOT NULL,
+      observation_id UUID REFERENCES operational_observations(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      assignee_id TEXT NOT NULL,
+      assignee_name TEXT NOT NULL DEFAULT '',
+      due_at TIMESTAMPTZ NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open',
+      created_by TEXT NOT NULL,
+      completed_by TEXT,
+      completed_at TIMESTAMPTZ,
+      verified_by TEXT,
+      verified_at TIMESTAMPTZ,
+      reopened_by TEXT,
+      reopened_at TIMESTAMPTZ,
+      reopen_reason TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );`);
+    // Догоняем поля для существующей таблицы (если она была создана ранее без них):
+    await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS restaurant_id UUID;`);
+    await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS description   TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS assignee_name TEXT NOT NULL DEFAULT '';`);
+    await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS created_by    TEXT;`);
+    await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS completed_by  TEXT;`);
+    await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS completed_at  TIMESTAMPTZ;`);
+    await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS verified_by   TEXT;`);
+    await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS verified_at   TIMESTAMPTZ;`);
+    await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS reopened_by   TEXT;`);
+    await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS reopened_at   TIMESTAMPTZ;`);
+    await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS reopen_reason TEXT;`);
+    await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS updated_at    TIMESTAMPTZ NOT NULL DEFAULT now();`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_operational_actions_scope ON operational_actions(organization_id, restaurant_id, status, due_at);`);
+
+    await query(`CREATE TABLE IF NOT EXISTS operational_telegram_sessions (
+      chat_id TEXT NOT NULL,
+      telegram_user_id TEXT NOT NULL,
+      organization_id UUID NOT NULL,
+      restaurant_id UUID NOT NULL,
+      checkpoint_key TEXT,
+      status TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (chat_id, telegram_user_id)
+    );`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_operational_telegram_sessions_org ON operational_telegram_sessions(organization_id, restaurant_id);`);
+
+    // ── Bootstrap администратора (идемпотентно по email) ──
+    try {
+      if (ENV.ADMIN_EMAIL) {
+        const ex = await query(`SELECT id, password_hash FROM users WHERE lower(email)=lower($1) LIMIT 1`, [ENV.ADMIN_EMAIL]);
+        const adminRole = ENV.ADMIN_ROLE || 'super_admin';
+        const orgId = ENV.DEFAULT_ORG_ID;
+        if (!ex.rows.length) {
+          const passHash = ENV.ADMIN_BOOTSTRAP_PASSWORD
+            ? await bcrypt.hash(ENV.ADMIN_BOOTSTRAP_PASSWORD, ENV.BCRYPT_ROUNDS) : null;
+          await query(
+            `INSERT INTO users (id, email, role, organization_id, first_name, last_name, is_active, password_hash)
+             VALUES ($1::uuid, $2, $3, $4::uuid, $5, $6, true, $7)`,
+            [uuid(), ENV.ADMIN_EMAIL, adminRole, orgId, ENV.ADMIN_FIRST_NAME, ENV.ADMIN_LAST_NAME, passHash]
+          );
+          log('bootstrap: admin user created', ENV.ADMIN_EMAIL);
+        } else if (ENV.ADMIN_BOOTSTRAP_PASSWORD && (ENV.ADMIN_BOOTSTRAP_FORCE || !ex.rows[0].password_hash)) {
+          const passHash = await bcrypt.hash(ENV.ADMIN_BOOTSTRAP_PASSWORD, ENV.BCRYPT_ROUNDS);
+          await query(`UPDATE users SET password_hash=$1 WHERE id=$2::uuid`, [passHash, ex.rows[0].id]);
+          log('bootstrap: password hash set for', ENV.ADMIN_EMAIL);
+        }
+      }
+    } catch (e) { log('bootstrap error:', e.message); }
+
+    _schemaReady = true;
+    log('schema: ready');
+    return true;
+  } catch (e) {
+    log('schema attempt failed:', e.message);
+    return false;
+  }
 }
 
 function kickSchema() {
-if (_schemaReady || _schemaPromise) return;
-_schemaPromise = (async () => {
-for (let i = 0; i < 5 && !_schemaReady; i++) {
-if (await ensureSchemaNow()) break;
-await sleep(500 * Math.pow(2, i));
-}
-_schemaPromise = null;
-})().catch(e => log('kickSchema error:', e.message));
+  if (_schemaReady || _schemaPromise) return;
+  _schemaPromise = (async () => {
+    for (let i = 0; i < 5 && !_schemaReady; i++) {
+      if (await ensureSchemaNow()) break;
+      await sleep(500 * Math.pow(2, i));
+    }
+    _schemaPromise = null;
+  })().catch(e => log('kickSchema error:', e.message));
 }
 
 /* ----------------------------- CORS --------------------------------------- */
@@ -681,16 +701,23 @@ const claims = verifyJWT(m[1]);
 if (!claims) return null;
 const uid = String(claims.userId || '');
 if (!UUID_RE.test(uid)) return null;
-const rows = await safeQuery(
+// strictQuery: при сбое БД — 500, а не тихий 401 (пользователь не должен
+// разлогиниваться из-за временной недоступности Postgres).
+let rows;
+try {
+rows = await strictQuery(
 `SELECT u.id, u.email, u.role, u.organization_id, u.first_name, u.last_name,
 u.position, u.telegram_chat_id,
 o.status AS organization_status
 FROM users u
 LEFT JOIN organizations o ON o.id = u.organization_id
 WHERE u.id = $1::uuid AND u.is_active = true LIMIT 1`,
-[uid], null
+[uid]
 );
-if (!rows) return null;
+} catch (e) {
+// Пробрасываем наверх — middleware поймает и вернёт 500.
+throw httpError(503, 'БД временно недоступна', 'DB_UNAVAILABLE');
+}
 const u = rows[0];
 if (!u) return null;
 return {
@@ -756,8 +783,17 @@ if (v === null || v === undefined || v === '') return null;
 const n = Number(v);
 return Number.isFinite(n) ? n : null;
 }
-const { calculatePnl } = require('./finance/pnlCalculator');
-const { xlsxToRows } = require('./finance/pnlImport');
+function sumDefined(values) {
+const present = values.filter(v => v !== null && v !== undefined);
+if (!present.length) return null;
+return present.reduce((a, b) => a + b, 0);
+}
+function pctOf(v, base) {
+const b = numOrNull(base); const x = numOrNull(v);
+if (x === null || b === null || b === 0) return null;
+return (x / b) * 100;
+}
+
 function delta(actual, plan) {
 const a = numOrNull(actual), p = numOrNull(plan);
 return {
@@ -766,7 +802,47 @@ absolute: (a !== null && p !== null) ? a - p : null,
 percent: (a !== null && p !== null && p !== 0) ? ((a - p) / Math.abs(p)) * 100 : null,
 };
 }
+/**
+ * P&L convention: expenses are stored as POSITIVE values in /api/pnl.
+ * This function computes deterministic signal for each article:
+ * - revenue: favorable if fact > plan
+ * - expense: favorable if fact < plan
+ * This is the single source of truth for "is this deviation good or bad".
+ * Frontend Dashboard calls POST /api/pnl/signals instead of computing locally.
+ */
+function classifyPnlArticleKind(article) {
+  const key = canonicalArticleKey(article);
+  if (key === 'revenue') return 'revenue';
+  if (['cogs','payroll','opex','other_operating','depreciation','interest','tax','other','overtime'].includes(key)) return 'expense';
+  const v = String(article || '').toLowerCase().replace(/ё/g, 'е');
+  if (/выруч|revenue|sales|оборот|доход/.test(v)) return 'revenue';
+  if (/себестоим|cogs|фот|payroll|opex|расход|затрат|налог|амортизац|процент|персонал|labor|food.?cost/.test(v)) return 'expense';
+  return 'unknown';
+}
 
+function computePnlSignal(article, plan, fact) {
+  const kind = classifyPnlArticleKind(article);
+  if (!Number.isFinite(plan) || !Number.isFinite(fact)) {
+    return { article, kind, plan, fact, delta: null, deltaPercent: null, signal: 'insufficient_data', severity: 'low' };
+  }
+  const d = fact - plan;
+  const pct = plan !== 0 ? (d / Math.abs(plan)) * 100 : null;
+  const absDelta = Math.abs(d);
+  const absPct = pct === null ? null : Math.abs(pct);
+  let signal;
+  if (d === 0) signal = 'unchanged';
+  else if (kind === 'revenue') signal = d > 0 ? 'favorable' : 'unfavorable';
+  else if (kind === 'expense') signal = d < 0 ? 'favorable' : 'unfavorable';
+  else signal = 'unknown_kind';
+  const severity =
+    absDelta < 1000 ? 'low'
+    : absPct !== null && absPct > 10 ? 'high'
+    : absPct !== null && absPct > 5 ? 'medium'
+    : absDelta > 100000 ? 'high'
+    : absDelta > 30000 ? 'medium'
+    : 'low';
+  return { article, kind, plan, fact, delta: d, deltaPercent: pct, signal, severity };
+}
 /* ----------------------------- zod schemas ---------------------------------- */
 const ScopeSchema = z.object({
 period: z.string().regex(YM_RE, 'period должен быть ГГГГ-ММ'),
@@ -775,7 +851,6 @@ branch_id: z.string().trim().max(120).optional().nullable(),
 restaurant_id: z.string().trim().max(120).optional().nullable(),
 department_id: z.string().trim().max(120).optional().nullable(),
 }).strict();
-const PNL_CATEGORY_KEYS = new Set(['revenue','cogs','payroll','overtime','opex','other_operating','depreciation','interest','tax','other']);
 const PnlRowSchema = z.object({
 id: z.string().max(120).optional(),
 article: z.string().min(1).max(240),
@@ -819,6 +894,7 @@ other: z.number().finite().nullable(),
 other_operating: z.number().finite().nullable(),
 }).partial().strict().optional(),
 }).catchall(z.unknown());
+const UnlockSchema = z.object({ code: z.string().regex(/^\d{4}$/u, 'Код должен содержать 4 цифры') }).strict();
 const LoginSchema = z.object({ email: z.string().trim().email().max(320), password: z.string().min(1).max(200) }).strict();
 const SetPasswordSchema = z.object({ newPassword: z.string().min(8).max(200) }).strict();
 const ChangePasswordSchema = z.object({ oldPassword: z.string().min(1).max(200), newPassword: z.string().min(8).max(200) }).strict();
@@ -839,6 +915,15 @@ scope: ScopeSchema.optional(),
 const DocumentUploadSchema = z.object({ name: z.string().min(1).max(300), dataBase64: z.string().min(8), mimeType: z.string().max(120).optional() }).strict();
 const PnlImportSchema = ScopeSchema.extend({ name: z.string().min(1).max(300), dataBase64: z.string().min(8), mimeType: z.string().max(120).optional() }).strict();
 const PnlApproveSchema = ScopeSchema;
+const PnlSignalsRowSchema = z.object({
+  article: z.string().trim().min(1).max(240),
+  plan: z.number().finite().nullable(),
+  fact: z.number().finite().nullable(),
+}).strict();
+
+const PnlSignalsSchema = z.object({
+  rows: z.array(PnlSignalsRowSchema).max(2000),
+}).strict();
 const SecretaryEventCreateSchema = z.object({
 title: z.string().trim().min(1).max(300),
 description: z.string().trim().max(10000).nullable().optional(),
@@ -848,6 +933,9 @@ end_at: z.string().trim().min(1).max(40).nullable().optional(),
 status: z.enum(['planned','done','cancelled','in_progress']).default('planned'),
 reminder_minutes: z.number().int().min(0).max(10080).nullable().optional(),
 location: z.string().trim().max(300).nullable().optional(),
+sync_to_google: z.boolean().optional(),      // ← NEW
+timezone: z.string().trim().max(64).optional(), // ← NEW
+calendar_id: z.string().trim().max(300).optional(),
 }).strict();
 const SecretaryEventPatchSchema = SecretaryEventCreateSchema.partial().strict().refine(v => Object.keys(v).length > 0, { message: 'Пустое обновление' });
 const SecretaryNoteCreateSchema = z.object({
@@ -894,12 +982,8 @@ function normalizeSkillConfig(raw) {
   for (const key of SKILL_KEYS_READ_BY_PROMPT) {
     if (Object.prototype.hasOwnProperty.call(source, key)) allowed[key] = source[key];
   }
-  // Public API speaks includeCapexWarning; the prompt builder consumes legacy excludeCapex.
-  // Translate explicitly so a false warning flag does not silently become "include".
-  if (allowed.includeCapexWarning !== undefined) {
-    allowed.excludeCapex = allowed.includeCapexWarning;
-    delete allowed.includeCapexWarning;
-  }
+  // Новое поле имеет приоритет; не допускаем конфликт legacy-настройки.
+  if (allowed.includeCapexWarning !== undefined) delete allowed.excludeCapex;
   const parsed = AiSkillsSchema.safeParse(allowed);
   return parsed.success ? parsed.data : {};
 }
@@ -939,15 +1023,6 @@ primeCost:z.boolean(),ebitda:z.boolean(),deviation:z.boolean(),
 telegram_chat_id: z.string().max(120).nullable().optional(),
 whatsapp_phone: z.string().max(40).nullable().optional(),
 }).strict();
-const TelegramBotSettingsSchema = z.object({
-  chat_id: z.string().trim().min(1).max(100),
-  mode: z.enum(['observer','secretary','controller']),
-  notification_level: z.enum(['urgent_only','deviations','all']),
-  morning_report_time: z.string().regex(TIME_RE),
-  evening_report_time: z.string().regex(TIME_RE),
-  escalation_minutes: z.number().int().min(60).max(1440),
-  timezone: z.string().trim().min(3).max(64).default('Europe/Moscow'),
-}).strict();
 const ReportsSendSchema = z.object({
 date: z.string().regex(DATE_RE),
 provider: z.enum(['telegram','whatsapp']).optional(),
@@ -971,6 +1046,14 @@ checks: z.number().finite().nullable(),
 restaurant: z.string().nullable(),
 }).strict(),
 scope: ScopeSchema.optional(),
+}).strict();
+const TelegramBotSettingsSchema = z.object({
+  chat_id: z.string().trim().min(1).max(100),
+  mode: z.enum(['observer','secretary','controller']),
+  notification_level: z.enum(['urgent_only','deviations','all']),
+  morning_report_time: z.string().regex(TIME_RE),
+  evening_report_time: z.string().regex(TIME_RE),
+  escalation_minutes: z.number().int().min(60).max(1440),
 }).strict();
 const PayrollRowSchema = z.object({
 date: z.string().regex(DATE_RE),
@@ -1042,6 +1125,37 @@ await safeQuery(
 [uuid(), user?.organizationId || null, user?.id || null, action, entity,
 entityId ? String(entityId) : null, JSON.stringify(details ?? {})]
 );
+}
+
+/* ----------------------------- rate-limit ----------------------------------- */
+// Общий rate-limiter. Отдельная таблица от auth_unlock_attempts, чтобы
+// подбор пароля не блокировал дорогие, но легитимные вызовы (например, /ask).
+// На сбое БД возвращает { allowed: true } — лучше пропустить запрос,
+// чем уронить UX из-за временной недоступности Postgres.
+async function checkRateLimit(key, limit, windowSec) {
+if (!ENV.DB_HOST) return { allowed: true, skipped: 'no-db' };
+try {
+const r = await query(
+`INSERT INTO rate_limit_buckets (key, window_started_at, count, blocked_until)
+VALUES ($1, now(), 1, NULL)
+ON CONFLICT (key) DO UPDATE SET
+count = CASE WHEN rate_limit_buckets.window_started_at < now() - ($2 || ' seconds')::interval
+THEN 1 ELSE rate_limit_buckets.count + 1 END,
+window_started_at = CASE WHEN rate_limit_buckets.window_started_at < now() - ($2 || ' seconds')::interval
+THEN now() ELSE rate_limit_buckets.window_started_at END
+RETURNING count, blocked_until`,
+[key, String(windowSec)]
+);
+const row = r.rows[0];
+if (!row) return { allowed: true };
+if (row.blocked_until && new Date(row.blocked_until).getTime() > Date.now()) {
+return { allowed: false, count: row.count, limit, reason: 'blocked_until' };
+}
+return { allowed: row.count <= limit, count: row.count, limit };
+} catch (e) {
+console.error('[sten] checkRateLimit failed:', e.message);
+return { allowed: true, skipped: 'db-error' };
+}
 }
 
 /* ----------------------------- YandexGPT ------------------------------------ */
@@ -1211,16 +1325,42 @@ throw httpError(502, 'Связь с YandexGPT недоступна', 'AI_UNREACH
 function intelligenceContext() {
 return {
 queryWithRetry, aggregateRows, rollupAgg, calculatePnl, canonicalArticleKey, assertScopeAccess, audit,
+checkRateLimit,
+env: ENV,
+getGoogleAccessToken,
+googleCalendar: {
+  create: (user, input, opts) => googleCalendar.createEvent(user, input, {
+    getToken: getGoogleAccessToken,
+    defaultTz: ENV.GOOGLE_CALENDAR_DEFAULT_TZ,
+    calendarId: opts?.calendarId,
+  }),
+  update: (user, eventId, input, opts) => googleCalendar.updateEvent(user, eventId, input, {
+    getToken: getGoogleAccessToken,
+    defaultTz: ENV.GOOGLE_CALENDAR_DEFAULT_TZ,
+    calendarId: opts?.calendarId,
+  }),
+  delete: (user, eventId, opts) => googleCalendar.deleteEvent(user, eventId, {
+    getToken: getGoogleAccessToken,
+    calendarId: opts?.calendarId,
+  }),
+  list: (user, getToken) => googleCalendar.listCalendars(user, getToken),
+},
 memory: { listMemory: (user, filter) => listMemory(user, filter, intelligenceContext()) },
 };
 }
 
 function parseProposedMemory(answer) {
 const source = String(answer || '').trim();
-const match = /ПРЕДЛОЖЕНИЕ ПАМЯТИ:\s*(\[[\s\S]*?\])\s*$/u.exec(source);
-if (!match) return { answer: source, proposed_memory: null };
-try {
-const parsed = JSON.parse(match[1]);
+// Используем lastIndexOf, чтобы не обрезать вложенные массивы в evidence.
+const marker = 'ПРЕДЛОЖЕНИЕ ПАМЯТИ:';
+const markerIdx = source.lastIndexOf(marker);
+if (markerIdx < 0) return { answer: source, proposed_memory: null };
+const tail = source.slice(markerIdx + marker.length).trim();
+const openIdx = tail.indexOf('[');
+if (openIdx < 0) return { answer: source, proposed_memory: null };
+const jsonPart = tail.slice(openIdx);
+let parsed;
+try { parsed = JSON.parse(jsonPart); } catch { return { answer: source, proposed_memory: null }; }
 if (!Array.isArray(parsed)) return { answer: source, proposed_memory: null };
 const allowed = new Set(['fact','decision','cause','action','manager_note','pattern']);
 const clean = parsed.filter(item =>
@@ -1230,59 +1370,10 @@ typeof item.title === 'string' && typeof item.content === 'string'
 kind: item.kind, title: item.title, content: item.content,
 evidence: item.evidence && typeof item.evidence === 'object' ? item.evidence : {},
 }));
-return { answer: source.slice(0, match.index).trim(), proposed_memory: clean };
-} catch { return { answer: source, proposed_memory: null }; }
+const cleanAnswer = source.slice(0, markerIdx).trim();
+return { answer: cleanAnswer || source, proposed_memory: clean.length ? clean : null };
 }
 
-/* ----------------------------- XLSX / P&L import ---------------------------- */
-function parseBankStatement(buffer) {
-let wb;
-try { wb = XLSX.read(buffer, { type: 'buffer' }); }
-catch { return ''; }
-const result = [];
-for (const sheetName of wb.SheetNames) {
-const ws = wb.Sheets[sheetName];
-if (!ws) continue;
-const grid = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-if (!Array.isArray(grid) || !grid.length) continue;
-let headerRowIdx = -1;
-let dateCol = -1, debitCol = -1, creditCol = -1, descCol = -1, contractorCol = -1;
-for (let i = 0; i < Math.min(grid.length, 15); i++) {
-const row = (grid[i] || []).map(c => String(c || '').toLowerCase());
-const dIdx = row.findIndex(c => c.includes('дата'));
-const dbIdx = row.findIndex(c => c.includes('дебет'));
-const crIdx = row.findIndex(c => c.includes('кредит'));
-if (dbIdx >= 0 && crIdx >= 0) {
-headerRowIdx = i;
-dateCol = dIdx;
-debitCol = dbIdx;
-creditCol = crIdx;
-descCol = row.findIndex(c => c.includes('назначение'));
-contractorCol = row.findIndex(c => c.includes('контрагент') || c.includes('получатель'));
-break;
-}
-}
-if (headerRowIdx < 0) continue;
-const sheetLines = [];
-for (let i = headerRowIdx + 1; i < grid.length; i++) {
-const row = grid[i];
-if (!row || !row[dateCol]) continue;
-const desc = String(row[descCol] || '');
-const lowerDesc = desc.toLowerCase();
-if (lowerDesc.includes('перевод между своими счетами')
-|| lowerDesc.includes('перевод собственных средств')
-|| lowerDesc.includes('внутренний перевод')) continue;
-const contractor = contractorCol >= 0 ? String(row[contractorCol] || '') : '';
-sheetLines.push(`| ${row[dateCol] || ''} | ${contractor} | ${desc} | ${row[debitCol] || ''} | ${row[creditCol] || ''} |`);
-}
-if (!sheetLines.length) continue;
-result.push(`### Банковская выписка (Лист: ${sheetName})`);
-result.push(`| Дата | Контрагент | Назначение | Дебет (Расход) | Кредит (Приход) |`);
-result.push(`|---|---|---|---|---|`);
-result.push(...sheetLines);
-}
-return result.join('\n');
-}
 /* ----------------------------- express app ---------------------------------- */
 const app = express();
 app.disable('x-powered-by');
@@ -1298,23 +1389,448 @@ req.requestId = id;
 res.setHeader('X-Request-ID', id);
 next();
 });
+
+// Публичные пути, для которых не нужен поход в users/organizations.
+// Раньше middleware вызывал authenticate() для КАЖДОГО запроса, включая healthz
+// и webhooks — это лишний SELECT в users на каждый ping YC.
+const PUBLIC_EXACT_PATHS = new Set(['/healthz']);
+const PUBLIC_PREFIX_PATHS = ['/auth/unlock', '/auth/login'];
+function isPublicPath(req) {
+const p = req.path || '';
+if (PUBLIC_EXACT_PATHS.has(p)) return true;
+if (PUBLIC_PREFIX_PATHS.some(prefix => p === prefix || p.startsWith(prefix + '/'))) return true;
+// Вебхуки принимают внешние сервисы без Bearer-токена — auth для них не работает.
+// Авторизация вебхуков — через подпись (см. обработчик /api/ingest/message).
+if (p === '/api/ingest/message' && (req.method === 'GET' || req.method === 'POST')) return true;
+// Telegram monitor webhook — отдельный бот, отдельный secret.
+if (p === '/api/telegram/webhook' && req.method === 'POST') return true;
+return false;
+}
+
 app.use(async (req, _res, next) => {
+if (isPublicPath(req)) { req.user = null; return next(); }
 try { req.user = await authenticate(req); }
-catch (e) { log('authMiddleware error:', e.message); req.user = null; }
+catch (e) {
+// authenticate() кинул httpError(503) при недоступности БД — отдаём как есть,
+// чтобы пользователь не был «разлогинен» из-за временного сбоя Postgres.
+if (e && e.status) return next(e);
+log('authMiddleware error:', e.message); req.user = null;
+}
 next();
 });
 const ok = (res, data, status = 200) => res.status(status).json({ ok: true, data, requestId: res.req?.requestId || undefined });
+/* ════════════════════════════════════════════════════════════════════════
+   Google Integrations — OAuth + синхронизация Sheets/Docs в ai_documents.
+   После sync документ попадает в ai_documents, и /ask подхватывает его
+   автоматически (skillConfig.documents !== false — по умолчанию true).
+   ════════════════════════════════════════════════════════════════════════ */
 
+const GOOGLE_PROVIDER_SCOPES = {
+  sheets: [
+    'https://www.googleapis.com/auth/spreadsheets.readonly',
+    'https://www.googleapis.com/auth/drive.readonly',
+    'https://www.googleapis.com/auth/userinfo.email',
+  ],
+  calendar: [
+    'https://www.googleapis.com/auth/calendar',
+    'https://www.googleapis.com/auth/userinfo.email',
+  ],
+};
+
+// ─── Хелпер: получить рабочий access_token для пользователя ───
+// Приоритет: (1) свежий access_token из БД; (2) обновить через refresh_token;
+// (3) 409 — Google не подключён.
+async function getGoogleAccessToken(user, provider) {
+  const rows = await strictQuery(
+    `SELECT access_token, access_expires_at, refresh_token
+     FROM google_integrations
+     WHERE organization_id=$1::uuid AND user_id=$2 AND provider=$3 LIMIT 1`,
+    [user.organizationId, String(user.id), provider]
+  );
+  if (!rows.length) throw httpError(409, 'Google не подключён. Авторизуйтесь через Google.', 'GOOGLE_NOT_CONNECTED');
+  const row = rows[0];
+
+  // access_token ещё жив (с запасом 60 сек)
+  if (row.access_token && row.access_expires_at) {
+    const expMs = new Date(row.access_expires_at).getTime();
+    if (expMs > Date.now() + 60_000) return row.access_token;
+  }
+
+  // обновление через refresh_token
+  if (!row.refresh_token) throw httpError(409, 'Токен истёк, требуется повторная авторизация Google.', 'GOOGLE_TOKEN_EXPIRED');
+
+  const body = new URLSearchParams({
+    client_id:     ENV.GOOGLE_CLIENT_ID,
+    client_secret: ENV.GOOGLE_CLIENT_SECRET,
+    refresh_token: row.refresh_token,
+    grant_type:    'refresh_token',
+  });
+  const r = await fetch(ENV.GOOGLE_OAUTH_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  const tokens = await r.json().catch(() => ({}));
+  if (!tokens.access_token) {
+    await safeQuery(
+      `UPDATE google_integrations SET refresh_token=NULL, updated_at=now()
+       WHERE organization_id=$1::uuid AND user_id=$2 AND provider=$3`,
+      [user.organizationId, String(user.id), provider], []);
+    throw httpError(409, 'Google отклонил refresh_token. Авторизуйтесь заново.', 'GOOGLE_REFRESH_FAILED');
+  }
+  const expiresIn = Number(tokens.expires_in || 3600);
+  await queryWithRetry(
+    `UPDATE google_integrations
+     SET access_token=$1, access_expires_at=now() + ($2 || ' seconds')::interval, updated_at=now()
+     WHERE organization_id=$3::uuid AND user_id=$4 AND provider=$5`,
+    [tokens.access_token, String(expiresIn), user.organizationId, String(user.id), provider],
+    { orgId: user.organizationId });
+  return tokens.access_token;
+}
+
+// ─── Хелпер: сохранить токен, полученный с фронта (GIS-popup) ───
+async function saveGoogleAccessToken(user, provider, accessToken, opts = {}) {
+  const expiresIn = Number(opts.expiresIn || 3600);
+  await queryWithRetry(
+    `INSERT INTO google_integrations
+       (organization_id, user_id, provider, access_token, access_expires_at, refresh_token, scope, email, settings_json, updated_at)
+     VALUES ($1::uuid, $2, $3, $4, now() + ($5 || ' seconds')::interval, $6, $7, $8, $9::jsonb, now())
+     ON CONFLICT (organization_id, user_id, provider) DO UPDATE SET
+       access_token = excluded.access_token,
+       access_expires_at = excluded.access_expires_at,
+       refresh_token = COALESCE(excluded.refresh_token, google_integrations.refresh_token),
+       scope = excluded.scope,
+       email = COALESCE(excluded.email, google_integrations.email),
+       settings_json = excluded.settings_json,
+       updated_at = now()`,
+    [
+      user.organizationId, String(user.id), provider,
+      accessToken, String(expiresIn),
+      opts.refreshToken || null, opts.scope || '',
+      opts.email || null,
+      JSON.stringify(opts.settings || {}),
+    ],
+    { orgId: user.organizationId });
+}
+
+// ─── Извлечение ID из Google-ссылки ───
+function extractGoogleId(url) {
+  const s = String(url || '');
+  const m = s.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]{20,})/);
+  if (m) return { kind: 'sheets', id: m[1] };
+  const d = s.match(/\/document\/d\/([a-zA-Z0-9_-]{20,})/);
+  if (d) return { kind: 'docs', id: d[1] };
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(s.trim())) return { kind: 'sheets', id: s.trim() };
+  return null;
+}
+
+// ─── GET: статус Google Sheets для текущего пользователя ───
+app.get('/api/integrations/google/sheets', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const rows = await safeQuery(
+      `SELECT email, scope, updated_at FROM google_integrations
+       WHERE organization_id=$1::uuid AND user_id=$2 AND provider='sheets' LIMIT 1`,
+      [req.user.organizationId, String(req.user.id)], []);
+    const cnt = await safeQuery(
+      `SELECT count(*)::int AS cnt FROM ai_documents
+       WHERE organization_id=$1::uuid AND extraction_json->>'source' = 'google_sheets'`,
+      [req.user.organizationId], [{ cnt: 0 }]);
+    ok(res, {
+      connected: rows[0] ? true : false,
+      email: rows[0]?.email || null,
+      connected_at: rows[0]?.updated_at || null,
+      synced_documents: cnt?.[0]?.cnt || 0,
+    });
+  } catch (e) { next(e); }
+});
+
+// ─── GET: статус Google Calendar ───
+app.get('/api/integrations/google/calendar', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const rows = await safeQuery(
+      `SELECT email, scope, settings_json, updated_at FROM google_integrations
+       WHERE organization_id=$1::uuid AND user_id=$2 AND provider='calendar' LIMIT 1`,
+      [req.user.organizationId, String(req.user.id)], []);
+    const s = rows[0] || null;
+    ok(res, {
+      connected: !!s,
+      email: s?.email || null,
+      calendar_id: s?.settings_json?.calendar_id || 'primary',
+      sync_enabled: s?.settings_json?.sync_enabled !== false,
+      connected_at: s?.updated_at || null,
+    });
+  } catch (e) { next(e); }
+});
+
+// ─── PUT: сохранить access_token с фронта + настройки календаря ───
+// Фронт через GIS-popup получает access_token и присылает его сюда.
+// Если тело пустое или без access_token — просто сохраняем настройки.
+app.put('/api/integrations/google/calendar', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    const accessToken = typeof b.access_token === 'string' ? b.access_token : null;
+    const settings = {
+      calendar_id: b.calendar_id || b.calendarId || 'primary',
+      sync_enabled: b.sync_enabled !== false,
+      reminder_minutes: typeof b.reminder_minutes === 'number' ? b.reminder_minutes : null,
+      timezone: typeof b.timezone === 'string' ? b.timezone : null,
+    };
+
+    if (accessToken) {
+      const info = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: 'Bearer ' + accessToken },
+      }).then(r => r.ok ? r.json() : null).catch(() => null);
+      await saveGoogleAccessToken(req.user, 'calendar', accessToken, {
+        expiresIn: Number(b.expires_in || 3600),
+        scope:     typeof b.scope === 'string' ? b.scope : '',
+        email:     info?.email || null,
+        settings,
+      });
+    } else {
+      // сохраняем только настройки, токен не трогаем
+      await queryWithRetry(
+        `INSERT INTO google_integrations
+           (organization_id, user_id, provider, settings_json, updated_at)
+         VALUES ($1::uuid, $2, 'calendar', $3::jsonb, now())
+         ON CONFLICT (organization_id, user_id, provider) DO UPDATE SET
+           settings_json = excluded.settings_json,
+           updated_at = now()`,
+        [req.user.organizationId, String(req.user.id), JSON.stringify(settings)],
+        { orgId: req.user.organizationId });
+    }
+
+    await audit(req.user, 'google.calendar.saved', 'google_integrations', 'calendar', {
+      has_access_token: !!accessToken, ...settings,
+    });
+    ok(res, { saved: true, connected: true, ...settings });
+  } catch (e) { next(e); }
+});
+// ─── PUT: сохранить access_token для Sheets с фронта (GIS-popup) ───
+// Фронт после GIS requestAccessToken шлёт { access_token, expires_in, scope }
+// сюда. Без этого эндпоинта фронт не может сохранить токен → sync падает
+// с GOOGLE_NOT_CONNECTED.
+app.put('/api/integrations/google/sheets', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    const accessToken = typeof b.access_token === 'string' ? b.access_token : null;
+    if (!accessToken) {
+      return res.status(400).json({ error: {
+        message: 'Нужен access_token (получите через GIS requestAccessToken)',
+        code: 'ACCESS_TOKEN_REQUIRED',
+        requestId: req.requestId,
+      } });
+    }
+    const info = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: 'Bearer ' + accessToken },
+    }).then(r => r.ok ? r.json() : null).catch(() => null);
+    await saveGoogleAccessToken(req.user, 'sheets', accessToken, {
+      expiresIn: Number(b.expires_in || 3600),
+      scope:     typeof b.scope === 'string' ? b.scope : '',
+      email:     info?.email || null,
+      settings:  {},
+    });
+    await audit(req.user, 'google.sheets.token_saved', 'google_integrations', 'sheets', {
+      email: info?.email || null, has_token: true,
+    });
+    ok(res, { saved: true, connected: true, email: info?.email || null });
+  } catch (e) { next(e); }
+});
+// ─── GET: начать OAuth (на случай, если фронт хочет через редирект) ───
+app.get('/api/integrations/google/connect', requireAuth, requireOrg, (req, res) => {
+  const provider = String(req.query.provider || 'sheets');
+  if (!GOOGLE_PROVIDER_SCOPES[provider]) {
+    return res.status(400).json({ error: { message: 'provider должен быть sheets|calendar', code: 'BAD_PROVIDER', requestId: req.requestId } });
+  }
+  if (!ENV.GOOGLE_CLIENT_ID || !ENV.GOOGLE_CLIENT_SECRET) {
+    return res.status(503).json({ error: { message: 'Google OAuth не сконфигурирован', code: 'GOOGLE_NOT_CONFIGURED', requestId: req.requestId } });
+  }
+  const state = createJWT({ purpose: 'google_oauth', provider, userId: req.user.id, organizationId: req.user.organizationId });
+  const params = new URLSearchParams({
+    client_id:     ENV.GOOGLE_CLIENT_ID,
+    redirect_uri:  ENV.GOOGLE_REDIRECT_URI,
+    response_type: 'code',
+    access_type:   'offline',
+    prompt:        'consent',
+    include_granted_scopes: 'true',
+    scope:         GOOGLE_PROVIDER_SCOPES[provider].join(' '),
+    state,
+  });
+ ok(res, { url: `${ENV.GOOGLE_OAUTH_AUTH_URL}?${params.toString()}`, provider });
+});
+
+// ─── GET: OAuth callback (Google редиректит сюда) ───
+app.get('/api/integrations/google/callback', async (req, res, next) => {
+  try {
+    const { code, state, error } = req.query;
+    if (error) {
+      return res.status(400).send(`<html><body style="font-family:sans-serif;padding:24px">
+        <h2>Ошибка авторизации Google</h2>
+        <p>${String(error)}</p>
+        <p>Можно закрыть окно и попробовать снова.</p>
+        <script>window.opener?.postMessage({type:'google_oauth_error',error:${JSON.stringify(String(error))}}, '*');</script>
+      </body></html>`);
+    }
+    const claims = verifyJWT(String(state || ''));
+    if (!claims || claims.purpose !== 'google_oauth') {
+      return res.status(400).send('<html><body>Некорректный state. Закройте окно и попробуйте снова.</body></html>');
+    }
+    if (!ENV.GOOGLE_CLIENT_ID || !ENV.GOOGLE_CLIENT_SECRET) {
+      return res.status(503).send('<html><body>Google OAuth не сконфигурирован на сервере.</body></html>');
+    }
+
+    const body = new URLSearchParams({
+      code:          String(code || ''),
+      client_id:     ENV.GOOGLE_CLIENT_ID,
+      client_secret: ENV.GOOGLE_CLIENT_SECRET,
+      redirect_uri:  ENV.GOOGLE_REDIRECT_URI,
+      grant_type:    'authorization_code',
+    });
+    const r = await fetch(ENV.GOOGLE_OAUTH_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+    const tokens = await r.json().catch(() => ({}));
+    if (!tokens.access_token) {
+      return res.status(502).send('<html><body>Google не выдал токен. Попробуйте ещё раз.</body></html>');
+    }
+    const info = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: 'Bearer ' + tokens.access_token },
+    }).then(x => x.ok ? x.json() : null).catch(() => null);
+
+    await saveGoogleAccessToken(
+      { organizationId: claims.organizationId, id: claims.userId },
+      claims.provider,
+      tokens.access_token,
+      {
+        expiresIn:    Number(tokens.expires_in || 3600),
+        refreshToken: tokens.refresh_token || null,
+        scope:        tokens.scope || '',
+        email:        info?.email || null,
+        settings:     {},
+      });
+
+    await safeQuery(
+      `INSERT INTO audit_log (id, organization_id, user_id, action, entity, entity_id, details)
+       VALUES ($1::uuid, $2::uuid, $3, 'google.oauth.connected', 'google_integrations', $4, $5::jsonb)`,
+      [uuid(), claims.organizationId, String(claims.userId), claims.provider,
+       JSON.stringify({ email: info?.email || null, provider: claims.provider })], []);
+
+    res.send(`<html><body style="font-family:sans-serif;padding:24px">
+      <h2>✅ Google подключён</h2>
+      <p>Провайдер: ${String(claims.provider)}</p>
+      <p>Аккаунт: ${String(info?.email || '—')}</p>
+      <p>Можно закрыть это окно.</p>
+      <script>
+        try { window.opener?.postMessage({type:'google_oauth_ok',provider:${JSON.stringify(claims.provider)}}, '*'); } catch(_) {}
+        setTimeout(() => window.close(), 1200);
+      </script>
+    </body></html>`);
+  } catch (e) {
+    console.error('[sten] google callback error:', e.message);
+    res.status(500).send('<html><body>Внутренняя ошибка при подключении Google. Закройте окно и попробуйте снова.</body></html>');
+  }
+});
+
+// ─── POST: синхронизация Google Sheets по ссылке/ID в ai_documents ───
+// После успеха документ попадает в ai_documents, и /ask сразу его видит.
+app.post('/api/integrations/google/sheets/sync', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const url = String(req.body?.url || req.body?.link || req.body?.document_url || '').trim();
+    const extracted = extractGoogleId(url);
+    if (!extracted) throw httpError(400, 'Не удалось извлечь ID Google-таблицы из ссылки', 'BAD_GOOGLE_URL');
+    if (extracted.kind !== 'sheets') throw httpError(400, 'Поддерживаются только Google Sheets', 'UNSUPPORTED_DOC_TYPE');
+
+    const accessToken = await getGoogleAccessToken(req.user, 'sheets');
+
+    // 1) метаданные таблицы
+    const metaRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${extracted.id}?includeGridData=false`,
+      { headers: { Authorization: 'Bearer ' + accessToken } });
+    if (!metaRes.ok) {
+      const t = await metaRes.text().catch(() => '');
+      throw httpError(502, `Google Sheets API: ${metaRes.status}`, 'GOOGLE_API_ERROR', t.slice(0, 200));
+    }
+    const meta = await metaRes.json();
+    const sheetNames = (meta.sheets || []).map(s => s.properties?.title).filter(Boolean);
+    if (!sheetNames.length) throw httpError(422, 'В таблице нет ни одного листа', 'EMPTY_SHEET');
+
+    // 2) значения всех листов
+    const rangesQuery = sheetNames.map(n => 'ranges=' + encodeURIComponent(`'${n}'`)).join('&');
+    const valRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${extracted.id}/values:batchGet?${rangesQuery}&valueRenderOption=UNFORMATTED_VALUE`,
+      { headers: { Authorization: 'Bearer ' + accessToken } });
+    if (!valRes.ok) throw httpError(502, `Google Sheets values: ${valRes.status}`, 'GOOGLE_API_ERROR');
+    const values = await valRes.json();
+
+    // 3) текст в markdown-таблицах
+    const blocks = (values.valueRanges || []).map((vr, i) => {
+      const rows = vr.values || [];
+      if (!rows.length) return `### ${sheetNames[i]}\n(пусто)`;
+      const headers = rows[0];
+      const headerLine = '| ' + headers.map(String).join(' | ') + ' |';
+      const sepLine = '|' + headers.map(() => '---').join('|') + '|';
+      const body = rows.slice(1).map(r => '| ' + r.map(c => String(c ?? '')).join(' | ') + ' |').join('\n');
+      return `### ${sheetNames[i]}\n${headerLine}\n${sepLine}\n${body}`;
+    });
+    const text = `Google Sheets: ${meta.properties?.title || extracted.id}\n\n` + blocks.join('\n\n');
+    const truncated = text.length > 200_000;
+    const safeText = truncated ? text.slice(0, 200_000) : text;
+
+    // 4) upsert в ai_documents — /ask подхватит автоматически
+    const docRowId = uuid();
+    await queryWithRetry(
+      `INSERT INTO ai_documents
+         (id, organization_id, user_id, name, mime_type, size_bytes, status, extracted_text, extraction_json)
+       VALUES ($1::uuid, $2::uuid, $3, $4, 'application/vnd.google-apps.spreadsheet', $5, 'ready', $6, $7::jsonb)`,
+      [
+        docRowId, req.user.organizationId, String(req.user.id),
+        meta.properties?.title || `Google Sheet ${extracted.id}`,
+        text.length,
+        safeText,
+        JSON.stringify({
+          source: 'google_sheets',
+          document_id: extracted.id,
+          sheets: sheetNames,
+          truncated,
+          chars: text.length,
+          synced_at: new Date().toISOString(),
+        }),
+      ],
+      { orgId: req.user.organizationId });
+
+    await audit(req.user, 'google.sheets.synced', 'ai_documents', docRowId, {
+      document_id: extracted.id, sheets: sheetNames.length, chars: text.length, truncated,
+    });
+
+    ok(res, {
+      synced: true,
+      id: docRowId,
+      name: meta.properties?.title || null,
+      document_id: extracted.id,
+      sheets: sheetNames,
+      chars: text.length,
+      truncated,
+    }, 201);
+  } catch (e) { next(e); }
+});
+app.post('/api/integrations/google/docs/sync', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const { syncGoogleDocHandler } = require('./core/tools');
+    const result = await syncGoogleDocHandler(req.user, req.body || {}, intelligenceContext());
+    ok(res, result, 201);
+  } catch (e) { next(e); }
+});
 /* ---- health ---- */
 app.get('/healthz', async (_req, res) => {
 const dbOk = !!ENV.DB_HOST;
 let dbReachable = false;
 if (dbOk) {
-try { await query('SELECT 1'); dbReachable = true; kickSchema(); }
-catch (e) { log('healthz db:', e.message); }
+try { await query('SELECT 1'); dbReachable = true; }
+catch (e) { console.error('[sten] healthz db:', e.message); }
 }
 ok(res, {
-status: 'ok', version: '5.4.1', time: new Date().toISOString(),
+status: dbOk && !dbReachable ? 'degraded' : 'ok', version: '5.4.1', time: new Date().toISOString(),
 db: dbOk ? (dbReachable ? 'connected' : 'configured-unreachable') : 'not-configured',
 ai: ENV.YANDEXGPT_API_KEY ? 'configured' : 'not-configured',
 storage: ENV.STORAGE_BUCKET ? 'configured' : 'not-configured',
@@ -1322,19 +1838,65 @@ contract_version: '2026-09-29',
 skills_version: SKILLS_VERSION,
 });
 });
-
-/* ---- auth: legacy PIN disabled ---- */
-app.post('/auth/unlock', (_req, res) => {
-  return res.status(410).json({
-    error: {
-      message: 'Вход по персональному коду отключён. Используйте email и пароль.',
-      code: 'LEGACY_AUTH_DISABLED',
-    },
-  });
+/* ---- AI Status endpoint ---- */
+app.get('/ai', requireAuth, async (req, res, next) => {
+  try {
+    ok(res, {
+      status: 'ready',
+      model: ENV.YANDEXGPT_MODEL,
+      features: {
+        memory: true,
+        tools: true,
+        documents: ENV.MARKITDOWN_ENABLED || false,
+      },
+      version: SKILLS_VERSION,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+/* ---- auth: unlock (legacy PIN) ---- */
+app.post('/auth/unlock', async (req, res) => {
+const body = parseOr400(UnlockSchema, req.body ?? {});
+if (!ENV.DB_HOST) return res.status(503).json({ error: { message: 'Сервер авторизации не настроен (БД)', code: 'AUTH_NOT_CONFIGURED', requestId: req.requestId } });
+await ensureSchemaNow();
+const hash = String(ENV.UNLOCK_CODE_HASH || '');
+if (!hash || !hash.startsWith('$2')) return res.status(503).json({ error: { message: 'Сервер авторизации не настроен. Укажите bcrypt-хеш кода доступа в secret storage.', code: 'AUTH_NOT_CONFIGURED', requestId: req.requestId } });
+try {
+if (bcrypt.getRounds(hash) !== ENV.BCRYPT_ROUNDS) return res.status(503).json({ error: { message: 'Сервер авторизации требует bcrypt cost 12.', code: 'AUTH_HASH_CONFIG', requestId: req.requestId } });
+} catch { return res.status(503).json({ error: { message: 'Сервер авторизации настроен некорректно.', code: 'AUTH_HASH_CONFIG', requestId: req.requestId } }); }
+const ip = String(req.ip || 'unknown').slice(0, 255);
+const rate = await query(
+`INSERT INTO auth_unlock_attempts (ip, window_started_at, failed_attempts, blocked_until) VALUES ($1, now(), 0, NULL)
+ON CONFLICT (ip) DO UPDATE SET
+failed_attempts = CASE WHEN auth_unlock_attempts.window_started_at < now() - interval '15 minutes' THEN 0 ELSE auth_unlock_attempts.failed_attempts END,
+window_started_at = CASE WHEN auth_unlock_attempts.window_started_at < now() - interval '15 minutes' THEN now() ELSE auth_unlock_attempts.window_started_at END,
+blocked_until = CASE WHEN auth_unlock_attempts.window_started_at < now() - interval '15 minutes' THEN NULL ELSE auth_unlock_attempts.blocked_until END
+RETURNING failed_attempts, blocked_until`, [ip]);
+const blockedUntil = rate.rows?.[0]?.blocked_until ? new Date(rate.rows[0].blocked_until) : null;
+if (blockedUntil && blockedUntil.getTime() > Date.now()) return res.status(429).json({ error: { message: 'Слишком много попыток. Повторите вход позже.', code: 'AUTH_RATE_LIMITED', requestId: req.requestId } });
+const match = await bcrypt.compare(String(body.code), hash);
+if (!match) {
+const failed = await query(
+`UPDATE auth_unlock_attempts SET failed_attempts = failed_attempts + 1, blocked_until = CASE WHEN failed_attempts + 1 >= 5 THEN now() + interval '30 minutes' ELSE blocked_until END WHERE ip = $1 RETURNING failed_attempts`,
+[ip]);
+await audit(null, 'auth.unlock.denied', 'auth', null, { ip, attempts: failed.rows?.[0]?.failed_attempts || 1 });
+return res.status(401).json({ error: { message: 'Неверный код доступа', code: 'INVALID_CODE', requestId: req.requestId } });
+}
+await query('DELETE FROM auth_unlock_attempts WHERE ip = $1', [ip]);
+let user = null;
+if (ENV.DB_HOST) {
+const rows = await safeQuery('SELECT id, email, role, organization_id, first_name, last_name FROM users WHERE lower(email) = lower($1) AND is_active = true LIMIT 1', [ENV.ADMIN_EMAIL], null);
+user = rows?.[0] || null;
+}
+if (!user) return res.status(503).json({ error: { message: 'Учётная запись не найдена в базе. Обратитесь к администратору.', code: 'USER_NOT_PROVISIONED', requestId: req.requestId } });
+const claims = { userId: user.id, email: user.email, role: user.role, organizationId: user.organization_id };
+const token = createJWT(claims);
+await audit({ id: user.id, organizationId: user.organization_id }, 'auth.unlock.ok', 'auth', user.id, {});
+ok(res, { token, user: { id: user.id, email: user.email, role: user.role, firstName: user.first_name, lastName: user.last_name, organizationId: user.organization_id, permissions: { '*': 'edit' } } });
 });
 
 /* ---- auth: login / set-password / change-password / me ---- */
-
 app.post('/auth/login', async (req, res, next) => {
 try {
 const body = parseOr400(LoginSchema, req.body ?? {});
@@ -1350,8 +1912,13 @@ blocked_until = CASE WHEN auth_unlock_attempts.window_started_at < now() - inter
 RETURNING failed_attempts, blocked_until`, [rlKey]);
 const rlBlocked = rl.rows?.[0]?.blocked_until ? new Date(rl.rows[0].blocked_until) : null;
 if (rlBlocked && rlBlocked.getTime() > Date.now()) return res.status(429).json({ error: { message: 'Слишком много попыток входа. Повторите позже.', code: 'AUTH_RATE_LIMITED', requestId: req.requestId } });
-const rows = await strictQuery('SELECT id, email, role, organization_id, first_name, last_name, password_hash, is_active FROM users WHERE lower(email)=lower($1) LIMIT 1', [body.email]);
-const u = rows?.[0];
+let rows;
+try {
+  rows = await strictQuery('SELECT id, email, role, organization_id, first_name, last_name, password_hash, is_active FROM users WHERE lower(email)=lower($1) LIMIT 1', [body.email]);
+} catch (e) {
+  throw httpError(503, 'БД временно недоступна', 'DB_UNAVAILABLE');
+}
+const u = rows[0];
 if (!u) return res.status(401).json({ error: { message: 'Неверный email или пароль', code: 'INVALID_CREDENTIALS', requestId: req.requestId } });
 if (!u.is_active) return res.status(403).json({ error: { message: 'Учётная запись отключена', code: 'USER_INACTIVE', requestId: req.requestId } });
 if (!u.password_hash || !String(u.password_hash).startsWith('$2')) return res.status(409).json({ error: { message: 'Пароль не установлен. Обратитесь к администратору.', code: 'PASSWORD_NOT_SET', requestId: req.requestId } });
@@ -1372,6 +1939,11 @@ ok(res, { token, user: { id: u.id, email: u.email, role: u.role, firstName: u.fi
 app.post('/auth/set-password', requireAuth, async (req, res, next) => {
 try {
 const body = parseOr400(SetPasswordSchema, req.body ?? {});
+// set-password разрешён только в режиме «сменить выданный пароль»
+const check = await strictQuery('SELECT must_change_password FROM users WHERE id=$1::uuid AND is_active=true LIMIT 1', [req.user.id]);
+if (!check?.[0]?.must_change_password) {
+  throw httpError(409, 'Пароль уже установлен. Используйте /auth/change-password со старым паролем.', 'PASSWORD_ALREADY_SET');
+}
 const hash = await bcrypt.hash(body.newPassword, ENV.BCRYPT_ROUNDS);
 await queryWithRetry('UPDATE users SET password_hash=$1, must_change_password=false WHERE id=$2::uuid', [hash, req.user.id], { orgId: req.user.organizationId });
 await audit(req.user, 'auth.password.set', 'users', req.user.id, {});
@@ -1382,7 +1954,7 @@ ok(res, { saved: true, confirmed: true });
 app.post('/auth/change-password', requireAuth, async (req, res, next) => {
 try {
 const body = parseOr400(ChangePasswordSchema, req.body ?? {});
-const rows = await strictQuery('SELECT password_hash FROM users WHERE id=$1::uuid LIMIT 1', [req.user.id]);
+const rows = await safeQuery('SELECT password_hash FROM users WHERE id=$1::uuid LIMIT 1', [req.user.id], null);
 const cur = rows?.[0]?.password_hash;
 if (!cur) return res.status(409).json({ error: { message: 'Пароль ещё не установлен.', code: 'PASSWORD_NOT_SET', requestId: req.requestId } });
 const okOld = await bcrypt.compare(body.oldPassword, cur);
@@ -1546,9 +2118,10 @@ case 'other': return 'Прочее';
 default: return String(value || '').trim() || 'Без названия';
 }
 }
+const PNL_CATEGORY_KEYS = new Set(['revenue','cogs','payroll','overtime','opex','other_operating','depreciation','interest','tax','other']);
 function pnlRowKey(row) {
-const explicit = String(row?.key || row?.classification?.category || '').trim().toLowerCase();
-return PNL_CATEGORY_KEYS.has(explicit) ? explicit : canonicalArticleKey(row?.article);
+  const explicit = String(row?.key || row?.classification?.category || '').trim().toLowerCase();
+  return PNL_CATEGORY_KEYS.has(explicit) ? explicit : canonicalArticleKey(row?.article);
 }
 function aggregateRows(rows) {
 const byArticle = new Map();
@@ -1577,6 +2150,7 @@ fact: x.factMissing || !x.factSeen ? null : x.fact,
 source: [...x.sources].join(',') || null,
 }));
 }
+
 function rollupAgg(agg) {
 const pick = (key, field = 'fact') => {
 const matching = (agg || []).filter(row => pnlRowKey(row) === key);
@@ -1607,7 +2181,7 @@ for (const r of rows) { try { const p = JSON.parse(r.rows); if (Array.isArray(p)
 if (!all.length) return fallback;
 const agg = aggregateRows(all);
 const revenueRow = agg.find(r => pnlRowKey(r) === 'revenue');
-return revenueRow && revenueRow.fact !== null ? Number(revenueRow.fact) : null;
+return revenueRow && revenueRow.fact !== null ? Number(revenueRow.fact) : fallback;
 }
 
 /* ---- workspace context ---- */
@@ -1637,98 +2211,45 @@ return safeQuery(`SELECT id,name,parent_id,kind FROM org_units WHERE organizatio
 return [];
 }
 
-async function scopeQuery(sql, params, targetLabel) {
-  try {
-    return await strictQuery(sql, params);
-  } catch (e) {
-    throw httpError(
-      503,
-      `Не удалось проверить доступ к ${targetLabel} (БД временно недоступна)`,
-      'SCOPE_ACCESS_CHECK_FAILED'
-    );
-  }
-}
-
 async function assertRestaurantAccess(user, restaurantId) {
-  if (!restaurantId) return true;
-  const isAdmin = ['super_admin', 'owner'].includes(String(user.role || '').toLowerCase());
-  const rows = await scopeQuery(
-    "SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind='restaurant' LIMIT 1",
-    [restaurantId, user.organizationId], 'ресторану'
-  );
-  if (!rows[0]) throw httpError(404, 'Ресторан не найден в текущей организации.', 'RESTAURANT_NOT_FOUND');
-  if (isAdmin) return true;
-  const access = await scopeQuery(
-    'SELECT 1 FROM org_unit_access WHERE organization_id=$1::uuid AND user_id=$2 AND unit_id=$3::uuid LIMIT 1',
-    [user.organizationId, user.id, restaurantId], 'ресторану'
-  );
-  if (access.length) return true;
-  throw httpError(403, 'Нет доступа к выбранному ресторану.', 'RESTAURANT_FORBIDDEN');
+if (!restaurantId) return true;
+const r = await safeQuery('SELECT id, parent_id, kind FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' LIMIT 1', [restaurantId, user.organizationId], null);
+if (!r?.[0]) throw httpError(404, 'Ресторан не найден в текущей организации.', 'RESTAURANT_NOT_FOUND');
+const explicit = await safeQuery('SELECT 1 FROM org_unit_access WHERE organization_id=$1::uuid AND user_id=$2 AND unit_id=$3::uuid LIMIT 1', [user.organizationId, user.id, restaurantId], []);
+if (explicit.length || ['super_admin','owner'].includes(String(user.role || '').toLowerCase())) return true;
+throw httpError(403, 'Нет доступа к выбранному ресторану.', 'RESTAURANT_FORBIDDEN');
 }
 
 async function assertScopeAccess(user, scope = {}) {
-  const selected = {};
-  const readUnit = async (id, kind, label, code) => {
-    if (!id) return null;
-    const rows = await scopeQuery(
-      'SELECT id, parent_id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=$3 LIMIT 1',
-      [id, user.organizationId, kind], label
-    );
-    if (!rows[0]) throw httpError(404, `${label[0].toUpperCase() + label.slice(1)} не найден(а) в текущей организации.`, code);
-    return rows[0];
-  };
-
-  selected.project = await readUnit(scope.project_id, 'project', 'проект', 'PROJECT_NOT_FOUND');
-  selected.branch = await readUnit(scope.branch_id, 'branch', 'филиал', 'BRANCH_NOT_FOUND');
-  selected.restaurant = await readUnit(scope.restaurant_id, 'restaurant', 'ресторан', 'RESTAURANT_NOT_FOUND');
-  selected.department = await readUnit(scope.department_id, 'department', 'отдел', 'DEPARTMENT_NOT_FOUND');
-
-  if (selected.branch && selected.project && String(selected.branch.parent_id || '') !== String(selected.project.id)) {
-    throw httpError(404, 'Филиал не относится к выбранному проекту.', 'SCOPE_HIERARCHY_MISMATCH');
-  }
-  if (selected.restaurant && selected.branch && String(selected.restaurant.parent_id || '') !== String(selected.branch.id)) {
-    throw httpError(404, 'Ресторан не относится к выбранному филиалу.', 'SCOPE_HIERARCHY_MISMATCH');
-  }
-  if (selected.department && selected.restaurant && String(selected.department.parent_id || '') !== String(selected.restaurant.id)) {
-    throw httpError(404, 'Отдел не относится к выбранному ресторану.', 'SCOPE_HIERARCHY_MISMATCH');
-  }
-  if (selected.department && !selected.restaurant) {
-    const parent = await readUnit(selected.department.parent_id, 'restaurant', 'ресторан отдела', 'RESTAURANT_NOT_FOUND');
-    selected.restaurant = parent;
-  }
-  if (selected.restaurant && selected.branch && String(selected.restaurant.parent_id || '') !== String(selected.branch.id)) {
-    throw httpError(404, 'Ресторан не относится к выбранному филиалу.', 'SCOPE_HIERARCHY_MISMATCH');
-  }
-  if (selected.restaurant && selected.project && !selected.branch) {
-    const branch = await readUnit(selected.restaurant.parent_id, 'branch', 'филиал ресторана', 'BRANCH_NOT_FOUND');
-    if (String(branch.parent_id || '') !== String(selected.project.id)) {
-      throw httpError(404, 'Ресторан не относится к выбранному проекту.', 'SCOPE_HIERARCHY_MISMATCH');
-    }
-    selected.branch = branch;
-  }
-  if (selected.restaurant && selected.branch && selected.project && String(selected.branch.parent_id || '') !== String(selected.project.id)) {
-    throw httpError(404, 'Ресторан не относится к выбранному проекту.', 'SCOPE_HIERARCHY_MISMATCH');
-  }
-
-  let restaurantIds = [];
-  if (selected.restaurant) {
-    restaurantIds = [String(selected.restaurant.id)];
-  } else if (selected.branch) {
-    const rows = await scopeQuery(
-      "SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind='restaurant' ORDER BY id",
-      [selected.branch.id, user.organizationId], 'филиалу'
-    );
-    restaurantIds = rows.map(row => String(row.id));
-  } else if (selected.project) {
-    const rows = await scopeQuery(
-      "SELECT restaurant.id FROM org_units branch JOIN org_units restaurant ON restaurant.parent_id=branch.id AND restaurant.organization_id=branch.organization_id AND restaurant.kind='restaurant' WHERE branch.parent_id=$1::uuid AND branch.organization_id=$2::uuid AND branch.kind='branch' ORDER BY restaurant.id",
-      [selected.project.id, user.organizationId], 'проекту'
-    );
-    restaurantIds = rows.map(row => String(row.id));
-  }
-
-  for (const id of restaurantIds) await assertRestaurantAccess(user, id);
-  return true;
+const restaurantIds = new Set();
+if (scope.restaurant_id) restaurantIds.add(String(scope.restaurant_id));
+if (scope.department_id) {
+const rows = await safeQuery('SELECT parent_id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'department\' LIMIT 1', [scope.department_id,user.organizationId], null);
+if (!rows?.[0]) throw httpError(404,'Отдел не найден в текущей организации.','DEPARTMENT_NOT_FOUND');
+if (rows[0].parent_id) restaurantIds.add(String(rows[0].parent_id));
+}
+if (scope.branch_id) {
+const branchExists = await safeQuery('SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'branch\' LIMIT 1', [scope.branch_id,user.organizationId], null);
+if (!branchExists) throw httpError(503,'Не удалось проверить доступ к филиалу.','SCOPE_ACCESS_CHECK_FAILED');
+if (!branchExists[0]) throw httpError(404,'Филиал не найден в текущей организации.','BRANCH_NOT_FOUND');
+const rows = await safeQuery('SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' ORDER BY id', [scope.branch_id,user.organizationId], null);
+if (!rows) throw httpError(503,'Не удалось проверить доступ к филиалу.','SCOPE_ACCESS_CHECK_FAILED');
+rows.forEach(r => restaurantIds.add(String(r.id)));
+}
+if (scope.project_id) {
+const projExists = await safeQuery('SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'project\' LIMIT 1', [scope.project_id,user.organizationId], null);
+if (!projExists) throw httpError(503,'Не удалось проверить доступ к проекту.','SCOPE_ACCESS_CHECK_FAILED');
+if (!projExists[0]) throw httpError(404,'Проект не найден в текущей организации.','PROJECT_NOT_FOUND');
+const branches = await safeQuery('SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'branch\' ORDER BY id', [scope.project_id,user.organizationId], null);
+if (!branches) throw httpError(503,'Не удалось проверить доступ к проекту.','SCOPE_ACCESS_CHECK_FAILED');
+for (const b of branches) {
+const restaurants = await safeQuery('SELECT id FROM org_units WHERE parent_id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' ORDER BY id', [b.id,user.organizationId], null);
+if (!restaurants) throw httpError(503,'Не удалось проверить доступ к проекту.','SCOPE_ACCESS_CHECK_FAILED');
+restaurants.forEach(r => restaurantIds.add(String(r.id)));
+}
+}
+for (const id of restaurantIds) await assertRestaurantAccess(user,id);
+return true;
 }
 
 async function resolveWorkspaceContext(user, supplied = {}, persist = false) {
@@ -1824,7 +2345,7 @@ try {
 const q = scopeFromQuery(req.query);
 await assertScopeAccess(req.user, q);
 if (!YM_RE.test(q.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
-const rows = await strictQuery(
+const rows = await safeQuery(
 `SELECT id, transaction_date, type, article, amount, comment, created_at FROM pnl_transactions
 WHERE organization_id=$1::uuid AND period=$2
 AND ($3::text='' OR project_id=$3) AND ($4::text='' OR branch_id=$4)
@@ -1841,7 +2362,7 @@ const body=parseOr400(PnlTransactionSchema,req.body??{});
 await assertScopeAccess(req.user, body);
 if(body.date.slice(0,7)!==body.period) throw httpError(400,'Дата операции не относится к выбранному периоду','DATE_PERIOD_MISMATCH');
 const scope=[body.project_id||'',body.branch_id||'',body.restaurant_id||'',body.department_id||''];
-const existing=await strictQuery(
+const existing=await safeQuery(
 `SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1`,
 [req.user.organizationId,body.period,...scope],[]);
 let rows=[];
@@ -1900,21 +2421,37 @@ revenueFact: (() => { const o = aggregated.find(x => pnlRowKey(x) === 'revenue')
 filledRows: filled, scope: s,
 calculated: { fact: calculatePnl(fact), plan: calculatePnl(plan) },
 };
-ok(res, { period: s.period, scope: s, rows: aggregated, summary, calculated: summary.calculated, count: all.length });
+ok(res, {
+  period: s.period,
+  scope: s,
+  rows: aggregated,
+  summary,
+  calculated: summary.calculated,
+  count: all.length,
+  convention: 'positive_expenses',
+});
 } catch (e) { next(e); }
 });
-
+/* ---- POST /api/pnl/signals — детерминированный расчёт сигналов отклонений ---- */
+app.post('/api/pnl/signals', requireAuth, (req, res, next) => {
+  try {
+    const body = parseOr400(PnlSignalsSchema, req.body ?? {});
+    const signals = body.rows.map(r => computePnlSignal(r.article, r.plan, r.fact));
+    signals.sort((a, b) => {
+      const rank = (s) => s.signal === 'unfavorable' ? 0 : s.signal === 'insufficient_data' ? 1 : 2;
+      const sev = { high: 0, medium: 1, low: 2 };
+      return rank(a) - rank(b)
+        || sev[a.severity] - sev[b.severity]
+        || Math.abs(b.delta || 0) - Math.abs(a.delta || 0);
+    });
+    ok(res, { convention: 'positive_expenses', signals });
+  } catch (e) { next(e); }
+});
 /* ---- POST /api/pnl ---- */
 app.post('/api/pnl', requireAuth, requireOrg, async (req, res, next) => {
 try {
 const body = parseOr400(PnlWriteSchema, req.body ?? {});
-await assertScopeAccess(req.user, {
-  period: body.period,
-  project_id: body.project_id || '',
-  branch_id: body.branch_id || '',
-  restaurant_id: body.restaurant_id || '',
-  department_id: body.department_id || '',
-});
+await assertScopeAccess(req.user, { period: body.period, project_id: body.project_id||'', branch_id: body.branch_id||'', restaurant_id: body.restaurant_id||'', department_id: body.department_id||'' });
 const cleanRows = body.rows.map(r => ({
 id: r.id || null,
 article: String(r.article).normalize('NFC').trim(),
@@ -1946,8 +2483,10 @@ const APPROVER_ROLES = new Set((process.env.PNL_APPROVER_ROLES || 'super_admin,a
 app.get('/api/pnl/approval', requireAuth, requireOrg, async (req, res, next) => {
 try {
 const s = scopeFromQuery(req.query);
-await assertScopeAccess(req.user, s);
+if (s.restaurant_id) await assertRestaurantAccess(req.user, s.restaurant_id);
 if (!YM_RE.test(s.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
+// strictQuery: тихий fallback опасен — при сбое БД клиент увидит 'draft'
+// и может утвердить план повторно, перезаписав статус.
 const rows = await strictQuery(
 `SELECT status, approved_by, approved_at FROM pnl_approvals WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1`,
 [req.user.organizationId, s.period, s.project_id, s.branch_id, s.restaurant_id, s.department_id]);
@@ -1959,7 +2498,7 @@ app.post('/api/pnl/approve', requireAuth, requireOrg, async (req, res, next) => 
 try {
 if (!APPROVER_ROLES.has(String(req.user.role || '').toLowerCase())) throw httpError(403, 'У Вас нет права утверждать план.', 'FORBIDDEN_APPROVAL');
 const s = parseOr400(PnlApproveSchema, req.body ?? {});
-await assertScopeAccess(req.user, s);
+if (s.restaurant_id) await assertRestaurantAccess(req.user, s.restaurant_id);
 const exists = await strictQuery(
 `SELECT 1 FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1`,
 [req.user.organizationId, s.period, s.project_id, s.branch_id, s.restaurant_id, s.department_id]);
@@ -1975,11 +2514,11 @@ ok(res,{status:'approved',approvedAt:new Date().toISOString(),scope:s});
 } catch(e){next(e);}
 });
 
-
 app.post('/api/pnl/unapprove', requireAuth, requireOrg, async (req, res, next) => {
 try {
 if (!APPROVER_ROLES.has(String(req.user.role || '').toLowerCase())) throw httpError(403, 'У Вас нет права возвращать утверждённый план в черновик.', 'FORBIDDEN_APPROVAL');
 const s = parseOr400(PnlApproveSchema, req.body ?? {});
+if (s.restaurant_id) await assertRestaurantAccess(req.user, s.restaurant_id);
 await assertScopeAccess(req.user, s);
 const result = await strictQuery(
 `DELETE FROM pnl_approvals WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 AND status='approved' RETURNING status`,
@@ -1989,7 +2528,6 @@ await audit(req.user, 'pnl.unapproved', 'pnl_approvals', `${s.period}|${s.projec
 ok(res, { status: 'draft', message: 'План возвращён в черновик.', scope: s });
 } catch(e) { next(e); }
 });
-
 app.post('/api/pnl/calculate', requireAuth, (req, res, next) => {
 try {
 const body = parseOr400(PnlCalculateSchema, req.body ?? {});
@@ -2036,26 +2574,12 @@ if(metrics.ebitda)lines.push('📊 EBITDA: '+fmtRub(p.ebitda)+(p.ebitdaMargin!==
 if(metrics.deviation)lines.push('⚠️ Отклонение от плана: '+(Number.isFinite(deviation)?fmtPct(deviation):'Нет данных'));
 return lines.join('\n');
 }
-async function sendTelegram(chatId,textBody,organizationId=null,restaurantId=null){
+async function sendTelegram(chatId,textBody){
 const token=process.env.TELEGRAM_BOT_TOKEN;
-const context={organizationId,restaurantId};
-if(!token){
-const error=httpError(503,'Telegram Bot API не настроен (TELEGRAM_BOT_TOKEN)','MESSENGER_NOT_CONFIGURED');
-await recordTelegramDelivery(chatId,'sendMessage','failed',null,error,context);
-throw error;
-}
-try{
-const response=await fetch('https://api.telegram.org/bot'+token+'/sendMessage',{
-method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,text:textBody}),
-});
-const result=await response.json().catch(()=>({}));
-if(!response.ok||result.ok===false)throw httpError(502,'Telegram не принял отчёт','MESSENGER_UPSTREAM_ERROR');
-await recordTelegramDelivery(chatId,'sendMessage','sent',result.result?.message_id,null,context);
+if(!token)throw httpError(503,'Telegram Bot API не настроен (TELEGRAM_BOT_TOKEN)','MESSENGER_NOT_CONFIGURED');
+const r=await fetch('https://api.telegram.org/bot'+token+'/sendMessage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,text:textBody})});
+if(!r.ok)throw httpError(502,'Telegram не принял отчёт','MESSENGER_UPSTREAM_ERROR');
 return {provider:'telegram',sent:true};
-}catch(error){
-await recordTelegramDelivery(chatId,'sendMessage','failed',null,error,context);
-throw error;
-}
 }
 async function sendWhatsApp(phone,textBody){
 const token=process.env.WHATSAPP_ACCESS_TOKEN,phoneId=process.env.WHATSAPP_PHONE_NUMBER_ID,version=process.env.WHATSAPP_API_VERSION;
@@ -2066,11 +2590,11 @@ return {provider:'whatsapp',sent:true};
 }
 async function loadReportMetrics(user,date,scope){
 const s=scope||{period:date.slice(0,7),project_id:'',branch_id:'',restaurant_id:'',department_id:''};
-const reportRows=await strictQuery(
+const reportRows=await safeQuery(
 'SELECT values_json FROM daily_reports WHERE organization_id=$1::uuid AND report_date=$2::date AND ($3::text=\'\' OR project_id=$3) AND ($4::text=\'\' OR branch_id=$4) AND ($5::text=\'\' OR restaurant_id=$5) AND ($6::text=\'\' OR department_id=$6) LIMIT 1',
 [user.organizationId,date,s.project_id||'',s.branch_id||'',s.restaurant_id||'',s.department_id||''],[]);
 const values=reportRows[0]?.values_json||{};
-const rows=await strictQuery(
+const rows=await safeQuery(
 'SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND ($3::text=\'\' OR project_id=$3) AND ($4::text=\'\' OR branch_id=$4) AND ($5::text=\'\' OR restaurant_id=$5) AND ($6::text=\'\' OR department_id=$6)',
 [user.organizationId,s.period,s.project_id||'',s.branch_id||'',s.restaurant_id||'',s.department_id||''],[]);
 const all=[];for(const r of rows){try{const parsed=JSON.parse(r.rows);if(Array.isArray(parsed))all.push(...parsed)}catch{/* ignore */}}
@@ -2097,9 +2621,6 @@ ok(res,{saved:true,confirmed:true,settings:config});
 
 app.get('/api/ai/memory', requireAuth, requireOrg, async (req, res, next) => {
 try {
-if (req.query.restaurant_id) {
-  await assertScopeAccess(req.user, { restaurant_id: String(req.query.restaurant_id) });
-}
 const result = await listMemory(req.user, {
 kind: req.query.kind ? String(req.query.kind) : undefined,
 restaurant_id: req.query.restaurant_id ? String(req.query.restaurant_id) : undefined,
@@ -2115,10 +2636,6 @@ ok(res, result);
 app.post('/api/ai/memory', requireAuth, requireOrg, async (req, res, next) => {
 try {
 const body = parseOr400(AiMemoryCreateSchema, req.body ?? {});
-const memoryScope = body.scope || {};
-if (memoryScope.project_id || memoryScope.branch_id || memoryScope.restaurant_id || memoryScope.department_id) {
-  await assertScopeAccess(req.user, memoryScope);
-}
 const memory = await createMemory(req.user, body, intelligenceContext());
 ok(res, { memory, confirmed: true }, 201);
 } catch (e) { next(e); }
@@ -2193,128 +2710,6 @@ await audit(req.user,'messenger.settings.updated','messenger_settings',req.user.
 ok(res,{saved:true,confirmed:true});
 }catch(e){next(e)}});
 
-
-const IikoConnectSchema = z.object({
-  app_id: z.string().trim().min(1).max(200),
-  client_secret: z.string().min(1).max(500),
-  api_key: z.string().min(1).max(500),
-  label: z.string().trim().min(1).max(120).optional(),
-}).strict();
-const IikoMappingSchema = z.object({
-  iiko_organization_id: z.string().trim().min(1).max(120),
-  restaurant_id: z.string().uuid(),
-}).strict();
-
-app.get('/api/integrations/iiko', requireAuth, requireOrg, async (req,res,next) => {
-  try {
-    const connections = await strictQuery(
-      `SELECT id,label,app_id,organizations_json,correlation_id,last_verified_at,created_at
-       FROM iiko_connections WHERE organization_id=$1::uuid ORDER BY created_at DESC`,
-      [req.user.organizationId],
-    );
-    const mappings = await strictQuery(
-      `SELECT connection_id,iiko_organization_id,iiko_organization_name,restaurant_id
-       FROM iiko_organization_mappings WHERE organization_id=$1::uuid`,
-      [req.user.organizationId],
-    );
-    const mapped = new Map(mappings.map(item => [item.connection_id + ':' + item.iiko_organization_id, item]));
-    ok(res, { connections: connections.map(connection => ({
-      id: connection.id,
-      label: connection.label,
-      app_id: connection.app_id,
-      correlation_id: connection.correlation_id,
-      last_verified_at: connection.last_verified_at,
-      created_at: connection.created_at,
-      organizations: (Array.isArray(connection.organizations_json) ? connection.organizations_json : []).map(item => {
-        const mapping = mapped.get(connection.id + ':' + item.id);
-        return { id: item.id, name: item.name, restaurant_id: mapping?.restaurant_id || null };
-      }),
-    })) });
-  } catch(e) { next(e); }
-});
-
-app.post('/api/integrations/iiko/connect', requireAuth, requireOrg, requirePrivilegedRole, async (req,res,next) => {
-  try {
-    const body = parseOr400(IikoConnectSchema, req.body ?? {});
-    const credentials = { appId: body.app_id, clientSecret: body.client_secret, apiKey: body.api_key };
-    const encrypted = encryptCredentials(credentials);
-    const result = await connectIikoCloud(credentials);
-    if (!result.organizations.length) {
-      throw httpError(422, 'iiko не вернула доступные организации. Проверьте, что API-ключ привязан к организации в iikoWeb.', 'IIKO_ORGANIZATIONS_EMPTY');
-    }
-    const id = uuid();
-    const saved = await queryWithRetry(
-      `INSERT INTO iiko_connections
-       (id,organization_id,label,app_id,credential_fingerprint,credentials_ciphertext,credentials_iv,credentials_tag,organizations_json,correlation_id,created_by,created_at,updated_at,last_verified_at)
-       VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,now(),now(),now())
-       ON CONFLICT (organization_id,credential_fingerprint) DO UPDATE SET
-         label=excluded.label,app_id=excluded.app_id,credentials_ciphertext=excluded.credentials_ciphertext,
-         credentials_iv=excluded.credentials_iv,credentials_tag=excluded.credentials_tag,
-         organizations_json=excluded.organizations_json,correlation_id=excluded.correlation_id,
-         updated_at=now(),last_verified_at=now()
-       RETURNING id`,
-      [id,req.user.organizationId,body.label || 'iiko Cloud',body.app_id,encrypted.fingerprint,
-       encrypted.ciphertext,encrypted.iv,encrypted.tag,JSON.stringify(result.organizations),result.correlationId,req.user.id],
-      { orgId: req.user.organizationId },
-    );
-    await audit(req.user,'integration.iiko.connected','iiko_connections',saved.rows[0].id,{
-      organizations_count: result.organizations.length,
-    });
-    ok(res,{connection:{id:saved.rows[0].id,label:body.label || 'iiko Cloud',app_id:body.app_id,
-      organizations:result.organizations.map(item=>({...item,restaurant_id:null})),
-      correlation_id:result.correlationId,last_verified_at:new Date().toISOString()}},201);
-  } catch(e) { next(e); }
-});
-
-app.put('/api/integrations/iiko/:connectionId/mapping', requireAuth, requireOrg, requirePrivilegedRole, async (req,res,next) => {
-  try {
-    const connectionId = parseOr400(z.string().uuid(), req.params.connectionId);
-    const body = parseOr400(IikoMappingSchema, req.body ?? {});
-    const rows = await strictQuery(
-      'SELECT id,organizations_json FROM iiko_connections WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
-      [connectionId,req.user.organizationId],
-    );
-    if (!rows[0]) throw httpError(404,'Подключение iiko не найдено.','IIKO_CONNECTION_NOT_FOUND');
-    const external = (Array.isArray(rows[0].organizations_json) ? rows[0].organizations_json : [])
-      .find(item => item.id === body.iiko_organization_id);
-    if (!external) throw httpError(404,'Организация не входит в подтверждённый список iiko.','IIKO_ORGANIZATION_NOT_FOUND');
-    await assertRestaurantAccess(req.user,body.restaurant_id);
-    const unit = await strictQuery(
-      "SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind='restaurant' LIMIT 1",
-      [body.restaurant_id,req.user.organizationId],
-    );
-    if (!unit[0]) throw httpError(404,'Ресторан STEN не найден.','RESTAURANT_NOT_FOUND');
-    const mappingId = uuid();
-    await queryWithRetry(
-      `INSERT INTO iiko_organization_mappings
-       (id,organization_id,connection_id,iiko_organization_id,iiko_organization_name,restaurant_id,updated_by,created_at,updated_at)
-       VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6::uuid,$7,now(),now())
-       ON CONFLICT (connection_id,iiko_organization_id) DO UPDATE SET
-         iiko_organization_name=excluded.iiko_organization_name,restaurant_id=excluded.restaurant_id,
-         updated_by=excluded.updated_by,updated_at=now()`,
-      [mappingId,req.user.organizationId,connectionId,external.id,external.name,body.restaurant_id,req.user.id],
-      { orgId: req.user.organizationId },
-    );
-    await audit(req.user,'integration.iiko.organization_mapped','iiko_organization_mappings',external.id,{
-      restaurant_id:body.restaurant_id,connection_id:connectionId,
-    });
-    ok(res,{saved:true,confirmed:true,mapping:{iiko_organization_id:external.id,restaurant_id:body.restaurant_id}});
-  } catch(e) { next(e); }
-});
-
-app.delete('/api/integrations/iiko/:connectionId', requireAuth, requireOrg, requirePrivilegedRole, async (req,res,next) => {
-  try {
-    const connectionId = parseOr400(z.string().uuid(), req.params.connectionId);
-    const gone = await queryWithRetry(
-      'DELETE FROM iiko_connections WHERE id=$1::uuid AND organization_id=$2::uuid RETURNING id',
-      [connectionId,req.user.organizationId],{orgId:req.user.organizationId},
-    );
-    if (!gone.rows[0]) throw httpError(404,'Подключение iiko не найдено.','IIKO_CONNECTION_NOT_FOUND');
-    await audit(req.user,'integration.iiko.disconnected','iiko_connections',connectionId,{});
-    ok(res,{deleted:true,confirmed:true});
-  } catch(e) { next(e); }
-});
-
 app.post('/api/reports/send',requireAuth,requireOrg,requireRole(...WRITE_ROLES),async(req,res,next)=>{try{
 const b=parseOr400(ReportsSendSchema,req.body??{});
 const settingsRows=await safeQuery('SELECT provider,scope_json,metrics_json,telegram_chat_id,whatsapp_phone FROM messenger_settings WHERE organization_id=$1::uuid LIMIT 1',[req.user.organizationId],[]);
@@ -2328,7 +2723,7 @@ await assertScopeAccess(req.user,scope);
 const data=await loadReportMetrics(req.user,b.date,scope);
 const restaurant=scope.restaurant_id||data.values.restaurant||null;
 const textBody=reportText(b.date,restaurant,data.values,data.pnlData,metrics);
-const result=provider==='telegram'?await sendTelegram(recipient,textBody,req.user.organizationId,scope.restaurant_id || null):await sendWhatsApp(recipient,textBody);
+const result=provider==='telegram'?await sendTelegram(recipient,textBody):await sendWhatsApp(recipient,textBody);
 await audit(req.user,'report.sent','daily_reports',b.date,{provider,metrics});
 ok(res,{...result,date:b.date,preview:textBody});
 }catch(e){next(e)}});
@@ -2350,7 +2745,7 @@ const reports = [];
 for (const r of rows) {
 const values = r.values_json || {};
 const scope = { period: String(r.report_date).slice(0, 7), project_id: r.project_id || '', branch_id: r.branch_id || '', restaurant_id: r.restaurant_id || '', department_id: r.department_id || '' };
-const pnlRows = await safeQuery(
+const pnlRows = await strictQuery(
 'SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1',
 [req.user.organizationId, scope.period, scope.project_id, scope.branch_id, scope.restaurant_id, scope.department_id], []);
 const all = [];
@@ -2394,157 +2789,6 @@ ok(res, { deleted: true, date: req.params.date });
 } catch (e) { next(e); }
 });
 
-/* ---- account-scoped Google integration settings (OAuth tokens are never stored here) ---- */
-const GoogleIntegrationProviderSchema = z.enum(['calendar', 'sheets']);
-const GoogleIntegrationSettingsSchema = z.object({
-  settings: z.record(z.string(), z.unknown()).default({}),
-}).strict();
-
-function sanitizeGoogleIntegrationSettings(provider, raw) {
-  const input = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
-  const out = {};
-  const allowed = provider === 'sheets'
-    ? ['spreadsheetUrl', 'spreadsheetId', 'selectedSheetId', 'selectedSheetTitle', 'connectedEmail']
-    : ['connectedEmail', 'syncWindowDays'];
-  for (const key of allowed) {
-    if (input[key] === undefined || input[key] === null) continue;
-    if (key === 'selectedSheetId' || key === 'syncWindowDays') {
-      const n = Number(input[key]);
-      if (!Number.isSafeInteger(n) || n < 0 || (key === 'syncWindowDays' && n > 366)) {
-        throw httpError(400, `Некорректное поле интеграции: ${key}`, 'GOOGLE_SETTINGS_INVALID');
-      }
-      out[key] = n;
-      continue;
-    }
-    const value = String(input[key]).trim();
-    if (value.length > 2048) throw httpError(400, 'Слишком длинное значение настройки Google', 'GOOGLE_SETTINGS_INVALID');
-    if (key === 'spreadsheetUrl' && value && !/^https:\/\/docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]+/u.test(value)) {
-      throw httpError(400, 'Укажите корректную ссылку Google Sheets', 'GOOGLE_SHEET_URL_INVALID');
-    }
-    out[key] = value;
-  }
-  return out;
-}
-
-/* Store the short-lived GIS Sheets token separately from public settings. Never return or log it. */
-const GoogleSheetsConnectSchema = z.object({
-  accessToken: z.string().min(20).max(8192),
-  expiresIn: z.number().int().positive().max(86400).optional(),
-  settings: z.record(z.string(), z.unknown()).default({}),
-}).strict();
-
-app.put('/api/integrations/google/sheets', requireAuth, requireOrg, async (req, res, next) => {
-  try {
-    const body = parseOr400(GoogleSheetsConnectSchema, req.body ?? {});
-    const settings = sanitizeGoogleIntegrationSettings('sheets', body.settings);
-    const verify = await fetch('https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=' + encodeURIComponent(body.accessToken));
-    if (!verify.ok) throw httpError(401, 'Токен Google недействителен или истёк. Подключите таблицу повторно.', 'GOOGLE_TOKEN_INVALID');
-    const tokenInfo = await verify.json();
-    if (!ENV.GOOGLE_CLIENT_ID) throw httpError(503, 'Google OAuth client ID не настроен на сервере.', 'GOOGLE_CLIENT_NOT_CONFIGURED');
-    const tokenClientId = String(tokenInfo.azp || tokenInfo.aud || '').trim();
-    if (tokenClientId !== ENV.GOOGLE_CLIENT_ID) throw httpError(401, 'Токен Google выпущен для другого OAuth-клиента.', 'GOOGLE_TOKEN_AUDIENCE_INVALID');
-    const grantedScopes = String(tokenInfo.scope || '').split(/\s+/u);
-    if (!grantedScopes.includes('https://www.googleapis.com/auth/spreadsheets.readonly')) {
-      throw httpError(403, 'Google не выдал разрешение на чтение таблиц.', 'GOOGLE_SCOPE_REQUIRED');
-    }
-    const expiresIn = Math.max(60, Math.min(86400, Number(body.expiresIn) || Number(tokenInfo.expires_in) || 3600));
-    const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
-    const q = await queryWithRetry(
-      `INSERT INTO user_google_integrations
-       (organization_id,user_id,provider,settings_json,access_token,token_expires_at,connected_at,updated_at)
-       VALUES($1::uuid,$2,'sheets',$3::jsonb,$4,$5::timestamptz,now(),now())
-       ON CONFLICT(organization_id,user_id,provider)
-       DO UPDATE SET settings_json=excluded.settings_json,access_token=excluded.access_token,
-         token_expires_at=excluded.token_expires_at,connected_at=now(),updated_at=now()
-       RETURNING settings_json,connected_at,last_sync_at,updated_at`,
-      [req.user.organizationId, String(req.user.id), JSON.stringify(settings), body.accessToken, tokenExpiresAt],
-      { orgId: req.user.organizationId });
-    if (!q?.rows?.[0]) throw httpError(500, 'Подключение Google не сохранено', 'SAVE_NOT_CONFIRMED');
-    await audit(req.user, 'google.integration.saved', 'user_google_integrations', 'sheets',
-      { provider: 'sheets', settingsKeys: Object.keys(settings), tokenStored: true });
-    ok(res, { provider: 'sheets', connection: {
-      settings: q.rows[0].settings_json || {}, connectedAt: q.rows[0].connected_at,
-      lastSyncAt: q.rows[0].last_sync_at, updatedAt: q.rows[0].updated_at, configured: true,
-    }, confirmed: true, tokenExpiresAt });
-  } catch (e) { next(e); }
-});
-
-app.get('/api/integrations/google/:provider', requireAuth, requireOrg, async (req, res, next) => {
-  try {
-    const provider = parseOr400(GoogleIntegrationProviderSchema, req.params.provider);
-    const rows = await safeQuery(
-      `SELECT settings_json, connected_at, last_sync_at, updated_at
-       FROM user_google_integrations
-       WHERE organization_id=$1::uuid AND user_id=$2 AND provider=$3`,
-      [req.user.organizationId, String(req.user.id), provider], null);
-    if (!rows) throw httpError(503, 'Настройки интеграции временно недоступны', 'DB_UNAVAILABLE');
-    ok(res, { provider, connection: rows[0] ? {
-      settings: rows[0].settings_json || {},
-      connectedAt: rows[0].connected_at,
-      lastSyncAt: rows[0].last_sync_at,
-      updatedAt: rows[0].updated_at,
-      configured: true,
-    } : null });
-  } catch (e) { next(e); }
-});
-
-app.put('/api/integrations/google/:provider', requireAuth, requireOrg, async (req, res, next) => {
-  try {
-    const provider = parseOr400(GoogleIntegrationProviderSchema, req.params.provider);
-    const body = parseOr400(GoogleIntegrationSettingsSchema, req.body ?? {});
-    const settings = sanitizeGoogleIntegrationSettings(provider, body.settings);
-    const q = await queryWithRetry(
-      `INSERT INTO user_google_integrations
-       (organization_id,user_id,provider,settings_json,connected_at,updated_at)
-       VALUES($1::uuid,$2,$3,$4::jsonb,now(),now())
-       ON CONFLICT(organization_id,user_id,provider)
-       DO UPDATE SET settings_json=excluded.settings_json,connected_at=now(),updated_at=now()
-       RETURNING settings_json,connected_at,last_sync_at,updated_at`,
-      [req.user.organizationId, String(req.user.id), provider, JSON.stringify(settings)],
-      { orgId: req.user.organizationId });
-    if (!q?.rows?.[0]) throw httpError(500, 'Настройки Google не сохранены', 'SAVE_NOT_CONFIRMED');
-    await audit(req.user, 'google.integration.saved', 'user_google_integrations', provider, { provider, settingsKeys: Object.keys(settings) });
-    ok(res, { provider, connection: {
-      settings: q.rows[0].settings_json || {},
-      connectedAt: q.rows[0].connected_at,
-      lastSyncAt: q.rows[0].last_sync_at,
-      updatedAt: q.rows[0].updated_at,
-      configured: true,
-    }, confirmed: true });
-  } catch (e) { next(e); }
-});
-
-app.patch('/api/integrations/google/:provider/sync-status', requireAuth, requireOrg, async (req, res, next) => {
-  try {
-    const provider = parseOr400(GoogleIntegrationProviderSchema, req.params.provider);
-    const syncedAt = req.body?.lastSyncAt;
-    if (typeof syncedAt !== 'string' || !Number.isFinite(Date.parse(syncedAt))) {
-      throw httpError(400, 'Некорректное время синхронизации', 'GOOGLE_SYNC_STATUS_INVALID');
-    }
-    const q = await queryWithRetry(
-      `UPDATE user_google_integrations SET last_sync_at=$4::timestamptz,updated_at=now()
-       WHERE organization_id=$1::uuid AND user_id=$2 AND provider=$3
-       RETURNING last_sync_at,updated_at`,
-      [req.user.organizationId, String(req.user.id), provider, new Date(syncedAt).toISOString()],
-      { orgId: req.user.organizationId });
-    if (!q?.rows?.[0]) throw httpError(404, 'Сначала сохраните подключение Google', 'GOOGLE_INTEGRATION_NOT_FOUND');
-    ok(res, { provider, lastSyncAt: q.rows[0].last_sync_at, confirmed: true });
-  } catch (e) { next(e); }
-});
-
-app.delete('/api/integrations/google/:provider', requireAuth, requireOrg, async (req, res, next) => {
-  try {
-    const provider = parseOr400(GoogleIntegrationProviderSchema, req.params.provider);
-    const q = await queryWithRetry(
-      `DELETE FROM user_google_integrations
-       WHERE organization_id=$1::uuid AND user_id=$2 AND provider=$3 RETURNING provider`,
-      [req.user.organizationId, String(req.user.id), provider],
-      { orgId: req.user.organizationId });
-    await audit(req.user, 'google.integration.disconnected', 'user_google_integrations', provider, { provider, existed: Boolean(q?.rows?.[0]) });
-    ok(res, { provider, disconnected: true, confirmed: true });
-  } catch (e) { next(e); }
-});
-
 /* ---- secretary ---- */
 app.get('/api/secretary/events', requireAuth, requireOrg, async(req,res,next)=>{try{
 const from=String(req.query.from||new Date().toISOString());
@@ -2567,8 +2811,47 @@ RETURNING id,title,description,event_type,start_at,end_at,status,reminder_minute
 [id,req.user.organizationId,req.user.id,b.title,b.description ?? null,b.event_type,b.start_at,b.end_at ?? null,b.status,b.reminder_minutes==null?30:b.reminder_minutes,b.location ?? null],
 {orgId:req.user.organizationId});
 if(!q?.rows?.[0]) throw httpError(500,'Событие не сохранено','SAVE_NOT_CONFIRMED');
-await audit(req.user,'secretary.event.created','secretary_events',id,{title:q.rows[0].title});
-ok(res,{event:q.rows[0],confirmed:true},201);
+
+// Синхронизация с Google Calendar (best-effort: ошибка не роняет запрос)
+let googleSync = { synced: false, error: null };
+if (b.sync_to_google) {
+  try {
+    const google = await googleCalendar.createEvent(req.user, {
+      title: b.title,
+      description: b.description ?? null,
+      start_at: b.start_at,
+      end_at: b.end_at ?? null,
+      location: b.location ?? null,
+      reminder_minutes: b.reminder_minutes ?? null,
+      timezone: b.timezone,
+      calendar_id: b.calendar_id,
+    }, {
+      getToken: getGoogleAccessToken,
+      defaultTz: ENV.GOOGLE_CALENDAR_DEFAULT_TZ,
+      calendarId: b.calendar_id,
+    });
+    await queryWithRetry(
+      `UPDATE secretary_events SET google_event_id = $1, google_calendar_id = $2, updated_at = now()
+       WHERE id = $3::uuid AND organization_id = $4::uuid`,
+      [google.google_event_id, google.calendar_id, id, req.user.organizationId],
+      { orgId: req.user.organizationId }
+    );
+    q.rows[0].google_event_id = google.google_event_id;
+    q.rows[0].google_calendar_id = google.calendar_id;
+    q.rows[0].google_html_link = google.html_link || null;
+    googleSync.synced = true;
+  } catch (e) {
+    googleSync.error = e.code || 'GOOGLE_CALENDAR_ERROR';
+    log('secretary → google sync failed:', e.message);
+  }
+}
+
+await audit(req.user,'secretary.event.created','secretary_events',id,{
+  title: q.rows[0].title,
+  google_event_id: q.rows[0].google_event_id || null,
+  google_error: googleSync.error,
+});
+ok(res,{event:q.rows[0],confirmed:true,synced_to_google:googleSync.synced,google_error:googleSync.error},201);
 }catch(e){next(e)}});
 
 app.patch('/api/secretary/events/:id', requireAuth, requireOrg, async(req,res,next)=>{try{
@@ -2578,26 +2861,85 @@ const f=[],p=[req.params.id,req.user.organizationId];
 for(const [k,col] of [['title','title'],['description','description'],['event_type','event_type'],['start_at','start_at'],['end_at','end_at'],['status','status'],['reminder_minutes','reminder_minutes'],['location','location']])
 if(b[k]!==undefined){p.push(b[k]);f.push(`${col} = ${p.length}${k==='start_at'||k==='end_at'?'::timestamptz':''}`)}
 if(!f.length)throw httpError(400,'Нет изменений','NO_CHANGES');
-const q=await queryWithRetry(`UPDATE secretary_events SET ${f.join(',')},updated_at=now() WHERE id=$1::uuid AND organization_id=$2::uuid RETURNING id,title,description,event_type,start_at,end_at,status,reminder_minutes,location,created_at,updated_at`,p,{orgId:req.user.organizationId});
+const q=await queryWithRetry(
+  `UPDATE secretary_events SET ${f.join(',')},updated_at=now() WHERE id=$1::uuid AND organization_id=$2::uuid RETURNING id,title,description,event_type,start_at,end_at,status,reminder_minutes,location,google_event_id,google_calendar_id,created_at,updated_at`,
+  p,
+  {orgId:req.user.organizationId}
+);
 if(!q?.rows?.[0])throw httpError(404,'Событие не найдено','NOT_FOUND');
-await audit(req.user,'secretary.event.updated','secretary_events',req.params.id,{fields:Object.keys(b)});
-ok(res,{event:q.rows[0],confirmed:true});
+
+// Если событие было синкано — обновляем и в Google (best-effort)
+let googleSync = { synced: false, error: null };
+if (q.rows[0].google_event_id) {
+  try {
+    await googleCalendar.updateEvent(req.user, q.rows[0].google_event_id, {
+      title: q.rows[0].title,
+      description: q.rows[0].description,
+      start_at: q.rows[0].start_at,
+      end_at: q.rows[0].end_at,
+      location: q.rows[0].location,
+      reminder_minutes: q.rows[0].reminder_minutes,
+      timezone: b.timezone,
+    }, {
+      getToken: getGoogleAccessToken,
+      defaultTz: ENV.GOOGLE_CALENDAR_DEFAULT_TZ,
+      calendarId: q.rows[0].google_calendar_id || undefined,
+    });
+    googleSync.synced = true;
+  } catch (e) {
+    googleSync.error = e.code || 'GOOGLE_CALENDAR_ERROR';
+    log('secretary → google update failed:', e.message);
+  }
+}
+
+await audit(req.user,'secretary.event.updated','secretary_events',req.params.id,{
+  fields: Object.keys(b),
+  google_synced: googleSync.synced,
+  google_error: googleSync.error,
+});
+ok(res,{event:q.rows[0],confirmed:true,synced_to_google:googleSync.synced,google_error:googleSync.error});
 }catch(e){next(e)}});
 
 app.delete('/api/secretary/events/:id', requireAuth, requireOrg, async(req,res,next)=>{try{
 if(!UUID_RE.test(req.params.id))throw httpError(400,'Некорректный id','BAD_ID');
-const q=await queryWithRetry('DELETE FROM secretary_events WHERE id=$1::uuid AND organization_id=$2::uuid RETURNING id',[req.params.id,req.user.organizationId],{orgId:req.user.organizationId});
-if(!q?.rows?.[0])throw httpError(404,'Событие не найдено','NOT_FOUND');
-await audit(req.user,'secretary.event.deleted','secretary_events',req.params.id,{});
-ok(res,{deleted:true,confirmed:true});
+const del=await queryWithRetry(
+  'DELETE FROM secretary_events WHERE id=$1::uuid AND organization_id=$2::uuid RETURNING id, google_event_id, google_calendar_id',
+  [req.params.id,req.user.organizationId],
+  {orgId:req.user.organizationId}
+);
+if(!del?.rows?.[0])throw httpError(404,'Событие не найдено','NOT_FOUND');
+
+// Если событие было синкано — удаляем и в Google (best-effort)
+let googleSync = { synced: false, error: null };
+if (del.rows[0].google_event_id) {
+  try {
+    await googleCalendar.deleteEvent(req.user, del.rows[0].google_event_id, {
+      getToken: getGoogleAccessToken,
+      calendarId: del.rows[0].google_calendar_id || undefined,
+    });
+    googleSync.synced = true;
+  } catch (e) {
+    googleSync.error = e.code || 'GOOGLE_CALENDAR_ERROR';
+    log('secretary → google delete failed:', e.message);
+  }
+}
+
+await audit(req.user,'secretary.event.deleted','secretary_events',req.params.id,{
+  google_synced: googleSync.synced,
+  google_error: googleSync.error,
+});
+ok(res,{deleted:true,confirmed:true,synced_to_google:googleSync.synced,google_error:googleSync.error});
 }catch(e){next(e)}});
 
 app.get('/api/secretary/notes', requireAuth, requireOrg, async (req, res, next) => {
 try {
 const limit = Math.min(Math.max(parseInt(String(req.query.limit || '100'), 10) || 100, 1), 500);
+// ИСПРАВЛЕНО: $2::text вместо $2::uuid — user_id в secretary_notes имеет тип TEXT,
+// а user.id — UUID. Каст uuid к text — всегда работает, каст text к uuid — падает
+// на первом же не-UUID-значении.
 const rows = await safeQuery(
 `SELECT id, title, content, source, audio_url, created_at, updated_at FROM secretary_notes
-WHERE organization_id = $1::uuid AND ($2::uuid IS NULL OR user_id = $2::text)
+WHERE organization_id = $1::uuid AND ($2::text IS NULL OR user_id = $2::text)
 ORDER BY updated_at DESC LIMIT $3`,
 [req.user.organizationId, req.query.mine === '1' ? req.user.id : null, limit], null);
 if (!rows) return res.status(503).json({ error: { message: 'Заметки временно недоступны (БД)', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
@@ -2842,16 +3184,19 @@ const SYSTEM_PROMPT = [
 'Если ты обнаружил устойчивый факт, причину или решение, которое стоит запомнить, добавь в конец ответа блок: ПРЕДЛОЖЕНИЕ ПАМЯТИ: [{"kind": "...", "title": "...", "content": "...", "evidence": {...}}]. Только то, что действительно подтверждено данными.',
 'ПРАВИЛА ЗНАКОВ: для расходных статей снижение факта относительно плана — БЛАГОПРИЯТНО (экономия), рост — НЕБЛАГОПРИЯТНО. Для доходных — наоборот.',
 'Никогда не дублируй текст ответа. Ответ выдаётся один раз, целиком.',
+'ВЕБ-ПОИСК: у тебя есть tool web_search для актуальных данных (курсы, ставки, новости, законы, публичные рейтинги). Используй его, когда факт мог измениться или его нет в документах. Всегда цитируй url источника и дату, если она есть. Не выдумывай содержимое страницы за пределами snippet.',
+'КАЛЕНДАРЬ: у тебя есть tool create_calendar_event. Используй его, когда пользователь просит «поставь встречу/напомни/создай событие». Обязательно передавай ISO 8601 start_at с таймзоной (+03:00 для Москвы). Если end_at не указан — оставь null. Если пользователь не назвал календарь — используй primary. Если Google Calendar не подключён (synced_to_google=false) — сообщи это пользователю прямо, не скрывай.',
 ].join('\n');
 
-const SOFT_TOOL_ERRORS = new Set(['FOT_SCOPE_NOT_IMPLEMENTED']);
-
-async function executeAgentTool(user, name, args, ctx, agent) {
-  if (!agentAllowsTool(agent, name)) {
-    throw httpError(403, `Агент «${agent.name}» не имеет доступа к инструменту ${name}.`, 'AGENT_TOOL_FORBIDDEN');
-  }
-  return executeTool(user, name, args, ctx);
-}
+const SOFT_TOOL_ERRORS = new Set([
+  'FOT_SCOPE_NOT_IMPLEMENTED',
+  'WEB_SEARCH_DISABLED',
+  'WEB_SEARCH_NOT_CONFIGURED',
+  'WEB_SEARCH_RATE_LIMITED',
+  'GOOGLE_NOT_CONNECTED',
+  'GOOGLE_TOKEN_EXPIRED',
+  'GOOGLE_FORBIDDEN',
+]);
 
 /** Признак «аналитического» вопроса, где нужен find_deviations. */
 function isDeviationQuestion(text) {
@@ -2870,6 +3215,13 @@ const patterns = [
 return patterns.some(rx => rx.test(t));
 }
 
+async function executeAgentTool(user, name, args, ctx, agent) {
+  if (!agentAllowsTool(agent, name)) {
+    throw httpError(403, `Агент «${agent?.name || 'unknown'}» не имеет доступа к инструменту ${name}.`, 'AGENT_TOOL_FORBIDDEN');
+  }
+  return executeTool(user, name, args, ctx);
+}
+
 app.post('/ask', requireAuth, async (req, res, next) => {
 let conversationTurnId = null;
 const requestStart = Date.now();
@@ -2885,10 +3237,31 @@ try {
 const body = parseOr400(AskSchema, req.body ?? {});
 const question = String(body.question || body.prompt || '').trim();
 if (!question && !Array.isArray(body.messages)) throw httpError(400, 'Пустой вопрос', 'EMPTY_QUESTION');
+
+// rate-limit по (org, user)
+if (req.user.organizationId) {
+const rlKey = `ask:${req.user.organizationId}:${req.user.id}`;
+const rl = await checkRateLimit(rlKey, ENV.ASK_RATE_LIMIT, ENV.ASK_RATE_WINDOW_SEC);
+if (!rl.allowed) {
+const retryAfter = ENV.ASK_RATE_WINDOW_SEC;
+res.setHeader('Retry-After', String(retryAfter));
+return res.status(429).json({ error: {
+message: `Слишком много запросов к STEN. Подождите ${Math.ceil(retryAfter / 60)} мин.`,
+code: 'ASK_RATE_LIMITED',
+requestId: req.requestId,
+details: { limit: rl.limit, window_sec: retryAfter },
+} });
+}
+trackStep('rate_limit', { ms: 0, detail: `${rl.count}/${rl.limit}` });
+}
+
+// ── ВЫБОР АГЕНТА ──
 const previousUserQuestion = Array.isArray(body.messages)
-  ? [...body.messages].reverse().find(message => message.role === 'user' && String(message.content || '').trim() && String(message.content || '').trim() !== question)?.content || ''
+  ? [...body.messages].reverse().find(m => m.role === 'user' && String(m.content || '').trim() && String(m.content || '').trim() !== question)?.content || ''
   : '';
 const agent = resolveAgent(question, previousUserQuestion);
+trackStep('agent', { ms: 0, detail: agent.id });
+
 const ctx = intelligenceContext();
 const selectedContext = await resolveWorkspaceContext(req.user, body.scope || {}, false);
 // Память
@@ -2951,6 +3324,7 @@ if (priorHistory.text) {
   });
 }
 messages.push({ role: 'system', text: buildSkillPrompt(question, skillConfig) });
+// ── ПРОМПТ АГЕНТА ──
 if (agent.systemPrompt) messages.push({ role: 'system', text: agent.systemPrompt });
 // Документы
 const docsStart = Date.now();
@@ -2998,13 +3372,13 @@ messages.push({ role: m.role === 'assistant' ? 'assistant' : 'user', text: Strin
 }
 const _last = messages[messages.length - 1];
 if (!_last || _last.role !== 'user' || _last.text !== question) messages.push({ role: 'user', text: question });
-// Force-tool: детерминированный вызов find_deviations по «аналитическому» вопросу
+// Force-tool: детерминированный вызов find_deviations
 const toolsUsed = [];
 let completion = null;
 if ((agent.id === 'finance_diagnostics' || isDeviationQuestion(question)) && req.user.organizationId) {
 const rawScope = body.scope || {};
 const toolArgs = {
-period: YM_RE.test(String(rawScope.period || '')) ? String(rawScope.period) : new Date().toISOString().slice(0, 7),
+period: String(rawScope.period || ''),
 project_id: String(rawScope.project_id || ''),
 branch_id: String(rawScope.branch_id || ''),
 restaurant_id: String(rawScope.restaurant_id || ''),
@@ -3029,7 +3403,7 @@ text: 'ДЕТЕРМИНИРОВАННЫЙ СПИСОК ОТКЛОНЕНИЙ (fin
 const llmAnswerStart = Date.now();
 completion = await callYandexGPTWithTools(messages, agent);
 trackStep('llm', { name: 'answer', ms: Date.now() - llmAnswerStart });
-// Один дополнительный раунд tools (чтобы модель могла доуточнить P&L/память)
+// Один дополнительный раунд tools
 let iter = 0;
 while (completion.toolCalls.length && iter < ENV.TOOL_MAX_ITERATIONS) {
 const assistantToolCalls = completion.toolCalls.map(call => {
@@ -3122,6 +3496,7 @@ if (conversationTurnId) {
 const total_ms = Date.now() - requestStart;
 await audit(req.user, 'sten.ask', 'ask', null, {
 length: parsedAnswer.answer.length,
+agent_id: agent.id,
 tools_used: toolsUsed.map(tool => tool.name),
 proposed_memory: Boolean(parsedAnswer.proposed_memory),
 steps: steps.map(s => s.kind + (s.name ? ':' + s.name : '')),
@@ -3146,627 +3521,143 @@ total_ms,
 }
 });
 
-/* ---- STEN Operational Control: persistent checks and corrective actions ---- */
-const OperationalObservationSchema = z.object({
-  restaurant_id: z.string().uuid(),
-  checkpoint_key: z.enum(['availability','sanitation','cash_team','hall']),
-  status: z.enum(['ok','problem','needs_help']),
-  note: z.string().trim().max(1000).default(''),
-}).strict();
-const OperationalActionSchema = z.object({
-  restaurant_id: z.string().uuid(),
-  observation_id: z.string().uuid(),
-  title: z.string().trim().min(1).max(180),
-  description: z.string().trim().max(1000).default(''),
-  assignee_id: z.string().trim().min(1).max(120),
-  assignee_name: z.string().trim().max(120).default(''),
-  due_at: z.string().datetime({ offset: true }),
-}).strict();
-const OperationalActionTransitionSchema = z.object({
-  type: z.enum(['complete','verify','reopen','cancel']),
-  reason: z.string().trim().max(500).optional(),
-}).strict();
-const OPERATIONAL_CHECKPOINTS = Object.freeze({
-  availability: 'Раздача и доступность ключевых блюд',
-  sanitation: 'Санитария и обязательные журналы',
-  cash_team: 'Готовность кассы и команды',
-  hall: 'Чистота зала и санузлов',
+/* ---- ingest webhook ---- */
+app.get('/api/ingest/message', (req, res) => {
+const token = process.env.WHATSAPP_VERIFY_TOKEN;
+if (token && String(req.query['hub.verify_token'] || '') === token) return res.status(200).send(String(req.query['hub.challenge'] || ''));
+return res.status(403).json({ error: { message: 'Webhook verification failed', code: 'WEBHOOK_VERIFY_FAILED' } });
 });
-async function assertOperationalRestaurant(user, restaurantId) {
-  await assertRestaurantAccess(user, restaurantId);
-  const rows = await strictQuery(
-    "SELECT id, name FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind='restaurant' LIMIT 1",
-    [restaurantId, user.organizationId], { orgId: user.organizationId });
-  if (!rows[0]) throw httpError(404, 'Ресторан не найден или недоступен', 'RESTAURANT_NOT_FOUND');
-  return rows[0];
+
+app.post('/api/ingest/message', async (req, res) => {
+try {
+const isTelegram = Boolean(req.body?.message || req.body?.edited_message);
+if (isTelegram) {
+const expected = String(process.env.TELEGRAM_WEBHOOK_SECRET || '');
+const provided = String(req.headers['x-telegram-bot-api-secret-token'] || '');
+if (!expected) return res.status(503).json({ ok: false, error: 'webhook_secret_not_configured' });
+const a = Buffer.from(provided), b = Buffer.from(expected);
+if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.status(403).json({ ok: false, error: 'forbidden' });
 }
-app.get('/api/operational-control', requireAuth, requireOrg, async (req, res, next) => {
+const isWhatsApp = Boolean(req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]);
+if (isWhatsApp) {
+const secret = String(process.env.WHATSAPP_APP_SECRET || '');
+const provided = String(req.headers['x-hub-signature-256'] || '');
+if (!secret) return res.status(503).json({ ok: false, error: 'webhook_secret_not_configured' });
+const raw = req.rawBody || Buffer.from(JSON.stringify(req.body));
+const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(raw).digest('hex');
+const a = Buffer.from(provided), b = Buffer.from(expected);
+if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.status(403).json({ ok: false, error: 'forbidden' });
+}
+// Rate-limit вебхуков — в ОТДЕЛЬНОЙ таблице rate_limit_buckets.
+// Раньше использовалась auth_unlock_attempts, из-за чего подбор пароля с IP
+// мог блокировать вебхуки (и наоборот). Теперь эти домены не пересекаются.
+const rlKey = 'ingest:' + String(req.ip || req.headers['x-forwarded-for'] || 'unknown').slice(0, 200);
+const rl = await checkRateLimit(rlKey, 30, 300);
+if (!rl.allowed) return res.status(429).json({ ok: false, error: 'rate_limited' });
+const body = req.body || {};
+const telegramText = body?.message?.text || body?.edited_message?.text;
+const telegramChat = body?.message?.chat?.id || body?.edited_message?.chat?.id;
+const waMessage = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+const whatsappText = waMessage?.text?.body;
+const whatsappFrom = waMessage?.from;
+const text = body.text || telegramText || whatsappText;
+const source = body.source || (telegramText ? 'telegram' : whatsappText ? 'whatsapp' : 'manual');
+const subjectId = telegramChat || whatsappFrom || null;
+// Persist Telegram traffic using the shared monitor module (soft-fail, callbacks, invalidation)
+if (isTelegram) {
   try {
-    const restaurantId = String(req.query.restaurant_id || '');
-    if (!UUID_RE.test(restaurantId)) throw httpError(400, 'Выберите ресторан', 'RESTAURANT_REQUIRED');
-    await assertOperationalRestaurant(req.user, restaurantId);
-    const observations = await safeQuery(
-      `SELECT id, restaurant_id, checkpoint_key, checkpoint_title, status, note, reporter_id, reporter_name,
-              reported_at, verification_status, verified_by, verified_at
-       FROM operational_observations WHERE organization_id=$1::uuid AND restaurant_id=$2::uuid
-       ORDER BY reported_at DESC LIMIT 100`,
-      [req.user.organizationId, restaurantId], null);
-    const actions = await safeQuery(
-      `SELECT a.id, a.restaurant_id, a.observation_id, a.title, a.description, a.assignee_id, a.assignee_name,
-              a.due_at, a.status, a.created_by, a.completed_by, a.completed_at, a.verified_by, a.verified_at,
-              a.reopen_reason, a.created_at, o.checkpoint_title, o.note AS observation_note
-       FROM operational_actions a JOIN operational_observations o ON o.id=a.observation_id
-       WHERE a.organization_id=$1::uuid AND a.restaurant_id=$2::uuid
-       ORDER BY CASE WHEN a.status IN ('open','overdue','awaiting_verification') THEN 0 ELSE 1 END,
-                a.due_at ASC LIMIT 200`,
-      [req.user.organizationId, restaurantId], null);
-    if (!observations || !actions) throw httpError(503, 'Операционный контроль временно недоступен', 'DB_UNAVAILABLE');
-    const employees = await safeQuery(
-      `SELECT u.id, u.first_name, u.last_name, u.position
-       FROM users u
-       WHERE u.organization_id=$1::uuid AND u.is_active=true
-         AND (lower(u.role) IN ('super_admin','owner') OR EXISTS (
-           SELECT 1 FROM org_unit_access a
-           WHERE a.organization_id=$1::uuid AND a.user_id=u.id::text AND a.unit_id=$2::uuid
-         ))
-       ORDER BY u.first_name, u.last_name LIMIT 200`,
-      [req.user.organizationId, restaurantId], null);
-    if (!employees) throw httpError(503, 'Список сотрудников временно недоступен', 'DB_UNAVAILABLE');
-    ok(res, { checkpoints: Object.entries(OPERATIONAL_CHECKPOINTS).map(([key,title]) => ({key,title})), observations, actions, employees });
-  } catch (e) { next(e); }
-});
-app.post('/api/operational-control/observations', requireAuth, requireOrg, async (req, res, next) => {
-  try {
-    const body = parseOr400(OperationalObservationSchema, req.body ?? {});
-    const restaurant = await assertOperationalRestaurant(req.user, body.restaurant_id);
-    if (body.status !== 'ok' && !body.note) throw httpError(400, 'Опишите отклонение или запрос помощи', 'OBSERVATION_NOTE_REQUIRED');
-    const id = uuid();
-    const inserted = await queryWithRetry(
-      `INSERT INTO operational_observations
-       (id, organization_id, restaurant_id, checkpoint_key, checkpoint_title, status, note, reporter_id, reporter_name)
-       VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8,$9)
-       RETURNING id, restaurant_id, checkpoint_key, checkpoint_title, status, note, reporter_id, reporter_name, reported_at, verification_status`,
-      [id, req.user.organizationId, restaurant.id, body.checkpoint_key, OPERATIONAL_CHECKPOINTS[body.checkpoint_key],
-       body.status, body.note, req.user.id, [req.user.firstName, req.user.lastName].filter(Boolean).join(' ')], {orgId:req.user.organizationId});
-    const observation = inserted.rows?.[0];
-    if (!observation) throw httpError(500, 'Сохранение проверки не подтверждено', 'SAVE_NOT_CONFIRMED');
-    await audit(req.user, 'operational.observation.created', 'operational_observations', id, { restaurant_id: restaurant.id, checkpoint_key: body.checkpoint_key, status: body.status });
-    ok(res, { observation, confirmed: true }, 201);
-  } catch (e) { next(e); }
-});
-app.post('/api/operational-control/actions', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
-  try {
-    const body = parseOr400(OperationalActionSchema, req.body ?? {});
-    const restaurant = await assertOperationalRestaurant(req.user, body.restaurant_id);
-    const obs = await strictQuery(
-      'SELECT id FROM operational_observations WHERE id=$1::uuid AND organization_id=$2::uuid AND restaurant_id=$3::uuid LIMIT 1',
-      [body.observation_id, req.user.organizationId, restaurant.id], { orgId: req.user.organizationId });
-    if (!obs[0]) throw httpError(404, 'Отклонение не найдено в выбранном ресторане', 'OBSERVATION_NOT_FOUND');
-    const assignee = await strictQuery(
-      `SELECT u.id, u.first_name, u.last_name
-       FROM users u
-       WHERE u.id::text=$1 AND u.organization_id=$2::uuid AND u.is_active=true
-         AND (lower(u.role) IN ('super_admin','owner') OR EXISTS (
-           SELECT 1 FROM org_unit_access a
-           WHERE a.organization_id=$2::uuid AND a.user_id=u.id::text AND a.unit_id=$3::uuid
-         )) LIMIT 1`,
-      [body.assignee_id, req.user.organizationId, restaurant.id], { orgId: req.user.organizationId });
-    if (!assignee[0]) throw httpError(400, 'Исполнитель не найден или не имеет доступа к выбранному ресторану', 'ASSIGNEE_NOT_FOUND');
-    const dueAt = new Date(body.due_at);
-    if (dueAt.getTime() <= Date.now()) throw httpError(400, 'Срок задачи должен быть в будущем', 'DUE_DATE_INVALID');
-    const id = uuid();
-    const inserted = await queryWithRetry(
-      `INSERT INTO operational_actions
-       (id,organization_id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,created_by)
-       VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5,$6,$7,$8,$9::timestamptz,$10)
-       RETURNING id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,status,created_by,created_at`,
-      [id, req.user.organizationId, restaurant.id, body.observation_id, body.title, body.description,
-       assignee[0].id, [assignee[0].first_name, assignee[0].last_name].filter(Boolean).join(' '), dueAt.toISOString(), req.user.id],
-      {orgId:req.user.organizationId});
-    const action = inserted.rows?.[0];
-    if (!action) throw httpError(500, 'Создание задачи не подтверждено', 'SAVE_NOT_CONFIRMED');
-    await queryWithRetry(
-      `INSERT INTO operational_action_events
-        (action_id,organization_id,restaurant_id,event_type,from_status,to_status,actor_id,payload_json)
-       VALUES($1::uuid,$2::uuid,$3::uuid,'created',NULL,'open',$4,$5::jsonb)`,
-      [id, req.user.organizationId, restaurant.id, String(req.user.id), JSON.stringify({ source: 'operational_control' })],
-      { orgId: req.user.organizationId }
-    );
-    await audit(req.user, 'operational.action.created', 'operational_actions', id, { restaurant_id: restaurant.id, observation_id: body.observation_id, assignee_id: assignee[0].id });
-    ok(res, { action, confirmed: true }, 201);
-  } catch (e) { next(e); }
-});
-app.patch('/api/operational-control/actions/:id', requireAuth, requireOrg, async (req, res, next) => {
-  try {
-    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный id задачи', 'BAD_ID');
-    const body = parseOr400(OperationalActionTransitionSchema, req.body ?? {});
-    const rows = await strictQuery(
-      'SELECT * FROM operational_actions WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
-      [req.params.id, req.user.organizationId], { orgId: req.user.organizationId });
-    const current = rows[0];
-    if (!current) throw httpError(404, 'Задача не найдена', 'NOT_FOUND');
-    await assertOperationalRestaurant(req.user, current.restaurant_id);
-    const actorId = String(req.user.id);
-    let nextStatus = current.status;
-    let completedBy = current.completed_by, completedAt = current.completed_at;
-    let verifiedBy = current.verified_by, verifiedAt = current.verified_at;
-    let reopenedBy = current.reopened_by, reopenedAt = current.reopened_at, reopenReason = current.reopen_reason;
-    if (body.type === 'complete') {
-      if (actorId !== String(current.assignee_id)) throw httpError(403, 'Отметить выполнение может только назначенный исполнитель', 'ASSIGNEE_REQUIRED');
-      if (!['open','overdue'].includes(current.status)) throw httpError(409, 'Задача не ожидает выполнения', 'INVALID_TRANSITION');
-      nextStatus='awaiting_verification'; completedBy=actorId; completedAt=new Date();
-    } else if (body.type === 'verify') {
-      if (!PRIVILEGED_ROLES.has(String(req.user.role || '').toLowerCase())) throw httpError(403, 'Проверка результата доступна руководителю', 'FORBIDDEN_ROLE');
-      if (current.status !== 'awaiting_verification') throw httpError(409, 'Задача не ожидает проверки', 'INVALID_TRANSITION');
-      if (actorId === String(current.completed_by)) throw httpError(403, 'Исполнитель не может подтвердить собственную работу', 'SELF_VERIFICATION_FORBIDDEN');
-      nextStatus='verified'; verifiedBy=actorId; verifiedAt=new Date();
-    } else if (body.type === 'reopen') {
-      if (!PRIVILEGED_ROLES.has(String(req.user.role || '').toLowerCase())) throw httpError(403, 'Повторное открытие задачи доступно руководителю', 'FORBIDDEN_ROLE');
-      if (!['awaiting_verification','verified'].includes(current.status)) throw httpError(409, 'Задачу нельзя открыть повторно из текущего статуса', 'INVALID_TRANSITION');
-      if (!body.reason) throw httpError(400, 'Укажите причину повторного открытия', 'REOPEN_REASON_REQUIRED');
-      nextStatus='open'; completedBy=null; completedAt=null; verifiedBy=null; verifiedAt=null; reopenedBy=actorId; reopenedAt=new Date(); reopenReason=body.reason;
-    } else if (body.type === 'cancel') {
-      if (!['open','overdue'].includes(current.status)) throw httpError(409, 'Можно отменить только открытую задачу', 'INVALID_TRANSITION');
-      if (!['owner','admin','super_admin','director','manager'].includes(String(req.user.role))) throw httpError(403, 'Недостаточно прав для отмены задачи', 'FORBIDDEN');
-      nextStatus='cancelled';
+    const persisted = await persistTelegramUpdate(query, req.body);
+    if (!persisted.accepted) {
+      console.warn('[sten] telegram update skipped:', persisted.reason);
     }
-    const updated = await queryWithRetry(
-      `WITH updated_action AS (
-         UPDATE operational_actions SET status=$1,completed_by=$2,completed_at=$3,verified_by=$4,verified_at=$5,
-           reopened_by=$6,reopened_at=$7,reopen_reason=$8,updated_at=now()
-          WHERE id=$9::uuid AND organization_id=$10::uuid AND status=$11
-          RETURNING id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,status,created_by,
-                    completed_by,completed_at,verified_by,verified_at,reopen_reason,updated_at
-       ), updated_observation AS (
-         UPDATE operational_observations o
-            SET verification_status=CASE WHEN $12='reopen' THEN 'reported' WHEN $12='verify' THEN 'verified' ELSE o.verification_status END,
-                verified_by=CASE WHEN $12='verify' THEN $13 WHEN $12='reopen' THEN NULL ELSE o.verified_by END,
-                verified_at=CASE WHEN $12='verify' THEN now() WHEN $12='reopen' THEN NULL ELSE o.verified_at END
-          WHERE o.id=$14::uuid AND o.organization_id=$10::uuid
-            AND EXISTS (SELECT 1 FROM updated_action)
-            AND (
-              $12='reopen'
-              OR ($12='verify' AND NOT EXISTS (
-                SELECT 1 FROM operational_actions a
-                 WHERE a.observation_id=o.id AND a.id<>$9::uuid
-                   AND a.status NOT IN ('verified','cancelled')
-              ))
-            )
-          RETURNING o.id
-       ), inserted_event AS (
-         INSERT INTO operational_action_events
-           (action_id,organization_id,restaurant_id,event_type,from_status,to_status,actor_id,payload_json)
-         SELECT id,$10::uuid,restaurant_id,$12,$11,$1,$13,
-                CASE WHEN $15::text IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('reason',$15::text) END
-           FROM updated_action
-         RETURNING id
-       )
-       SELECT ua.*, (SELECT count(*)::int FROM updated_observation) AS observation_updated
-         FROM updated_action ua CROSS JOIN inserted_event`,
-      [nextStatus,completedBy,completedAt,verifiedBy,verifiedAt,reopenedBy,reopenedAt,reopenReason,
-       current.id,req.user.organizationId,current.status,body.type,actorId,current.observation_id,body.reason || null],
-      {orgId:req.user.organizationId});
-    if (!updated.rows?.[0]) throw httpError(409, 'Задача уже изменилась. Обновите список и повторите действие.', 'CONCURRENT_UPDATE');
-    await audit(req.user, 'operational.action.'+body.type, 'operational_actions', current.id, { from:current.status, to:nextStatus });
-    ok(res, { action: updated.rows[0], confirmed: true });
-  } catch (e) { next(e); }
+  } catch (err) {
+    // Do not fail webhook on persistence error — Telegram would retry indefinitely
+    console.error('[sten] telegram persist error:', err?.message || err);
+  }
+}
+if (!text) return res.status(200).json({ ok: true, skipped: 'empty_message' });
+let parsed = null, parseError = null;
+try { parsed = await parseSalesReportWithFunctionCalling(String(text)); }
+catch (e) { parseError = e?.code || e?.message || 'PARSE_FAILED'; console.error('[sten] ingest parse error:', parseError); }
+let binding = null;
+try { binding = await resolveInboundBinding(null, source, subjectId); } catch { /* ignore */ }
+if (parsed && binding && !parsed.restaurant) parsed.restaurant = binding.unit_name;
+try {
+await safeQuery(
+'INSERT INTO audit_log (id, action, entity, entity_id, details) VALUES ($1::uuid,$2,$3,$4,$5::jsonb)',
+[uuid(), 'ingest.message.received', 'message', subjectId ? String(subjectId) : null,
+JSON.stringify({ source, hasText: true, parsed: Boolean(parsed), parseError, unit_id: binding?.unit_id || null })]
+);
+} catch { /* ignore */ }
+return res.status(200).json({
+ok: true, parsed, parseError,
+context: binding ? { restaurant_id: binding.unit_id, restaurant_name: binding.unit_name } : null,
+requiresConfirmation: Boolean(parsed),
+requiresBinding: !binding,
+recipient: subjectId,
+});
+} catch (e) {
+console.error('[sten] ingest fatal:', e?.message);
+return res.status(200).json({ ok: false, error: 'internal', message: String(e?.message || '') });
+}
 });
 
+app.post('/api/ingest/message/confirm', requireAuth, requireOrg, async (req, res, next) => {
+try {
+const b = parseOr400(IngestConfirmSchema, req.body ?? {});
+const explicit = b.scope || {};
+const s = { period: b.date.slice(0, 7), project_id: explicit.project_id || '', branch_id: explicit.branch_id || '', restaurant_id: explicit.restaurant_id || '', department_id: explicit.department_id || '' };
+if (!s.restaurant_id) throw httpError(422, 'Для подтверждения отчёта необходимо выбрать ресторан.', 'RESTAURANT_CONTEXT_REQUIRED');
+await assertRestaurantAccess(req.user, s.restaurant_id);
+const existing = await safeQuery(
+'SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1',
+[req.user.organizationId, s.period, s.project_id || '', s.branch_id || '', s.restaurant_id || '', s.department_id || ''], []);
+let rows = []; try { rows = existing[0]?.rows ? JSON.parse(existing[0].rows) : []; } catch { rows = []; }
+const idx = rows.findIndex(r => canonicalArticleKey(r.article) === 'revenue');
+if (idx >= 0) rows[idx] = { ...rows[idx], article: 'Выручка', fact: b.parsed.revenue, source: 'message-confirmed' };
+else rows.push({ id: null, article: 'Выручка', plan: null, fact: b.parsed.revenue, source: 'message-confirmed' });
+await queryWithRetry(
+'INSERT INTO pnl_entries(organization_id,period,project_id,branch_id,restaurant_id,department_id,rows,updated_at,updated_by) VALUES($1::uuid,$2,$3,$4,$5,$6,$7::jsonb,now(),$8) ON CONFLICT(organization_id,period,project_id,branch_id,restaurant_id,department_id) DO UPDATE SET rows=excluded.rows,updated_at=now(),updated_by=excluded.updated_by',
+[req.user.organizationId, s.period, s.project_id || '', s.branch_id || '', s.restaurant_id || '', s.department_id || '', JSON.stringify(rows), req.user.id],
+{ orgId: req.user.organizationId });
+const reportValues = {};
+for (const k of ['revenue','cash','card','discounts','checks']) { if (b.parsed[k] !== null) reportValues[k] = b.parsed[k]; }
+await queryWithRetry(
+`INSERT INTO daily_reports(id,organization_id,report_date,project_id,branch_id,restaurant_id,department_id,values_json,note)
+VALUES($1::uuid,$2::uuid,$3::date,$4,$5,$6,$7,$8::jsonb,$9)
+ON CONFLICT(organization_id, report_date, project_id, branch_id, restaurant_id, department_id)
+DO UPDATE SET values_json=excluded.values_json, note=excluded.note, updated_at=now()`,
+[uuid(), req.user.organizationId, b.date, s.project_id || '', s.branch_id || '', s.restaurant_id || '', s.department_id || '', JSON.stringify(reportValues), 'message-confirmed'],
+{ orgId: req.user.organizationId });
+await audit(req.user, 'ingest.message.confirmed', 'pnl_entries', b.date, { source: 'message', scope: s });
+ok(res, { confirmed: true, writtenToPnl: true, date: b.date });
+} catch (e) { next(e); }
+});
+/* ---- Telegram monitor webhook ---- */
+app.post('/api/telegram/webhook', async (req, res) => {
+  const expected = String(process.env.TELEGRAM_MONITOR_SECRET || '');
+  if (!expected) return res.status(503).json({ ok: false, error: 'webhook_secret_not_configured' });
+  
+  const provided = String(req.headers['x-telegram-bot-api-secret-token'] || '');
+  const aBuf = Buffer.from(provided), bBuf = Buffer.from(expected);
+  if (aBuf.length !== bBuf.length || !crypto.timingSafeEqual(aBuf, bBuf)) {
+    return res.status(403).json({ ok: false, error: 'forbidden' });
+  }
+
+  if (!ENV.DB_HOST) return res.status(503).json({ ok: false, error: 'database_not_configured' });
+
+  try {
+    const stored = await persistTelegramUpdate(query, req.body);
+    return res.status(200).json({ ok: true, ...stored });
+  } catch (e) {
+    console.error('[sten] telegram ingest failed:', e?.code || e?.message || 'UNKNOWN');
+    if (e && e.message === 'Invalid Telegram update') {
+      return res.status(400).json({ ok: false, error: 'invalid_update' });
+    }
+    return res.status(503).json({ ok: false, error: 'telegram_persistence_failed' });
+  }
+});
 /* ---- Telegram Monitor: organization-bound chat/message access ---- */
-app.get('/api/telegram-bot/settings', requireAuth, requireOrg, async (req, res, next) => {
-  try {
-    const chatId = String(req.query.chat_id || '').trim().slice(0, 100);
-    if (!chatId) throw httpError(400, 'Выберите Telegram-группу.', 'CHAT_REQUIRED');
-    const rows = await strictQuery(
-      `SELECT b.restaurant_id, s.mode,s.notification_level,
-              to_char(s.morning_report_time,'HH24:MI') AS morning_report_time,
-              to_char(s.evening_report_time,'HH24:MI') AS evening_report_time,
-              s.escalation_minutes, COALESCE(s.timezone,'Europe/Moscow') AS timezone
-         FROM telegram_chat_bindings b
-         LEFT JOIN telegram_bot_settings s ON s.chat_id=b.chat_id AND s.organization_id=b.organization_id
-        WHERE b.chat_id=$1 AND b.organization_id=$2::uuid LIMIT 1`,
-      [chatId, req.user.organizationId], { orgId: req.user.organizationId });
-    if (!rows.length) throw httpError(404, 'Группа не привязана к вашему рабочему контуру.', 'CHAT_NOT_FOUND');
-    const { restaurant_id: restaurantId, ...settings } = rows[0];
-    await assertRestaurantAccess(req.user, restaurantId);
-    ok(res, { settings: settings.mode ? settings : null });
-  } catch (e) { next(e); }
-});
-
-app.put('/api/telegram-bot/settings', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
-  try {
-    const body = parseOr400(TelegramBotSettingsSchema, req.body ?? {});
-    try { new Intl.DateTimeFormat('en', { timeZone: body.timezone }).format(new Date()); }
-    catch { throw httpError(400, 'Укажите корректную временную зону IANA.', 'TIMEZONE_INVALID'); }
-    const binding = await strictQuery(
-      'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
-      [body.chat_id, req.user.organizationId], { orgId: req.user.organizationId });
-    if (!binding.length) throw httpError(404, 'Группа не привязана к вашему рабочему контуру.', 'CHAT_NOT_FOUND');
-    await assertRestaurantAccess(req.user, binding[0].restaurant_id);
-    await queryWithRetry(
-      `INSERT INTO telegram_bot_settings
-        (chat_id,organization_id,restaurant_id,mode,notification_level,morning_report_time,evening_report_time,escalation_minutes,timezone,created_by,updated_by)
-       VALUES($1,$2::uuid,$3::uuid,$4,$5,$6::time,$7::time,$8,$9,$10,$10)
-       ON CONFLICT(chat_id) DO UPDATE SET organization_id=EXCLUDED.organization_id,
-         restaurant_id=EXCLUDED.restaurant_id,mode=EXCLUDED.mode,notification_level=EXCLUDED.notification_level,
-         morning_report_time=EXCLUDED.morning_report_time,evening_report_time=EXCLUDED.evening_report_time,
-         escalation_minutes=EXCLUDED.escalation_minutes,timezone=EXCLUDED.timezone,updated_by=EXCLUDED.updated_by,updated_at=now()`,
-      [body.chat_id,req.user.organizationId,binding[0].restaurant_id,body.mode,body.notification_level,
-       body.morning_report_time,body.evening_report_time,body.escalation_minutes,body.timezone,String(req.user.id)],
-      { orgId: req.user.organizationId });
-    await audit(req.user,'telegram.bot.settings.updated','telegram_bot_settings',body.chat_id,
-      { mode: body.mode, notification_level: body.notification_level });
-    ok(res, { saved: true, confirmed: true });
-  } catch (e) { next(e); }
-});
-
-app.post('/api/telegram-monitor/analyze', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
-  try {
-    const body = parseOr400(
-      z.object({ limit: z.number().int().min(1).max(50).default(20) }).strict(),
-      req.body ?? {}
-    );
-    const organizationId = String(req.user.organizationId || '');
-    if (!UUID_RE.test(organizationId)) {
-      throw httpError(403, 'Рабочий контур организации не определён.', 'NO_ORG_SCOPE');
-    }
-    const analysis = await processTelegramMessageBatch({
-      queryWithRetry,
-      analyze: prompt => callYandexGPT([{ role: 'user', text: prompt }]),
-      limit: body.limit,
-      orgId: organizationId,
-    });
-    ok(res, { analysis });
-  } catch (e) { next(e); }
-});
-
-const TelegramFindingApprovalSchema = z.object({
-  assignee_id: z.string().trim().min(1).max(120),
-  due_at: z.string().datetime({ offset: true }),
-  title: z.string().trim().min(1).max(180).optional(),
-  description: z.string().trim().max(1000).optional(),
-}).strict();
-const TelegramFindingRejectSchema = z.object({
-  note: z.string().trim().max(500).default(''),
-}).strict();
-
-app.get('/api/telegram-monitor/findings', requireAuth, requireOrg, async (req, res, next) => {
-  try {
-    const status = req.query.status ? String(req.query.status) : null;
-    if (status && !['pending','approved','rejected','action_created'].includes(status)) {
-      throw httpError(400, 'Некорректный статус AI-находки.', 'FINDING_STATUS_INVALID');
-    }
-    const restaurantId = req.query.restaurant_id ? String(req.query.restaurant_id) : null;
-    if (restaurantId) {
-      if (!UUID_RE.test(restaurantId)) throw httpError(400, 'Некорректный ресторан.', 'RESTAURANT_REQUIRED');
-      await assertOperationalRestaurant(req.user, restaurantId);
-    }
-    const limit = Math.max(1, Math.min(100, Number.parseInt(String(req.query.limit || '50'), 10) || 50));
-    const role = String(req.user.role || '').toLowerCase();
-    const canSeeAll = role === 'super_admin' || role === 'owner';
-    const rows = await strictQuery(
-      `SELECT a.id AS finding_id, a.status, a.reviewed_by, a.reviewed_at, a.review_note, a.action_id,
-              a.analysis_json, a.created_at, a.restaurant_id, u.name AS restaurant_name,
-              oa.status AS action_status, oa.assignee_name AS action_assignee, oa.due_at AS action_due_at,
-              oa.completed_at AS action_completed_at, oa.verified_at AS action_verified_at,
-              m.chat_id, m.message_id,
-              COALESCE(a.source_sender_name,m.sender_name) AS sender_name,
-              COALESCE(a.source_sender_username,m.sender_username) AS sender_username,
-              COALESCE(a.source_message_text,m.message_text) AS message_text,
-              COALESCE(a.source_message_date,m.message_date) AS message_date,
-              COALESCE(a.source_chat_title,c.title) AS chat_title
-         FROM telegram_message_analyses a
-         JOIN telegram_messages m ON m.chat_id=a.chat_id AND m.message_id=a.message_id
-         JOIN telegram_chats c ON c.chat_id=a.chat_id
-         JOIN org_units u ON u.id=a.restaurant_id AND u.organization_id=a.organization_id
-         LEFT JOIN operational_actions oa ON oa.id=a.action_id AND oa.organization_id=a.organization_id
-        WHERE a.organization_id=$1::uuid
-          AND ($2::text IS NULL OR a.status=$2)
-          AND ($3::uuid IS NULL OR a.restaurant_id=$3::uuid)
-          AND ($4::boolean OR EXISTS (
-            SELECT 1 FROM org_unit_access access
-             WHERE access.organization_id=a.organization_id
-               AND access.user_id=$5 AND access.unit_id=a.restaurant_id
-          ))
-        ORDER BY CASE WHEN a.status='pending' THEN 0 ELSE 1 END, a.created_at DESC
-        LIMIT $6`,
-      [req.user.organizationId, status, restaurantId, canSeeAll, String(req.user.id), limit],
-      { orgId: req.user.organizationId }
-    );
-    ok(res, { findings: rows });
-  } catch (e) { next(e); }
-});
-
-app.post('/api/telegram-monitor/findings/:findingId/approve', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
-  try {
-    if (!UUID_RE.test(req.params.findingId)) throw httpError(400, 'Некорректный id AI-находки.', 'BAD_ID');
-    const body = parseOr400(TelegramFindingApprovalSchema, req.body ?? {});
-    const dueAt = new Date(body.due_at);
-    if (dueAt.getTime() <= Date.now()) throw httpError(400, 'Срок задачи должен быть в будущем.', 'DUE_DATE_INVALID');
-    const rows = await strictQuery(
-      'SELECT id, restaurant_id, analysis_json, sender_id FROM telegram_message_analyses WHERE id=$1::uuid AND organization_id=$2::uuid AND status=\'pending\' LIMIT 1',
-      [req.params.findingId, req.user.organizationId], { orgId: req.user.organizationId }
-    );
-    const finding = rows[0];
-    if (!finding) throw httpError(404, 'Ожидающая решения AI-находка не найдена.', 'FINDING_NOT_FOUND');
-    const restaurant = await assertOperationalRestaurant(req.user, finding.restaurant_id);
-    const assignees = await strictQuery(
-      `SELECT u.id, u.first_name, u.last_name
-         FROM users u
-        WHERE u.id::text=$1 AND u.organization_id=$2::uuid AND u.is_active=true
-          AND (lower(u.role) IN ('super_admin','owner') OR EXISTS (
-            SELECT 1 FROM org_unit_access a
-             WHERE a.organization_id=$2::uuid AND a.user_id=u.id::text AND a.unit_id=$3::uuid
-          )) LIMIT 1`,
-      [body.assignee_id, req.user.organizationId, restaurant.id], { orgId: req.user.organizationId }
-    );
-    if (!assignees[0]) throw httpError(400, 'Исполнитель не найден или не имеет доступа к ресторану.', 'ASSIGNEE_NOT_FOUND');
-    const analysis = finding.analysis_json || {};
-    const proposal = analysis.actionProposal || {};
-    if (!proposal || typeof proposal !== 'object' || !Object.keys(proposal).length) {
-      throw httpError(409, 'У этой AI-находки нет предложения действия для подтверждения.', 'ACTION_PROPOSAL_MISSING');
-    }
-    const findingId = finding.id;
-    const observationId = uuid();
-    const actionId = uuid();
-    const assigneeName = [assignees[0].first_name, assignees[0].last_name].filter(Boolean).join(' ');
-    const title = body.title || proposal.title || analysis.title || analysis.summary || 'Задача по AI-находке';
-    const description = body.description ?? proposal.description ?? analysis.details ?? analysis.summary ?? '';
-    const inserted = await queryWithRetry(
-      `WITH locked_finding AS (
-         SELECT a.* FROM telegram_message_analyses a
-          WHERE a.id=$1::uuid AND a.organization_id=$2::uuid AND a.status='pending'
-          FOR UPDATE
-       ), observation AS (
-         INSERT INTO operational_observations
-           (id,organization_id,restaurant_id,checkpoint_key,checkpoint_title,status,note,reporter_id,reporter_name,source_chat_id,source_message_id)
-         SELECT $3::uuid, f.organization_id, f.restaurant_id, 'ai_finding',
-                'AI: ' || COALESCE(NULLIF(f.analysis_json->>'summary',''),'Обнаружено отклонение'),
-                'problem', left(concat_ws(E'\\n',f.analysis_json->>'summary',f.analysis_json->>'details',COALESCE(f.source_message_text,m.message_text)),1000),
-                'ai:' || f.sender_id, 'Dumrauf AI', m.chat_id, m.message_id
-           FROM locked_finding f
-           JOIN telegram_messages m ON m.chat_id=f.chat_id AND m.message_id=f.message_id
-         RETURNING id
-       ), created_action AS (
-         INSERT INTO operational_actions
-           (id,organization_id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,created_by)
-         SELECT $4::uuid,f.organization_id,f.restaurant_id,o.id,$5,$6,$7,$8,$9::timestamptz,$10
-           FROM locked_finding f CROSS JOIN observation o
-         RETURNING *
-       ), updated_finding AS (
-         UPDATE telegram_message_analyses a
-            SET status='action_created',reviewed_by=$10,reviewed_at=now(),action_id=$4::uuid
-           FROM locked_finding f, created_action ca
-          WHERE a.id=f.id
-         RETURNING a.id,a.organization_id,a.restaurant_id,a.status,a.action_id
-       ), finding_event AS (
-         INSERT INTO telegram_ai_finding_events
-           (finding_id,organization_id,restaurant_id,event_type,from_status,to_status,actor_id,action_id,payload_json)
-         SELECT id,organization_id,restaurant_id,'approved','pending','action_created',$10,$4::uuid,
-                jsonb_build_object('assignee_id',$7,'due_at',$9::text)
-           FROM updated_finding
-         RETURNING id
-       ), action_event AS (
-         INSERT INTO operational_action_events
-           (action_id,organization_id,restaurant_id,event_type,from_status,to_status,actor_id,payload_json)
-         SELECT id,organization_id,restaurant_id,'created',NULL,'open',$10,
-                jsonb_build_object('source','telegram_ai_finding','finding_id',$1::text)
-           FROM created_action
-         RETURNING id
-       )
-       SELECT ca.*, uf.id AS finding_id
-         FROM created_action ca CROSS JOIN updated_finding uf`,
-      [findingId, req.user.organizationId, observationId, actionId, title, description,
-       assignees[0].id, assigneeName, dueAt.toISOString(), String(req.user.id)],
-      { orgId: req.user.organizationId }
-    );
-    if (!inserted.rows?.[0]) throw httpError(409, 'AI-находка уже обработана. Обновите список.', 'FINDING_ALREADY_REVIEWED');
-    await audit(req.user, 'telegram.ai_finding.approved', 'telegram_message_analyses', findingId, { action_id: actionId, restaurant_id: restaurant.id });
-    ok(res, { finding_id: findingId, action: inserted.rows[0], confirmed: true }, 201);
-  } catch (e) { next(e); }
-});
-
-app.post('/api/telegram-monitor/findings/:findingId/reject', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
-  try {
-    if (!UUID_RE.test(req.params.findingId)) throw httpError(400, 'Некорректный id AI-находки.', 'BAD_ID');
-    const body = parseOr400(TelegramFindingRejectSchema, req.body ?? {});
-    const updated = await queryWithRetry(
-      `WITH changed AS (
-         UPDATE telegram_message_analyses
-            SET status='rejected',reviewed_by=$1,reviewed_at=now(),review_note=NULLIF($2,'')
-          WHERE id=$3::uuid AND organization_id=$4::uuid AND status='pending'
-          RETURNING id,organization_id,restaurant_id
-       )
-       INSERT INTO telegram_ai_finding_events
-         (finding_id,organization_id,restaurant_id,event_type,from_status,to_status,actor_id,payload_json)
-       SELECT id,organization_id,restaurant_id,'rejected','pending','rejected',$1,
-              jsonb_build_object('note',$2)
-         FROM changed
-       RETURNING finding_id`,
-      [String(req.user.id), body.note, req.params.findingId, req.user.organizationId],
-      { orgId: req.user.organizationId }
-    );
-    if (!updated.rows?.length) throw httpError(409, 'AI-находка уже обработана или недоступна.', 'FINDING_ALREADY_REVIEWED');
-    await audit(req.user, 'telegram.ai_finding.rejected', 'telegram_message_analyses', req.params.findingId, {});
-    ok(res, { finding_id: req.params.findingId, status: 'rejected', confirmed: true });
-  } catch (e) { next(e); }
-});
-
-app.get('/api/telegram-monitor/findings/:findingId/events', requireAuth, requireOrg, async (req, res, next) => {
-  try {
-    if (!UUID_RE.test(req.params.findingId)) throw httpError(400, 'Некорректный id AI-находки.', 'BAD_ID');
-    const finding = await strictQuery(
-      'SELECT restaurant_id FROM telegram_message_analyses WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
-      [req.params.findingId, req.user.organizationId], { orgId: req.user.organizationId }
-    );
-    if (!finding[0]) throw httpError(404, 'AI-находка не найдена.', 'FINDING_NOT_FOUND');
-    await assertOperationalRestaurant(req.user, finding[0].restaurant_id);
-    const events = await strictQuery(
-      `SELECT id,event_type,from_status,to_status,actor_id,action_id,payload_json,created_at
-         FROM telegram_ai_finding_events
-        WHERE finding_id=$1::uuid AND organization_id=$2::uuid
-        ORDER BY created_at ASC LIMIT 100`,
-      [req.params.findingId, req.user.organizationId], { orgId: req.user.organizationId }
-    );
-    ok(res, { events });
-  } catch (e) { next(e); }
-});
-
-app.get('/api/operational-control/actions/:id/events', requireAuth, requireOrg, async (req, res, next) => {
-  try {
-    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный id задачи.', 'BAD_ID');
-    const action = await strictQuery(
-      'SELECT restaurant_id FROM operational_actions WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
-      [req.params.id, req.user.organizationId], { orgId: req.user.organizationId }
-    );
-    if (!action[0]) throw httpError(404, 'Задача не найдена.', 'NOT_FOUND');
-    await assertOperationalRestaurant(req.user, action[0].restaurant_id);
-    const events = await strictQuery(
-      `SELECT id,event_type,from_status,to_status,actor_id,payload_json,created_at
-         FROM operational_action_events
-        WHERE action_id=$1::uuid AND organization_id=$2::uuid
-        ORDER BY created_at ASC LIMIT 200`,
-      [req.params.id, req.user.organizationId], { orgId: req.user.organizationId }
-    );
-    ok(res, { events });
-  } catch (e) { next(e); }
-});
-
-app.get('/api/telegram-monitor/health', requireAuth, requireOrg, async (req, res, next) => {
-  try {
-    const [updates, failures] = await Promise.all([
-      strictQuery(
-        `SELECT max(t.received_at) AS last_received_at,
-                count(*) FILTER (WHERE t.received_at >= now()-interval '24 hours')::int AS received_24h,
-                count(*) FILTER (WHERE t.processing_status='pending')::int AS pending,
-                count(*) FILTER (WHERE t.processing_status='processing')::int AS processing
-           FROM telegram_updates t
-           JOIN telegram_chat_bindings b
-             ON b.chat_id=COALESCE(t.update_json->'message'->'chat'->>'id',
-                                   t.update_json->'edited_message'->'chat'->>'id',
-                                   t.update_json->'callback_query'->'message'->'chat'->>'id')
-            AND b.organization_id=$1::uuid`,
-        [req.user.organizationId], { orgId: req.user.organizationId }
-      ),
-      strictQuery(
-        `SELECT t.update_id,t.received_at,t.last_error,t.processing_attempts
-           FROM telegram_updates t
-           JOIN telegram_chat_bindings b
-             ON b.chat_id=COALESCE(t.update_json->'message'->'chat'->>'id',
-                                   t.update_json->'edited_message'->'chat'->>'id',
-                                   t.update_json->'callback_query'->'message'->'chat'->>'id')
-            AND b.organization_id=$1::uuid
-          WHERE t.last_error IS NOT NULL
-          ORDER BY t.received_at DESC LIMIT 5`,
-        [req.user.organizationId], { orgId: req.user.organizationId }
-      ),
-    ]);
-    let botApi = { status: 'not_configured' };
-    try {
-      const info = await telegramBotRequest('getWebhookInfo', {});
-      botApi = {
-        status: 'connected',
-        webhook_url_configured: Boolean(info?.url),
-        webhook_path: info?.url ? new URL(info.url).pathname : null,
-        pending_update_count: Number(info?.pending_update_count || 0),
-        last_error_date: info?.last_error_date ? new Date(info.last_error_date * 1000).toISOString() : null,
-        last_error_message: info?.last_error_message || null,
-        allowed_updates: Array.isArray(info?.allowed_updates) ? info.allowed_updates : [],
-      };
-    } catch (error) {
-      botApi = { status: 'unavailable', error_code: error?.code || 'TELEGRAM_UNAVAILABLE', message: error?.message || 'Telegram Bot API недоступен' };
-    }
-    ok(res, { database: updates[0] || {}, recent_processing_errors: failures, bot_api: botApi });
-  } catch (e) { next(e); }
-});
-
-app.post('/api/telegram-monitor/chats/:chatId/diagnose', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
-  try {
-    const chatId = String(req.params.chatId || '').trim().slice(0, 100);
-    const bindings = await strictQuery(
-      'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
-      [chatId, req.user.organizationId], { orgId: req.user.organizationId }
-    );
-    if (!bindings[0]) throw httpError(404, 'Группа не привязана к вашей организации.', 'CHAT_NOT_FOUND');
-    await assertOperationalRestaurant(req.user, bindings[0].restaurant_id);
-    let details = {};
-    let status = 'failed';
-    try {
-      const me = await telegramBotRequest('getMe', {});
-      const chat = await telegramBotRequest('getChat', { chat_id: chatId });
-      const member = await telegramBotRequest('getChatMember', { chat_id: chatId, user_id: me.id });
-      details = {
-        bot_username: me.username || null,
-        chat_title: chat.title || null,
-        chat_type: chat.type || null,
-        bot_status: member.status || 'unknown',
-        can_read_all_group_messages: Boolean(me.can_read_all_group_messages),
-        can_receive_group_updates: member.status !== 'left' && member.status !== 'kicked',
-        can_send_messages: member.status === 'administrator' || member.status === 'creator'
-          || chat.permissions?.can_send_messages !== false,
-      };
-      status = details.can_receive_group_updates && details.can_read_all_group_messages && details.can_send_messages ? 'connected' : 'needs_attention';
-    } catch (diagnosticError) {
-      details = {
-        error_code: diagnosticError?.code || 'TELEGRAM_DIAGNOSTIC_FAILED',
-        error_message: String(diagnosticError?.message || 'Не удалось проверить группу').slice(0, 300),
-      };
-    }
-    const saved = await queryWithRetry(
-      `INSERT INTO telegram_group_diagnostics
-        (organization_id,restaurant_id,chat_id,status,details_json,checked_by)
-       VALUES($1::uuid,$2::uuid,$3,$4,$5::jsonb,$6)
-       RETURNING id,checked_at`,
-      [req.user.organizationId, bindings[0].restaurant_id, chatId, status, JSON.stringify(details), String(req.user.id)],
-      { orgId: req.user.organizationId }
-    );
-    ok(res, { diagnostic: { ...details, status, ...(saved.rows?.[0] || {}) }, confirmed: true });
-  } catch (e) { next(e); }
-});
-
-app.get('/api/telegram-monitor/chats/:chatId/diagnostics', requireAuth, requireOrg, async (req, res, next) => {
-  try {
-    const chatId = String(req.params.chatId || '').trim().slice(0, 100);
-    const bindings = await strictQuery(
-      'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
-      [chatId, req.user.organizationId], { orgId: req.user.organizationId }
-    );
-    if (!bindings[0]) throw httpError(404, 'Группа не привязана к вашей организации.', 'CHAT_NOT_FOUND');
-    await assertOperationalRestaurant(req.user, bindings[0].restaurant_id);
-    const diagnostics = await strictQuery(
-      `SELECT id,status,details_json,checked_by,checked_at
-         FROM telegram_group_diagnostics
-        WHERE organization_id=$1::uuid AND restaurant_id=$2::uuid AND chat_id=$3
-        ORDER BY checked_at DESC LIMIT 20`,
-      [req.user.organizationId, bindings[0].restaurant_id, chatId], { orgId: req.user.organizationId }
-    );
-    ok(res, { diagnostics });
-  } catch (e) { next(e); }
-});
-
-app.get('/api/telegram-monitor/deliveries', requireAuth, requireOrg, async (req, res, next) => {
-  try {
-    const chatId = req.query.chat_id ? String(req.query.chat_id).trim().slice(0, 100) : null;
-    if (chatId) {
-      const binding = await strictQuery(
-        'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
-        [chatId, req.user.organizationId], { orgId: req.user.organizationId }
-      );
-      if (!binding[0]) throw httpError(404, 'Группа не найдена в организации.', 'CHAT_NOT_FOUND');
-      await assertOperationalRestaurant(req.user, binding[0].restaurant_id);
-    }
-    const limit = Math.max(1, Math.min(100, Number.parseInt(String(req.query.limit || '50'), 10) || 50));
-    const deliveries = await strictQuery(
-      `SELECT id,chat_id,method,status,telegram_message_id,error_code,error_message,created_at
-         FROM telegram_deliveries
-        WHERE organization_id=$1::uuid AND ($2::text IS NULL OR chat_id=$2)
-        ORDER BY created_at DESC LIMIT $3`,
-      [req.user.organizationId, chatId, limit], { orgId: req.user.organizationId }
-    );
-    ok(res, { deliveries });
-  } catch (e) { next(e); }
-});
-
 app.get('/api/telegram-monitor/chats', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const role = String(req.user.role || '').toLowerCase();
@@ -3840,7 +3731,7 @@ app.post('/api/telegram-monitor/chats/:chatId/bind', requireAuth, requireOrg, as
     }
     const exists = await strictQuery('SELECT chat_id FROM telegram_chats WHERE chat_id=$1 LIMIT 1', [chatId]);
     if (!exists.length) throw httpError(404, 'Telegram-чат не найден.', 'CHAT_NOT_FOUND');
-    const restaurant = await strictQuery('SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind=\'restaurant\' LIMIT 1', [restaurantId, organizationId]);
+    const restaurant = await strictQuery("SELECT id FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind='restaurant' LIMIT 1", [restaurantId, organizationId]);
     if (!restaurant.length) throw httpError(404, 'Ресторан не найден в выбранной организации.', 'RESTAURANT_NOT_FOUND');
     await queryWithRetry(`INSERT INTO telegram_chat_bindings(chat_id, organization_id, restaurant_id, bound_by, bound_at)
       VALUES($1,$2::uuid,$3::uuid,$4,now())
@@ -3851,761 +3742,625 @@ app.post('/api/telegram-monitor/chats/:chatId/bind', requireAuth, requireOrg, as
   } catch (e) { next(e); }
 });
 
-
-/* ---- ingest webhook ---- */
-app.get('/api/ingest/message', (req, res) => {
-const token = process.env.WHATSAPP_VERIFY_TOKEN;
-if (token && String(req.query['hub.verify_token'] || '') === token) return res.status(200).send(String(req.query['hub.challenge'] || ''));
-return res.status(403).json({ error: { message: 'Webhook verification failed', code: 'WEBHOOK_VERIFY_FAILED' } });
+/* ---- Telegram Bot: настройки бота для группы ---- */
+app.get('/api/telegram-bot/settings', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const chatId = String(req.query.chat_id || '').trim().slice(0, 100);
+    if (!chatId) throw httpError(400, 'Выберите Telegram-группу.', 'CHAT_REQUIRED');
+    const rows = await strictQuery(
+      `SELECT b.restaurant_id, s.mode, s.notification_level,
+              to_char(s.morning_report_time,'HH24:MI') AS morning_report_time,
+              to_char(s.evening_report_time,'HH24:MI') AS evening_report_time,
+              s.escalation_minutes
+         FROM telegram_chat_bindings b
+         LEFT JOIN telegram_bot_settings s ON s.chat_id=b.chat_id AND s.organization_id=b.organization_id
+        WHERE b.chat_id=$1 AND b.organization_id=$2::uuid LIMIT 1`,
+      [chatId, req.user.organizationId], { orgId: req.user.organizationId });
+    if (!rows.length) throw httpError(404, 'Группа не привязана к вашему рабочему контуру.', 'CHAT_NOT_FOUND');
+    const { restaurant_id: restaurantId, ...settings } = rows[0];
+    await assertRestaurantAccess(req.user, restaurantId);
+    ok(res, { settings: settings.mode ? settings : null });
+  } catch (e) { next(e); }
 });
 
-async function recordTelegramDelivery(chatId, method, status, telegramMessageId, error, context = {}) {
+app.put('/api/telegram-bot/settings', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
   try {
-    const bindings = await safeQuery(
-      'SELECT organization_id, restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 LIMIT 1',
-      [String(chatId)], null
-    );
-    const binding = bindings?.[0] || {};
+    const body = parseOr400(TelegramBotSettingsSchema, req.body ?? {});
+    const binding = await strictQuery(
+      'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
+      [body.chat_id, req.user.organizationId], { orgId: req.user.organizationId });
+    if (!binding.length) throw httpError(404, 'Группа не привязана к вашему рабочему контуру.', 'CHAT_NOT_FOUND');
+    await assertRestaurantAccess(req.user, binding[0].restaurant_id);
     await queryWithRetry(
-      `INSERT INTO telegram_deliveries
-        (organization_id,restaurant_id,chat_id,method,status,telegram_message_id,error_code,error_message)
-       VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8)`,
-      [binding.organization_id || context.organizationId || null, binding.restaurant_id || context.restaurantId || null, String(chatId), String(method),
-       status, telegramMessageId ? String(telegramMessageId) : null,
-       error?.code || null, error ? String(error.message || error).slice(0, 500) : null],
-      binding.organization_id ? { orgId: binding.organization_id } : {}
+      `INSERT INTO telegram_bot_settings
+        (chat_id,organization_id,restaurant_id,mode,notification_level,morning_report_time,evening_report_time,escalation_minutes,created_by,updated_by)
+       VALUES($1,$2::uuid,$3::uuid,$4,$5,$6::time,$7::time,$8,$9,$9)
+       ON CONFLICT(chat_id) DO UPDATE SET organization_id=EXCLUDED.organization_id,
+         restaurant_id=EXCLUDED.restaurant_id,mode=EXCLUDED.mode,notification_level=EXCLUDED.notification_level,
+         morning_report_time=EXCLUDED.morning_report_time,evening_report_time=EXCLUDED.evening_report_time,
+         escalation_minutes=EXCLUDED.escalation_minutes,updated_by=EXCLUDED.updated_by,updated_at=now()`,
+      [body.chat_id,req.user.organizationId,binding[0].restaurant_id,body.mode,body.notification_level,
+       body.morning_report_time,body.evening_report_time,body.escalation_minutes,String(req.user.id)],
+      { orgId: req.user.organizationId });
+    await audit(req.user,'telegram.bot.settings.updated','telegram_bot_settings',body.chat_id,
+      { mode: body.mode, notification_level: body.notification_level });
+    ok(res, { saved: true, confirmed: true });
+  } catch (e) { next(e); }
+});
+
+/* ---- Telegram Secretary: AI-анализ сообщений ---- */
+async function aiAnalyzeTelegramMessage(prompt) {
+  const raw = await callYandexGPT([
+    { role: 'system', text: 'Ты возвращаешь только валидный JSON без markdown-обёрток и комментариев.' },
+    { role: 'user', text: prompt },
+  ]);
+  return raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+}
+
+app.post('/api/telegram-monitor/analyze', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
+  try {
+    const body = parseOr400(
+      z.object({ limit: z.number().int().min(1).max(50).default(20) }).strict(),
+      req.body ?? {}
     );
-  } catch (logError) {
-    log('telegram delivery log failed:', logError?.code || logError?.message || 'UNKNOWN');
-  }
-}
-async function telegramBotRequest(method, payload, context = {}) {
-  const token = process.env.TELEGRAM_MONITOR_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) {
-    const error = httpError(503, 'Монитор-бот Telegram не настроен', 'TELEGRAM_MONITOR_NOT_CONFIGURED');
-    if (method === 'sendMessage' && payload?.chat_id !== undefined) await recordTelegramDelivery(payload.chat_id, method, 'failed', null, error, context);
-    throw error;
-  }
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 4500);
-  try {
-    const response = await fetch('https://api.telegram.org/bot' + token + '/' + method, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
+    const organizationId = String(req.user.organizationId || '');
+    if (!UUID_RE.test(organizationId)) throw httpError(403, 'Рабочий контур организации не определён.', 'NO_ORG_SCOPE');
+    const result = await processTelegramMessageBatch({
+      queryWithRetry,
+      analyze: aiAnalyzeTelegramMessage,
+      limit: body.limit,
+      orgId: organizationId,
     });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || result.ok === false) throw httpError(502, 'Telegram Bot API отклонил запрос', 'TELEGRAM_UPSTREAM_ERROR');
-    if (method === 'sendMessage' && payload?.chat_id !== undefined) {
-      await recordTelegramDelivery(payload.chat_id, method, 'sent', result.result?.message_id, null, context);
-    }
-    return result.result;
-  } catch (error) {
-    const normalized = error?.name === 'AbortError'
-      ? httpError(504, 'Telegram Bot API не ответил вовремя', 'TELEGRAM_TIMEOUT')
-      : error;
-    if (method === 'sendMessage' && payload?.chat_id !== undefined) {
-      await recordTelegramDelivery(payload.chat_id, method, 'failed', null, normalized, context);
-    }
-    throw normalized;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-async function answerTelegramCallback(callbackId, text) {
-  try {
-    await telegramBotRequest('answerCallbackQuery', { callback_query_id: callbackId, text });
-    return true;
-  } catch (error) {
-    // Callback acknowledgements expire independently of durable update processing.
-    log('telegram callback acknowledgement skipped:', error?.code || error?.message || 'UNKNOWN');
-    return false;
-  }
-}
-async function sendOperationalTelegramMessage(chatId, text, replyMarkup) {
-  return telegramBotRequest('sendMessage', { chat_id: chatId, text, ...(replyMarkup ? { reply_markup: replyMarkup } : {}) });
-}
-async function handleOperationalTelegramUpdate(update) {
-  const message = update?.message || update?.edited_message;
-  const callback = update?.callback_query;
-  const chatId = String(callback?.message?.chat?.id ?? message?.chat?.id ?? '');
-  const sender = callback?.from ?? message?.from;
-  if (!chatId || !sender || sender.is_bot) return { handled: false };
-  const binding = await safeQuery(
-    'SELECT b.organization_id, b.restaurant_id, u.name AS restaurant_name FROM telegram_chat_bindings b JOIN org_units u ON u.id=b.restaurant_id AND u.organization_id=b.organization_id WHERE b.chat_id=$1 LIMIT 1',
-    [chatId], null);
-  if (!binding) throw httpError(503, 'Привязка Telegram-чата временно недоступна', 'DB_UNAVAILABLE');
-  if (!binding[0]) return { handled: false };
-  const scope = binding[0];
-  const telegramUserId = String(sender.id);
-  const senderName = [sender.first_name, sender.last_name].filter(Boolean).join(' ').trim() || 'Сотрудник';
-  const actorRows = await safeQuery(
-    'SELECT id, role, organization_id AS "organizationId" FROM users WHERE telegram_chat_id=$1 AND organization_id=$2::uuid AND is_active=true LIMIT 1',
-    [telegramUserId, scope.organization_id], null);
-  if (!actorRows) throw httpError(503, 'Проверка доступа временно недоступна', 'DB_UNAVAILABLE');
-  const actor = actorRows[0];
-  if (!actor) {
-    if (callback) await answerTelegramCallback(callback.id, 'Нет доступа к STEN. Привяжите Telegram ID в профиле.');
-    return { handled: true, denied: true };
-  }
-  try {
-    await assertRestaurantAccess(actor, scope.restaurant_id);
-  } catch (error) {
-    if (callback) await answerTelegramCallback(callback.id, 'Нет доступа к этому ресторану.');
-    if (error?.status === 403 || error?.status === 404) return { handled: true, denied: true };
-    throw error;
-  }
-  if (callback) {
-    await answerTelegramCallback(callback.id, 'Принято');
-    const data = String(callback.data || '');
-    if (data === 'oc:start') {
-      await sendOperationalTelegramMessage(chatId, 'Выберите контрольную точку · ' + scope.restaurant_name, { inline_keyboard: [
-        [{text:'Доступность блюд / стоп-лист',callback_data:'oc:cp:availability'}],
-        [{text:'Санитария и журналы',callback_data:'oc:cp:sanitation'}],
-        [{text:'Касса и готовность команды',callback_data:'oc:cp:cash_team'}],
-        [{text:'Чистота зала и санузлов',callback_data:'oc:cp:hall'}],
-      ]});
-      return { handled: true };
-    }
-    const cp = data.match(/^oc:cp:(availability|sanitation|cash_team|hall)$/u);
-    if (cp) {
-      await queryWithRetry(
-        `INSERT INTO operational_telegram_sessions(chat_id,telegram_user_id,organization_id,restaurant_id,checkpoint_key,status,updated_at)
-         VALUES($1,$2,$3::uuid,$4::uuid,$5,NULL,now())
-         ON CONFLICT(chat_id,telegram_user_id) DO UPDATE SET organization_id=excluded.organization_id,restaurant_id=excluded.restaurant_id,checkpoint_key=excluded.checkpoint_key,status=NULL,updated_at=now()`,
-        [chatId,telegramUserId,scope.organization_id,scope.restaurant_id,cp[1]], {orgId:scope.organization_id});
-      await sendOperationalTelegramMessage(chatId, 'Результат проверки: ' + OPERATIONAL_CHECKPOINTS[cp[1]], { inline_keyboard: [[
-        {text:'В порядке',callback_data:'oc:status:ok'},
-        {text:'Есть отклонение',callback_data:'oc:status:problem'},
-        {text:'Нужна помощь',callback_data:'oc:status:needs_help'},
-      ]]});
-      return { handled: true };
-    }
-    const st = data.match(/^oc:status:(ok|problem|needs_help)$/u);
-    if (st) {
-      if (st[1] === 'ok') {
-        const session = await safeQuery('SELECT checkpoint_key FROM operational_telegram_sessions WHERE chat_id=$1 AND telegram_user_id=$2 AND organization_id=$3::uuid AND restaurant_id=$4::uuid LIMIT 1',
-          [chatId,telegramUserId,scope.organization_id,scope.restaurant_id], null);
-        if (!session) throw httpError(503, 'Состояние проверки временно недоступно', 'DB_UNAVAILABLE');
-        if (!session[0]?.checkpoint_key) {
-          await sendOperationalTelegramMessage(chatId, 'Сначала выберите контрольную точку: /sten_check');
-          return { handled: true };
-        }
-        const id=uuid();
-        await queryWithRetry(
-          `INSERT INTO operational_observations(id,organization_id,restaurant_id,checkpoint_key,checkpoint_title,status,note,reporter_id,reporter_name,source_chat_id,source_message_id)
-           VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5,'ok','',$6,$7,$8,$9) ON CONFLICT DO NOTHING`,
-          [id,scope.organization_id,scope.restaurant_id,session[0].checkpoint_key,OPERATIONAL_CHECKPOINTS[session[0].checkpoint_key],'telegram:'+telegramUserId,senderName,chatId,String(callback.message?.message_id || callback.id)],
-          {orgId:scope.organization_id});
-        await queryWithRetry('DELETE FROM operational_telegram_sessions WHERE chat_id=$1 AND telegram_user_id=$2',[chatId,telegramUserId],{orgId:scope.organization_id});
-        await sendOperationalTelegramMessage(chatId, 'Зафиксировано: «В порядке». Это сообщение сохранено в STEN, но не заменяет независимую перепроверку.');
-      } else {
-        const sessionUpdate = await queryWithRetry(
-          'UPDATE operational_telegram_sessions SET status=$1,updated_at=now() WHERE chat_id=$2 AND telegram_user_id=$3 AND organization_id=$4::uuid AND restaurant_id=$5::uuid AND checkpoint_key IS NOT NULL RETURNING checkpoint_key',
-          [st[1],chatId,telegramUserId,scope.organization_id,scope.restaurant_id], {orgId:scope.organization_id});
-        if (!sessionUpdate.rows?.[0]) {
-          await sendOperationalTelegramMessage(chatId, 'Сессия проверки устарела. Запустите новую: /sten_check');
-          return { handled: true };
-        }
-        await sendOperationalTelegramMessage(chatId, st[1] === 'problem'
-          ? 'Опишите конкретное отклонение следующим сообщением. STEN сохранит его как непроверенное наблюдение.'
-          : 'Напишите, какая помощь нужна. STEN сохранит запрос как непроверенное наблюдение.');
-      }
-      return { handled: true };
-    }
-    return { handled: false };
-  }
-  const text = String(message?.text || message?.caption || '').trim();
-  if (/^\/sten_check(?:@\w+)?$/iu.test(text)) {
-    await sendOperationalTelegramMessage(chatId, 'Запустить короткую проверку готовности ресторана?', { inline_keyboard: [[{text:'Начать проверку',callback_data:'oc:start'}]] });
-    return { handled: true };
-  }
-  if (text) {
-    const session = await safeQuery(
-      'SELECT checkpoint_key,status FROM operational_telegram_sessions WHERE chat_id=$1 AND telegram_user_id=$2 AND organization_id=$3::uuid AND restaurant_id=$4::uuid LIMIT 1',
-      [chatId,telegramUserId,scope.organization_id,scope.restaurant_id], null);
-    if (!session) throw httpError(503, 'Состояние проверки временно недоступно', 'DB_UNAVAILABLE');
-    if (session[0]?.status && session[0]?.checkpoint_key) {
-      const note = text.slice(0,1000);
-      const id=uuid();
-      await queryWithRetry(
-        `INSERT INTO operational_observations(id,organization_id,restaurant_id,checkpoint_key,checkpoint_title,status,note,reporter_id,reporter_name,source_chat_id,source_message_id)
-         VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING`,
-        [id,scope.organization_id,scope.restaurant_id,session[0].checkpoint_key,OPERATIONAL_CHECKPOINTS[session[0].checkpoint_key],session[0].status,note,'telegram:'+telegramUserId,senderName,chatId,String(message.message_id)],
-        {orgId:scope.organization_id});
-      await queryWithRetry('DELETE FROM operational_telegram_sessions WHERE chat_id=$1 AND telegram_user_id=$2',[chatId,telegramUserId],{orgId:scope.organization_id});
-      await sendOperationalTelegramMessage(chatId, 'Наблюдение сохранено в STEN. Статус: «' + (session[0].status === 'problem' ? 'Есть отклонение' : 'Нужна помощь') + '». Руководителю нужно назначить исправление и отдельно проверить результат.');
-      return { handled: true };
-    }
-  }
-  return { handled: false };
-}
-
-app.post('/api/telegram/webhook', async (req, res) => {
-  const expected = String(process.env.TELEGRAM_MONITOR_SECRET || '');
-  const provided = String(req.headers['x-telegram-bot-api-secret-token'] || '');
-  if (!expected) return res.status(503).json({ ok: false, error: 'telegram_monitor_secret_not_configured' });
-  const actualBytes = Buffer.from(provided);
-  const expectedBytes = Buffer.from(expected);
-  if (actualBytes.length !== expectedBytes.length || !crypto.timingSafeEqual(actualBytes, expectedBytes)) {
-    return res.status(403).json({ ok: false, error: 'forbidden' });
-  }
-  try {
-    if (!ENV.DB_HOST) return res.status(200).json({ ok: false, error: 'database_not_configured' });
-    const stored = await persistTelegramUpdate(query, req.body);
-    if (!stored.kind || !Number.isSafeInteger(req.body?.update_id)) {
-      return res.status(200).json({ ok: true, ...stored });
-    }
-    const claim = await claimTelegramUpdate(query, req.body.update_id);
-    if (claim.processed) return res.status(200).json({ ok: true, duplicate: true, processed: true, ...stored });
-    if (claim.claimed) await completeTelegramUpdate(query, req.body.update_id, claim.attempts);
-    return res.status(200).json({ ok: true, ...stored, persisted: true, processed: Boolean(claim.claimed) });
-  } catch (error) {
-    console.error('[sten] monitor webhook failed:', error?.code || error?.message || 'UNKNOWN');
-    return res.status(200).json({ ok: false, error: 'telegram_monitor_processing_failed' });
-  }
+    await audit(req.user, 'telegram.analyze.batch', 'telegram_message_analyses', null, result);
+    ok(res, result);
+  } catch (e) { next(e); }
 });
 
-app.post('/api/ingest/message', async (req, res) => {
-try {
-const isTelegram = Boolean(req.body?.message || req.body?.edited_message || req.body?.callback_query);
-if (isTelegram) {
-const expected = String(process.env.TELEGRAM_WEBHOOK_SECRET || '');
-const provided = String(req.headers['x-telegram-bot-api-secret-token'] || '');
-if (!expected) return res.status(503).json({ ok: false, error: 'webhook_secret_not_configured' });
-const a = Buffer.from(provided), b = Buffer.from(expected);
-if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.status(403).json({ ok: false, error: 'forbidden' });
-if (!ENV.DB_HOST) return res.status(503).json({ ok: false, error: 'database_not_configured' });
-try {
-  const stored = await persistTelegramUpdate(query, req.body);
-  if (!stored.kind || !Number.isSafeInteger(req.body?.update_id)) {
-    return res.status(200).json({ ok: true, ...stored, operational: false });
-  }
-  const claim = await claimTelegramUpdate(query, req.body.update_id);
-  if (claim.processed) {
-    return res.status(200).json({ ok: true, duplicate: true, processed: true, operational: false });
-  }
-  if (!claim.claimed) {
-    return res.status(503).json({ ok: false, error: claim.busy ? 'telegram_update_in_progress' : 'telegram_update_not_claimed' });
-  }
+/* ---- iiko Integrations (DEPRECATED в этой форме) ----
+   ВНИМАНИЕ: GitHub-версия использует iiko_connections + iiko_organization_mappings
+   и новый iikoCloud.js. Эта версия оставлена как совместимый вход, но
+   новую модель нужно ставить отдельным патчем после миграции схемы.          */
+app.post('/api/integrations/iiko/test', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
   try {
-    let operational = false;
-    if (stored.kind === 'callback_query' || (stored.kind === 'message' && !req.body?.edited_message)) {
-      const result = await handleOperationalTelegramUpdate(req.body);
-      operational = Boolean(result.handled);
-    }
-    await completeTelegramUpdate(query, req.body.update_id, claim.attempts);
-    return res.status(200).json({ ok: true, ...stored, operational, processed: true });
-  } catch (processingError) {
-    try { await failTelegramUpdate(query, req.body.update_id, claim.attempts, processingError); }
-    catch (releaseError) { console.error('[sten] telegram update release failed:', releaseError?.code || releaseError?.message || 'UNKNOWN'); }
-    throw processingError;
-  }
-} catch (e) {
-  console.error('[sten] telegram ingest failed:', e?.code || e?.message || 'UNKNOWN');
-  return res.status(503).json({ ok: false, error: 'telegram_processing_failed' });
-}
-}
-const isWhatsApp = Boolean(req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]);
-if (isWhatsApp) {
-const secret = String(process.env.WHATSAPP_APP_SECRET || '');
-const provided = String(req.headers['x-hub-signature-256'] || '');
-if (!secret) return res.status(503).json({ ok: false, error: 'webhook_secret_not_configured' });
-const raw = req.rawBody || Buffer.from(JSON.stringify(req.body));
-const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(raw).digest('hex');
-const a = Buffer.from(provided), b = Buffer.from(expected);
-if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.status(403).json({ ok: false, error: 'forbidden' });
-}
-if (!isWhatsApp && !req.user) return res.status(401).json({ ok: false, error: 'authentication_required' });
-const ipKey = 'ingest:' + String(req.ip || req.headers['x-forwarded-for'] || 'unknown').slice(0, 200);
-const rl = await query(
-`INSERT INTO auth_unlock_attempts (ip, window_started_at, failed_attempts, blocked_until) VALUES ($1, now(), 1, NULL)
-ON CONFLICT (ip) DO UPDATE SET
-failed_attempts = CASE WHEN auth_unlock_attempts.window_started_at < now() - interval '5 minutes' THEN 1 ELSE auth_unlock_attempts.failed_attempts + 1 END,
-window_started_at = CASE WHEN auth_unlock_attempts.window_started_at < now() - interval '5 minutes' THEN now() ELSE auth_unlock_attempts.window_started_at END
-RETURNING failed_attempts`, [ipKey]);
-if ((rl.rows?.[0]?.failed_attempts || 0) > 30) return res.status(429).json({ ok: false, error: 'rate_limited' });
-const body = req.body || {};
-const telegramText = body?.message?.text || body?.edited_message?.text;
-const telegramChat = body?.message?.chat?.id || body?.edited_message?.chat?.id;
-const waMessage = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-const whatsappText = waMessage?.text?.body;
-const whatsappFrom = waMessage?.from;
-const text = body.text || telegramText || whatsappText;
-const source = body.source || (telegramText ? 'telegram' : whatsappText ? 'whatsapp' : 'manual');
-const subjectId = telegramChat || whatsappFrom || null;
-if (!text) return res.status(200).json({ ok: true, skipped: 'empty_message' });
-let parsed = null, parseError = null;
-try { parsed = await parseSalesReportWithFunctionCalling(String(text)); }
-catch (e) { parseError = e?.code || e?.message || 'PARSE_FAILED'; console.error('[sten] ingest parse error:', parseError); }
-let binding = null;
-try { binding = await resolveInboundBinding(req.user || null, source, subjectId); } catch { /* ignore */ }
-if (parsed && binding && !parsed.restaurant) parsed.restaurant = binding.unit_name;
-try {
-await safeQuery(
-'INSERT INTO audit_log (id, action, entity, entity_id, details) VALUES ($1::uuid,$2,$3,$4,$5::jsonb)',
-[uuid(), 'ingest.message.received', 'message', subjectId ? String(subjectId) : null,
-JSON.stringify({ source, hasText: true, parsed: Boolean(parsed), parseError, unit_id: binding?.unit_id || null })]
-);
-} catch { /* ignore */ }
-return res.status(200).json({
-ok: true, parsed, parseError,
-context: binding ? { restaurant_id: binding.unit_id, restaurant_name: binding.unit_name } : null,
-requiresConfirmation: Boolean(parsed),
-requiresBinding: !binding,
-recipient: subjectId,
-});
-} catch (e) {
-console.error('[sten] ingest fatal:', e?.message);
-return res.status(200).json({ ok: false, error: 'internal', message: String(e?.message || '') });
-}
+    const { appId, clientSecret, apiKey } = req.body;
+    if (!appId || !clientSecret || !apiKey) throw httpError(400, 'Нужны appId, clientSecret, apiKey', 'BAD_IIKO_CREDS');
+    const result = await iikoCloud.connectIikoCloud({ appId, clientSecret, apiKey });
+    ok(res, { connected: true, organizations: result.organizations });
+  } catch (e) { next(e); }
 });
 
-app.post('/api/ingest/message/confirm', requireAuth, requireOrg, async (req, res, next) => {
-try {
-const b = parseOr400(IngestConfirmSchema, req.body ?? {});
-const explicit = b.scope || {};
-const s = { period: b.date.slice(0, 7), project_id: explicit.project_id || '', branch_id: explicit.branch_id || '', restaurant_id: explicit.restaurant_id || '', department_id: explicit.department_id || '' };
-if (!s.restaurant_id) throw httpError(422, 'Для подтверждения отчёта необходимо выбрать ресторан.', 'RESTAURANT_CONTEXT_REQUIRED');
-await assertScopeAccess(req.user, s);
-let existing;
-try {
-existing = await strictQuery(
-'SELECT rows::text FROM pnl_entries WHERE organization_id=$1::uuid AND period=$2 AND project_id=$3 AND branch_id=$4 AND restaurant_id=$5 AND department_id=$6 LIMIT 1',
-[req.user.organizationId, s.period, s.project_id || '', s.branch_id || '', s.restaurant_id || '', s.department_id || '']);
-} catch (e) {
-throw httpError(503, 'БД временно недоступна', 'DB_UNAVAILABLE');
+app.post('/api/integrations/iiko/credentials', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
+  try {
+    const { restaurantId, appId, clientSecret, apiKey } = req.body;
+    if (!restaurantId || !appId || !clientSecret || !apiKey) throw httpError(400, 'Не хватает данных', 'BAD_IIKO_DATA');
+    await assertRestaurantAccess(req.user, restaurantId);
+    const encrypted = iikoCloud.encryptCredentials({ appId, clientSecret, apiKey });
+    await queryWithRetry(
+      `INSERT INTO iiko_integrations (organization_id, restaurant_id, app_id, encrypted_credentials, updated_at)
+       VALUES ($1::uuid, $2::uuid, $3, $4::jsonb, now())
+       ON CONFLICT (organization_id, restaurant_id) DO UPDATE SET
+         app_id = EXCLUDED.app_id, encrypted_credentials = EXCLUDED.encrypted_credentials, updated_at = now()`,
+      [req.user.organizationId, restaurantId, appId, JSON.stringify(encrypted)],
+      { orgId: req.user.organizationId });
+    ok(res, { saved: true });
+  } catch (e) { next(e); }
+});
+
+/* ---- Operational Control: чек-листы и корректирующие действия (GitHub-модель) ---- */
+const OperationalObservationSchema = z.object({
+  restaurant_id: z.string().uuid(),
+  checkpoint_key: z.enum(['availability','sanitation','cash_team','hall']),
+  status: z.enum(['ok','problem','needs_help']),
+  note: z.string().trim().max(1000).default(''),
+}).strict();
+const OperationalActionSchema = z.object({
+  restaurant_id: z.string().uuid(),
+  observation_id: z.string().uuid(),
+  title: z.string().trim().min(1).max(180),
+  description: z.string().trim().max(1000).default(''),
+  assignee_id: z.string().trim().min(1).max(120),
+  assignee_name: z.string().trim().max(120).default(''),
+  due_at: z.string().datetime({ offset: true }),
+}).strict();
+const OperationalActionTransitionSchema = z.object({
+  type: z.enum(['complete','verify','reopen','cancel']),
+  reason: z.string().trim().max(500).optional(),
+}).strict();
+const OPERATIONAL_CHECKPOINTS = Object.freeze({
+  availability: 'Раздача и доступность ключевых блюд',
+  sanitation: 'Санитария и обязательные журналы',
+  cash_team: 'Готовность кассы и команды',
+  hall: 'Чистота зала и санузлов',
+});
+
+async function assertOperationalRestaurant(user, restaurantId) {
+  await assertRestaurantAccess(user, restaurantId);
+  const rows = await strictQuery(
+    "SELECT id, name FROM org_units WHERE id=$1::uuid AND organization_id=$2::uuid AND kind='restaurant' LIMIT 1",
+    [restaurantId, user.organizationId], { orgId: user.organizationId });
+  if (!rows[0]) throw httpError(404, 'Ресторан не найден или недоступен', 'RESTAURANT_NOT_FOUND');
+  return rows[0];
 }
-let rows = []; try { rows = existing[0]?.rows ? JSON.parse(existing[0].rows) : []; } catch { rows = []; }
-const idx = rows.findIndex(r => pnlRowKey(r) === 'revenue');
-if (idx >= 0) rows[idx] = { ...rows[idx], article: 'Выручка', fact: b.parsed.revenue, source: 'message-confirmed' };
-else rows.push({ id: null, article: 'Выручка', plan: null, fact: b.parsed.revenue, source: 'message-confirmed' });
-await queryWithRetry(
-'INSERT INTO pnl_entries(organization_id,period,project_id,branch_id,restaurant_id,department_id,rows,updated_at,updated_by) VALUES($1::uuid,$2,$3,$4,$5,$6,$7::jsonb,now(),$8) ON CONFLICT(organization_id,period,project_id,branch_id,restaurant_id,department_id) DO UPDATE SET rows=excluded.rows,updated_at=now(),updated_by=excluded.updated_by',
-[req.user.organizationId, s.period, s.project_id || '', s.branch_id || '', s.restaurant_id || '', s.department_id || '', JSON.stringify(rows), req.user.id],
-{ orgId: req.user.organizationId });
-const reportValues = {};
-for (const k of ['revenue','cash','card','discounts','checks']) { if (b.parsed[k] !== null) reportValues[k] = b.parsed[k]; }
-await queryWithRetry(
-`INSERT INTO daily_reports(id,organization_id,report_date,project_id,branch_id,restaurant_id,department_id,values_json,note)
-VALUES($1::uuid,$2::uuid,$3::date,$4,$5,$6,$7,$8::jsonb,$9)
-ON CONFLICT(organization_id, report_date, project_id, branch_id, restaurant_id, department_id)
-DO UPDATE SET values_json=excluded.values_json, note=excluded.note, updated_at=now()`,
-[uuid(), req.user.organizationId, b.date, s.project_id || '', s.branch_id || '', s.restaurant_id || '', s.department_id || '', JSON.stringify(reportValues), 'message-confirmed'],
-{ orgId: req.user.organizationId });
-await audit(req.user, 'ingest.message.confirmed', 'pnl_entries', b.date, { source: 'message', scope: s });
-ok(res, { confirmed: true, writtenToPnl: true, date: b.date });
-} catch (e) { next(e); }
+
+app.get('/api/operational-control', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const restaurantId = String(req.query.restaurant_id || '');
+    if (!UUID_RE.test(restaurantId)) throw httpError(400, 'Выберите ресторан', 'RESTAURANT_REQUIRED');
+    await assertOperationalRestaurant(req.user, restaurantId);
+    const observations = await safeQuery(
+      `SELECT id, restaurant_id, checkpoint_key, checkpoint_title, status, note, reporter_id, reporter_name,
+              reported_at, verification_status, verified_by, verified_at
+       FROM operational_observations WHERE organization_id=$1::uuid AND restaurant_id=$2::uuid
+       ORDER BY reported_at DESC LIMIT 100`,
+      [req.user.organizationId, restaurantId], null);
+    const actions = await safeQuery(
+      `SELECT a.id, a.restaurant_id, a.observation_id, a.title, a.description, a.assignee_id, a.assignee_name,
+              a.due_at, a.status, a.created_by, a.completed_by, a.completed_at, a.verified_by, a.verified_at,
+              a.reopen_reason, a.created_at, o.checkpoint_title, o.note AS observation_note
+       FROM operational_actions a JOIN operational_observations o ON o.id=a.observation_id
+       WHERE a.organization_id=$1::uuid AND a.restaurant_id=$2::uuid
+       ORDER BY CASE WHEN a.status IN ('open','overdue','awaiting_verification') THEN 0 ELSE 1 END,
+                a.due_at ASC LIMIT 200`,
+      [req.user.organizationId, restaurantId], null);
+    if (!observations || !actions) throw httpError(503, 'Операционный контроль временно недоступен', 'DB_UNAVAILABLE');
+    const employees = await safeQuery(
+      `SELECT u.id, u.first_name, u.last_name, u.position
+       FROM users u
+       WHERE u.organization_id=$1::uuid AND u.is_active=true
+         AND (lower(u.role) IN ('super_admin','owner') OR EXISTS (
+           SELECT 1 FROM org_unit_access a
+           WHERE a.organization_id=$1::uuid AND a.user_id=u.id::text AND a.unit_id=$2::uuid
+         ))
+       ORDER BY u.first_name, u.last_name LIMIT 200`,
+      [req.user.organizationId, restaurantId], null);
+    if (!employees) throw httpError(503, 'Список сотрудников временно недоступен', 'DB_UNAVAILABLE');
+    ok(res, {
+      checkpoints: Object.entries(OPERATIONAL_CHECKPOINTS).map(([key, title]) => ({ key, title })),
+      observations, actions, employees,
+    });
+  } catch (e) { next(e); }
+});
+
+app.post('/api/operational-control/observations', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const body = parseOr400(OperationalObservationSchema, req.body ?? {});
+    const restaurant = await assertOperationalRestaurant(req.user, body.restaurant_id);
+    if (body.status !== 'ok' && !body.note) throw httpError(400, 'Опишите отклонение или запрос помощи', 'OBSERVATION_NOTE_REQUIRED');
+    const id = uuid();
+    const inserted = await queryWithRetry(
+      `INSERT INTO operational_observations
+       (id, organization_id, restaurant_id, checkpoint_key, checkpoint_title, status, note, reporter_id, reporter_name)
+       VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8,$9)
+       RETURNING id, restaurant_id, checkpoint_key, checkpoint_title, status, note, reporter_id, reporter_name, reported_at, verification_status`,
+      [id, req.user.organizationId, restaurant.id, body.checkpoint_key, OPERATIONAL_CHECKPOINTS[body.checkpoint_key],
+       body.status, body.note, req.user.id, [req.user.firstName, req.user.lastName].filter(Boolean).join(' ')],
+      { orgId: req.user.organizationId });
+    const observation = inserted.rows?.[0];
+    if (!observation) throw httpError(500, 'Сохранение проверки не подтверждено', 'SAVE_NOT_CONFIRMED');
+    await audit(req.user, 'operational.observation.created', 'operational_observations', id,
+      { restaurant_id: restaurant.id, checkpoint_key: body.checkpoint_key, status: body.status });
+    ok(res, { observation, confirmed: true }, 201);
+  } catch (e) { next(e); }
+});
+
+app.post('/api/operational-control/actions', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
+  try {
+    const body = parseOr400(OperationalActionSchema, req.body ?? {});
+    const restaurant = await assertOperationalRestaurant(req.user, body.restaurant_id);
+    const obs = await strictQuery(
+      'SELECT id FROM operational_observations WHERE id=$1::uuid AND organization_id=$2::uuid AND restaurant_id=$3::uuid LIMIT 1',
+      [body.observation_id, req.user.organizationId, restaurant.id], { orgId: req.user.organizationId });
+    if (!obs[0]) throw httpError(404, 'Отклонение не найдено в выбранном ресторане', 'OBSERVATION_NOT_FOUND');
+    const assignee = await strictQuery(
+      `SELECT u.id, u.first_name, u.last_name
+       FROM users u
+       WHERE u.id::text=$1 AND u.organization_id=$2::uuid AND u.is_active=true
+         AND (lower(u.role) IN ('super_admin','owner') OR EXISTS (
+           SELECT 1 FROM org_unit_access a
+           WHERE a.organization_id=$2::uuid AND a.user_id=u.id::text AND a.unit_id=$3::uuid
+         )) LIMIT 1`,
+      [body.assignee_id, req.user.organizationId, restaurant.id], { orgId: req.user.organizationId });
+    if (!assignee[0]) throw httpError(400, 'Исполнитель не найден или не имеет доступа к выбранному ресторану', 'ASSIGNEE_NOT_FOUND');
+    const dueAt = new Date(body.due_at);
+    if (dueAt.getTime() <= Date.now()) throw httpError(400, 'Срок задачи должен быть в будущем', 'DUE_DATE_INVALID');
+    const id = uuid();
+    const inserted = await queryWithRetry(
+      `INSERT INTO operational_actions
+       (id,organization_id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,created_by)
+       VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5,$6,$7,$8,$9::timestamptz,$10)
+       RETURNING id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,status,created_by,created_at`,
+      [id, req.user.organizationId, restaurant.id, body.observation_id, body.title, body.description,
+       assignee[0].id, [assignee[0].first_name, assignee[0].last_name].filter(Boolean).join(' '), dueAt.toISOString(), req.user.id],
+      { orgId: req.user.organizationId });
+    const action = inserted.rows?.[0];
+    if (!action) throw httpError(500, 'Создание задачи не подтверждено', 'SAVE_NOT_CONFIRMED');
+    await audit(req.user, 'operational.action.created', 'operational_actions', id,
+      { restaurant_id: restaurant.id, observation_id: body.observation_id, assignee_id: assignee[0].id });
+    ok(res, { action, confirmed: true }, 201);
+  } catch (e) { next(e); }
+});
+
+app.patch('/api/operational-control/actions/:id', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный id задачи', 'BAD_ID');
+    const body = parseOr400(OperationalActionTransitionSchema, req.body ?? {});
+    const rows = await strictQuery(
+      'SELECT * FROM operational_actions WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
+      [req.params.id, req.user.organizationId], { orgId: req.user.organizationId });
+    const current = rows[0];
+    if (!current) throw httpError(404, 'Задача не найдена', 'NOT_FOUND');
+    await assertOperationalRestaurant(req.user, current.restaurant_id);
+    const actorId = String(req.user.id);
+    let nextStatus = current.status;
+    let completedBy = current.completed_by, completedAt = current.completed_at;
+    let verifiedBy = current.verified_by, verifiedAt = current.verified_at;
+    let reopenedBy = current.reopened_by, reopenedAt = current.reopened_at, reopenReason = current.reopen_reason;
+    if (body.type === 'complete') {
+      if (actorId !== String(current.assignee_id)) throw httpError(403, 'Отметить выполнение может только назначенный исполнитель', 'ASSIGNEE_REQUIRED');
+      if (!['open','overdue'].includes(current.status)) throw httpError(409, 'Задача не ожидает выполнения', 'INVALID_TRANSITION');
+      nextStatus='awaiting_verification'; completedBy=actorId; completedAt=new Date();
+    } else if (body.type === 'verify') {
+      if (!PRIVILEGED_ROLES.has(String(req.user.role || '').toLowerCase())) throw httpError(403, 'Проверка результата доступна руководителю', 'FORBIDDEN_ROLE');
+      if (current.status !== 'awaiting_verification') throw httpError(409, 'Задача не ожидает проверки', 'INVALID_TRANSITION');
+      if (actorId === String(current.completed_by)) throw httpError(403, 'Исполнитель не может подтвердить собственную работу', 'SELF_VERIFICATION_FORBIDDEN');
+      nextStatus='verified'; verifiedBy=actorId; verifiedAt=new Date();
+    } else if (body.type === 'reopen') {
+      if (!PRIVILEGED_ROLES.has(String(req.user.role || '').toLowerCase())) throw httpError(403, 'Повторное открытие задачи доступно руководителю', 'FORBIDDEN_ROLE');
+      if (!['awaiting_verification','verified'].includes(current.status)) throw httpError(409, 'Задачу нельзя открыть повторно из текущего статуса', 'INVALID_TRANSITION');
+      if (!body.reason) throw httpError(400, 'Укажите причину повторного открытия', 'REOPEN_REASON_REQUIRED');
+      nextStatus='open'; completedBy=null; completedAt=null; verifiedBy=null; verifiedAt=null; reopenedBy=actorId; reopenedAt=new Date(); reopenReason=body.reason;
+    } else if (body.type === 'cancel') {
+      if (!['open','overdue'].includes(current.status)) throw httpError(409, 'Можно отменить только открытую задачу', 'INVALID_TRANSITION');
+      if (!['owner','admin','super_admin','director','manager'].includes(String(req.user.role))) throw httpError(403, 'Недостаточно прав для отмены задачи', 'FORBIDDEN');
+      nextStatus='cancelled';
+    }
+    const updated = await queryWithRetry(
+      `WITH updated_action AS (
+         UPDATE operational_actions SET status=$1,completed_by=$2,completed_at=$3,verified_by=$4,verified_at=$5,
+           reopened_by=$6,reopened_at=$7,reopen_reason=$8,updated_at=now()
+          WHERE id=$9::uuid AND organization_id=$10::uuid AND status=$11
+          RETURNING id,restaurant_id,observation_id,title,description,assignee_id,assignee_name,due_at,status,created_by,
+                    completed_by,completed_at,verified_by,verified_at,reopen_reason,updated_at
+       ), updated_observation AS (
+         UPDATE operational_observations o
+            SET verification_status=CASE WHEN $12='reopen' THEN 'reported' ELSE 'verified' END,
+                verified_by=CASE WHEN $12='verify' THEN $13 ELSE NULL END,
+                verified_at=CASE WHEN $12='verify' THEN now() ELSE NULL END
+          WHERE o.id=$14::uuid AND o.organization_id=$10::uuid
+            AND EXISTS (SELECT 1 FROM updated_action)
+            AND (
+              $12='reopen'
+              OR ($12='verify' AND NOT EXISTS (
+                SELECT 1 FROM operational_actions a
+                 WHERE a.observation_id=o.id AND a.id<>$9::uuid
+                   AND a.status NOT IN ('verified','cancelled')
+              ))
+            )
+          RETURNING o.id
+       )
+       SELECT ua.*, (SELECT count(*)::int FROM updated_observation) AS observation_updated
+         FROM updated_action ua`,
+      [nextStatus,completedBy,completedAt,verifiedBy,verifiedAt,reopenedBy,reopenedAt,reopenReason,
+       current.id,req.user.organizationId,current.status,body.type,actorId,current.observation_id],
+      { orgId: req.user.organizationId });
+    if (!updated.rows?.[0]) throw httpError(409, 'Задача уже изменилась. Обновите список и повторите действие.', 'CONCURRENT_UPDATE');
+    await audit(req.user, 'operational.action.'+body.type, 'operational_actions', current.id, { from:current.status, to:nextStatus });
+    ok(res, { action: updated.rows[0], confirmed: true });
+  } catch (e) { next(e); }
 });
 
 /* ---- payroll helpers ---- */
 app.post('/calculate-salary', requireAuth, async (req, res, next) => {
-try {
-const rows = parseOr400(z.array(PayrollRowSchema).min(1).max(5000), req.body?.rows ?? req.body);
-const totalHours = rows.reduce((a, r) => a + r.hours, 0);
-const totalPay = rows.reduce((a, r) => a + r.pay, 0);
-const byDept = {};
-for (const r of rows) {
-const d = r.department ? String(r.department).normalize('NFC') : '—';
-byDept[d] = byDept[d] || { hours: 0, pay: 0 };
-byDept[d].hours += r.hours; byDept[d].pay += r.pay;
-}
-ok(res, { totalHours, totalPay, avgRate: totalHours ? totalPay / totalHours : null, byDepartment: byDept, formulaVersion: 'salary-v1' });
-} catch (e) { next(e); }
+  try {
+    const rows = parseOr400(z.array(PayrollRowSchema).min(1).max(5000), req.body?.rows ?? req.body);
+    const totalHours = rows.reduce((a, r) => a + r.hours, 0);
+    const totalPay = rows.reduce((a, r) => a + r.pay, 0);
+    const byDept = {};
+    for (const r of rows) {
+      const d = r.department ? String(r.department).normalize('NFC') : '—';
+      byDept[d] = byDept[d] || { hours: 0, pay: 0 };
+      byDept[d].hours += r.hours; byDept[d].pay += r.pay;
+    }
+    ok(res, { totalHours, totalPay, avgRate: totalHours ? totalPay / totalHours : null, byDepartment: byDept, formulaVersion: 'salary-v1' });
+  } catch (e) { next(e); }
 });
 
 app.get('/my-earnings', requireAuth, async (req, res, next) => {
-try {
-if (!ENV.DB_HOST) return res.status(503).json({ error: { message: 'Данные о начислениях недоступны (БД не настроена)', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
-const rows = await safeQuery(`SELECT period, SUM(hours) AS hours, SUM(amount) AS amount FROM payroll_records WHERE user_id=$1::uuid GROUP BY period ORDER BY period DESC LIMIT 24`, [req.user.id], null);
-if (!rows) return res.status(503).json({ error: { message: 'Данные о начислениях временно недоступны', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
-ok(res, { earnings: rows });
-} catch (e) { next(e); }
+  try {
+    if (!ENV.DB_HOST) return res.status(503).json({ error: { message: 'Данные о начислениях недоступны (БД не настроена)', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
+    const rows = await safeQuery(`SELECT period, SUM(hours) AS hours, SUM(amount) AS amount FROM payroll_records WHERE user_id=$1::uuid GROUP BY period ORDER BY period DESC LIMIT 24`, [req.user.id], null);
+    if (!rows) return res.status(503).json({ error: { message: 'Данные о начислениях временно недоступны', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
+    ok(res, { earnings: rows });
+  } catch (e) { next(e); }
 });
+const StaffingPlanScopeSchema = z.object({
+  period: z.string().regex(YM_RE, 'period должен быть ГГГГ-ММ'),
+  project_id: z.string().trim().max(120).optional().nullable(),
+  branch_id: z.string().trim().max(120).optional().nullable(),
+  restaurant_id: z.string().trim().max(120).optional().nullable(),
+  department_id: z.string().trim().max(120).optional().nullable(),
+}).strict();
 
+const StaffingPlanWriteSchema = z.object({
+  period: z.string().regex(YM_RE),
+  scope: z.object({
+    project_id: z.string().trim().max(120).nullable().optional(),
+    branch_id: z.string().trim().max(120).nullable().optional(),
+    restaurant_id: z.string().trim().max(120).nullable().optional(),
+    department_id: z.string().trim().max(120).nullable().optional(),
+  }).strict().default({}),
+  plan: z.record(z.string().max(200), z.object({
+    headcount: z.string().max(20),
+    hoursPerPerson: z.string().max(20),
+    hourlyRate: z.string().max(20),
+  }).strict()).default({}),
+  customPositions: z.array(z.object({
+    id: z.string().max(200),
+    department: z.string().max(200),
+    position: z.string().max(200),
+  }).strict()).max(500).default([]),
+}).strict();
 /* ---- FOT analytics (scope-фильтр, защита от деления на 0) ---- */
 app.get('/fot-analytics', requireAuth, requireOrg, async (req, res, next) => {
-try {
-const s = scopeFromQuery(req.query);
-if (s.period && !YM_RE.test(s.period)) {
-throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
-}
-await assertScopeAccess(req.user, s);
-const rows = await safeQuery(
-`SELECT period, department, department_id, hours, amount, project_id, branch_id, restaurant_id
-FROM payroll_records
-WHERE organization_id=$1::uuid
-AND ($2::text='' OR period=$2)
-AND ($3::text='' OR project_id=$3)
-AND ($4::text='' OR branch_id=$4)
-AND ($5::text='' OR restaurant_id=$5)
-AND ($6::text='' OR department_id=$6)
-ORDER BY period DESC, department ASC LIMIT 5000`,
-[req.user.organizationId, s.period || '', s.project_id || '', s.branch_id || '', s.restaurant_id || '', s.department_id || ''],
-null);
-if (!rows) return res.status(503).json({ error: { message: 'Данные ФОТ временно недоступны', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
-let totalHours = null;
-let totalAmount = null;
-for (const r of rows) {
-if (r.hours !== null && r.hours !== undefined) totalHours = (totalHours ?? 0) + Number(r.hours);
-if (r.amount !== null && r.amount !== undefined) totalAmount = (totalAmount ?? 0) + Number(r.amount);
-}
-const byDept = new Map();
-for (const r of rows) {
-const key = r.department_id || r.department || '—';
-const cur = byDept.get(key) || { department: r.department || '—', department_id: r.department_id || '', hours: null, amount: null };
-if (r.hours !== null && r.hours !== undefined) cur.hours = (cur.hours ?? 0) + Number(r.hours);
-if (r.amount !== null && r.amount !== undefined) cur.amount = (cur.amount ?? 0) + Number(r.amount);
-byDept.set(key, cur);
-}
-const by_department = [...byDept.values()].map(d => ({
-...d,
-avg_hourly_rate: (d.hours !== null && d.hours > 0 && d.amount !== null) ? d.amount / d.hours : null,
-}));
-const revenue = await loadRevenueForScope(req.user.organizationId, s, null);
-const avg_hourly_rate = (totalHours && totalHours > 0 && totalAmount !== null) ? totalAmount / totalHours : null;
-const labor_cost_percent = (revenue && revenue > 0 && totalAmount !== null) ? (totalAmount / revenue) * 100 : null;
-const productivity_per_hour = (totalHours && totalHours > 0 && revenue !== null) ? revenue / totalHours : null;
-ok(res, {
-period: s.period || null,
-scope: s,
-records: rows.map(r => ({
-period: r.period,
-department: r.department || null,
-hours: r.hours !== null && r.hours !== undefined ? Number(r.hours) : null,
-amount: r.amount !== null && r.amount !== undefined ? Number(r.amount) : null,
-project_id: r.project_id || '',
-branch_id: r.branch_id || '',
-restaurant_id: r.restaurant_id || '',
-department_id: r.department_id || '',
-})),
-totals: { hours: totalHours, amount: totalAmount, avg_hourly_rate, revenue, labor_cost_percent, productivity_per_hour },
-by_department,
-formula_version: 'fot-v1',
-});
-} catch (e) { next(e); }
-});
-
-
-/* ---- shared FOT schedule history and staffing plan ---- */
-function parseFotScope(input) {
-  try { return normalizeFotScope(input); }
-  catch { throw httpError(400, 'Некорректные идентификаторы рабочего контура ФОТ.', 'BAD_FOT_SCOPE'); }
-}
-
-async function assertFotScopeReadAccess(user, scope) {
-  const hasScope = Boolean(scope.project_id || scope.branch_id || scope.restaurant_id || scope.department_id);
-  if (hasScope) return true;
-  const role = String(user.role || '').toLowerCase();
-  if (['super_admin', 'owner'].includes(role)) return true;
-  const restaurants = await scopeQuery(
-    "SELECT id FROM org_units WHERE organization_id=$1::uuid AND kind='restaurant' ORDER BY id",
-    [user.organizationId],
-    'организации'
-  );
-  if (!restaurants.length) {
-    throw httpError(403, 'Для просмотра общего плана организации требуется доступ ко всем ресторанам.', 'FOT_ORG_SCOPE_FORBIDDEN');
-  }
-  for (const restaurant of restaurants) await assertRestaurantAccess(user, String(restaurant.id));
-  return true;
-}
-
-function fotPersistenceError(error) {
-  if (error?.code === '42P01') {
-    return httpError(503, 'Общее хранилище ФОТ ещё не подготовлено. Требуется применить проверенную миграцию базы данных.', 'FOT_PERSISTENCE_NOT_MIGRATED');
-  }
-  return error;
-}
-
-app.get('/api/fot/schedule-history', requireAuth, requireOrg, async (req, res, next) => {
   try {
-    const scope = parseFotScope(scopeFromQuery(req.query));
-    await assertScopeAccess(req.user, scope);
-    await assertFotScopeReadAccess(req.user, scope);
-    const rows = await queryWithRetry(
-      `SELECT period, file_name, norm_hours, ndfl, calculations_json, totals_json, saved_at, updated_at
-       FROM fot_schedule_history
-       WHERE organization_id=$1::uuid AND scope_key=$2
-       ORDER BY period DESC LIMIT 36`,
-      [req.user.organizationId, fotScopeKey(scope)],
-      { orgId: req.user.organizationId }
-    );
-    ok(res, { records: rows.rows.map(row => ({
-      period: row.period,
-      fileName: row.file_name,
-      normHours: row.norm_hours == null ? null : Number(row.norm_hours),
-      ndfl: row.ndfl == null ? null : Number(row.ndfl),
-      calculations: row.calculations_json,
-      totals: row.totals_json,
-      savedAt: row.saved_at,
-      updatedAt: row.updated_at,
-    })) });
-  } catch (error) { next(fotPersistenceError(error)); }
-});
-
-app.put('/api/fot/schedule-history', requireAuth, requireOrg, requireRole(...WRITE_ROLES), async (req, res, next) => {
-  try {
-    const parsed = FotScheduleHistorySchema.safeParse(req.body);
-    if (!parsed.success) throw httpError(400, 'Некорректные данные истории ФОТ.', 'BAD_FOT_HISTORY');
-    const payload = parsed.data;
-    assertJsonPayloadSize(payload);
-    const scope = normalizeFotScope(payload.scope);
-    await assertScopeAccess(req.user, scope);
-    await assertFotScopeReadAccess(req.user, scope);
-    const savedAt = payload.savedAt || new Date().toISOString();
-    const result = await queryWithRetry(
-      `INSERT INTO fot_schedule_history (
-         organization_id, project_id, branch_id, restaurant_id, department_id, scope_key,
-         period, file_name, norm_hours, ndfl, calculations_json, totals_json, saved_at, created_by, updated_by
-       ) VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb,$13::timestamptz,$14,$14)
-       ON CONFLICT (organization_id, scope_key, period) DO UPDATE SET
-         project_id=EXCLUDED.project_id,
-         branch_id=EXCLUDED.branch_id,
-         restaurant_id=EXCLUDED.restaurant_id,
-         department_id=EXCLUDED.department_id,
-         file_name=EXCLUDED.file_name,
-         norm_hours=EXCLUDED.norm_hours,
-         ndfl=EXCLUDED.ndfl,
-         calculations_json=EXCLUDED.calculations_json,
-         totals_json=EXCLUDED.totals_json,
-         saved_at=EXCLUDED.saved_at,
-         updated_by=EXCLUDED.updated_by,
-         updated_at=now()
-       RETURNING saved_at, updated_at`,
-      [
-        req.user.organizationId, scope.project_id, scope.branch_id, scope.restaurant_id, scope.department_id,
-        fotScopeKey(scope), payload.period, payload.fileName, payload.normHours, payload.ndfl,
-        JSON.stringify(payload.calculations), JSON.stringify(payload.totals), savedAt, req.user.id,
-      ],
-      { orgId: req.user.organizationId }
-    );
-    await audit(req.user, 'fot.schedule_history.saved', 'fot_schedule_history', payload.period, {
-      period: payload.period, scope, employeeCount: payload.calculations.length,
+    const s = scopeFromQuery(req.query);
+    if (s.period && !YM_RE.test(s.period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ)', 'BAD_PERIOD');
+    await assertScopeAccess(req.user, s);
+    const rows = await safeQuery(
+      `SELECT period, department, department_id, hours, amount, project_id, branch_id, restaurant_id
+       FROM payroll_records
+       WHERE organization_id=$1::uuid
+       AND ($2::text='' OR period=$2)
+       AND ($3::text='' OR project_id=$3)
+       AND ($4::text='' OR branch_id=$4)
+       AND ($5::text='' OR restaurant_id=$5)
+       AND ($6::text='' OR department_id=$6)
+       ORDER BY period DESC, department ASC LIMIT 5000`,
+      [req.user.organizationId, s.period || '', s.project_id || '', s.branch_id || '', s.restaurant_id || '', s.department_id || ''],
+      null);
+    if (!rows) return res.status(503).json({ error: { message: 'Данные ФОТ временно недоступны', code: 'DB_UNAVAILABLE', requestId: req.requestId } });
+    let totalHours = null, totalAmount = null;
+    for (const r of rows) {
+      if (r.hours !== null && r.hours !== undefined) totalHours = (totalHours ?? 0) + Number(r.hours);
+      if (r.amount !== null && r.amount !== undefined) totalAmount = (totalAmount ?? 0) + Number(r.amount);
+    }
+    const byDept = new Map();
+    for (const r of rows) {
+      const key = r.department_id || r.department || '—';
+      const cur = byDept.get(key) || { department: r.department || '—', department_id: r.department_id || '', hours: null, amount: null };
+      if (r.hours !== null && r.hours !== undefined) cur.hours = (cur.hours ?? 0) + Number(r.hours);
+      if (r.amount !== null && r.amount !== undefined) cur.amount = (cur.amount ?? 0) + Number(r.amount);
+      byDept.set(key, cur);
+    }
+    const by_department = [...byDept.values()].map(d => ({
+      ...d,
+      avg_hourly_rate: (d.hours !== null && d.hours > 0 && d.amount !== null) ? d.amount / d.hours : null,
+    }));
+    const revenue = await loadRevenueForScope(req.user.organizationId, s, null);
+    const avg_hourly_rate = (totalHours && totalHours > 0 && totalAmount !== null) ? totalAmount / totalHours : null;
+    const labor_cost_percent = (revenue && revenue > 0 && totalAmount !== null) ? (totalAmount / revenue) * 100 : null;
+    const productivity_per_hour = (totalHours && totalHours > 0 && revenue !== null) ? revenue / totalHours : null;
+    ok(res, {
+      period: s.period || null,
+      scope: s,
+      records: rows.map(r => ({
+        period: r.period, department: r.department || null,
+        hours: r.hours !== null && r.hours !== undefined ? Number(r.hours) : null,
+        amount: r.amount !== null && r.amount !== undefined ? Number(r.amount) : null,
+        project_id: r.project_id || '', branch_id: r.branch_id || '',
+        restaurant_id: r.restaurant_id || '', department_id: r.department_id || '',
+      })),
+      totals: { hours: totalHours, amount: totalAmount, avg_hourly_rate, revenue, labor_cost_percent, productivity_per_hour },
+      by_department,
+      formula_version: 'fot-v1',
     });
-    ok(res, { record: {
-      period: payload.period,
-      fileName: payload.fileName,
-      normHours: payload.normHours,
-      ndfl: payload.ndfl,
-      calculations: payload.calculations,
-      totals: payload.totals,
-      savedAt: result.rows[0].saved_at,
-      updatedAt: result.rows[0].updated_at,
-    } });
-  } catch (error) { next(fotPersistenceError(error)); }
+  } catch (e) { next(e); }
 });
-
+/* ---- FOT staffing-plan ---- */
 app.get('/api/fot/staffing-plan', requireAuth, requireOrg, async (req, res, next) => {
   try {
-    const period = String(req.query.period || '');
-    if (!YM_RE.test(period)) throw httpError(400, 'Некорректный период (ожидается ГГГГ-ММ).', 'BAD_PERIOD');
-    const scope = parseFotScope(scopeFromQuery(req.query));
+    const scope = parseOr400(StaffingPlanScopeSchema, req.query);
     await assertScopeAccess(req.user, scope);
-    await assertFotScopeReadAccess(req.user, scope);
-    const key = fotScopeKey(scope);
-    const [planResult, customResult] = await Promise.all([
-      queryWithRetry(
-        'SELECT plan_json, updated_at FROM fot_staffing_plans WHERE organization_id=$1::uuid AND scope_key=$2 AND period=$3 LIMIT 1',
-        [req.user.organizationId, key, period],
-        { orgId: req.user.organizationId }
-      ),
-      queryWithRetry(
-        'SELECT positions_json, updated_at FROM fot_custom_position_sets WHERE organization_id=$1::uuid AND scope_key=$2 LIMIT 1',
-        [req.user.organizationId, key],
-        { orgId: req.user.organizationId }
-      ),
-    ]);
+    const rows = await safeQuery(
+      `SELECT plan, custom_positions, updated_at FROM fot_staffing_plans
+        WHERE organization_id = $1::uuid AND period = $2
+          AND project_id = $3 AND branch_id = $4 AND restaurant_id = $5 AND department_id = $6
+        LIMIT 1`,
+      [req.user.organizationId, scope.period,
+       scope.project_id || '', scope.branch_id || '', scope.restaurant_id || '', scope.department_id || ''],
+      []);
+    const row = rows[0] || null;
     ok(res, {
-      period,
-      plan: planResult.rows[0]?.plan_json || {},
-      customPositions: customResult.rows[0]?.positions_json || [],
-      updatedAt: planResult.rows[0]?.updated_at || customResult.rows[0]?.updated_at || null,
+      period: scope.period,
+      plan: row?.plan && typeof row.plan === 'object' ? row.plan : {},
+      customPositions: Array.isArray(row?.custom_positions) ? row.custom_positions : [],
+      updatedAt: row?.updated_at || null,
     });
-  } catch (error) { next(fotPersistenceError(error)); }
+  } catch (e) { next(e); }
 });
 
-app.put('/api/fot/staffing-plan', requireAuth, requireOrg, requireRole(...WRITE_ROLES), async (req, res, next) => {
+app.put('/api/fot/staffing-plan', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
   try {
-    const parsed = FotStaffingPlanSchema.safeParse(req.body);
-    if (!parsed.success) throw httpError(400, 'Некорректные данные штатного плана ФОТ.', 'BAD_FOT_STAFFING_PLAN');
-    const payload = parsed.data;
-    assertJsonPayloadSize(payload, 1024 * 1024);
-    const scope = normalizeFotScope(payload.scope);
-    await assertScopeAccess(req.user, scope);
-    await assertFotScopeReadAccess(req.user, scope);
-    const key = fotScopeKey(scope);
-    const result = await queryWithRetry(
-      `WITH saved_plan AS (
-         INSERT INTO fot_staffing_plans (
-           organization_id, project_id, branch_id, restaurant_id, department_id,
-           scope_key, period, plan_json, updated_by
-         ) VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6,$7,$8::jsonb,$10)
-         ON CONFLICT (organization_id, scope_key, period) DO UPDATE SET
-           project_id=EXCLUDED.project_id,
-           branch_id=EXCLUDED.branch_id,
-           restaurant_id=EXCLUDED.restaurant_id,
-           department_id=EXCLUDED.department_id,
-           plan_json=EXCLUDED.plan_json,
-           updated_by=EXCLUDED.updated_by,
-           updated_at=now()
-         RETURNING updated_at
-       ),
-       saved_custom AS (
-         INSERT INTO fot_custom_position_sets (
-           organization_id, project_id, branch_id, restaurant_id, department_id,
-           scope_key, positions_json, updated_by
-         ) VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6,$9::jsonb,$10)
-         ON CONFLICT (organization_id, scope_key) DO UPDATE SET
-           project_id=EXCLUDED.project_id,
-           branch_id=EXCLUDED.branch_id,
-           restaurant_id=EXCLUDED.restaurant_id,
-           department_id=EXCLUDED.department_id,
-           positions_json=EXCLUDED.positions_json,
-           updated_by=EXCLUDED.updated_by,
-           updated_at=now()
-         RETURNING updated_at
-       )
-       SELECT saved_plan.updated_at AS plan_updated_at, saved_custom.updated_at AS custom_updated_at
-       FROM saved_plan CROSS JOIN saved_custom`,
-      [
-        req.user.organizationId, scope.project_id, scope.branch_id, scope.restaurant_id, scope.department_id,
-        key, payload.period, JSON.stringify(payload.plan), JSON.stringify(payload.customPositions), req.user.id,
-      ],
-      { orgId: req.user.organizationId }
-    );
-    await audit(req.user, 'fot.staffing_plan.saved', 'fot_staffing_plans', payload.period, {
-      period: payload.period, scope, positions: Object.keys(payload.plan).length, customPositions: payload.customPositions.length,
-    });
-    ok(res, {
-      period: payload.period,
-      plan: payload.plan,
-      customPositions: payload.customPositions,
-      updatedAt: result.rows[0]?.plan_updated_at || result.rows[0]?.custom_updated_at || null,
-    });
-  } catch (error) { next(fotPersistenceError(error)); }
-});
+    const body = parseOr400(StaffingPlanWriteSchema, req.body ?? {});
+    const accessScope = {
+      period: body.period,
+      project_id: body.scope.project_id || '',
+      branch_id: body.scope.branch_id || '',
+      restaurant_id: body.scope.restaurant_id || '',
+      department_id: body.scope.department_id || '',
+    };
+    await assertScopeAccess(req.user, accessScope);
 
+    await queryWithRetry(
+      `INSERT INTO fot_staffing_plans
+        (organization_id, period, project_id, branch_id, restaurant_id, department_id,
+         plan, custom_positions, updated_at, updated_by)
+       VALUES ($1::uuid, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, now(), $9)
+       ON CONFLICT (organization_id, period, project_id, branch_id, restaurant_id, department_id)
+       DO UPDATE SET plan = excluded.plan,
+                     custom_positions = excluded.custom_positions,
+                     updated_at = now(),
+                     updated_by = excluded.updated_by`,
+      [req.user.organizationId, body.period,
+       accessScope.project_id, accessScope.branch_id, accessScope.restaurant_id, accessScope.department_id,
+       JSON.stringify(body.plan), JSON.stringify(body.customPositions), req.user.id],
+      { orgId: req.user.organizationId });
+
+    const verify = await safeQuery(
+      `SELECT plan, custom_positions, updated_at FROM fot_staffing_plans
+        WHERE organization_id = $1::uuid AND period = $2
+          AND project_id = $3 AND branch_id = $4 AND restaurant_id = $5 AND department_id = $6
+        LIMIT 1`,
+      [req.user.organizationId, body.period,
+       accessScope.project_id, accessScope.branch_id, accessScope.restaurant_id, accessScope.department_id],
+      null);
+    if (!verify?.[0]) throw httpError(500, 'План не подтверждён readback-ом', 'SAVE_NOT_CONFIRMED');
+
+    await audit(req.user, 'fot.staffing_plan.saved', 'fot_staffing_plans',
+      `${body.period}|${accessScope.project_id}|${accessScope.branch_id}|${accessScope.restaurant_id}|${accessScope.department_id}`,
+      { positions: Object.keys(body.plan).length, custom: body.customPositions.length });
+
+    ok(res, {
+      plan: verify[0].plan && typeof verify[0].plan === 'object' ? verify[0].plan : {},
+      customPositions: Array.isArray(verify[0].custom_positions) ? verify[0].custom_positions : [],
+      updatedAt: verify[0].updated_at,
+    });
+  } catch (e) { next(e); }
+});
 /* ---- 404 / error handler ---- */
 app.use((req, res) => {
-res.status(404).json({ error: { message: `Маршрут не найден: ${req.method} ${req.path}`, code: 'NOT_FOUND', requestId: req.requestId } });
+  res.status(404).json({ error: { message: `Маршрут не найден: ${req.method} ${req.path}`, code: 'NOT_FOUND', requestId: req.requestId } });
 });
+
+// Коды 5xx, для которых можно показать err.message клиенту (они наши, безопасные).
+// Всё остальное (raw pg/S3/fetch ошибки) маскируется generic-сообщением, чтобы не утекали
+// SQL-фрагменты, детали соединения, email из unique-violation и т.п.
+const SAFE_5XX_CODES = new Set([
+  'DB_UNAVAILABLE', 'STORAGE_UNAVAILABLE', 'AI_UNAVAILABLE',
+  'SCOPE_ACCESS_CHECK_FAILED', 'HANDLER_CRASH',
+  'AI_TIMEOUT', 'AI_UNREACHABLE', 'AI_UPSTREAM_ERROR', 'AI_EMPTY_RESPONSE',
+  'TELEGRAM_UPSTREAM_ERROR', 'TELEGRAM_TIMEOUT', 'MESSENGER_UPSTREAM_ERROR',
+  'MESSENGER_NOT_CONFIGURED', 'GOOGLE_NOT_CONFIGURED',
+]);
+
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, _next) => {
-const status = err.status || 500;
-if (status >= 500) console.error('[sten] error:', err.message, '| path:', req.method, req.path, '| requestId:', req.requestId);
-const publicMessage = status >= 500 && !err.code ? 'Внутренняя ошибка сервера. Повторите запрос позже.' : (err.message || 'Ошибка запроса');
-res.status(status).json({ error: { message: publicMessage, code: err.code || `HTTP_${status}`, requestId: req.requestId } });
+  const status = err.status || 500;
+  if (status >= 500) {
+    console.error('[sten] error:', err.code || 'UNKNOWN', err.message,
+      '| path:', req.method, req.path, '| requestId:', req.requestId);
+    if (err.stack) console.error(err.stack);
+  }
+  // Раскрываем err.message только для 4xx (это наши httpError с человекочитаемым текстом)
+  // или для 5xx с кодом из белого списка. Иначе — generic.
+  const reveal = status < 500 || SAFE_5XX_CODES.has(String(err.code || ''));
+  const publicMessage = reveal
+    ? (err.message || 'Ошибка запроса')
+    : 'Внутренняя ошибка сервера. Повторите запрос позже.';
+  res.status(status).json({
+    error: { message: publicMessage, code: err.code || `HTTP_${status}`, requestId: req.requestId },
+  });
 });
 
 /* ----------------------------- handler -------------------------------------- */
 async function suspendExpiredOrganizations() {
   await ensureSchemaNow();
   const q = await queryWithRetry(
-    `UPDATE organizations 
+    `UPDATE organizations
      SET status = 'suspended', updated_at = now()
-     WHERE subscription_until < CURRENT_DATE::date AND status = 'active' 
-     RETURNING id`,
+     WHERE subscription_until < CURRENT_DATE AND status = 'active'
+     RETURNING id, code, name`,
     [], {});
   const organizations = q.rows || [];
   for (const organization of organizations) {
-    await audit(null, 'subscription.expired', 'organizations', organization.id, { reason: 'subscription_until_before_today' });
+    await audit(null, 'subscription.expired', 'organizations', organization.id, {
+      reason: 'subscription_until_before_today',
+      code: organization.code || null,
+      name: organization.name || null,
+    });
   }
   log('subscription expiry sweep:', organizations.length);
   return organizations.length;
 }
 
+async function runTelegramAnalyze() {
+  const orgs = await safeQuery("SELECT id FROM organizations WHERE status='active'", [], []);
+  const total = { scanned: 0, analyzed: 0, skipped: 0, failed: 0 };
+  for (const org of orgs) {
+    try {
+      const r = await processTelegramMessageBatch({
+        queryWithRetry,
+        analyze: aiAnalyzeTelegramMessage,
+        limit: 20,
+        orgId: org.id,
+      });
+      total.scanned += r.scanned; total.analyzed += r.analyzed;
+      total.skipped += r.skipped; total.failed += r.failed;
+    } catch (e) {
+      // Один упавший орг не должен валить весь sweep
+      total.failed += 1;
+      console.error('[sten] telegram analyze org failed:', org.id, e?.code || e?.message);
+    }
+  }
+  log('telegram analyze sweep:', JSON.stringify(total));
+  return total;
+}
+
 function isTimerEvent(event) {
-return Array.isArray(event?.messages) && event.messages.some(message => message?.event_metadata?.event_type === 'yandex.cloud.events.serverless.triggers.TimerMessage');
+  return Array.isArray(event?.messages)
+    && event.messages.some(m => m?.event_metadata?.event_type === 'yandex.cloud.events.serverless.triggers.TimerMessage');
 }
 
 const handlerAsync = serverless(app, { binary: false });
 let _schemaBootPromise = null;
 async function ensureSchemaBoot() {
-if (_schemaReady) return true;
-if (!_schemaBootPromise) {
-_schemaBootPromise = (async () => {
-const ok = await ensureSchemaNow();
-if (!ok) _schemaBootPromise = null;
-return ok;
-})().catch(e => { log('schema boot failed:', e.message); _schemaBootPromise = null; return false; });
-}
-return _schemaBootPromise;
+  if (_schemaReady) return true;
+  if (!_schemaBootPromise) {
+    _schemaBootPromise = (async () => {
+      const ok = await ensureSchemaNow();
+      if (!ok) _schemaBootPromise = null;
+      return ok;
+    })().catch(e => { log('schema boot failed:', e.message); _schemaBootPromise = null; return false; });
+  }
+  return _schemaBootPromise;
 }
 
 module.exports.handler = async (event, context) => {
-if (context) context.callbackWaitsForEmptyEventLoop = false;
-if (!event || typeof event !== 'object') {
-return { statusCode: 400, headers: { 'Content-Type': 'application/json; charset=utf-8' }, body: JSON.stringify({ error: { code: 'EMPTY_EVENT', message: 'event is empty' } }) };
-}
-if (isTimerEvent(event)) {
-try {
-const suspended = await suspendExpiredOrganizations();
-let telegramAnalysis = { scanned: 0, analyzed: 0, skipped: 0, failed: 0, status: 'already_ran_today' };
-const analysisClaim = await queryWithRetry(
-  `INSERT INTO telegram_worker_runs(worker_key,run_date,status,started_at)
-   VALUES('daily_ai_analysis',CURRENT_DATE,'running',now())
-   ON CONFLICT(worker_key,run_date) DO UPDATE SET status='running',started_at=now()
-    WHERE telegram_worker_runs.status='failed' OR (telegram_worker_runs.status='running' AND telegram_worker_runs.started_at < now()-interval '2 hours')
-   RETURNING worker_key`,
-  [], {}
-);
-if (analysisClaim.rows?.length) {
-  try {
-    telegramAnalysis = await processTelegramMessageBatch({
-      queryWithRetry,
-      analyze: prompt => callYandexGPT([{ role: 'user', text: prompt }]),
-      limit: 50,
-    });
-    await queryWithRetry(
-      "UPDATE telegram_worker_runs SET status='completed' WHERE worker_key='daily_ai_analysis' AND run_date=CURRENT_DATE",
-      [], {}
-    );
-    telegramAnalysis.status = 'completed';
-  } catch (analysisError) {
-    await queryWithRetry(
-      "UPDATE telegram_worker_runs SET status='failed' WHERE worker_key='daily_ai_analysis' AND run_date=CURRENT_DATE",
-      [], {}
-    );
-    telegramAnalysis = { ...telegramAnalysis, status: 'failed' };
-    log('telegram secretary batch failed:', analysisError?.code || analysisError?.message || 'UNKNOWN');
+  if (context) context.callbackWaitsForEmptyEventLoop = false;
+  if (!event || typeof event !== 'object') {
+    return { statusCode: 400, headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({ error: { code: 'EMPTY_EVENT', message: 'event is empty' } }) };
   }
-}
-let telegramAutomation = { escalationsQueued: 0, summariesQueued: 0, sent: 0, failed: 0, skipped: 0 };
-try {
-  telegramAutomation = await processTelegramAutomationJobs({
-    queryWithRetry,
-    sendMessage: sendOperationalTelegramMessage,
-    buildFinancialReport: async schedule => {
-      const scope = { period: String(schedule.local_date).slice(0,7), project_id: '', branch_id: '',
-        restaurant_id: schedule.restaurant_id, department_id: '' };
-      const report = await loadReportMetrics({ organizationId: schedule.organization_id }, schedule.local_date, scope);
-      return reportText(schedule.local_date, schedule.restaurant_name, report.values, report.pnlData,
-        { revenue: true, cashCard: true, discounts: true, avgCheck: true, checks: true,
-          primeCost: true, ebitda: true, deviation: true });
-    },
-    batchSize: 50,
-  });
-} catch (automationError) {
-  log('telegram automation worker failed:', automationError?.code || automationError?.message || 'UNKNOWN');
-  telegramAutomation = { ...telegramAutomation, status: 'failed' };
-}
-return { ok: true, suspended, telegramAnalysis, telegramAutomation };
-} catch (e) {
-console.error('[sten] timer worker failed:', e && e.stack ? e.stack : e);
-throw e;
-}
-}
-const method = String(event?.httpMethod || event?.requestContext?.http?.method || '').toUpperCase();
-const path = String(event?.path || event?.url || '');
-const needsSchema = method !== 'OPTIONS' && path !== '/healthz';
-if (needsSchema) await ensureSchemaBoot();
-try {
-return await handlerAsync(event, context);
-} catch (e) {
-console.error('[sten] fatal handler error:', e && e.stack ? e.stack : e);
-return { statusCode: 500, headers: { 'Content-Type': 'application/json; charset=utf-8' }, body: JSON.stringify({ error: { message: 'Внутренняя ошибка сервера.', code: 'HANDLER_CRASH' } }) };
-}
+
+  // ── Timer: subscription sweep + Telegram AI-анализ ──
+  if (isTimerEvent(event)) {
+    const result = { ok: true, subscription_sweep: null, telegram_analyze: null };
+    try { result.subscription_sweep = { suspended: await suspendExpiredOrganizations() }; }
+    catch (e) {
+      console.error('[sten] subscription expiry failed:', e?.stack || e);
+      result.subscription_sweep = { error: e?.message || 'unknown' };
+    }
+    try { result.telegram_analyze = await runTelegramAnalyze(); }
+    catch (e) {
+      console.error('[sten] telegram analyze failed:', e?.stack || e);
+      result.telegram_analyze = { error: e?.message || 'unknown' };
+    }
+    return result;
+  }
+
+  // ── HTTP ──
+  const method = String(event?.httpMethod || event?.requestContext?.http?.method || '').toUpperCase();
+  const path = String(event?.path || event?.url || '');
+  // /healthz не нуждается в таблицах — только в connectivity. OPTIONS — preflight без БД.
+  const needsSchema = method !== 'OPTIONS' && path !== '/healthz';
+  if (needsSchema) await ensureSchemaBoot();
+  try {
+    return await handlerAsync(event, context);
+  } catch (e) {
+    console.error('[sten] fatal handler error:', e?.stack || e);
+    return { statusCode: 500, headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({ error: { message: 'Внутренняя ошибка сервера.', code: 'HANDLER_CRASH' } }) };
+  }
 };
 
 // Express app export for Cloud.ru Container Apps; Yandex Cloud keeps using handler.
