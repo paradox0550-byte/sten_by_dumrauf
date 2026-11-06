@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, AlertCircle, Check, ChevronDown, ChevronUp, Clock3, RefreshCw, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { api, ApiError } from '../../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
 import '../../styles/telegram-operational-workflow.css';
 
 type Analysis = {
@@ -45,6 +46,7 @@ type Health = {
 };
 type Delivery = { id: string; chat_id: string; method: string; status: 'sent' | 'failed'; error_code: string | null; error_message: string | null; created_at: string };
 type Diagnostic = { id: string; status: string; details_json: Record<string, unknown>; checked_at: string };
+type WorkflowEvent = { id: string; event_type: string; from_status: string | null; to_status: string | null; actor_id: string; created_at: string };
 
 type Filter = 'pending' | 'action_created' | 'rejected' | 'all';
 
@@ -76,6 +78,8 @@ const localDateTimeInput = (value?: string | null) => {
 };
 
 export default function TelegramOperationalWorkflow({ selectedChatId }: { selectedChatId?: string }) {
+  const { user } = useAuth();
+  const canReview = ['super_admin', 'owner', 'admin', 'director', 'manager'].includes(String(user?.role || '').toLowerCase());
   const [findings, setFindings] = useState<Finding[]>([]);
   const [filter, setFilter] = useState<Filter>('pending');
   const [loading, setLoading] = useState(true);
@@ -92,6 +96,7 @@ export default function TelegramOperationalWorkflow({ selectedChatId }: { select
   const [health, setHealth] = useState<Health | null>(null);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
+  const [events, setEvents] = useState<WorkflowEvent[]>([]);
   const [diagnosing, setDiagnosing] = useState(false);
   const [monitorError, setMonitorError] = useState('');
 
@@ -99,8 +104,7 @@ export default function TelegramOperationalWorkflow({ selectedChatId }: { select
     setLoading(true);
     setError('');
     try {
-      const query = filter === 'all' ? '' : '?status=' + encodeURIComponent(filter);
-      const response = await api.get<{ findings: Finding[] }>('/api/telegram-monitor/findings' + query);
+      const response = await api.get<{ findings: Finding[] }>('/api/telegram-monitor/findings?limit=100');
       setFindings(Array.isArray(response.findings) ? response.findings : []);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Не удалось загрузить AI-находки.');
@@ -126,6 +130,7 @@ export default function TelegramOperationalWorkflow({ selectedChatId }: { select
   useEffect(() => { void loadFindings(); }, [loadFindings]);
   useEffect(() => { void loadMonitoring(); }, [loadMonitoring]);
 
+  const visibleFindings = useMemo(() => filter === 'all' ? findings : findings.filter(item => item.status === filter), [findings, filter]);
   const counts = useMemo(() => ({
     pending: findings.filter(item => item.status === 'pending').length,
     tasks: findings.filter(item => item.status === 'action_created').length,
@@ -138,6 +143,7 @@ export default function TelegramOperationalWorkflow({ selectedChatId }: { select
       return;
     }
     setExpandedId(finding.finding_id);
+    setEvents([]);
     setError('');
     setNotice('');
     const proposal = finding.analysis_json.actionProposal;
@@ -146,6 +152,13 @@ export default function TelegramOperationalWorkflow({ selectedChatId }: { select
     setDueAt(localDateTimeInput(proposal?.dueAt));
     setAssigneeId('');
     setEmployees([]);
+    if (finding.status !== 'pending' || !proposal || !canReview) {
+      try {
+        const response = await api.get<{ events: WorkflowEvent[] }>('/api/telegram-monitor/findings/' + encodeURIComponent(finding.finding_id) + '/events');
+        setEvents(Array.isArray(response.events) ? response.events : []);
+      } catch { setEvents([]); }
+      return;
+    }
     setEmployeesLoading(true);
     try {
       const response = await api.get<{ employees: Employee[] }>(
@@ -271,9 +284,9 @@ export default function TelegramOperationalWorkflow({ selectedChatId }: { select
     {error && <p className="telegram-workflow__message is-error" role="alert">{error}</p>}
     {notice && <p className="telegram-workflow__message is-success" role="status">{notice}</p>}
     {loading ? <p className="telegram-workflow__empty" role="status">Загружаем AI-находки…</p>
-      : findings.length === 0 ? <p className="telegram-workflow__empty">В этом списке пока нет AI-находок.</p>
+      : visibleFindings.length === 0 ? <p className="telegram-workflow__empty">В этом списке пока нет AI-находок.</p>
       : <div className="telegram-workflow__findings">
-        {findings.map(finding => {
+        {visibleFindings.map(finding => {
           const analysis = finding.analysis_json || {};
           const proposal = analysis.actionProposal;
           const expanded = expandedId === finding.finding_id;
@@ -306,6 +319,7 @@ export default function TelegramOperationalWorkflow({ selectedChatId }: { select
             </div>
             {finding.action_id && <p className="telegram-workflow__linked-task"><Check size={15} /> Задача создана: <code>{finding.action_id}</code></p>}
             {finding.review_note && <p className="telegram-workflow__review-note">Комментарий руководителя: {finding.review_note}</p>}
+            {expanded && events.length > 0 && <div className="telegram-workflow__history"><strong>История решения</strong>{events.map(event => <p key={event.id}>{event.event_type} · {event.from_status || '—'} → {event.to_status || '—'} · {dateTime(event.created_at)}</p>)}</div>}
             {expanded && finding.status === 'pending' && <div className="telegram-workflow__review">
               {proposal ? <>
                 <div className="telegram-workflow__proposal">
@@ -325,14 +339,14 @@ export default function TelegramOperationalWorkflow({ selectedChatId }: { select
                   </label>
                   <label><span>Срок выполнения</span><input type="datetime-local" value={dueAt} onChange={event => setDueAt(event.target.value)} /></label>
                 </div>
-                <div className="telegram-workflow__review-actions">
+                {canReview ? <div className="telegram-workflow__review-actions">
                   <button type="button" className="primary-button" onClick={() => void approve(finding)} disabled={acting || employeesLoading || !employees.length}>
                     <Check size={15} /> {acting ? 'Сохраняем…' : 'Подтвердить и создать задачу'}
                   </button>
                   <button type="button" className="secondary-button" onClick={() => void reject(finding)} disabled={acting}>
                     <X size={15} /> Отклонить
                   </button>
-                </div>
+                </div> : <p className="telegram-workflow__empty">Решение по AI-находке может принять только руководитель.</p>}
               </> : <p className="telegram-workflow__empty">AI не сформировал предложение действия. Находка доступна для анализа, но задача не создаётся автоматически.</p>}
             </div>}
           </article>;
