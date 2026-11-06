@@ -390,15 +390,14 @@ await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS revi
 await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;`);
 await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS review_note TEXT;`);
 await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS action_id UUID;`);
-await query(`DO $ BEGIN
+await query(`DO $body$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='telegram_message_analyses_status_check') THEN
     ALTER TABLE telegram_message_analyses ADD CONSTRAINT telegram_message_analyses_status_check
       CHECK (status IN ('pending','approved','rejected','action_created'));
   END IF;
-END $;`);
+END $body$;`);
 await query(`CREATE INDEX IF NOT EXISTS idx_telegram_message_analyses_review
   ON telegram_message_analyses(organization_id, status, created_at DESC);`);
-await query(`ALTER TABLE telegram_bot_settings ADD COLUMN IF NOT EXISTS timezone TEXT NOT NULL DEFAULT 'Europe/Moscow';`);
 await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS last_escalated_at TIMESTAMPTZ;`);
 await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS escalation_count INTEGER NOT NULL DEFAULT 0;`);
 await query(`CREATE TABLE IF NOT EXISTS telegram_ai_finding_events (
@@ -496,6 +495,7 @@ await query(`CREATE TABLE IF NOT EXISTS telegram_bot_settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );`);
 await query(`CREATE INDEX IF NOT EXISTS idx_telegram_bot_settings_scope ON telegram_bot_settings(organization_id, restaurant_id);`);
+await query(`ALTER TABLE telegram_bot_settings ADD COLUMN IF NOT EXISTS timezone TEXT NOT NULL DEFAULT 'Europe/Moscow';`);
 await query(`CREATE TABLE IF NOT EXISTS payroll_records (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id UUID NOT NULL, user_id UUID, period TEXT NOT NULL, department TEXT, hours NUMERIC(10,2), amount NUMERIC(18,2), created_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
 await query(`ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS project_id    TEXT NOT NULL DEFAULT '';`);
 await query(`ALTER TABLE payroll_records ADD COLUMN IF NOT EXISTS branch_id     TEXT NOT NULL DEFAULT '';`);
