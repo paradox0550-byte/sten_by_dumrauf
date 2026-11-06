@@ -359,7 +359,7 @@ button, a, [role='button'] { -webkit-tap-highlight-color: transparent; }
 }
 .sten-ai-page .sten-composer .send, .sten-ai-page .composer-box .send {
   background: var(--color-brand) !important;
-  color: #0B0F19 !important;
+  color: var(--text-on-accent) !important;
   border-radius: 10px !important;
 }
 .sten-ai-page .sten-ai-starter, .sten-ai-page .starter-card {
