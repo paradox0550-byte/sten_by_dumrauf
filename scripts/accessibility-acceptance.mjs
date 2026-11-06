@@ -103,7 +103,7 @@ try {
           }));
           const severe = result.violations.filter(v => v.impact === 'critical' || v.impact === 'serious');
           for (const violation of severe) {
-            const nodes = violation.nodes.slice(0, 4).map(node => `${node.target.join(', ')} — ${node.failureSummary?.replace(/\\s+/g, ' ').slice(0, 180)}`);
+            const nodes = violation.nodes.slice(0, 4).map(node => `${node.target.join(', ')} — ${node.failureSummary?.replace(/\s+/g, ' ').slice(0, 180)}`);
             failures.push(`${theme}/${viewport.width}/${name}: ${violation.id} [${violation.impact}] ${violation.help}; ${nodes.join(' | ')}`);
           }
           const vitals = await page.evaluate(() => ({
