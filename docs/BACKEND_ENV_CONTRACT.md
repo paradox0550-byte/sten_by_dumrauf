@@ -40,7 +40,7 @@ It is not a copy of the current Yandex Cloud environment. Secret values must nev
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token; also used as fallback for the monitor bot. |
 | `TELEGRAM_MONITOR_BOT_TOKEN` | Optional dedicated monitor-bot token; takes precedence over `TELEGRAM_BOT_TOKEN`. |
 | `TELEGRAM_MONITOR_SECRET` | Dedicated `/api/telegram/webhook` monitor endpoint secret header validation. |
-| `TELEGRAM_WEBHOOK_SECRET` | Telegram webhook secret header validation. This is the variable the webhook actually checks. |
+| `TELEGRAM_WEBHOOK_SECRET` | Secret header validation for the general Telegram ingest path at `/api/ingest/message`. |
 | `WHATSAPP_APP_SECRET` | WhatsApp webhook signature validation, if WhatsApp inbound is enabled. |
 | `WHATSAPP_ACCESS_TOKEN` | WhatsApp outbound messaging, if enabled. |
 
