@@ -4,22 +4,27 @@ const TELEGRAM_GROUP_TYPES = new Set(['group', 'supergroup']);
 const CALLBACK_DATA_MAX_BYTES = 64;
 
 function normalizeTelegramUpdate(update) {
-  if (!update || !Number.isSafeInteger(update.update_id)) return { kind: 'invalid' };
+  if (!update || !Number.isSafeInteger(update.update_id)) {
+    return { kind: 'invalid', updateId: update?.update_id ?? null };
+  }
 
+  // ── Callback query (inline-кнопки: "Одобрить", "Отклонить", "Создать задачу") ──
   const callback = update.callback_query;
   if (callback) {
     const message = callback.message;
     const sender = callback.from;
     const data = typeof callback.data === 'string' ? callback.data : '';
+
     if (!callback.id || !message?.chat || !sender || sender.is_bot) {
-      return { kind: 'unsupported', updateId: update.update_id };
+      return { kind: 'unsupported', updateId: update.update_id, reason: 'callback_missing_fields' };
     }
     if (!TELEGRAM_GROUP_TYPES.has(message.chat.type)) {
-      return { kind: 'unsupported', updateId: update.update_id };
+      return { kind: 'unsupported', updateId: update.update_id, reason: 'callback_chat_type' };
     }
     if (Buffer.byteLength(data, 'utf8') > CALLBACK_DATA_MAX_BYTES) {
       return { kind: 'unsupported', updateId: update.update_id, reason: 'callback_data_too_long' };
     }
+
     return {
       kind: 'callback_query',
       updateId: update.update_id,
@@ -36,12 +41,25 @@ function normalizeTelegramUpdate(update) {
     };
   }
 
+  // ── Обычное сообщение / редактирование ──
   const edited = Boolean(update.edited_message);
   const message = edited ? update.edited_message : update.message;
-  if (!message || !message.chat || !message.from) return { kind: 'unsupported', updateId: update.update_id };
-  if (!TELEGRAM_GROUP_TYPES.has(message.chat.type)) return { kind: 'unsupported', updateId: update.update_id };
-  if (message.from.is_bot) return { kind: 'unsupported', updateId: update.update_id };
-  const text = typeof message.text === 'string' ? message.text : (typeof message.caption === 'string' ? message.caption : '');
+
+  if (!message || !message.chat || !message.from) {
+    return { kind: 'unsupported', updateId: update.update_id, reason: 'message_missing_fields' };
+  }
+  if (!TELEGRAM_GROUP_TYPES.has(message.chat.type)) {
+    return { kind: 'unsupported', updateId: update.update_id, reason: 'chat_type' };
+  }
+  if (message.from.is_bot) {
+    return { kind: 'unsupported', updateId: update.update_id, reason: 'from_bot' };
+  }
+
+  const rawText = typeof message.text === 'string'
+    ? message.text
+    : (typeof message.caption === 'string' ? message.caption : '');
+  const text = rawText.trim();
+
   return {
     kind: 'message',
     updateId: update.update_id,
@@ -59,6 +77,137 @@ function normalizeTelegramUpdate(update) {
     raw: update,
   };
 }
+
+async function persistTelegramUpdate(query, update) {
+  const normalized = normalizeTelegramUpdate(update);
+
+  // Мягкая обработка мусора — Telegram не должен получать 500 и ретраить
+  if (normalized.kind === 'invalid') {
+    return { accepted: false, stored: false, reason: 'invalid_payload' };
+  }
+  if (normalized.kind === 'unsupported') {
+    return { accepted: true, stored: false, reason: normalized.reason || 'unsupported' };
+  }
+
+  // ── Callback query: пишем только в telegram_updates, дальше обрабатывает воркер ──
+  if (normalized.kind === 'callback_query') {
+    const result = await query(
+      `INSERT INTO telegram_updates (update_id, received_at, update_json)
+       VALUES ($1, now(), $2::jsonb)
+       ON CONFLICT (update_id) DO NOTHING
+       RETURNING update_id`,
+      [normalized.updateId, JSON.stringify(normalized.raw)]
+    );
+    const inserted = Boolean(result.rows?.length);
+    return {
+      accepted: true,
+      stored: inserted,
+      duplicate: !inserted,
+      kind: 'callback_query',
+      callback: inserted ? {
+        callbackQueryId: normalized.callbackQueryId,
+        chatId: normalized.chatId,
+        chatType: normalized.chatType,
+        chatTitle: normalized.chatTitle,
+        messageId: normalized.messageId,
+        senderId: normalized.senderId,
+        senderName: normalized.senderName,
+        senderUsername: normalized.senderUsername,
+        data: normalized.data,
+      } : null,
+    };
+  }
+
+  // ── Message: CTE с умной инвалидацией pending-анализов при реальном изменении текста ──
+  const result = await query(
+    `WITH old_message AS (
+       SELECT message_text
+         FROM telegram_messages
+        WHERE chat_id = $3 AND message_id = $6
+     ), inserted_update AS (
+       INSERT INTO telegram_updates (update_id, received_at, update_json)
+       VALUES ($1, now(), $2::jsonb)
+       ON CONFLICT (update_id) DO NOTHING
+       RETURNING update_id
+     ), upserted_chat AS (
+       INSERT INTO telegram_chats (chat_id, chat_type, title, first_seen_at, last_seen_at)
+       SELECT $3, $4, NULLIF($5, ''), now(), now()
+         FROM inserted_update
+       ON CONFLICT (chat_id) DO UPDATE SET
+         chat_type = EXCLUDED.chat_type,
+         title = COALESCE(EXCLUDED.title, telegram_chats.title),
+         last_seen_at = now()
+       RETURNING chat_id
+     ), upserted_message AS (
+       INSERT INTO telegram_messages
+         (chat_id, message_id, update_id, sender_id, sender_name, sender_username,
+          message_text, message_date, edited_at, raw_json, received_at)
+       SELECT $3, $6, $1, $7, NULLIF($8, ''), $9, $10, $11, $12, $2::jsonb, now()
+         FROM inserted_update CROSS JOIN upserted_chat
+       ON CONFLICT (chat_id, message_id) DO UPDATE SET
+         update_id = EXCLUDED.update_id,
+         sender_id = EXCLUDED.sender_id,
+         sender_name = EXCLUDED.sender_name,
+         sender_username = EXCLUDED.sender_username,
+         message_text = EXCLUDED.message_text,
+         edited_at = EXCLUDED.edited_at,
+         raw_json = EXCLUDED.raw_json
+       RETURNING chat_id, message_id, message_text
+     ), changed_message AS (
+       SELECT m.chat_id, m.message_id
+         FROM upserted_message m
+         LEFT JOIN old_message o ON TRUE
+        WHERE o.message_text IS DISTINCT FROM m.message_text
+     ), invalidated_analysis AS (
+       DELETE FROM telegram_message_analyses a
+        USING changed_message c
+        WHERE a.chat_id = c.chat_id AND a.message_id = c.message_id
+        RETURNING a.message_id
+     )
+     SELECT EXISTS(SELECT 1 FROM inserted_update)     AS is_new,
+            EXISTS(SELECT 1 FROM upserted_message)   AS message_stored,
+            (SELECT count(*) FROM invalidated_analysis) AS invalidated_count`,
+    [
+      normalized.updateId,
+      JSON.stringify(normalized.raw),
+      normalized.chatId,
+      normalized.chatType,
+      normalized.chatTitle,
+      normalized.messageId,
+      normalized.senderId,
+      normalized.senderName,
+      normalized.senderUsername,
+      normalized.text,
+      normalized.messageDate,
+      normalized.editedAt,
+    ]
+  );
+
+  const row = result.rows?.[0] || {};
+  return {
+    accepted: true,
+    stored: Boolean(row.message_stored),
+    duplicate: !row.is_new,
+    kind: 'message',
+    updateId: normalized.updateId,
+    invalidated_analysis: Number(row.invalidated_count || 0),
+  };
+}
+
+/*
+ * ── Lease-based обработка ──
+ * ТРЕБУЕТ колонок в telegram_updates:
+ *   processing_status TEXT NOT NULL DEFAULT 'pending'
+ *   processing_attempts INT NOT NULL DEFAULT 0
+ *   processing_started_at TIMESTAMPTZ
+ *   processed_at TIMESTAMPTZ
+ *   next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT now()
+ *   last_error TEXT
+ *
+ * В текущей схеме v5.4.1 этих колонок НЕТ.
+ * Функции экспортируются, но не вызываются из index.js — безопасно, пока
+ * не будет миграции схемы. Использовать только после явного ALTER.
+ */
 
 async function claimTelegramUpdate(query, updateId, leaseSeconds = 45) {
   if (!Number.isSafeInteger(updateId)) throw new TypeError('Invalid Telegram update id');
@@ -100,86 +249,11 @@ async function failTelegramUpdate(query, updateId, attempts, error) {
     [updateId, message, attempts]
   );
 }
-async function persistTelegramUpdate(query, update) {
-  const normalized = normalizeTelegramUpdate(update);
-  if (normalized.kind === 'invalid') throw new Error('Invalid Telegram update');
-  if (normalized.kind === 'unsupported') {
-    return { accepted: true, stored: false, reason: normalized.reason || normalized.kind };
-  }
 
-  if (normalized.kind === 'callback_query') {
-    const result = await query(
-      `INSERT INTO telegram_updates (update_id, received_at, update_json)
-       VALUES ($1, now(), $2::jsonb)
-       ON CONFLICT (update_id) DO NOTHING
-       RETURNING update_id`,
-      [normalized.updateId, JSON.stringify(normalized.raw)]
-    );
-    const inserted = Boolean(result.rows?.length);
-    return {
-      accepted: true,
-      stored: inserted,
-      duplicate: !inserted,
-      kind: 'callback_query',
-      callback: inserted ? {
-        callbackQueryId: normalized.callbackQueryId,
-        chatId: normalized.chatId,
-        chatType: normalized.chatType,
-        chatTitle: normalized.chatTitle,
-        messageId: normalized.messageId,
-        senderId: normalized.senderId,
-        senderName: normalized.senderName,
-        senderUsername: normalized.senderUsername,
-        data: normalized.data,
-      } : null,
-    };
-  }
-
-  const result = await query(
-    `WITH inserted_update AS (
-       INSERT INTO telegram_updates (update_id, received_at, update_json)
-       VALUES ($1, now(), $2::jsonb)
-       ON CONFLICT (update_id) DO NOTHING
-       RETURNING update_id
-     ), upserted_chat AS (
-       INSERT INTO telegram_chats (chat_id, chat_type, title, first_seen_at, last_seen_at)
-       SELECT $3, $4, NULLIF($5, ''), now(), now()
-       FROM inserted_update
-       ON CONFLICT (chat_id) DO UPDATE SET
-         chat_type = EXCLUDED.chat_type,
-         title = COALESCE(EXCLUDED.title, telegram_chats.title),
-         last_seen_at = now()
-       RETURNING chat_id
-     ), upserted_message AS (
-       INSERT INTO telegram_messages
-         (chat_id, message_id, update_id, sender_id, sender_name, sender_username,
-          message_text, message_date, edited_at, raw_json, received_at)
-       SELECT $3, $6, $1, $7, NULLIF($8, ''), $9, $10, $11, $12, $2::jsonb, now()
-       FROM inserted_update CROSS JOIN upserted_chat
-       ON CONFLICT (chat_id, message_id) DO UPDATE SET
-         update_id = EXCLUDED.update_id,
-         sender_id = EXCLUDED.sender_id,
-         sender_name = EXCLUDED.sender_name,
-         sender_username = EXCLUDED.sender_username,
-         message_text = EXCLUDED.message_text,
-         edited_at = EXCLUDED.edited_at,
-         raw_json = EXCLUDED.raw_json
-       RETURNING message_id
-     ), invalidated_analysis AS (
-       DELETE FROM telegram_message_analyses a
-        USING upserted_message m
-        WHERE a.chat_id=$3 AND a.message_id=m.message_id AND a.status='pending'
-        RETURNING a.message_id
-     )
-     SELECT EXISTS(SELECT 1 FROM inserted_update) AS is_new,
-            EXISTS(SELECT 1 FROM upserted_message) AS message_stored`,
-    [normalized.updateId, JSON.stringify(normalized.raw), normalized.chatId,
-     normalized.chatType, normalized.chatTitle, normalized.messageId,
-     normalized.senderId, normalized.senderName, normalized.senderUsername,
-     normalized.text, normalized.messageDate, normalized.editedAt]
-  );
-  const row = result.rows?.[0] || {};
-  return { accepted: true, stored: Boolean(row.message_stored), duplicate: !row.is_new, kind: 'message', updateId: normalized.updateId };
-}
-
-module.exports = { normalizeTelegramUpdate, persistTelegramUpdate, claimTelegramUpdate, completeTelegramUpdate, failTelegramUpdate };
+module.exports = {
+  normalizeTelegramUpdate,
+  persistTelegramUpdate,
+  claimTelegramUpdate,
+  completeTelegramUpdate,
+  failTelegramUpdate,
+};
