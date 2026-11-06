@@ -379,6 +379,105 @@ await query(`CREATE TABLE IF NOT EXISTS telegram_message_analyses (
   FOREIGN KEY (chat_id, message_id) REFERENCES telegram_messages(chat_id, message_id) ON DELETE CASCADE
 );`);
 await query(`CREATE INDEX IF NOT EXISTS idx_telegram_message_analyses_scope ON telegram_message_analyses(organization_id, restaurant_id, created_at DESC);`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS id UUID;`);
+await query(`UPDATE telegram_message_analyses SET id=gen_random_uuid() WHERE id IS NULL;`);
+await query(`ALTER TABLE telegram_message_analyses ALTER COLUMN id SET DEFAULT gen_random_uuid();`);
+await query(`ALTER TABLE telegram_message_analyses ALTER COLUMN id SET NOT NULL;`);
+await query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_message_analyses_id ON telegram_message_analyses(id);`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending';`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS reviewed_by TEXT;`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS review_note TEXT;`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS action_id UUID;`);
+await query(`DO $ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='telegram_message_analyses_status_check') THEN
+    ALTER TABLE telegram_message_analyses ADD CONSTRAINT telegram_message_analyses_status_check
+      CHECK (status IN ('pending','approved','rejected','action_created'));
+  END IF;
+END $;`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_message_analyses_review
+  ON telegram_message_analyses(organization_id, status, created_at DESC);`);
+await query(`ALTER TABLE telegram_bot_settings ADD COLUMN IF NOT EXISTS timezone TEXT NOT NULL DEFAULT 'Europe/Moscow';`);
+await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS last_escalated_at TIMESTAMPTZ;`);
+await query(`ALTER TABLE operational_actions ADD COLUMN IF NOT EXISTS escalation_count INTEGER NOT NULL DEFAULT 0;`);
+await query(`CREATE TABLE IF NOT EXISTS telegram_ai_finding_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  finding_id UUID NOT NULL,
+  organization_id UUID NOT NULL,
+  restaurant_id UUID NOT NULL,
+  event_type TEXT NOT NULL,
+  from_status TEXT,
+  to_status TEXT,
+  actor_id TEXT NOT NULL,
+  action_id UUID,
+  payload_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_ai_finding_events_scope
+  ON telegram_ai_finding_events(organization_id, restaurant_id, finding_id, created_at DESC);`);
+await query(`CREATE TABLE IF NOT EXISTS operational_action_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  action_id UUID NOT NULL,
+  organization_id UUID NOT NULL,
+  restaurant_id UUID NOT NULL,
+  event_type TEXT NOT NULL,
+  from_status TEXT,
+  to_status TEXT,
+  actor_id TEXT NOT NULL,
+  payload_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_operational_action_events_scope
+  ON operational_action_events(organization_id, restaurant_id, action_id, created_at DESC);`);
+await query(`CREATE TABLE IF NOT EXISTS telegram_outbox (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL,
+  restaurant_id UUID NOT NULL,
+  chat_id TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('morning','evening','escalation','manual')),
+  idempotency_key TEXT NOT NULL UNIQUE,
+  message_text TEXT NOT NULL DEFAULT '',
+  scheduled_for TIMESTAMPTZ NOT NULL DEFAULT now(),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('building','pending','sent','failed')),
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
+  sent_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_outbox_due ON telegram_outbox(status, scheduled_for, created_at);`);
+await query(`CREATE TABLE IF NOT EXISTS telegram_deliveries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID,
+  restaurant_id UUID,
+  chat_id TEXT NOT NULL,
+  method TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('sent','failed')),
+  telegram_message_id TEXT,
+  error_code TEXT,
+  error_message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_deliveries_scope
+  ON telegram_deliveries(organization_id, restaurant_id, chat_id, created_at DESC);`);
+await query(`CREATE TABLE IF NOT EXISTS telegram_group_diagnostics (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL,
+  restaurant_id UUID NOT NULL,
+  chat_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  details_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  checked_by TEXT NOT NULL,
+  checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`);
+await query(`CREATE INDEX IF NOT EXISTS idx_telegram_group_diagnostics_scope
+  ON telegram_group_diagnostics(organization_id, restaurant_id, chat_id, checked_at DESC);`);
+await query(`CREATE TABLE IF NOT EXISTS telegram_worker_runs (
+  worker_key TEXT NOT NULL,
+  run_date DATE NOT NULL,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY(worker_key, run_date)
+);`);
 await query(`CREATE TABLE IF NOT EXISTS telegram_bot_settings (
   chat_id TEXT PRIMARY KEY REFERENCES telegram_chat_bindings(chat_id) ON DELETE CASCADE,
   organization_id UUID NOT NULL,
@@ -838,6 +937,7 @@ const TelegramBotSettingsSchema = z.object({
   morning_report_time: z.string().regex(TIME_RE),
   evening_report_time: z.string().regex(TIME_RE),
   escalation_minutes: z.number().int().min(60).max(1440),
+  timezone: z.string().trim().min(3).max(64).default('Europe/Moscow'),
 }).strict();
 const ReportsSendSchema = z.object({
 date: z.string().regex(DATE_RE),
@@ -3224,7 +3324,7 @@ app.get('/api/telegram-bot/settings', requireAuth, requireOrg, async (req, res, 
       `SELECT b.restaurant_id, s.mode,s.notification_level,
               to_char(s.morning_report_time,'HH24:MI') AS morning_report_time,
               to_char(s.evening_report_time,'HH24:MI') AS evening_report_time,
-              s.escalation_minutes
+              s.escalation_minutes, COALESCE(s.timezone,'Europe/Moscow') AS timezone
          FROM telegram_chat_bindings b
          LEFT JOIN telegram_bot_settings s ON s.chat_id=b.chat_id AND s.organization_id=b.organization_id
         WHERE b.chat_id=$1 AND b.organization_id=$2::uuid LIMIT 1`,
@@ -3246,14 +3346,14 @@ app.put('/api/telegram-bot/settings', requireAuth, requireOrg, requirePrivileged
     await assertRestaurantAccess(req.user, binding[0].restaurant_id);
     await queryWithRetry(
       `INSERT INTO telegram_bot_settings
-        (chat_id,organization_id,restaurant_id,mode,notification_level,morning_report_time,evening_report_time,escalation_minutes,created_by,updated_by)
-       VALUES($1,$2::uuid,$3::uuid,$4,$5,$6::time,$7::time,$8,$9,$9)
+        (chat_id,organization_id,restaurant_id,mode,notification_level,morning_report_time,evening_report_time,escalation_minutes,timezone,created_by,updated_by)
+       VALUES($1,$2::uuid,$3::uuid,$4,$5,$6::time,$7::time,$8,$9,$10,$10)
        ON CONFLICT(chat_id) DO UPDATE SET organization_id=EXCLUDED.organization_id,
          restaurant_id=EXCLUDED.restaurant_id,mode=EXCLUDED.mode,notification_level=EXCLUDED.notification_level,
          morning_report_time=EXCLUDED.morning_report_time,evening_report_time=EXCLUDED.evening_report_time,
-         escalation_minutes=EXCLUDED.escalation_minutes,updated_by=EXCLUDED.updated_by,updated_at=now()`,
+         escalation_minutes=EXCLUDED.escalation_minutes,timezone=EXCLUDED.timezone,updated_by=EXCLUDED.updated_by,updated_at=now()`,
       [body.chat_id,req.user.organizationId,binding[0].restaurant_id,body.mode,body.notification_level,
-       body.morning_report_time,body.evening_report_time,body.escalation_minutes,String(req.user.id)],
+       body.morning_report_time,body.evening_report_time,body.escalation_minutes,body.timezone,String(req.user.id)],
       { orgId: req.user.organizationId });
     await audit(req.user,'telegram.bot.settings.updated','telegram_bot_settings',body.chat_id,
       { mode: body.mode, notification_level: body.notification_level });
