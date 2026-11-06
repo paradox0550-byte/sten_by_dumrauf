@@ -886,9 +886,9 @@ const TelegramBotSettingsSchema = z.object({
   morning_report_time: z.string().regex(TIME_RE),
   evening_report_time: z.string().regex(TIME_RE),
   escalation_minutes: z.number().int().min(60).max(1440),
-  morning_report_enabled: z.boolean().default(false),
-  evening_report_enabled: z.boolean().default(false),
-  timezone: z.string().trim().min(1).max(64).default('Europe/Moscow'),
+  morning_report_enabled: z.boolean().optional(),
+  evening_report_enabled: z.boolean().optional(),
+  timezone: z.string().trim().min(1).max(64).optional(),
 }).strict();
 const ReportsSendSchema = z.object({
 date: z.string().regex(DATE_RE),
@@ -3325,16 +3325,18 @@ app.put('/api/telegram-bot/settings', requireAuth, requireOrg, requirePrivileged
     await queryWithRetry(
       `INSERT INTO telegram_bot_settings
         (chat_id,organization_id,restaurant_id,mode,notification_level,morning_report_time,evening_report_time,escalation_minutes,morning_report_enabled,evening_report_enabled,timezone,created_by,updated_by)
-       VALUES($1,$2::uuid,$3::uuid,$4,$5,$6::time,$7::time,$8,$9,$10,$11,$12,$12)
+       VALUES($1,$2::uuid,$3::uuid,$4,$5,$6::time,$7::time,$8,COALESCE($9,false),COALESCE($10,false),COALESCE($11,'Europe/Moscow'),$12,$12)
        ON CONFLICT(chat_id) DO UPDATE SET organization_id=EXCLUDED.organization_id,
          restaurant_id=EXCLUDED.restaurant_id,mode=EXCLUDED.mode,notification_level=EXCLUDED.notification_level,
          morning_report_time=EXCLUDED.morning_report_time,evening_report_time=EXCLUDED.evening_report_time,
          escalation_minutes=EXCLUDED.escalation_minutes,morning_report_enabled=EXCLUDED.morning_report_enabled,
-         evening_report_enabled=EXCLUDED.evening_report_enabled,timezone=EXCLUDED.timezone,
+         evening_report_enabled=COALESCE($10,telegram_bot_settings.evening_report_enabled),
+         morning_report_enabled=COALESCE($9,telegram_bot_settings.morning_report_enabled),
+         timezone=COALESCE($11,telegram_bot_settings.timezone),
          updated_by=EXCLUDED.updated_by,updated_at=now()`,
       [body.chat_id,req.user.organizationId,binding[0].restaurant_id,body.mode,body.notification_level,
-       body.morning_report_time,body.evening_report_time,body.escalation_minutes,body.morning_report_enabled,
-       body.evening_report_enabled,body.timezone,String(req.user.id)],
+       body.morning_report_time,body.evening_report_time,body.escalation_minutes,body.morning_report_enabled ?? null,
+       body.evening_report_enabled ?? null,body.timezone ?? null,String(req.user.id)],
       { orgId: req.user.organizationId });
     await audit(req.user,'telegram.bot.settings.updated','telegram_bot_settings',body.chat_id,
       { mode: body.mode, notification_level: body.notification_level });
