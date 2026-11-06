@@ -390,6 +390,12 @@ await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS revi
 await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;`);
 await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS review_note TEXT;`);
 await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS action_id UUID;`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS source_message_text TEXT;`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS source_message_date TIMESTAMPTZ;`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS source_sender_name TEXT;`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS source_sender_username TEXT;`);
+await query(`ALTER TABLE telegram_message_analyses ADD COLUMN IF NOT EXISTS source_chat_title TEXT;`);
+
 await query(`DO $body$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='telegram_message_analyses_status_check') THEN
     ALTER TABLE telegram_message_analyses ADD CONSTRAINT telegram_message_analyses_status_check
@@ -3443,8 +3449,12 @@ app.get('/api/telegram-monitor/findings', requireAuth, requireOrg, async (req, r
               a.analysis_json, a.created_at, a.restaurant_id, u.name AS restaurant_name,
               oa.status AS action_status, oa.assignee_name AS action_assignee, oa.due_at AS action_due_at,
               oa.completed_at AS action_completed_at, oa.verified_at AS action_verified_at,
-              m.chat_id, m.message_id, m.sender_name, m.sender_username, m.message_text,
-              m.message_date, c.title AS chat_title
+              m.chat_id, m.message_id,
+              COALESCE(a.source_sender_name,m.sender_name) AS sender_name,
+              COALESCE(a.source_sender_username,m.sender_username) AS sender_username,
+              COALESCE(a.source_message_text,m.message_text) AS message_text,
+              COALESCE(a.source_message_date,m.message_date) AS message_date,
+              COALESCE(a.source_chat_title,c.title) AS chat_title
          FROM telegram_message_analyses a
          JOIN telegram_messages m ON m.chat_id=a.chat_id AND m.message_id=a.message_id
          JOIN telegram_chats c ON c.chat_id=a.chat_id
