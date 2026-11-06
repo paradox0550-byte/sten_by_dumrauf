@@ -3329,7 +3329,7 @@ app.put('/api/telegram-bot/settings', requireAuth, requireOrg, requirePrivileged
        ON CONFLICT(chat_id) DO UPDATE SET organization_id=EXCLUDED.organization_id,
          restaurant_id=EXCLUDED.restaurant_id,mode=EXCLUDED.mode,notification_level=EXCLUDED.notification_level,
          morning_report_time=EXCLUDED.morning_report_time,evening_report_time=EXCLUDED.evening_report_time,
-         escalation_minutes=EXCLUDED.escalation_minutes,morning_report_enabled=EXCLUDED.morning_report_enabled,
+         escalation_minutes=EXCLUDED.escalation_minutes,
          evening_report_enabled=COALESCE($10,telegram_bot_settings.evening_report_enabled),
          morning_report_enabled=COALESCE($9,telegram_bot_settings.morning_report_enabled),
          timezone=COALESCE($11,telegram_bot_settings.timezone),
