@@ -888,7 +888,9 @@ const TelegramBotSettingsSchema = z.object({
   escalation_minutes: z.number().int().min(60).max(1440),
   morning_report_enabled: z.boolean().optional(),
   evening_report_enabled: z.boolean().optional(),
-  timezone: z.string().trim().min(1).max(64).optional(),
+  timezone: z.string().trim().min(1).max(64).refine(value => {
+    try { new Intl.DateTimeFormat('en-US', { timeZone: value }); return true; } catch { return false; }
+  }, 'Укажите корректный часовой пояс.').optional(),
 }).strict();
 const ReportsSendSchema = z.object({
 date: z.string().regex(DATE_RE),
@@ -3564,7 +3566,7 @@ app.get('/api/telegram-monitor/chats/:chatId/diagnostics', requireAuth, requireO
       ]);
       ok(res,{diagnostic:{status:'connected',bot_username:bot.username || null,chat_title:chat.title || null,
         chat_type:chat.type || null,bot_membership:member.status || 'unknown',
-        can_send_messages:member.status === 'administrator' || member.status === 'member',
+        can_send_messages:member.status === 'administrator' ? member.can_send_messages !== false : member.status === 'member' || (member.status === 'restricted' && member.is_member && member.can_send_messages === true),
         checked_at:new Date().toISOString()}});
     } catch (error) {
       ok(res,{diagnostic:{status:'error',code:error.code || 'TELEGRAM_DIAGNOSTIC_FAILED',
