@@ -17,6 +17,8 @@ export default function TelegramBotControl() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [chatId, setChatId] = useState('');
   const [settings, setSettings] = useState<Settings>(defaults);
+  const [settingsConfigured, setSettingsConfigured] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -35,11 +37,16 @@ export default function TelegramBotControl() {
   }, []);
 
   const loadSettings = useCallback(async (id: string) => {
-    if (!id) { setSettings(defaults); return; }
+    if (!id) { setSettings(defaults); setSettingsConfigured(false); return; }
+    setSettingsLoading(true);
+    setError('');
     try {
       const response = await api.get<{ settings: Settings | null }>('/api/telegram-bot/settings?chat_id=' + encodeURIComponent(id));
       setSettings({ ...defaults, ...(response.settings || {}) });
-    } catch (e) { setError(e instanceof ApiError ? e.message : 'Не удалось загрузить настройки бота.'); }
+      setSettingsConfigured(Boolean(response.settings));
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Не удалось загрузить настройки бота.');
+    } finally { setSettingsLoading(false); }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
@@ -50,7 +57,8 @@ export default function TelegramBotControl() {
     setSaving(true); setError(''); setNotice('');
     try {
       await api.put('/api/telegram-bot/settings', { chat_id: chatId, ...settings });
-      setNotice('Настройки сохранены для выбранной группы. Это не включает автоматическую отправку.');
+      setSettingsConfigured(true);
+      setNotice('Правила сохранены для выбранной группы. Автоматическая отправка и эскалация не запускаются.');
     } catch (e) { setError(e instanceof ApiError ? e.message : 'Не удалось сохранить настройки.'); }
     finally { setSaving(false); }
   };
@@ -64,27 +72,30 @@ export default function TelegramBotControl() {
     {loading ? <div className="telegram-bot-control__empty">Загружаем подключённые группы…</div> : chats.length === 0 ? <div className="telegram-bot-control__empty">Нет привязанных Telegram-групп. Сначала подключите группу к ресторану в разделе мониторинга.</div> : <>
       <label className="telegram-bot-control__field"><span>Рабочая группа</span><select value={chatId} onChange={e => setChatId(e.target.value)}>{chats.map(chat => <option key={chat.chat_id} value={chat.chat_id}>{chat.restaurant_name || 'Ресторан'} · {chat.title || 'Telegram-группа'}</option>)}</select></label>
       {selected && <div className="telegram-bot-control__scope"><ShieldCheck size={15} /> {selected.restaurant_name || 'Ресторан'} · настройки изолированы от остальных групп</div>}
+      {settingsLoading ? <p className="telegram-bot-control__config-state" role="status">Загружаем сохранённые правила…</p>
+        : <p className="telegram-bot-control__config-state" role="status">{settingsConfigured ? 'Правила этой группы сохранены на сервере.' : 'Для этой группы правила ещё не сохранены. Ниже показаны начальные значения — они не применятся, пока вы не нажмёте «Сохранить настройки».'}</p>}
       <div className="telegram-bot-control__automation-status" role="status" aria-live="polite">
         <AlertCircle size={17} />
         <span><strong>Автоматическая отправка отключена.</strong> Утренние и вечерние сводки, а также эскалация по расписанию пока не отправляются. Время и интервал ниже сохраняются только как предпочтения.</span>
       </div>
       <div className="telegram-bot-control__grid">
         <label className="telegram-bot-control__field"><span>Режим работы</span><select value={settings.mode} onChange={e => setSettings(v => ({ ...v, mode: e.target.value as Settings['mode'] }))}>
-          <option value="observer">Наблюдатель — анализирует, не предлагает поручения</option>
-          <option value="secretary">Секретарь — готовит предложения на подтверждение</option>
-          <option value="controller" disabled>Операционный контролёр — будет доступен после запуска контура исполнения</option>
+          <option value="observer">Наблюдатель — анализ без предложений действий</option>
+          <option value="secretary">Секретарь — AI готовит предложения; выполнение требует подтверждения</option>
+          <option value="controller" disabled>Операционный контролёр — автоматическое исполнение ещё не подключено</option>
         </select></label>
-        <label className="telegram-bot-control__field"><span>Какие события показывать</span><select value={settings.notification_level} onChange={e => setSettings(v => ({ ...v, notification_level: e.target.value as Settings['notification_level'] }))}>
+        <label className="telegram-bot-control__field"><span>Уровень событий (сохраняемое правило)</span><select value={settings.notification_level} onChange={e => setSettings(v => ({ ...v, notification_level: e.target.value as Settings['notification_level'] }))}>
           <option value="urgent_only">Только срочные</option><option value="deviations">Срочные и отклонения</option><option value="all">Все рабочие события</option>
         </select></label>
-        <label className="telegram-bot-control__field"><span><Clock3 size={14} /> Желаемое время утренней сводки</span><input type="time" value={settings.morning_report_time} onChange={e => setSettings(v => ({ ...v, morning_report_time: e.target.value }))} /></label>
-        <label className="telegram-bot-control__field"><span><Clock3 size={14} /> Желаемое время вечерней сводки</span><input type="time" value={settings.evening_report_time} onChange={e => setSettings(v => ({ ...v, evening_report_time: e.target.value }))} /></label>
-        <label className="telegram-bot-control__field"><span><Bell size={14} /> Желаемый интервал эскалации</span><select value={settings.escalation_minutes} onChange={e => setSettings(v => ({ ...v, escalation_minutes: Number(e.target.value) }))}>
+        <label className="telegram-bot-control__field"><span><Clock3 size={14} /> Предпочтительное время утренней сводки</span><input type="time" value={settings.morning_report_time} onChange={e => setSettings(v => ({ ...v, morning_report_time: e.target.value }))} /></label>
+        <label className="telegram-bot-control__field"><span><Clock3 size={14} /> Предпочтительное время вечерней сводки</span><input type="time" value={settings.evening_report_time} onChange={e => setSettings(v => ({ ...v, evening_report_time: e.target.value }))} /></label>
+        <label className="telegram-bot-control__field"><span><Bell size={14} /> Предпочтительный интервал эскалации</span><select value={settings.escalation_minutes} onChange={e => setSettings(v => ({ ...v, escalation_minutes: Number(e.target.value) }))}>
           <option value={60}>1 час</option><option value={120}>2 часа</option><option value={240}>4 часа</option><option value={480}>8 часов</option><option value={1440}>24 часа</option>
         </select></label>
       </div>
-      <div className="telegram-bot-control__approval"><ShieldCheck size={17} /><span><strong>Подтверждение руководителя обязательно.</strong> В режиме «Секретарь» STEN готовит предложения. Автоматическая отправка команд, контроль исполнения и закрытие поручений пока не включены — они требуют отдельного контура утверждения и проверки.</span></div>
-      <div className="telegram-bot-control__footer">{error && <p role="alert" className="telegram-bot-control__error">{error}</p>}{notice && <p role="status" className="telegram-bot-control__success">{notice}</p>}<button type="button" className="primary-button" onClick={() => void save()} disabled={saving || !chatId}><Save size={16} /> {saving ? 'Сохраняем…' : 'Сохранить настройки'}</button></div>
+      <div className="telegram-bot-control__approval"><ShieldCheck size={17} /><span><strong>Подтверждение руководителя обязательно.</strong> AI-анализатор может подготовить предложение действия для подходящего сообщения. Создание задачи, принятие её исполнителем, контроль срока, эскалация и закрытие поручения из Telegram пока не подключены.</span></div>
+      <p className="telegram-bot-control__filter-note">Уровень событий, время сводок и интервал эскалации сохраняются для группы. Фильтрация результатов по уровню, отправка сводок по расписанию и автоматическая эскалация сейчас не выполняются.</p>
+      <div className="telegram-bot-control__footer">{error && <p role="alert" className="telegram-bot-control__error">{error}</p>}{notice && <p role="status" className="telegram-bot-control__success">{notice}</p>}<button type="button" className="primary-button" onClick={() => void save()} disabled={saving || settingsLoading || !chatId}><Save size={16} /> {saving ? 'Сохраняем…' : 'Сохранить настройки'}</button></div>
     </>}
   </section>;
 }
