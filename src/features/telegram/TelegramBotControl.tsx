@@ -42,7 +42,7 @@ export default function TelegramBotControl() {
 
   const loadSettings = useCallback(async (id: string) => {
     const request = ++settingsRequest.current;
-    if (!id) { setSettings(defaults); setSettingsConfigured(false); setSettingsLoadFailed(false); return; }
+    if (!id) { setSettings(defaults); setSettingsConfigured(false); setSettingsLoadFailed(false); setSettingsLoading(false); return; }
     setSettings(defaults);
     setSettingsConfigured(false);
     setSettingsLoading(true);
