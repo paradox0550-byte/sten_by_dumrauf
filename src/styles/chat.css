@@ -882,3 +882,17 @@
     padding-bottom: 8px;
   }
 }
+
+
+/* One focus treatment only: avoid stacked teal borders around the mobile composer. */
+.sten-ai-page .composer-box:focus-within,
+.sten-ai-page .composer.is-focused .composer-box {
+  border-color: var(--color-brand) !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+.sten-ai-page .composer-box textarea:focus {
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
