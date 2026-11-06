@@ -54,7 +54,7 @@ function buildOperationalDigest({ restaurantName, kind, findings = [], actions =
   return lines.join('\n');
 }
 
-async function processTelegramAutomationJobs({ queryWithRetry, sendMessage, now = new Date(), batchSize = MAX_OUTBOX_BATCH }) {
+async function processTelegramAutomationJobs({ queryWithRetry, sendMessage, buildFinancialReport, now = new Date(), batchSize = MAX_OUTBOX_BATCH }) {
   if (typeof queryWithRetry !== 'function' || typeof sendMessage !== 'function') {
     throw new TypeError('Telegram automation worker requires database and Telegram adapters');
   }
@@ -154,13 +154,17 @@ async function processTelegramAutomationJobs({ queryWithRetry, sendMessage, now 
         [schedule.organization_id, schedule.restaurant_id], { orgId: schedule.organization_id }
       ),
     ]);
-    const message = buildOperationalDigest({
+    const operationalDigest = buildOperationalDigest({
       restaurantName: schedule.restaurant_name,
       kind: schedule.digest_kind,
       dateLabel: schedule.local_date,
       findings: (findings.rows || []).map(row => ({ ...row, ...(row.analysis_json || {}) })),
       actions: actions.rows || [],
     });
+    const financialReport = typeof buildFinancialReport === 'function'
+      ? await buildFinancialReport(schedule)
+      : '';
+    const message = [financialReport, operationalDigest].filter(Boolean).join('\\n\\n');
     await queryWithRetry(
       "UPDATE telegram_outbox SET message_text=$1,status='pending',updated_at=now() WHERE id=$2::uuid AND status='building'",
       [message, claimed.rows[0].id], { orgId: schedule.organization_id }
