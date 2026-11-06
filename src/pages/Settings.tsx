@@ -84,6 +84,7 @@ export default function Settings() {
   const [scopeMessage, setScopeMessage] = useState('');
 
   const [sendTime, setSendTime] = useState('21:00');
+  const [reportRecipientId, setReportRecipientId] = useState('');
   const [metrics, setMetrics] = useState<Metrics>(metricDefaults);
   const [messengerMessage, setMessengerMessage] = useState('');
   const [messengerMessageKind, setMessengerMessageKind] = useState<'ok' | 'error'>('ok');
@@ -143,9 +144,7 @@ export default function Settings() {
         if (settings) {
           setSendTime(settings.send_time || '21:00');
           setMetrics({ ...metricDefaults, ...(settings.metrics || {}) });
-          if (!user?.telegramChatId && settings.telegram_chat_id) {
-            setProfile((value) => ({ ...value, telegramChatId: normalizeProfileText(String(settings.telegram_chat_id)) }));
-          }
+          setReportRecipientId(normalizeProfileText(String(settings.telegram_chat_id || '')));
         }
       } catch {
         // Optional messenger settings should not block the settings page.
@@ -239,14 +238,12 @@ export default function Settings() {
   };
 
   const saveMessenger = async () => {
-    const telegramChatId = normalizeProfileText(profile.telegramChatId);
-    if (telegramChatId && !isValidTelegramChatId(telegramChatId)) {
-      setProfileErrors((current) => ({ ...current, telegramChatId: 'Введите Telegram ID: от 5 до 20 цифр, знак минус допустим.' }));
+    const recipientId = normalizeProfileText(reportRecipientId);
+    if (recipientId && !isValidTelegramChatId(recipientId)) {
       setMessengerMessageKind('error');
-      setMessengerMessage('Исправьте Telegram ID в разделе «Профиль».');
+      setMessengerMessage('Введите Telegram ID получателя: от 5 до 20 цифр, знак минус допустим.');
       return;
     }
-    setProfileErrors((current) => ({ ...current, telegramChatId: undefined }));
     setMessengerSaving(true);
     setMessengerMessage('');
     try {
@@ -261,7 +258,7 @@ export default function Settings() {
           department_id: scope.departmentId || '',
         },
         metrics,
-        telegram_chat_id: telegramChatId || null,
+        telegram_chat_id: recipientId || null,
         whatsapp_phone: null,
       };
       await api.post('/api/messenger/settings', payload);
@@ -449,9 +446,14 @@ export default function Settings() {
 
         <section className="panel messenger-settings" id="settings-reports">
           <h2>Отчёты в Telegram</h2>
-          <p className="muted">Dumrauf будет отправлять выбранные показатели на указанный выше Telegram ID.</p>
+          <p className="muted">Получатель отчётов настраивается отдельно от личного Telegram ID в профиле, который используется для идентификации сотрудника.</p>
           <label className="settings-field">
-            <span>Время отправки</span>
+            <span>Telegram ID получателя отчётов</span>
+            <input inputMode="text" value={reportRecipientId} onChange={(event) => setReportRecipientId(normalizeProfileText(event.target.value))} placeholder="Личный чат или ID группы" />
+            <small className="muted">Для группы укажите её chat ID. Отрицательный ID допустим.</small>
+          </label>
+          <label className="settings-field">
+            <span>Предпочтительное время отчёта</span>
             <input type="time" value={sendTime} onChange={(event) => setSendTime(event.target.value)} />
           </label>
           <div className="messenger-metrics">
