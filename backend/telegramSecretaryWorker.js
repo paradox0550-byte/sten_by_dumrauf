@@ -8,10 +8,12 @@ async function processTelegramMessageBatch({ queryWithRetry, analyze, limit = 20
   }
   const safeLimit = Math.max(1, Math.min(50, Number(limit) || 20));
   const pending = await queryWithRetry(
-    `SELECT m.chat_id, m.message_id, m.sender_id, m.sender_name, m.message_text,
-            m.message_date, b.organization_id, b.restaurant_id, u.name AS restaurant_name, COALESCE(bs.mode,'secretary') AS bot_mode
+    `SELECT m.chat_id, m.message_id, m.sender_id, m.sender_name, m.sender_username, m.message_text,
+            m.message_date, c.title AS chat_title, b.organization_id, b.restaurant_id,
+            u.name AS restaurant_name, COALESCE(bs.mode,'secretary') AS bot_mode
        FROM telegram_messages m
        JOIN telegram_chat_bindings b ON b.chat_id=m.chat_id
+       JOIN telegram_chats c ON c.chat_id=m.chat_id
        JOIN org_units u ON u.id=b.restaurant_id AND u.organization_id=b.organization_id
        LEFT JOIN telegram_bot_settings bs ON bs.chat_id=b.chat_id AND bs.organization_id=b.organization_id
        LEFT JOIN telegram_message_analyses a
@@ -57,11 +59,13 @@ async function processTelegramMessageBatch({ queryWithRetry, analyze, limit = 20
       const analysis = parsedAnalysis;
       const inserted = await queryWithRetry(
         `INSERT INTO telegram_message_analyses
-          (chat_id,message_id,organization_id,restaurant_id,sender_id,analysis_json,created_at)
-         VALUES($1,$2,$3::uuid,$4::uuid,$5,$6::jsonb,now())
+          (chat_id,message_id,organization_id,restaurant_id,sender_id,analysis_json,
+           source_message_text,source_message_date,source_sender_name,source_sender_username,source_chat_title,created_at)
+         VALUES($1,$2,$3::uuid,$4::uuid,$5,$6::jsonb,$7,$8::timestamptz,$9,$10,$11,now())
          ON CONFLICT(chat_id,message_id) DO NOTHING
          RETURNING message_id`,
-        [row.chat_id,row.message_id,row.organization_id,row.restaurant_id,row.sender_id,JSON.stringify(analysis)],
+        [row.chat_id,row.message_id,row.organization_id,row.restaurant_id,row.sender_id,JSON.stringify(analysis),
+         row.message_text,row.message_date,row.sender_name,row.sender_username,row.chat_title],
         { orgId: row.organization_id }
       );
       if (inserted.rows?.length) results.analyzed += 1;
