@@ -3259,6 +3259,13 @@ app.post('/api/operational-control/actions', requireAuth, requireOrg, requirePri
       {orgId:req.user.organizationId});
     const action = inserted.rows?.[0];
     if (!action) throw httpError(500, 'Создание задачи не подтверждено', 'SAVE_NOT_CONFIRMED');
+    await queryWithRetry(
+      `INSERT INTO operational_action_events
+        (action_id,organization_id,restaurant_id,event_type,from_status,to_status,actor_id,payload_json)
+       VALUES($1::uuid,$2::uuid,$3::uuid,'created',NULL,'open',$4,$5::jsonb)`,
+      [id, req.user.organizationId, restaurant.id, String(req.user.id), JSON.stringify({ source: 'operational_control' })],
+      { orgId: req.user.organizationId }
+    );
     await audit(req.user, 'operational.action.created', 'operational_actions', id, { restaurant_id: restaurant.id, observation_id: body.observation_id, assignee_id: assignee[0].id });
     ok(res, { action, confirmed: true }, 201);
   } catch (e) { next(e); }
