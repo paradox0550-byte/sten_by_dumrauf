@@ -28,6 +28,11 @@ type Finding = {
   reviewed_at: string | null;
   review_note: string | null;
   action_id: string | null;
+  action_status: string | null;
+  action_assignee: string | null;
+  action_due_at: string | null;
+  action_completed_at: string | null;
+  action_verified_at: string | null;
   analysis_json: Analysis;
   created_at: string;
   restaurant_id: string;
@@ -156,8 +161,12 @@ export default function TelegramOperationalWorkflow({ selectedChatId }: { select
     setEmployees([]);
     if (finding.status !== 'pending' || !proposal || !canReview) {
       try {
-        const response = await api.get<{ events: WorkflowEvent[] }>('/api/telegram-monitor/findings/' + encodeURIComponent(finding.finding_id) + '/events');
-        setEvents(Array.isArray(response.events) ? response.events : []);
+        const findingHistory = await api.get<{ events: WorkflowEvent[] }>('/api/telegram-monitor/findings/' + encodeURIComponent(finding.finding_id) + '/events');
+        const taskHistory = finding.action_id
+          ? await api.get<{ events: WorkflowEvent[] }>('/api/operational-control/actions/' + encodeURIComponent(finding.action_id) + '/events')
+          : { events: [] as WorkflowEvent[] };
+        setEvents([...(findingHistory.events || []), ...(taskHistory.events || [])]
+          .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
       } catch { setEvents([]); }
       return;
     }
@@ -319,7 +328,16 @@ export default function TelegramOperationalWorkflow({ selectedChatId }: { select
               <span>Сообщение-источник · {finding.sender_name || finding.sender_username || 'Участник'}</span>
               <blockquote>{finding.message_text || 'Текст исходного сообщения отсутствует.'}</blockquote>
             </div>
-            {finding.action_id && <p className="telegram-workflow__linked-task"><Check size={15} /> Задача создана: <code>{finding.action_id}</code></p>}
+            {finding.action_id && <div className="telegram-workflow__linked-task">
+              <Check size={15} />
+              <span><strong>Задача:</strong> {finding.action_status === 'verified' ? 'Исполнение проверено' : finding.action_status === 'awaiting_verification' ? 'Ожидает независимой проверки' : finding.action_status === 'overdue' ? 'Просрочена' : finding.action_status === 'cancelled' ? 'Отменена' : 'Создана'}
+                {finding.action_assignee ? ' · ' + finding.action_assignee : ''}
+                {finding.action_due_at ? ' · срок ' + dateTime(finding.action_due_at) : ''}
+                {finding.action_completed_at ? ' · выполнена ' + dateTime(finding.action_completed_at) : ''}
+                {finding.action_verified_at ? ' · проверена ' + dateTime(finding.action_verified_at) : ''}
+              </span>
+              <code>{finding.action_id}</code>
+            </div>}
             {finding.review_note && <p className="telegram-workflow__review-note">Комментарий руководителя: {finding.review_note}</p>}
             {expanded && events.length > 0 && <div className="telegram-workflow__history"><strong>История решения</strong>{events.map(event => <p key={event.id}>{event.event_type} · {event.from_status || '—'} → {event.to_status || '—'} · {dateTime(event.created_at)}</p>)}</div>}
             {expanded && finding.status === 'pending' && <div className="telegram-workflow__review">
