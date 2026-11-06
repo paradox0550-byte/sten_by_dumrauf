@@ -135,7 +135,7 @@ export default function Finances() {
 
           <section className="panel analytics-report-section">
             <div className="panel-title">Финансовая цепочка · {scope.period}</div>
-            <div className="analytics-report-table finance-report-table">
+            <div role="region" aria-label="Финансовая таблица" tabIndex={0} className="analytics-report-table finance-report-table">
               <div className="analytics-report-head"><span>Показатель</span><span>Факт</span><span>План</span><span>Δ</span></div>
               {chain.map(item => (
                 <div key={item.label} className={item.total ? 'finance-total-row' : ''}>
