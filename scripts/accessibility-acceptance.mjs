@@ -155,7 +155,7 @@ try {
         }));
         const loginSevere = loginResult.violations.filter(v => v.impact === 'critical' || v.impact === 'serious');
         for (const violation of loginSevere) {
-          const nodes = violation.nodes.slice(0, 4).map(node => `${node.target.join(', ')} — ${node.failureSummary?.replace(/\\s+/g, ' ').slice(0, 180)}`);
+          const nodes = violation.nodes.slice(0, 4).map(node => `${node.target.join(', ')} — ${node.failureSummary?.replace(/\s+/g, ' ').slice(0, 180)}`);
           failures.push(`${theme}/${viewport.width}/login: ${violation.id} [${violation.impact}] ${violation.help}; ${nodes.join(' | ')}`);
         }
         console.log(`[a11y] ${theme} ${viewport.width}px login: ${loginResult.violations.length} violations (${loginSevere.length} serious/critical)`);
