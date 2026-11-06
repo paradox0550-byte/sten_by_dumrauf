@@ -33,7 +33,7 @@ try {
 
   for (const theme of themes) {
     for (const viewport of viewports) {
-      const context = await browser.newContext({ viewport, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' });
+      const context = await browser.newContext({ viewport, isMobile: viewport.width < 768, hasTouch: viewport.width < 768, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' });
       await context.addInitScript(({ initialTheme }) => {
         window.__auditVitals = { lcp: 0, cls: 0 };
         try {
@@ -102,12 +102,30 @@ try {
             runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'] },
           }));
           await page.keyboard.press('Tab');
-          const keyboardState = await page.evaluate(() => ({
-            hasFocusable: Boolean(document.querySelector('a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])')),
-            activeTag: document.activeElement?.tagName || 'unknown',
-          }));
-          if (keyboardState.hasFocusable && keyboardState.activeTag === 'BODY') {
+          const keyboardState = await page.evaluate(() => {
+            const active = document.activeElement;
+            const outline = active ? getComputedStyle(active).outline : '';
+            const outlineWidth = active ? Number.parseFloat(getComputedStyle(active).outlineWidth) || 0 : 0;
+            const focusable = Boolean(document.querySelector('a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])'));
+            const undersizedTouchTargets = window.matchMedia('(pointer: coarse)').matches
+              ? [...document.querySelectorAll('button.icon-button, a.icon-button, [role="button"].icon-button')]
+                  .filter(element => {
+                    const rect = element.getBoundingClientRect();
+                    const style = getComputedStyle(element);
+                    return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0
+                      && (rect.width < 44 || rect.height < 44);
+                  }).length
+              : 0;
+            return { focusable, activeTag: active?.tagName || 'unknown', outline, outlineWidth, undersizedTouchTargets };
+          });
+          if (keyboardState.focusable && keyboardState.activeTag === 'BODY') {
             failures.push(`${theme}/${viewport.width}/${name}: first Tab did not move focus to an interactive element`);
+          }
+          if (keyboardState.focusable && keyboardState.outlineWidth < 2) {
+            failures.push(`${theme}/${viewport.width}/${name}: keyboard focus indicator is missing or thinner than 2px (${keyboardState.outline})`);
+          }
+          if (keyboardState.undersizedTouchTargets > 0) {
+            failures.push(`${theme}/${viewport.width}/${name}: ${keyboardState.undersizedTouchTargets} visible icon targets are smaller than 44×44px`);
           }
           const severe = result.violations.filter(v => v.impact === 'critical' || v.impact === 'serious');
           for (const violation of severe) {
