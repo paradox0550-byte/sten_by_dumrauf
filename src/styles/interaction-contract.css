@@ -1,0 +1,51 @@
+/* DUMRAUF interaction contract
+   Shared keyboard, pointer and assistive-technology states.
+   Page styles may define layout; this file owns interaction affordances. */
+
+:where(button, a, [role="button"], input, select, textarea) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:where(button, a, [role="button"], input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-brand) !important;
+  outline-offset: 2px !important;
+}
+
+:where(button, a, [role="button"]):active:not(:disabled) {
+  filter: brightness(.96);
+}
+
+:where(button, input, select, textarea):disabled,
+:where([aria-disabled="true"]) {
+  cursor: not-allowed !important;
+  opacity: .52;
+}
+
+:where([aria-busy="true"], .is-loading) {
+  cursor: progress;
+}
+
+@media (max-width: 767px) and (pointer: coarse) {
+  :where(button.icon-button, a.icon-button, [role="button"].icon-button) {
+    min-inline-size: 44px !important;
+    min-block-size: 44px !important;
+  }
+
+  :where(button[aria-label], [role="button"][aria-label]) {
+    min-block-size: 44px;
+  }
+
+  :where(.mobile-bottom-nav a, .mobile-bottom-nav button) {
+    min-block-size: 44px;
+    min-inline-size: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(button, a, [role="button"]) {
+    scroll-behavior: auto;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

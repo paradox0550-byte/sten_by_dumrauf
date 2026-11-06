@@ -5,21 +5,21 @@
 }
 
 .sten-ai-page .chat {
-  --chat-bg: #0B1015;
-  --chat-panel: #141B22;
-  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #5FB3A1) 14%, #141B22);
-  --chat-bubble-ai: #1A232C;
-  --chat-text: #F3F6F8;
-  --chat-muted: #9AA8B4;
-  --chat-border: #2B3742;
-  --chat-drawer: #1A232C;
-  --chat-input: #080D12;
-  --chat-on-accent: #0C1216;
+  --chat-bg: var(--bg-surface);
+  --chat-panel: var(--bg-surface);
+  --chat-bubble-user: var(--bg-surface-subtle);
+  --chat-bubble-ai: var(--bg-surface);
+  --chat-text: var(--text-primary);
+  --chat-muted: var(--text-muted);
+  --chat-border: var(--border-default);
+  --chat-drawer: var(--bg-surface);
+  --chat-input: var(--bg-surface-subtle);
+  --chat-on-accent: var(--text-on-accent);
   position: relative;
   overflow: hidden;
   background: var(--chat-bg);
   color: var(--chat-text);
-  color-scheme: dark;
+  color-scheme: inherit;
 }
 
 .sten-ai-page.theme-midnight .chat {

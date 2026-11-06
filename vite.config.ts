@@ -27,6 +27,7 @@ export default defineConfig({
   build: {
     target: 'es2022',
     sourcemap: false,
+    manifest: true,
     cssCodeSplit: true,
     modulePreload: { polyfill: false },
     chunkSizeWarningLimit: 900,
