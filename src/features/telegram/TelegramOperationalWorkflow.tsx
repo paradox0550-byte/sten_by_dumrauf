@@ -70,8 +70,25 @@ const intentLabels: Record<string, string> = {
   issue: 'Проблема', task: 'Поручение', commitment: 'Обязательство',
   urgent: 'Срочно', information: 'Информация', ignore: 'Не рабочее событие',
 };
+const eventLabels: Record<string, string> = {
+  approved: 'Руководитель подтвердил предложение',
+  rejected: 'Руководитель отклонил находку',
+  created: 'Задача создана',
+  complete: 'Исполнитель отметил выполнение',
+  verify: 'Руководитель проверил результат',
+  reopen: 'Задача возвращена в работу',
+  cancel: 'Задача отменена',
+};
+const taskStatusLabels: Record<string, string> = {
+  open: 'В работе', overdue: 'Просрочена', awaiting_verification: 'Ожидает проверки',
+  verified: 'Проверена', cancelled: 'Отменена',
+};
+const findingStatusLabels: Record<string, string> = {
+  pending: 'Ожидает решения', action_created: 'Задача создана', rejected: 'Отклонено',
+  approved: 'Подтверждено',
+};
 const dateTime = (value?: string | null) => {
-  if (!value) return 'Время не указано';
+  if (!value) return '—';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? 'Время не указано'
     : date.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -302,14 +319,15 @@ export default function TelegramOperationalWorkflow({ selectedChatId }: { select
           const proposal = analysis.actionProposal;
           const expanded = expandedId === finding.finding_id;
           const confidence = Number(analysis.confidence);
-          const confidenceLabel = Number.isFinite(confidence) ? Math.round(confidence * 100) + '%' : 'Не определена';
+          const confidencePercent = confidence <= 1 ? confidence * 100 : confidence;
+          const confidenceLabel = Number.isFinite(confidence) ? Math.round(confidencePercent) + '%' : '—';
           const severity = severityLabels[String(analysis.severity || 'low')] || 'Не определена';
           return <article className="telegram-workflow__finding" key={finding.finding_id}>
             <div className="telegram-workflow__finding-head">
               <div className="telegram-workflow__finding-title">
                 <span className={'telegram-workflow__severity severity-' + String(analysis.severity || 'low')}>{severity}</span>
                 <span className="telegram-workflow__intent">{intentLabels[String(analysis.intent || '')] || 'Событие'}</span>
-                <span className="telegram-workflow__status">{statusLabels[finding.status]}</span>
+                <span className="telegram-workflow__status">{findingStatusLabels[finding.status] || statusLabels[finding.status]}</span>
               </div>
               <button type="button" className="telegram-workflow__expand" aria-expanded={expanded}
                 onClick={() => void openReview(finding)}>
@@ -330,16 +348,15 @@ export default function TelegramOperationalWorkflow({ selectedChatId }: { select
             </div>
             {finding.action_id && <div className="telegram-workflow__linked-task">
               <Check size={15} />
-              <span><strong>Задача:</strong> {finding.action_status === 'verified' ? 'Исполнение проверено' : finding.action_status === 'awaiting_verification' ? 'Ожидает независимой проверки' : finding.action_status === 'overdue' ? 'Просрочена' : finding.action_status === 'cancelled' ? 'Отменена' : 'Создана'}
+              <span><strong>Задача:</strong> {taskStatusLabels[finding.action_status || ''] || 'Создана'}
                 {finding.action_assignee ? ' · ' + finding.action_assignee : ''}
                 {finding.action_due_at ? ' · срок ' + dateTime(finding.action_due_at) : ''}
                 {finding.action_completed_at ? ' · выполнена ' + dateTime(finding.action_completed_at) : ''}
                 {finding.action_verified_at ? ' · проверена ' + dateTime(finding.action_verified_at) : ''}
               </span>
-              <code>{finding.action_id}</code>
             </div>}
             {finding.review_note && <p className="telegram-workflow__review-note">Комментарий руководителя: {finding.review_note}</p>}
-            {expanded && events.length > 0 && <div className="telegram-workflow__history"><strong>История решения</strong>{events.map(event => <p key={event.id}>{event.event_type} · {event.from_status || '—'} → {event.to_status || '—'} · {dateTime(event.created_at)}</p>)}</div>}
+            {expanded && events.length > 0 && <div className="telegram-workflow__history"><strong>История решения</strong>{events.map(event => <p key={event.id}>{eventLabels[event.event_type] || 'Изменение статуса'} · {event.from_status ? taskStatusLabels[event.from_status] || findingStatusLabels[event.from_status] || event.from_status : '—'} → {event.to_status ? taskStatusLabels[event.to_status] || findingStatusLabels[event.to_status] || event.to_status : '—'} · {dateTime(event.created_at)}</p>)}</div>}
             {expanded && finding.status === 'pending' && <div className="telegram-workflow__review">
               {proposal ? <>
                 <div className="telegram-workflow__proposal">
@@ -409,13 +426,13 @@ export default function TelegramOperationalWorkflow({ selectedChatId }: { select
           {item.details_json.bot_status ? ' · бот: ' + String(item.details_json.bot_status) : ''}
           {item.details_json.can_read_all_group_messages === true ? ' · читает все сообщения' : item.details_json.can_read_all_group_messages === false ? ' · ограничен режимом приватности' : ''}
           {item.details_json.can_send_messages === true ? ' · отправка разрешена' : item.details_json.can_send_messages === false ? ' · нет права отправки' : ''}
-          {item.details_json.error_code ? ' · ' + String(item.details_json.error_code) : ''}
+          {item.details_json.error_message ? ' · ' + String(item.details_json.error_message) : item.details_json.error_code ? ' · ' + String(item.details_json.error_code) : ''}
         </p>)}
       </div>}
       <div className="telegram-workflow__history">
         <strong>Последние отправки</strong>
         {deliveries.length ? deliveries.map(item => <p key={item.id}>
-          <span className={item.status === 'sent' ? 'is-good' : 'is-warning'}>{item.status === 'sent' ? 'Доставлено API' : 'Ошибка отправки'}</span>
+          <span className={item.status === 'sent' ? 'is-good' : 'is-warning'}>{item.status === 'sent' ? 'Telegram принял отправку' : 'Ошибка отправки'}</span>
           {' · '}{item.chat_id} · {dateTime(item.created_at)}
           {item.error_code ? ' · ' + item.error_code : ''}
         </p>) : <p>История отправок пока пуста.</p>}
