@@ -101,6 +101,14 @@ try {
           const result = await page.evaluate(async () => window.axe.run(document, {
             runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'] },
           }));
+          await page.keyboard.press('Tab');
+          const keyboardState = await page.evaluate(() => ({
+            hasFocusable: Boolean(document.querySelector('a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])')),
+            activeTag: document.activeElement?.tagName || 'unknown',
+          }));
+          if (keyboardState.hasFocusable && keyboardState.activeTag === 'BODY') {
+            failures.push(`${theme}/${viewport.width}/${name}: first Tab did not move focus to an interactive element`);
+          }
           const severe = result.violations.filter(v => v.impact === 'critical' || v.impact === 'serious');
           for (const violation of severe) {
             const nodes = violation.nodes.slice(0, 4).map(node => `${node.target.join(', ')} — ${node.failureSummary?.replace(/\s+/g, ' ').slice(0, 180)}`);
