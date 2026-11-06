@@ -862,3 +862,37 @@
 .sten-ai-page .chat-body .message-actions button{background:transparent;border:1px solid transparent;box-shadow:none;color:var(--text-secondary)}
 .sten-ai-page .chat-body .message-actions button:hover{background:var(--bg-surface-subtle);color:var(--text-primary)}
 @media(max-width:560px){.sten-ai-page .composer{padding-inline:12px}.sten-ai-page .composer-box{grid-template-columns:32px 32px minmax(0,1fr) 32px 36px;gap:2px}.sten-ai-page .chat-body{padding-bottom:18px;scroll-padding-bottom:18px}}
+
+
+/* iOS keyboard: size the chat against the visual viewport, not the layout viewport. */
+@media (max-width: 767px) {
+  .sten-ai-page {
+    height: calc(var(--sten-visual-viewport-height, 100dvh) - 188px - env(safe-area-inset-bottom, 0px)) !important;
+    max-height: calc(var(--sten-visual-viewport-height, 100dvh) - 188px - env(safe-area-inset-bottom, 0px));
+  }
+  .content:has(.sten-ai-page) > :last-child { display: none; }
+  html.sten-keyboard-open .mobile-bottom-nav {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+  html.sten-keyboard-open .content {
+    padding-bottom: 12px !important;
+  }
+  html.sten-keyboard-open .sten-ai-page .composer {
+    padding-bottom: 8px;
+  }
+}
+
+
+/* One focus treatment only: avoid stacked teal borders around the mobile composer. */
+.sten-ai-page .composer-box:focus-within,
+.sten-ai-page .composer.is-focused .composer-box {
+  border-color: var(--color-brand) !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+.sten-ai-page .composer-box textarea:focus {
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
