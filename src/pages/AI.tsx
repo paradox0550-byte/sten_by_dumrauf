@@ -508,7 +508,7 @@ function AIContent({user}:{user:User|null}){
      <div className="sten-ai-topbar__brand">
        <span className="sten-ai-topbar__mark" aria-hidden="true"><StenLogo variant="mark" size={28} /></span>
        <div className="sten-ai-topbar__title">
-         <div className="sten-ai-topbar__name"><h1>Dumrauf AI</h1><span className="sten-ai-topbar__status" aria-label={busy?'Dumrauf AI формирует ответ':'Dumrauf AI готов к анализу'} title={busy?'Формирует ответ':'Готов к анализу'}/></div>
+         <div className="sten-ai-topbar__name"><h1>Dumrauf AI</h1><span className="sten-ai-topbar__status" role="status" aria-live="polite" aria-label={busy?'Dumrauf AI формирует ответ':'Dumrauf AI готов к анализу'} title={busy?'Формирует ответ':'Готов к анализу'}/></div>
          <p>Аналитический партнёр руководителя</p>
        </div>
      </div>
