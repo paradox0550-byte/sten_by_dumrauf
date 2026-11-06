@@ -4,6 +4,8 @@ import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import '../../styles/telegram-operational-workflow.css';
 
+// Companion API contract and persistence are delivered in backend PR #280.
+
 type Analysis = {
   intent?: string;
   severity?: string;
