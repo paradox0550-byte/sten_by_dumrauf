@@ -60,7 +60,7 @@ async function processTelegramMessageBatch({ queryWithRetry, analyze, limit = 20
         `INSERT INTO telegram_message_analyses
           (chat_id,message_id,organization_id,restaurant_id,sender_id,analysis_json,created_at)
          VALUES($1,$2,$3::uuid,$4::uuid,$5,$6::jsonb,now())
-         ON CONFLICT (chat_id,message_id) WHERE status='pending' DO NOTHING
+         ON CONFLICT(chat_id,message_id) DO NOTHING
          RETURNING message_id`,
         [row.chat_id,row.message_id,row.organization_id,row.restaurant_id,row.sender_id,JSON.stringify(analysis)],
         { orgId: row.organization_id }
@@ -72,7 +72,7 @@ async function processTelegramMessageBatch({ queryWithRetry, analyze, limit = 20
             `INSERT INTO telegram_action_proposals
               (id,organization_id,restaurant_id,chat_id,message_id,proposal_json,status,created_at,updated_at)
              VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5,$6::jsonb,'pending',now(),now())
-             ON CONFLICT(chat_id,message_id) DO NOTHING`,
+             ON CONFLICT (chat_id,message_id) WHERE status='pending' DO NOTHING`,
             [randomUUID(),row.organization_id,row.restaurant_id,row.chat_id,row.message_id,JSON.stringify(analysis.actionProposal)],
             { orgId: row.organization_id },
           );
