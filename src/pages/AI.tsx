@@ -121,6 +121,28 @@ function AIContent({user}:{user:User|null}){
  const[voiceState,setVoiceState]=useState<'idle'|'listening'|'thinking'|'speaking'>('idle');
  const[voiceAutoplay,setVoiceAutoplay]=useState(()=>{try{return localStorage.getItem('sten_ai_voice_autoplay')==='true'}catch{return false}});
  const[composerFocused,setComposerFocused]=useState(false);
+
+  // Keep the AI workspace inside the iOS visual viewport when the keyboard opens.
+  useEffect(()=>{
+    const root=document.documentElement;
+    const viewport=window.visualViewport;
+    const updateViewport=()=>{
+      const height=viewport?.height??window.innerHeight;
+      root.style.setProperty('--sten-visual-viewport-height',`${Math.round(height)}px`);
+      root.classList.toggle('sten-keyboard-open',Boolean(viewport&&window.innerHeight-viewport.height>160));
+    };
+    updateViewport();
+    viewport?.addEventListener('resize',updateViewport);
+    viewport?.addEventListener('scroll',updateViewport);
+    window.addEventListener('resize',updateViewport);
+    return()=>{
+      viewport?.removeEventListener('resize',updateViewport);
+      viewport?.removeEventListener('scroll',updateViewport);
+      window.removeEventListener('resize',updateViewport);
+      root.classList.remove('sten-keyboard-open');
+      root.style.removeProperty('--sten-visual-viewport-height');
+    };
+  },[]);
  useEffect(()=>{if(initialQuery)setPrompt(initialQuery)},[initialQuery]);
  useEffect(()=>{
    if(searchParams.get('sheetContext')!=='1')return;
@@ -618,7 +640,7 @@ function AIContent({user}:{user:User|null}){
                void ask('Разбери заметки встречи. Подготовь краткое резюме, ключевые решения, список задач с ответственными и сроками, а также вопросы без ответа. Не придумывай имена, сроки или решения, которых нет в тексте.\n\nЗАМЕТКИ ВСТРЕЧИ:\n' + transcript);
              }}
            />
-           <textarea ref={promptRef} value={prompt} onFocus={()=>setComposerFocused(true)} onBlur={()=>setComposerFocused(false)} onChange={e=>setPrompt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void ask()}}} placeholder={listening?'Говорите…':'Спросите про P&L, ФОТ или ситуацию в смене…'} rows={1} aria-label="Запрос к Dumrauf AI"/>
+           <textarea ref={promptRef} value={prompt} onFocus={()=>setComposerFocused(true)} onBlur={()=>setComposerFocused(false)} onChange={e=>setPrompt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void ask()}}} placeholder={listening?'Говорите…':undefined} rows={1} aria-label="Запрос к Dumrauf AI"/>
            {voiceState==='speaking'&&<button className="icon-button voice-stop" onClick={interruptVoice} aria-label="Перебить ответ Dumrauf" title="Перебить ответ"><MicOff size={18}/></button>}
            <button className={'icon-button'+(listening?' mic-active':'')+(voiceMode?' voice-mode-active':'')} onClick={toggleVoice} aria-label={voiceMode?'Завершить голосовой диалог':'Начать голосовой диалог'} title={SR?'Голосовой диалог (Chrome / Edge)':'Голосовой ввод не поддерживается этим браузером'}>
              {listening?<MicOff size={18}/>:<Mic size={18}/>}
