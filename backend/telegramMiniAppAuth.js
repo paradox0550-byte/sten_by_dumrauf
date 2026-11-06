@@ -70,13 +70,13 @@ function verifyTelegramWebAppInitData(initData, botToken, options = {}) {
     throw invalidInitData();
   }
   if (!user || typeof user !== 'object' || Array.isArray(user)
-      || !Number.isSafeInteger(Number(user.id)) || Number(user.id) <= 0) {
+      || !Number.isSafeInteger(user.id) || user.id <= 0) {
     throw invalidInitData();
   }
 
   const dataCheckString = entries
     .filter(([key]) => key !== 'hash')
-    .sort(([a], [b]) => a.localeCompare(b))
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([key, value]) => `${key}=${value}`)
     .join('\n');
 
