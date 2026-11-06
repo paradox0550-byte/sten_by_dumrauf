@@ -3289,9 +3289,9 @@ app.patch('/api/operational-control/actions/:id', requireAuth, requireOrg, async
                     completed_by,completed_at,verified_by,verified_at,reopen_reason,updated_at
        ), updated_observation AS (
          UPDATE operational_observations o
-            SET verification_status=CASE WHEN $12='reopen' THEN 'reported' ELSE 'verified' END,
-                verified_by=CASE WHEN $12='verify' THEN $13 ELSE NULL END,
-                verified_at=CASE WHEN $12='verify' THEN now() ELSE NULL END
+            SET verification_status=CASE WHEN $12='reopen' THEN 'reported' WHEN $12='verify' THEN 'verified' ELSE o.verification_status END,
+                verified_by=CASE WHEN $12='verify' THEN $13 WHEN $12='reopen' THEN NULL ELSE o.verified_by END,
+                verified_at=CASE WHEN $12='verify' THEN now() WHEN $12='reopen' THEN NULL ELSE o.verified_at END
           WHERE o.id=$14::uuid AND o.organization_id=$10::uuid
             AND EXISTS (SELECT 1 FROM updated_action)
             AND (
@@ -3303,21 +3303,20 @@ app.patch('/api/operational-control/actions/:id', requireAuth, requireOrg, async
               ))
             )
           RETURNING o.id
+       ), inserted_event AS (
+         INSERT INTO operational_action_events
+           (action_id,organization_id,restaurant_id,event_type,from_status,to_status,actor_id,payload_json)
+         SELECT id,$10::uuid,restaurant_id,$12,$11,$1,$13,
+                CASE WHEN $15::text IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('reason',$15::text) END
+           FROM updated_action
+         RETURNING id
        )
        SELECT ua.*, (SELECT count(*)::int FROM updated_observation) AS observation_updated
-         FROM updated_action ua`,
+         FROM updated_action ua CROSS JOIN inserted_event`,
       [nextStatus,completedBy,completedAt,verifiedBy,verifiedAt,reopenedBy,reopenedAt,reopenReason,
-       current.id,req.user.organizationId,current.status,body.type,actorId,current.observation_id],
+       current.id,req.user.organizationId,current.status,body.type,actorId,current.observation_id,body.reason || null],
       {orgId:req.user.organizationId});
     if (!updated.rows?.[0]) throw httpError(409, 'Задача уже изменилась. Обновите список и повторите действие.', 'CONCURRENT_UPDATE');
-    await queryWithRetry(
-      `INSERT INTO operational_action_events
-        (action_id,organization_id,restaurant_id,event_type,from_status,to_status,actor_id,payload_json)
-       VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8::jsonb)`,
-      [current.id, req.user.organizationId, current.restaurant_id, body.type, current.status, nextStatus,
-       actorId, JSON.stringify(body.reason ? { reason: body.reason } : {})],
-      { orgId: req.user.organizationId }
-    );
     await audit(req.user, 'operational.action.'+body.type, 'operational_actions', current.id, { from:current.status, to:nextStatus });
     ok(res, { action: updated.rows[0], confirmed: true });
   } catch (e) { next(e); }
