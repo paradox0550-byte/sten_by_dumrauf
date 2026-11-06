@@ -404,8 +404,8 @@ await query(`CREATE TABLE IF NOT EXISTS telegram_action_proposals (
   review_reason TEXT,
   action_id UUID REFERENCES operational_actions(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
- );`);
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`);
 await query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_action_proposals_pending_source ON telegram_action_proposals(chat_id,message_id) WHERE status='pending';`);
 await query(`CREATE INDEX IF NOT EXISTS idx_telegram_action_proposals_scope ON telegram_action_proposals(organization_id,restaurant_id,status,created_at DESC);`);
 await query(`CREATE TABLE IF NOT EXISTS telegram_bot_settings (
@@ -3505,7 +3505,12 @@ app.get('/api/telegram-monitor/health', requireAuth, requireOrg, async (req, res
               max(received_at) AS last_received_at,
               max(processed_at) AS last_processed_at,
               max(received_at) FILTER (WHERE last_error IS NOT NULL) AS last_error_at
-         FROM telegram_updates WHERE organization_id=$1::uuid`,
+         FROM telegram_updates u
+        WHERE EXISTS (
+          SELECT 1 FROM telegram_chat_bindings b
+           WHERE b.organization_id=$1::uuid
+             AND b.chat_id=COALESCE(u.update_json #>> '{message,chat,id}',u.update_json #>> '{edited_message,chat,id}',u.update_json #>> '{callback_query,message,chat,id}')
+        )`,
       [req.user.organizationId], { orgId: req.user.organizationId });
     const groupRows = await strictQuery(
       `SELECT count(*)::int AS bound_groups,max(c.last_seen_at) AS last_message_at
