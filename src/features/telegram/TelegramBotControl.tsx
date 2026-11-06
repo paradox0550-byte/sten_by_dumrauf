@@ -19,6 +19,7 @@ export default function TelegramBotControl() {
   const [settings, setSettings] = useState<Settings>(defaults);
   const [settingsConfigured, setSettingsConfigured] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsLoadFailed, setSettingsLoadFailed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -37,14 +38,16 @@ export default function TelegramBotControl() {
   }, []);
 
   const loadSettings = useCallback(async (id: string) => {
-    if (!id) { setSettings(defaults); setSettingsConfigured(false); return; }
+    if (!id) { setSettings(defaults); setSettingsConfigured(false); setSettingsLoadFailed(false); return; }
     setSettingsLoading(true);
+    setSettingsLoadFailed(false);
     setError('');
     try {
       const response = await api.get<{ settings: Settings | null }>('/api/telegram-bot/settings?chat_id=' + encodeURIComponent(id));
       setSettings({ ...defaults, ...(response.settings || {}) });
       setSettingsConfigured(Boolean(response.settings));
     } catch (e) {
+      setSettingsLoadFailed(true);
       setError(e instanceof ApiError ? e.message : 'Не удалось загрузить настройки бота.');
     } finally { setSettingsLoading(false); }
   }, []);
@@ -73,6 +76,7 @@ export default function TelegramBotControl() {
       <label className="telegram-bot-control__field"><span>Рабочая группа</span><select value={chatId} onChange={e => setChatId(e.target.value)}>{chats.map(chat => <option key={chat.chat_id} value={chat.chat_id}>{chat.restaurant_name || 'Ресторан'} · {chat.title || 'Telegram-группа'}</option>)}</select></label>
       {selected && <div className="telegram-bot-control__scope"><ShieldCheck size={15} /> {selected.restaurant_name || 'Ресторан'} · настройки изолированы от остальных групп</div>}
       {settingsLoading ? <p className="telegram-bot-control__config-state" role="status">Загружаем сохранённые правила…</p>
+        : settingsLoadFailed ? <p className="telegram-bot-control__config-state is-error" role="alert">Не удалось прочитать настройки. Сохранение отключено, чтобы не перезаписать неизвестные серверные значения.</p>
         : <p className="telegram-bot-control__config-state" role="status">{settingsConfigured ? 'Правила этой группы сохранены на сервере.' : 'Для этой группы правила ещё не сохранены. Ниже показаны начальные значения — они не применятся, пока вы не нажмёте «Сохранить настройки».'}</p>}
       <div className="telegram-bot-control__automation-status" role="status" aria-live="polite">
         <AlertCircle size={17} />
@@ -95,7 +99,7 @@ export default function TelegramBotControl() {
       </div>
       <div className="telegram-bot-control__approval"><ShieldCheck size={17} /><span><strong>Подтверждение руководителя обязательно.</strong> AI-анализатор может подготовить предложение действия для подходящего сообщения. Создание задачи, принятие её исполнителем, контроль срока, эскалация и закрытие поручения из Telegram пока не подключены.</span></div>
       <p className="telegram-bot-control__filter-note">Уровень событий, время сводок и интервал эскалации сохраняются для группы. Фильтрация результатов по уровню, отправка сводок по расписанию и автоматическая эскалация сейчас не выполняются.</p>
-      <div className="telegram-bot-control__footer">{error && <p role="alert" className="telegram-bot-control__error">{error}</p>}{notice && <p role="status" className="telegram-bot-control__success">{notice}</p>}<button type="button" className="primary-button" onClick={() => void save()} disabled={saving || settingsLoading || !chatId}><Save size={16} /> {saving ? 'Сохраняем…' : 'Сохранить настройки'}</button></div>
+      <div className="telegram-bot-control__footer">{error && <p role="alert" className="telegram-bot-control__error">{error}</p>}{notice && <p role="status" className="telegram-bot-control__success">{notice}</p>}<button type="button" className="primary-button" onClick={() => void save()} disabled={saving || settingsLoading || settingsLoadFailed || !chatId}><Save size={16} /> {saving ? 'Сохраняем…' : 'Сохранить настройки'}</button></div>
     </>}
   </section>;
 }
