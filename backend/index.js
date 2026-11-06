@@ -3657,6 +3657,7 @@ app.get('/api/telegram-monitor/health', requireAuth, requireOrg, async (req, res
       botApi = {
         status: 'connected',
         webhook_url_configured: Boolean(info?.url),
+        webhook_path: info?.url ? new URL(info.url).pathname : null,
         pending_update_count: Number(info?.pending_update_count || 0),
         last_error_date: info?.last_error_date ? new Date(info.last_error_date * 1000).toISOString() : null,
         last_error_message: info?.last_error_message || null,
