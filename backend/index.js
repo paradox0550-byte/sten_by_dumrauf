@@ -3441,12 +3441,15 @@ app.get('/api/telegram-monitor/findings', requireAuth, requireOrg, async (req, r
     const rows = await strictQuery(
       `SELECT a.id AS finding_id, a.status, a.reviewed_by, a.reviewed_at, a.review_note, a.action_id,
               a.analysis_json, a.created_at, a.restaurant_id, u.name AS restaurant_name,
+              oa.status AS action_status, oa.assignee_name AS action_assignee, oa.due_at AS action_due_at,
+              oa.completed_at AS action_completed_at, oa.verified_at AS action_verified_at,
               m.chat_id, m.message_id, m.sender_name, m.sender_username, m.message_text,
               m.message_date, c.title AS chat_title
          FROM telegram_message_analyses a
          JOIN telegram_messages m ON m.chat_id=a.chat_id AND m.message_id=a.message_id
          JOIN telegram_chats c ON c.chat_id=a.chat_id
          JOIN org_units u ON u.id=a.restaurant_id AND u.organization_id=a.organization_id
+         LEFT JOIN operational_actions oa ON oa.id=a.action_id AND oa.organization_id=a.organization_id
         WHERE a.organization_id=$1::uuid
           AND ($2::text IS NULL OR a.status=$2)
           AND ($3::uuid IS NULL OR a.restaurant_id=$3::uuid)
