@@ -78,6 +78,7 @@ const eventLabels: Record<string, string> = {
   verify: 'Руководитель проверил результат',
   reopen: 'Задача возвращена в работу',
   cancel: 'Задача отменена',
+  escalation: 'Срок нарушен — уведомление отправлено',
 };
 const taskStatusLabels: Record<string, string> = {
   open: 'В работе', overdue: 'Просрочена', awaiting_verification: 'Ожидает проверки',
