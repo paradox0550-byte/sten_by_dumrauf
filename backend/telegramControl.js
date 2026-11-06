@@ -82,7 +82,14 @@ async function processTelegramAutomationJobs({ queryWithRetry, sendMessage, buil
               last_escalated_at=$2::timestamptz, escalation_count=due.next_escalation, updated_at=now()
          FROM due WHERE a.id=due.id AND a.organization_id=due.organization_id
        RETURNING a.id, a.organization_id, a.restaurant_id, a.title, a.assignee_name, a.due_at, a.status,
-                 a.escalation_count, due.chat_id, due.restaurant_name
+                 a.escalation_count, due.chat_id, due.restaurant_name, due.status AS previous_status
+     ), escalation_event AS (
+       INSERT INTO operational_action_events
+         (action_id,organization_id,restaurant_id,event_type,from_status,to_status,actor_id,payload_json)
+       SELECT id,organization_id,restaurant_id,'escalation',previous_status,status,'system:telegram_timer',
+              jsonb_build_object('escalation_count',escalation_count,'chat_id',chat_id,'due_at',due_at)
+         FROM updated
+       RETURNING id
      )
      INSERT INTO telegram_outbox
        (organization_id, restaurant_id, chat_id, kind, idempotency_key, message_text, scheduled_for, status)
@@ -91,7 +98,7 @@ async function processTelegramAutomationJobs({ queryWithRetry, sendMessage, buil
             '⚠️ Эскалация задачи: ' || title || E'\\nИсполнитель: ' || COALESCE(assignee_name,'не указан')
               || E'\\nСрок: ' || due_at::text || E'\\nРесторан: ' || restaurant_name,
             $2::timestamptz, 'pending'
-       FROM updated
+       FROM updated CROSS JOIN (SELECT count(*) FROM escalation_event) event_guard
      ON CONFLICT (idempotency_key) DO NOTHING
      RETURNING id`,
     [DEFAULT_ESCALATION_MINUTES, now.toISOString(), limit],
