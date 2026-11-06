@@ -150,7 +150,7 @@ export default function Finances() {
 
           <section className="panel analytics-report-section">
             <div className="panel-title">Контроль маржи</div>
-            <div className="analytics-report-table">
+            <div role="region" aria-label="Таблица аналитического отчёта" tabIndex={0} className="analytics-report-table">
               <div className="analytics-report-head"><span>Показатель</span><span>Факт</span><span>План</span><span>Δ</span></div>
               <div><b>Food Cost</b><span>{formatPercent(fact.foodCostPercent)}</span><span>{formatPercent(plan.foodCostPercent)}</span><strong>{formatPercent(delta(plan.foodCostPercent, fact.foodCostPercent))}</strong></div>
               <div><b>ФОТ / выручка</b><span>{formatPercent(fact.personnelPercent)}</span><span>{formatPercent(plan.personnelPercent)}</span><strong>{formatPercent(delta(plan.personnelPercent, fact.personnelPercent))}</strong></div>
