@@ -272,7 +272,7 @@ export default function TelegramMonitor() {
   return <div className="page telegram-monitor-page">
     <header className="page-header">
       <div>
-        <span className="sten-state-eyebrow">STEN · ОПЕРАЦИОННЫЙ КОНТРОЛЬ</span>
+        <span className="sten-state-eyebrow">DUMRAUF · ОПЕРАЦИОННЫЙ КОНТРОЛЬ</span>
         <h1>Мониторинг Telegram</h1>
         <p>Рабочие сообщения твоих ресторанов — в одном месте.</p>
       </div>
