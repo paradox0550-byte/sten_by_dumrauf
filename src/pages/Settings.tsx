@@ -91,6 +91,7 @@ export default function Settings() {
   const [messengerSaving, setMessengerSaving] = useState(false);
   const [messengerLoading, setMessengerLoading] = useState(false);
   const [messengerLoadFailed, setMessengerLoadFailed] = useState(false);
+  const [messengerConfigured, setMessengerConfigured] = useState(false);
 
   const {
     settings: analytics,
@@ -142,9 +143,11 @@ export default function Settings() {
     void (async () => {
       setMessengerLoading(true);
       setMessengerLoadFailed(false);
+      setMessengerConfigured(false);
       try {
         const response = await api.get<MessengerSettingsResponse>('/api/messenger/settings');
         const settings = response?.settings;
+        setMessengerConfigured(Boolean(settings));
         if (settings) {
           setSendTime(settings.send_time || '21:00');
           setMetrics({ ...metricDefaults, ...(settings.metrics || {}) });
@@ -455,6 +458,7 @@ export default function Settings() {
           <h2>Отчёты в Telegram</h2>
           <p className="muted">Получатель отчётов настраивается отдельно от личного Telegram ID в профиле, который используется для идентификации сотрудника. Время и состав отчёта сохраняются, но автоматическая отправка по расписанию пока не выполняется; кнопки ручной отправки в интерфейсе нет.</p>
           {messengerLoading && <small className="muted" role="status">Загружаем сохранённые настройки отчётов…</small>}
+          {!messengerLoading && !messengerLoadFailed && !messengerConfigured && <small className="muted" role="status">Настройки отчётов ещё не сохранены. Ниже показаны начальные значения.</small>}
           {messengerLoadFailed && <small className="field-error" role="alert">Не удалось загрузить сохранённые настройки. Сохранение заблокировано, чтобы не перезаписать неизвестные значения.</small>}
           <label className="settings-field">
             <span>Telegram ID получателя отчётов</span>
