@@ -4031,6 +4031,45 @@ async function handleOperationalTelegramUpdate(update) {
   return { handled: false };
 }
 
+app.post('/api/telegram/webhook', async (req, res) => {
+  try {
+    const expected = String(process.env.TELEGRAM_MONITOR_SECRET || '');
+    const provided = String(req.headers['x-telegram-bot-api-secret-token'] || '');
+    if (!expected) return res.status(503).json({ ok: false, error: 'telegram_monitor_secret_not_configured' });
+    const actualBytes = Buffer.from(provided);
+    const expectedBytes = Buffer.from(expected);
+    if (actualBytes.length !== expectedBytes.length || !crypto.timingSafeEqual(actualBytes, expectedBytes)) {
+      return res.status(403).json({ ok: false, error: 'forbidden' });
+    }
+    if (!ENV.DB_HOST) return res.status(503).json({ ok: false, error: 'database_not_configured' });
+    const stored = await persistTelegramUpdate(query, req.body);
+    if (!stored.kind || !Number.isSafeInteger(req.body?.update_id)) {
+      return res.status(200).json({ ok: true, ...stored, operational: false });
+    }
+    const claim = await claimTelegramUpdate(query, req.body.update_id);
+    if (claim.processed) return res.status(200).json({ ok: true, duplicate: true, processed: true, operational: false });
+    if (!claim.claimed) {
+      return res.status(503).json({ ok: false, error: claim.busy ? 'telegram_update_in_progress' : 'telegram_update_not_claimed' });
+    }
+    try {
+      let operational = false;
+      if (stored.kind === 'callback_query' || (stored.kind === 'message' && !req.body?.edited_message)) {
+        const result = await handleOperationalTelegramUpdate(req.body);
+        operational = Boolean(result.handled);
+      }
+      await completeTelegramUpdate(query, req.body.update_id, claim.attempts);
+      return res.status(200).json({ ok: true, ...stored, operational, processed: true });
+    } catch (processingError) {
+      try { await failTelegramUpdate(query, req.body.update_id, claim.attempts, processingError); }
+      catch (releaseError) { console.error('[sten] monitor webhook update release failed:', releaseError?.code || releaseError?.message || 'UNKNOWN'); }
+      throw processingError;
+    }
+  } catch (error) {
+    console.error('[sten] monitor webhook failed:', error?.code || error?.message || 'UNKNOWN');
+    return res.status(503).json({ ok: false, error: 'telegram_monitor_processing_failed' });
+  }
+});
+
 app.post('/api/ingest/message', async (req, res) => {
 try {
 const isTelegram = Boolean(req.body?.message || req.body?.edited_message || req.body?.callback_query);
