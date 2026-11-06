@@ -476,9 +476,11 @@ await query(`CREATE INDEX IF NOT EXISTS idx_telegram_group_diagnostics_scope
 await query(`CREATE TABLE IF NOT EXISTS telegram_worker_runs (
   worker_key TEXT NOT NULL,
   run_date DATE NOT NULL,
+  status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running','completed','failed')),
   started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY(worker_key, run_date)
 );`);
+await query(`ALTER TABLE telegram_worker_runs ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'running';`);
 await query(`CREATE TABLE IF NOT EXISTS telegram_bot_settings (
   chat_id TEXT PRIMARY KEY REFERENCES telegram_chat_bindings(chat_id) ON DELETE CASCADE,
   organization_id UUID NOT NULL,
@@ -3345,6 +3347,8 @@ app.get('/api/telegram-bot/settings', requireAuth, requireOrg, async (req, res, 
 app.put('/api/telegram-bot/settings', requireAuth, requireOrg, requirePrivilegedRole, async (req, res, next) => {
   try {
     const body = parseOr400(TelegramBotSettingsSchema, req.body ?? {});
+    try { new Intl.DateTimeFormat('en', { timeZone: body.timezone }).format(new Date()); }
+    catch { throw httpError(400, 'Укажите корректную временную зону IANA.', 'TIMEZONE_INVALID'); }
     const binding = await strictQuery(
       'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
       [body.chat_id, req.user.organizationId], { orgId: req.user.organizationId });
@@ -3576,18 +3580,29 @@ app.get('/api/telegram-monitor/health', requireAuth, requireOrg, async (req, res
   try {
     const [updates, failures] = await Promise.all([
       strictQuery(
-        `SELECT max(received_at) AS last_received_at,
-                count(*) FILTER (WHERE received_at >= now()-interval '24 hours')::int AS received_24h,
-                count(*) FILTER (WHERE processing_status='pending')::int AS pending,
-                count(*) FILTER (WHERE processing_status='processing')::int AS processing
-           FROM telegram_updates`,
-        []
+        `SELECT max(t.received_at) AS last_received_at,
+                count(*) FILTER (WHERE t.received_at >= now()-interval '24 hours')::int AS received_24h,
+                count(*) FILTER (WHERE t.processing_status='pending')::int AS pending,
+                count(*) FILTER (WHERE t.processing_status='processing')::int AS processing
+           FROM telegram_updates t
+           JOIN telegram_chat_bindings b
+             ON b.chat_id=COALESCE(t.update_json->'message'->'chat'->>'id',
+                                   t.update_json->'edited_message'->'chat'->>'id',
+                                   t.update_json->'callback_query'->'message'->'chat'->>'id')
+            AND b.organization_id=$1::uuid`,
+        [req.user.organizationId], { orgId: req.user.organizationId }
       ),
       strictQuery(
-        `SELECT update_id,received_at,last_error,processing_attempts
-           FROM telegram_updates WHERE last_error IS NOT NULL
-           ORDER BY received_at DESC LIMIT 5`,
-        []
+        `SELECT t.update_id,t.received_at,t.last_error,t.processing_attempts
+           FROM telegram_updates t
+           JOIN telegram_chat_bindings b
+             ON b.chat_id=COALESCE(t.update_json->'message'->'chat'->>'id',
+                                   t.update_json->'edited_message'->'chat'->>'id',
+                                   t.update_json->'callback_query'->'message'->'chat'->>'id')
+            AND b.organization_id=$1::uuid
+          WHERE t.last_error IS NOT NULL
+          ORDER BY t.received_at DESC LIMIT 5`,
+        [req.user.organizationId], { orgId: req.user.organizationId }
       ),
     ]);
     let botApi = { status: 'not_configured' };
@@ -3627,8 +3642,10 @@ app.post('/api/telegram-monitor/chats/:chatId/diagnose', requireAuth, requireOrg
       chat_title: chat.title || null,
       chat_type: chat.type || null,
       bot_status: member.status || 'unknown',
-      can_read_messages: member.status !== 'left' && member.status !== 'kicked',
-      can_send_messages: member.status === 'administrator' || member.status === 'creator',
+      can_read_all_group_messages: Boolean(me.can_read_all_group_messages),
+      can_receive_group_updates: member.status !== 'left' && member.status !== 'kicked',
+      can_send_messages: member.status === 'administrator' || member.status === 'creator'
+        || chat.permissions?.can_send_messages !== false,
     };
     const status = details.can_read_messages ? 'connected' : 'needs_attention';
     const saved = await queryWithRetry(
@@ -4431,19 +4448,58 @@ return { statusCode: 400, headers: { 'Content-Type': 'application/json; charset=
 if (isTimerEvent(event)) {
 try {
 const suspended = await suspendExpiredOrganizations();
-let telegramAnalysis = { scanned: 0, analyzed: 0, skipped: 0, failed: 0 };
-try {
-  telegramAnalysis = await processTelegramMessageBatch({
-    queryWithRetry,
-    analyze: prompt => callYandexGPT([{ role: 'user', text: prompt }]),
-    limit: 20,
-  });
-} catch (analysisError) {
-  log('telegram secretary batch failed:', analysisError?.code || analysisError?.message || 'UNKNOWN');
+let telegramAnalysis = { scanned: 0, analyzed: 0, skipped: 0, failed: 0, status: 'already_ran_today' };
+const analysisClaim = await queryWithRetry(
+  `INSERT INTO telegram_worker_runs(worker_key,run_date,status,started_at)
+   VALUES('daily_ai_analysis',CURRENT_DATE,'running',now())
+   ON CONFLICT(worker_key,run_date) DO UPDATE SET status='running',started_at=now()
+    WHERE telegram_worker_runs.status='failed'
+   RETURNING worker_key`,
+  [], {}
+);
+if (analysisClaim.rows?.length) {
+  try {
+    telegramAnalysis = await processTelegramMessageBatch({
+      queryWithRetry,
+      analyze: prompt => callYandexGPT([{ role: 'user', text: prompt }]),
+      limit: 50,
+    });
+    await queryWithRetry(
+      "UPDATE telegram_worker_runs SET status='completed' WHERE worker_key='daily_ai_analysis' AND run_date=CURRENT_DATE",
+      [], {}
+    );
+    telegramAnalysis.status = 'completed';
+  } catch (analysisError) {
+    await queryWithRetry(
+      "UPDATE telegram_worker_runs SET status='failed' WHERE worker_key='daily_ai_analysis' AND run_date=CURRENT_DATE",
+      [], {}
+    );
+    telegramAnalysis = { ...telegramAnalysis, status: 'failed' };
+    log('telegram secretary batch failed:', analysisError?.code || analysisError?.message || 'UNKNOWN');
+  }
 }
-return { ok: true, suspended, telegramAnalysis };
+let telegramAutomation = { escalationsQueued: 0, summariesQueued: 0, sent: 0, failed: 0, skipped: 0 };
+try {
+  telegramAutomation = await processTelegramAutomationJobs({
+    queryWithRetry,
+    sendMessage: sendOperationalTelegramMessage,
+    buildFinancialReport: async schedule => {
+      const scope = { period: String(schedule.local_date).slice(0,7), project_id: '', branch_id: '',
+        restaurant_id: schedule.restaurant_id, department_id: '' };
+      const report = await loadReportMetrics({ organizationId: schedule.organization_id }, schedule.local_date, scope);
+      return reportText(schedule.local_date, schedule.restaurant_name, report.values, report.pnlData,
+        { revenue: true, cashCard: true, discounts: true, avgCheck: true, checks: true,
+          primeCost: true, ebitda: true, deviation: true });
+    },
+    batchSize: 50,
+  });
+} catch (automationError) {
+  log('telegram automation worker failed:', automationError?.code || automationError?.message || 'UNKNOWN');
+  telegramAutomation = { ...telegramAutomation, status: 'failed' };
+}
+return { ok: true, suspended, telegramAnalysis, telegramAutomation };
 } catch (e) {
-console.error('[sten] subscription expiry failed:', e && e.stack ? e.stack : e);
+console.error('[sten] timer worker failed:', e && e.stack ? e.stack : e);
 throw e;
 }
 }
