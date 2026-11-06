@@ -181,7 +181,7 @@ async function processTelegramAutomationJobs({ queryWithRetry, sendMessage, buil
         try { financialReport = await buildFinancialReport(schedule); }
         catch { financialReport = ''; }
       }
-      const message = [financialReport || 'Финансовая часть сводки временно недоступна.', operationalDigest].filter(Boolean).join('\\n\\n');
+      const message = [financialReport || 'Финансовая часть сводки временно недоступна.', operationalDigest].filter(Boolean).join('\n\n');
       await queryWithRetry(
         "UPDATE telegram_outbox SET message_text=$1,status='pending',last_error=NULL,updated_at=now() WHERE id=$2::uuid AND status='building'",
         [message, outboxId], { orgId: schedule.organization_id }
