@@ -107,7 +107,7 @@ async function processTelegramLifecycleJobs({ queryWithRetry, sendMessage, now =
           'Требуют внимания: ' + Number(findings.urgent || 0),
           'Открытые задачи: ' + Number(actions.active || 0),
           'Ожидают независимой проверки: ' + Number(actions.verification || 0),
-        ].join('\\n');
+        ].join('\n');
         const eventKey = 'report:' + setting.chat_id + ':' + type + ':' + local.date;
         const deliveryId = await claimDelivery(queryWithRetry, eventKey, setting.organization_id, setting.restaurant_id, setting.chat_id, type, body);
         if (!deliveryId) { stats.skipped += 1; continue; }
@@ -145,7 +145,7 @@ async function processTelegramLifecycleJobs({ queryWithRetry, sendMessage, now =
       action.title,
       'Срок: ' + new Date(action.due_at).toLocaleString('ru-RU'),
       'Статус: требуется внимание руководителя',
-    ].join('\\n');
+    ].join('\n');
     const eventKey = 'escalation:' + action.id + ':' + new Date(action.due_at).toISOString();
     try {
       const deliveryId = await claimDelivery(queryWithRetry, eventKey, action.organization_id, action.restaurant_id, action.chat_id, 'escalation', body);
