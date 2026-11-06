@@ -287,7 +287,7 @@ export default function TelegramMonitor() {
         <div>
           <span className="telegram-analysis-panel__eyebrow"><Sparkles size={14} /> АНАЛИЗ ПЕРЕПИСКИ</span>
           <h2 id="telegram-analysis-title">AI-анализ рабочих сообщений</h2>
-          <p>Сервер ежедневно анализирует накопившиеся сообщения. Ручной запуск обрабатывает до 20 новых сообщений в рабочем контуре.</p>
+          <p>Сервер ежедневно анализирует накопившиеся сообщения. Ручной запуск обрабатывает до 20 ещё не проанализированных сообщений рабочего контура.</p>
         </div>
         <span className="telegram-analysis-panel__schedule">Ежедневно · сервер</span>
       </div>
