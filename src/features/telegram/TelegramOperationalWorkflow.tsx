@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, AlertCircle, Check, ChevronDown, ChevronUp, Clock3, RefreshCw, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { Activity, AlertCircle, Check, ChevronDown, ChevronUp, RefreshCw, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import '../../styles/telegram-operational-workflow.css';
