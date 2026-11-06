@@ -35,6 +35,19 @@ try {
     for (const viewport of viewports) {
       const context = await browser.newContext({ viewport, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' });
       await context.addInitScript(({ initialTheme }) => {
+        window.__auditVitals = { lcp: 0, cls: 0 };
+        try {
+          new PerformanceObserver(list => {
+            const entries = list.getEntries();
+            const last = entries[entries.length - 1];
+            if (last) window.__auditVitals.lcp = last.startTime;
+          }).observe({ type: 'largest-contentful-paint', buffered: true });
+          new PerformanceObserver(list => {
+            for (const entry of list.getEntries()) {
+              if (!entry.hadRecentInput) window.__auditVitals.cls += entry.value;
+            }
+          }).observe({ type: 'layout-shift', buffered: true });
+        } catch {}
         localStorage.setItem('token', 'a11y-audit-test-token');
         localStorage.setItem('sten_user', JSON.stringify({
           id: 'a11y-audit-user', email: 'a11y@qa.local', firstName: 'Audit',
@@ -93,7 +106,14 @@ try {
             const nodes = violation.nodes.slice(0, 4).map(node => `${node.target.join(', ')} — ${node.failureSummary?.replace(/\\s+/g, ' ').slice(0, 180)}`);
             failures.push(`${theme}/${viewport.width}/${name}: ${violation.id} [${violation.impact}] ${violation.help}; ${nodes.join(' | ')}`);
           }
-          console.log(`[a11y] ${theme} ${viewport.width}px ${name}: ${result.violations.length} violations (${severe.length} serious/critical)`);
+          const vitals = await page.evaluate(() => ({
+            lcp: Math.round(window.__auditVitals?.lcp || 0),
+            cls: Number((window.__auditVitals?.cls || 0).toFixed(3)),
+            transferJs: Math.round(performance.getEntriesByType('resource')
+              .filter(entry => entry.name.endsWith('.js'))
+              .reduce((sum, entry) => sum + (entry.transferSize || 0), 0) / 1024),
+          }));
+          console.log(`[a11y] ${theme} ${viewport.width}px ${name}: ${result.violations.length} violations (${severe.length} serious/critical); LCP ${vitals.lcp}ms, CLS ${vitals.cls}, JS transfer ${vitals.transferJs}KiB`);
         } catch (error) {
           failures.push(`${theme}/${viewport.width}/${name}: audit failed: ${error instanceof Error ? error.message : String(error)}`);
         }
