@@ -49,7 +49,7 @@ type Employee = { id: string; first_name: string | null; last_name: string | nul
 type Health = {
   database?: { last_received_at?: string | null; received_24h?: number; pending?: number; processing?: number };
   recent_processing_errors?: Array<{ update_id: number; received_at: string; last_error: string; processing_attempts: number }>;
-  bot_api?: { status?: string; webhook_url_configured?: boolean; pending_update_count?: number; last_error_message?: string | null; error_code?: string };
+  bot_api?: { status?: string; webhook_url_configured?: boolean; webhook_path?: string | null; pending_update_count?: number; last_error_message?: string | null; last_error_date?: string | null; error_code?: string };
 };
 type Delivery = { id: string; chat_id: string; method: string; status: 'sent' | 'failed'; error_code: string | null; error_message: string | null; created_at: string };
 type Diagnostic = { id: string; status: string; details_json: Record<string, unknown>; checked_at: string };
@@ -399,13 +399,13 @@ export default function TelegramOperationalWorkflow({ selectedChatId }: { select
       {monitorError && <p className="telegram-workflow__message is-error" role="alert">{monitorError}</p>}
       <div className="telegram-workflow__health-grid">
         <div><span>Bot API</span><strong className={botStatus === 'connected' ? 'is-good' : 'is-warning'}>{botStatus === 'connected' ? 'Подключён' : botStatus === 'not_configured' ? 'Не настроен' : botStatus === 'unavailable' ? 'Недоступен' : 'Нет данных'}</strong></div>
-        <div><span>Webhook URL</span><strong>{health?.bot_api?.webhook_url_configured ? 'Настроен' : health?.bot_api?.status === 'connected' ? 'Не настроен' : 'Нет данных'}</strong></div>
+        <div><span>Webhook</span><strong>{health?.bot_api?.webhook_url_configured ? (health.bot_api.webhook_path || 'Настроен') : health?.bot_api?.status === 'connected' ? 'Не настроен' : 'Нет данных'}</strong></div>
         <div><span>Сообщений за 24 часа</span><strong>{health?.database?.received_24h ?? '—'}</strong></div>
         <div><span>Ожидают обработки</span><strong>{health?.database?.pending ?? '—'}</strong></div>
         <div><span>Последнее сообщение</span><strong>{dateTime(health?.database?.last_received_at)}</strong></div>
         <div><span>Очередь Telegram</span><strong>{health?.bot_api?.pending_update_count ?? '—'}</strong></div>
       </div>
-      {health?.bot_api?.last_error_message && <p className="telegram-workflow__message is-error"><AlertCircle size={14} /> {health.bot_api.last_error_message}</p>}
+      {health?.bot_api?.last_error_message && <p className="telegram-workflow__message is-error"><AlertCircle size={14} /> {health.bot_api.last_error_message}{health.bot_api.last_error_date ? ' · ' + dateTime(health.bot_api.last_error_date) : ''}</p>}
       {health?.recent_processing_errors?.length ? <div className="telegram-workflow__errors">
         <strong>Последние ошибки приёма</strong>
         {health.recent_processing_errors.map(item => <p key={item.update_id}>Update {item.update_id} · {item.last_error} · попыток: {item.processing_attempts}</p>)}
