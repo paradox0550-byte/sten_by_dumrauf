@@ -193,10 +193,10 @@ export default function WorkspaceSelector({
           <option value="">{items.length ? 'Не выбрано' : 'Нет данных'}</option>
           {items.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
         </select>
-        <button type="button" className="icon-button compact" title={'Создать: ' + label} onClick={() => openAdd(kind)} disabled={loading || saving}>
+        <button type="button" className="icon-button compact" aria-label={'Создать: ' + label} title={'Создать: ' + label} onClick={() => openAdd(kind)} disabled={loading || saving}>
           <Plus size={14} />
         </button>
-        <button type="button" className="icon-button compact" title={'Удалить: ' + label} onClick={() => void removeNode(kind)} disabled={!selected || loading || saving}>
+        <button type="button" className="icon-button compact" aria-label={'Удалить: ' + label} title={'Удалить: ' + label} onClick={() => void removeNode(kind)} disabled={!selected || loading || saving}>
           <Trash2 size={14} />
         </button>
       </div>
@@ -205,10 +205,10 @@ export default function WorkspaceSelector({
 
   const modal = adding ? (
     <div className="modal-backdrop" onMouseDown={e => e.currentTarget === e.target && setAdding(null)}>
-      <section className="modal-card">
+      <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="workspace-create-title">
         <button className="modal-close" onClick={() => setAdding(null)} aria-label="Закрыть"><X size={18} /></button>
         <small>СОЗДАТЬ · {KIND_LABEL[adding].toUpperCase()}</small>
-        <h2>Новый {KIND_LABEL[adding].toLowerCase()}</h2>
+        <h2 id="workspace-create-title">Новый {KIND_LABEL[adding].toLowerCase()}</h2>
         <label className="settings-field">
           <span>Название</span>
           <input autoFocus value={newName} onChange={e => setNewName(e.target.value)}
@@ -236,7 +236,7 @@ export default function WorkspaceSelector({
 
     return (
       <>
-        <button className="workspace-btn" onClick={() => setOpen(v => !v)} title={fullLabel}>
+        <button className="workspace-btn" type="button" onClick={() => setOpen(v => !v)} title={fullLabel} aria-label={`Рабочий контур: ${fullLabel}`} aria-expanded={open} aria-controls="workspace-popover">
           <Layers3 size={15} />
           <span className="workspace-btn-label">{shortLabel}</span>
           <ChevronDown size={13} />
@@ -244,7 +244,7 @@ export default function WorkspaceSelector({
         {open && (
           <>
             <button className="workspace-popover-backdrop" aria-label="Закрыть" onClick={() => setOpen(false)} />
-            <div className="workspace-popover">
+            <div className="workspace-popover" id="workspace-popover" role="dialog" aria-modal="true" aria-label="Выбор рабочего контура">
               <div className="workspace-popover-head">
                 <b>Рабочий контур</b>
                 <button className="icon-button compact" onClick={() => setOpen(false)} aria-label="Закрыть"><X size={14} /></button>
@@ -260,8 +260,8 @@ export default function WorkspaceSelector({
                     <option value="">{projects.length ? 'Не выбрано' : 'Нет данных'}</option>
                     {projects.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
                   </select>
-                  <button type="button" className="icon-button compact" title="Создать" onClick={() => openAdd('project')} disabled={loading || saving}><Plus size={13} /></button>
-                  <button type="button" className="icon-button compact" title="Удалить" onClick={() => void removeNode('project')} disabled={!value.projectId || loading || saving}><Trash2 size={13} /></button>
+                  <button type="button" className="icon-button compact" aria-label="Создать проект" title="Создать" onClick={() => openAdd('project') disabled={loading || saving}><Plus size={13} /></button>
+                  <button type="button" className="icon-button compact" aria-label="Удалить проект" title="Удалить" onClick={() => void removeNode('project') disabled={!value.projectId || loading || saving}><Trash2 size={13} /></button>
                 </div>
               </label>
               <label className="settings-field workspace-select">
@@ -271,8 +271,8 @@ export default function WorkspaceSelector({
                     <option value="">{branches.length ? 'Не выбрано' : 'Нет данных'}</option>
                     {branches.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
                   </select>
-                  <button type="button" className="icon-button compact" title="Создать" onClick={() => openAdd('branch')} disabled={loading || saving}><Plus size={13} /></button>
-                  <button type="button" className="icon-button compact" title="Удалить" onClick={() => void removeNode('branch')} disabled={!value.branchId || loading || saving}><Trash2 size={13} /></button>
+                  <button type="button" className="icon-button compact" aria-label="Создать филиал" title="Создать" onClick={() => openAdd('branch') disabled={loading || saving}><Plus size={13} /></button>
+                  <button type="button" className="icon-button compact" aria-label="Удалить филиал" title="Удалить" onClick={() => void removeNode('branch') disabled={!value.branchId || loading || saving}><Trash2 size={13} /></button>
                 </div>
               </label>
               <label className="settings-field workspace-select">
@@ -282,8 +282,8 @@ export default function WorkspaceSelector({
                     <option value="">{restaurants.length ? 'Не выбрано' : 'Нет данных'}</option>
                     {restaurants.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
                   </select>
-                  <button type="button" className="icon-button compact" title="Создать" onClick={() => openAdd('restaurant')} disabled={loading || saving}><Plus size={13} /></button>
-                  <button type="button" className="icon-button compact" title="Удалить" onClick={() => void removeNode('restaurant')} disabled={!value.restaurantId || loading || saving}><Trash2 size={13} /></button>
+                  <button type="button" className="icon-button compact" aria-label="Создать ресторан" title="Создать" onClick={() => openAdd('restaurant') disabled={loading || saving}><Plus size={13} /></button>
+                  <button type="button" className="icon-button compact" aria-label="Удалить ресторан" title="Удалить" onClick={() => void removeNode('restaurant') disabled={!value.restaurantId || loading || saving}><Trash2 size={13} /></button>
                 </div>
               </label>
               <label className="settings-field workspace-select">
@@ -293,11 +293,11 @@ export default function WorkspaceSelector({
                     <option value="">{departments.length ? 'Не выбрано' : 'Нет данных'}</option>
                     {departments.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
                   </select>
-                  <button type="button" className="icon-button compact" title="Создать" onClick={() => openAdd('department')} disabled={loading || saving}><Plus size={13} /></button>
-                  <button type="button" className="icon-button compact" title="Удалить" onClick={() => void removeNode('department')} disabled={!value.departmentId || loading || saving}><Trash2 size={13} /></button>
+                  <button type="button" className="icon-button compact" aria-label="Создать отдел" title="Создать" onClick={() => openAdd('department') disabled={loading || saving}><Plus size={13} /></button>
+                  <button type="button" className="icon-button compact" aria-label="Удалить отдел" title="Удалить" onClick={() => void removeNode('department') disabled={!value.departmentId || loading || saving}><Trash2 size={13} /></button>
                 </div>
               </label>
-              {error && <div className="pnl-message warn">{error}</div>}
+              {error && <div className="pnl-message warn" role="alert">{error}</div>}
             </div>
           </>
         )}
