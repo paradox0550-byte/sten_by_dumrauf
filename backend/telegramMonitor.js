@@ -168,7 +168,7 @@ async function persistTelegramUpdate(query, update) {
      ), invalidated_analysis AS (
        DELETE FROM telegram_message_analyses a
         USING upserted_message m
-        WHERE a.chat_id=$3 AND a.message_id=m.message_id
+        WHERE a.chat_id=$3 AND a.message_id=m.message_id AND a.status='pending'
         RETURNING a.message_id
      )
      SELECT EXISTS(SELECT 1 FROM inserted_update) AS is_new,
