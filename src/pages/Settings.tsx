@@ -446,7 +446,7 @@ export default function Settings() {
 
         <section className="panel messenger-settings" id="settings-reports">
           <h2>Отчёты в Telegram</h2>
-          <p className="muted">Получатель отчётов настраивается отдельно от личного Telegram ID в профиле, который используется для идентификации сотрудника.</p>
+          <p className="muted">Получатель отчётов настраивается отдельно от личного Telegram ID в профиле, который используется для идентификации сотрудника. Время и состав отчёта сохраняются, но автоматическая отправка по расписанию пока не выполняется; кнопки ручной отправки в интерфейсе нет.</p>
           <label className="settings-field">
             <span>Telegram ID получателя отчётов</span>
             <input inputMode="text" value={reportRecipientId} onChange={(event) => setReportRecipientId(normalizeProfileText(event.target.value))} placeholder="Личный чат или ID группы" />
