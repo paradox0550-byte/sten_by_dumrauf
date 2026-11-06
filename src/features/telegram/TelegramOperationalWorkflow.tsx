@@ -79,7 +79,7 @@ const localDateTimeInput = (value?: string | null) => {
 
 export default function TelegramOperationalWorkflow({ selectedChatId }: { selectedChatId?: string }) {
   const { user } = useAuth();
-  const canReview = ['super_admin', 'owner', 'admin', 'director', 'manager'].includes(String(user?.role || '').toLowerCase());
+  const canReview = ['super_admin', 'owner', 'admin', 'director'].includes(String(user?.role || '').toLowerCase());
   const [findings, setFindings] = useState<Finding[]>([]);
   const [filter, setFilter] = useState<Filter>('pending');
   const [loading, setLoading] = useState(true);
@@ -377,7 +377,7 @@ export default function TelegramOperationalWorkflow({ selectedChatId }: { select
           <strong>Диагностика выбранной группы</strong>
           <p>Проверка прав бота и доступности группы через Telegram Bot API.</p>
         </div>
-        <button type="button" className="secondary-button" onClick={() => void diagnoseSelected()} disabled={!selectedChatId || diagnosing}>
+        <button type="button" className="secondary-button" onClick={() => void diagnoseSelected()} disabled={!canReview || !selectedChatId || diagnosing}>
           <Activity size={14} /> {diagnosing ? 'Проверяем…' : 'Проверить группу'}
         </button>
       </div>
