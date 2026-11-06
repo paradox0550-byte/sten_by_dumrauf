@@ -132,7 +132,8 @@ async function processTelegramAutomationJobs({ queryWithRetry, sendMessage, buil
       ORDER BY s.organization_id, s.restaurant_id LIMIT $1`,
     [limit],
     {}
-    for (const schedule of schedules.rows || []) {
+  );
+  for (const schedule of schedules.rows || []) {
     if (!schedule.digest_kind) continue;
     const key = 'digest:' + schedule.chat_id + ':' + schedule.digest_kind + ':' + schedule.local_date;
     const claimed = await queryWithRetry(
@@ -196,8 +197,6 @@ async function processTelegramAutomationJobs({ queryWithRetry, sendMessage, buil
       result.failed += 1;
     }
   }
-
- }
 
   const pending = await queryWithRetry(
     `WITH claimable AS (
