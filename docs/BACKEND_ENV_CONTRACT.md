@@ -39,6 +39,7 @@ It is not a copy of the current Yandex Cloud environment. Secret values must nev
 | `MARKITDOWN_TOKEN` | Shared secret for the MarkItDown function when token authentication is enabled. |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token; also used as fallback for the monitor bot. |
 | `TELEGRAM_MONITOR_BOT_TOKEN` | Optional dedicated monitor-bot token; takes precedence over `TELEGRAM_BOT_TOKEN`. |
+| `TELEGRAM_MONITOR_SECRET` | Dedicated `/api/telegram/webhook` monitor endpoint secret header validation. |
 | `TELEGRAM_WEBHOOK_SECRET` | Telegram webhook secret header validation. This is the variable the webhook actually checks. |
 | `WHATSAPP_APP_SECRET` | WhatsApp webhook signature validation, if WhatsApp inbound is enabled. |
 | `WHATSAPP_ACCESS_TOKEN` | WhatsApp outbound messaging, if enabled. |
