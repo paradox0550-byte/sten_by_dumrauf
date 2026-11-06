@@ -132,14 +132,17 @@ try {
             const nodes = violation.nodes.slice(0, 4).map(node => `${node.target.join(', ')} — ${node.failureSummary?.replace(/\s+/g, ' ').slice(0, 180)}`);
             failures.push(`${theme}/${viewport.width}/${name}: ${violation.id} [${violation.impact}] ${violation.help}; ${nodes.join(' | ')}`);
           }
-          const vitals = await page.evaluate(() => ({
-            lcp: Math.round(window.__auditVitals?.lcp || 0),
-            cls: Number((window.__auditVitals?.cls || 0).toFixed(3)),
-            transferJs: Math.round(performance.getEntriesByType('resource')
-              .filter(entry => entry.name.endsWith('.js'))
-              .reduce((sum, entry) => sum + (entry.transferSize || 0), 0) / 1024),
-          }));
-          console.log(`[a11y] ${theme} ${viewport.width}px ${name}: ${result.violations.length} violations (${severe.length} serious/critical); LCP ${vitals.lcp}ms, CLS ${vitals.cls}, JS transfer ${vitals.transferJs}KiB`);
+          if (name === 'dashboard') {
+            const vitals = await page.evaluate(() => ({
+              lcp: Math.round(window.__auditVitals?.lcp || 0),
+              cls: Number((window.__auditVitals?.cls || 0).toFixed(3)),
+              transferJs: Math.round(performance.getEntriesByType('resource')
+                .filter(entry => entry.name.endsWith('.js'))
+                .reduce((sum, entry) => sum + (entry.transferSize || 0), 0) / 1024),
+            }));
+            console.log(`[perf] initial app shell ${theme} ${viewport.width}px: LCP ${vitals.lcp}ms, CLS ${vitals.cls}, JS transfer ${vitals.transferJs}KiB`);
+          }
+          console.log(`[a11y] ${theme} ${viewport.width}px ${name}: ${result.violations.length} violations (${severe.length} serious/critical)`);
         } catch (error) {
           failures.push(`${theme}/${viewport.width}/${name}: audit failed: ${error instanceof Error ? error.message : String(error)}`);
         }
