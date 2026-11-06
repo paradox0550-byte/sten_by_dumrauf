@@ -3520,17 +3520,17 @@ app.get('/api/telegram-monitor/health', requireAuth, requireOrg, async (req, res
   } catch (e) { next(e); }
 });
 
-app.ge
-    if (chatId) {
-      const binding = await strictQuery('SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
-        [chatId,req.user.organizationId],{orgId:req.user.organizationId});
-      if (!binding[0]) throw httpError(404,'Группа не найдена в организации.','CHAT_NOT_FOUND');
-      await assertOperationalRestaurant(req.user,binding[0].restaurant_id);
-    }
-t('/api/telegram-monitor/deliveries', requireAuth, requireOrg, async (req, res, next) => {
+app.get('/api/telegram-monitor/deliveries', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const limit = Math.max(1,Math.min(100,Number.parseInt(String(req.query.limit || '50'),10) || 50));
     const chatId = String(req.query.chat_id || '').trim();
+    if (chatId) {
+      const binding = await strictQuery(
+        'SELECT restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 AND organization_id=$2::uuid LIMIT 1',
+        [chatId,req.user.organizationId], { orgId: req.user.organizationId });
+      if (!binding[0]) throw httpError(404,'Группа не найдена в организации.','CHAT_NOT_FOUND');
+      await assertOperationalRestaurant(req.user,binding[0].restaurant_id);
+    }
     const rows = await strictQuery(
       `SELECT id,chat_id,delivery_type,status,attempts,last_error,sent_at,created_at,updated_at
          FROM telegram_delivery_log
