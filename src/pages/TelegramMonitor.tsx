@@ -120,8 +120,8 @@ export default function TelegramMonitor() {
   );
 
   const boundRestaurantIds = useMemo(
-    () => new Set(chats.filter(isBound).map(chat => chat.restaurant_id as string)),
-    [chats],
+    () => new Set(chats.filter(chat => isBound(chat) && chat.organization_id === user?.organizationId).map(chat => chat.restaurant_id as string)),
+    [chats, user?.organizationId],
   );
   const managedRestaurantCount = boundRestaurantIds.size;
   const canAddRestaurant = managedRestaurantCount < MAX_MANAGED_RESTAURANTS
