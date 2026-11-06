@@ -7407,7 +7407,7 @@ html[data-reduce-motion='true'] .executive-shell .analytics-report-table {
 .badge--danger  { background: rgba(248,113,113,0.15); color: var(--color-danger); }
 .badge--warning { background: rgba(251,191,36,0.15);  color: var(--color-warning); }
 .badge--success { background: rgba(52,211,153,0.15);  color: var(--color-success); }
-.badge--brand   { background: rgba(91,124,250,0.15);  color: #7A94FB; }
+.badge--brand   { background: color-mix(in srgb, var(--color-brand) 14%, transparent); color: var(--color-brand); }
 .badge--neutral { background: var(--neutral-bg, rgba(156,163,181,0.12)); color: var(--text-muted, #475467); }
 
 
@@ -8007,7 +8007,7 @@ a { text-underline-offset: 3px; }
 .primary-button { background: var(--color-brand); border-color: var(--color-brand); color: var(--text-on-accent); }
 .primary-button:hover:not(:disabled) { background: var(--color-brand-hover); border-color: var(--color-brand-hover); }
 .secondary-button, .icon-button { background: var(--bg-elevated); border-color: var(--border-subtle); color: var(--text-primary); }
-.secondary-button:hover:not(:disabled), .icon-button:hover:not(:disabled) { background: #202a40; border-color: rgba(91,124,250,.38); }
+.secondary-button:hover:not(:disabled), .icon-button:hover:not(:disabled) { background: var(--bg-surface-hover); border-color: var(--border-strong); }
 button:disabled, input:disabled, select:disabled, textarea:disabled { opacity: .5; cursor: not-allowed; }
 input, select, textarea, .executive-shell input, .executive-shell select, .executive-shell textarea { background: var(--bg-inset); color: var(--text-primary); border-color: var(--border-subtle); }
 ::placeholder { color: var(--text-muted); opacity: 1; }
@@ -8515,10 +8515,10 @@ input, select, textarea, .executive-shell input, .executive-shell select, .execu
 .auth-error {
   margin: 0;
   padding: 10px 12px;
-  border: 1px solid rgba(255,77,109,.34);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 34%, transparent);
   border-radius: 9px;
   background: var(--color-danger-bg);
-  color: #ff9aab;
+  color: var(--color-danger);
   font-size: 12px;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -8668,7 +8668,7 @@ html[data-theme='dark'] :where(button, a, input, select, textarea, [tabindex]):f
   width: 44px;
   height: 44px;
   margin: 0 auto 14px;
-  border: 1px solid color-mix(in srgb, var(--color-brand, #5B7CFA) 42%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-brand, #5FB3A1) 42%, transparent);
   border-radius: 14px;
   color: var(--color-brand, #5B7CFA);
   font-size: 20px;
@@ -10101,7 +10101,7 @@ html[data-reduce-motion='true'] .sten-loading-track > span { animation: none; wi
 }
 .executive-memory-shortcuts button:hover,
 .executive-memory-shortcuts button.active {
-  border-color: var(--accent, #126B67);
+  border-color: var(--accent, #5FB3A1);
   background: var(--surface2);
 }
 .executive-memory-shortcuts strong {
