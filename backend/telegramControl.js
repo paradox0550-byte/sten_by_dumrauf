@@ -22,9 +22,10 @@ function buildEscalationMessage(action, escalationNumber = 1) {
   ].filter(Boolean).join('\n');
 }
 
-function buildOperationalDigest({ restaurantName, kind, findings = [], actions = [], dateLabel }) {
+function buildOperationalDigest({ restaurantName, kind, findings = [], actions = [], dateLabel, timezone = 'Europe/Moscow' }) {
   const morning = kind === 'morning';
   const title = morning ? 'Утренняя сводка' : 'Вечерняя сводка';
+  const formatDate = value => value ? new Intl.DateTimeFormat('ru-RU', { dateStyle: 'short', timeStyle: 'short', timeZone: timezone }).format(new Date(value)) : 'срок не указан';
   const lines = ['📋 ' + title, cleanText(restaurantName, 120), cleanText(dateLabel, 40)].filter(Boolean);
   const openFindings = findings.filter(item => item.status === 'pending');
   const approvedFindings = findings.filter(item => item.status === 'action_created');
@@ -46,7 +47,7 @@ function buildOperationalDigest({ restaurantName, kind, findings = [], actions =
     lines.push('', morning ? 'Контроль на сегодня:' : 'Не закрыты к концу дня:');
     activeActions.slice(0, 7).forEach(item => {
       lines.push('• ' + cleanText(item.title, 150) + ' — ' + cleanText(item.assignee_name, 80)
-        + (item.due_at ? ' · до ' + new Date(item.due_at).toLocaleString('ru-RU') : ''));
+        + (item.due_at ? ' · до ' + formatDate(item.due_at) : ''));
     });
   }
   if (!openFindings.length && !activeActions.length) lines.push('', 'Открытых AI-находок и активных задач нет.');
@@ -158,13 +159,16 @@ async function processTelegramAutomationJobs({ queryWithRetry, sendMessage, buil
       restaurantName: schedule.restaurant_name,
       kind: schedule.digest_kind,
       dateLabel: schedule.local_date,
+      timezone: schedule.timezone,
       findings: (findings.rows || []).map(row => ({ ...row, ...(row.analysis_json || {}) })),
       actions: actions.rows || [],
     });
-    const financialReport = typeof buildFinancialReport === 'function'
-      ? await buildFinancialReport(schedule)
-      : '';
-    const message = [financialReport, operationalDigest].filter(Boolean).join('\\n\\n');
+    let financialReport = '';
+    if (typeof buildFinancialReport === 'function') {
+      try { financialReport = await buildFinancialReport(schedule); }
+      catch { financialReport = ''; }
+    }
+    const message = [financialReport || 'Финансовая часть сводки временно недоступна.', operationalDigest].filter(Boolean).join('\n\n');
     await queryWithRetry(
       "UPDATE telegram_outbox SET message_text=$1,status='pending',updated_at=now() WHERE id=$2::uuid AND status='building'",
       [message, claimed.rows[0].id], { orgId: schedule.organization_id }
@@ -173,10 +177,17 @@ async function processTelegramAutomationJobs({ queryWithRetry, sendMessage, buil
   }
 
   const pending = await queryWithRetry(
-    `SELECT id, organization_id, restaurant_id, chat_id, kind, message_text, attempts
-       FROM telegram_outbox
-      WHERE status='pending' AND scheduled_for <= $1::timestamptz AND attempts < 5
-      ORDER BY scheduled_for ASC LIMIT $2`,
+    `WITH claimable AS (
+       SELECT id FROM telegram_outbox
+        WHERE ((status='pending' AND scheduled_for <= $1::timestamptz)
+           OR (status='sending' AND updated_at < $1::timestamptz - interval '5 minutes'))
+          AND attempts < 5
+        ORDER BY scheduled_for ASC LIMIT $2 FOR UPDATE SKIP LOCKED
+     )
+     UPDATE telegram_outbox o
+        SET status='sending',attempts=o.attempts+1,updated_at=$1::timestamptz
+       FROM claimable c WHERE o.id=c.id
+     RETURNING o.id,o.organization_id,o.restaurant_id,o.chat_id,o.kind,o.message_text,o.attempts`,
     [now.toISOString(), limit],
     {}
   );
@@ -184,16 +195,16 @@ async function processTelegramAutomationJobs({ queryWithRetry, sendMessage, buil
     try {
       await sendMessage(item.chat_id, item.message_text);
       await queryWithRetry(
-        `UPDATE telegram_outbox SET status='sent',sent_at=$1::timestamptz,attempts=attempts+1,last_error=NULL,updated_at=now()
-          WHERE id=$2::uuid AND status='pending'`,
+        `UPDATE telegram_outbox SET status='sent',sent_at=$1::timestamptz,last_error=NULL,updated_at=now()
+          WHERE id=$2::uuid AND status='sending'`,
         [now.toISOString(), item.id], { orgId: item.organization_id }
       );
       result.sent += 1;
     } catch (error) {
       await queryWithRetry(
-        `UPDATE telegram_outbox SET status=CASE WHEN attempts+1 >= 5 THEN 'failed' ELSE 'pending' END,
-              attempts=attempts+1,last_error=$1,updated_at=now()
-          WHERE id=$2::uuid AND status='pending'`,
+        `UPDATE telegram_outbox SET status=CASE WHEN attempts >= 5 THEN 'failed' ELSE 'pending' END,
+              last_error=$1,updated_at=now()
+          WHERE id=$2::uuid AND status='sending'`,
         [cleanText(error?.code || error?.message || 'telegram_delivery_failed', 300), item.id],
         { orgId: item.organization_id }
       );
