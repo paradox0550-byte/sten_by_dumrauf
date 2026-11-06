@@ -236,7 +236,7 @@ export default function WorkspaceSelector({
 
     return (
       <>
-        <button className="workspace-btn" type="button" onClick={() => setOpen(v => !v)} title={fullLabel} aria-label={`Рабочий контур: ${fullLabel}`} aria-expanded={open} aria-controls="workspace-popover">
+        <button className="workspace-btn" type="button" onClick={() => setOpen(v => !v)} title={fullLabel} aria-label={`Рабочий контур: ${fullLabel}`} aria-expanded={open} aria-controls={open ? "workspace-popover" : undefined}>
           <Layers3 size={15} />
           <span className="workspace-btn-label">{shortLabel}</span>
           <ChevronDown size={13} />
