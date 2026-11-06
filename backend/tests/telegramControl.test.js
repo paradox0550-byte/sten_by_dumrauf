@@ -67,3 +67,28 @@ test('automation worker enqueues and sends one scheduled summary exactly once', 
   assert.deepEqual(sent, [{ chatId: '-1001', message: 'Сводка' }]);
   assert.ok(statements.some(sql => sql.includes('FOR UPDATE SKIP LOCKED')));
 });
+
+test('automation worker records failed digest construction for retry instead of leaving a building row', async () => {
+  const statements = [];
+  const queryWithRetry = async (sql) => {
+    statements.push(sql);
+    if (sql.includes('WITH due AS')) return { rows: [] };
+    if (sql.includes('SELECT s.chat_id')) return { rows: [{
+      chat_id: '-1001', organization_id: 'org-1', restaurant_id: 'rest-1',
+      restaurant_name: 'Тверская', local_date: '2026-11-06', timezone: 'Europe/Moscow',
+      digest_kind: 'morning',
+    }] };
+    if (sql.includes('INSERT INTO telegram_outbox') && sql.includes("'building'")) return { rows: [{ id: 'outbox-failed' }] };
+    if (sql.includes('SELECT analysis_json')) throw new Error('temporary database read failure');
+    if (sql.includes("SET status='failed',attempts=attempts+1")) return { rows: [] };
+    return { rows: [] };
+  };
+  const result = await processTelegramAutomationJobs({
+    queryWithRetry,
+    sendMessage: async () => { throw new Error('A digest with missing source data must not be sent'); },
+    now: new Date('2026-11-06T07:00:00.000Z'),
+  });
+  assert.equal(result.failed, 1);
+  assert.ok(statements.some(sql => sql.includes("SET status='failed',attempts=attempts+1")));
+  assert.ok(statements.some(sql => sql.includes('ON CONFLICT(idempotency_key) DO UPDATE')));
+});
