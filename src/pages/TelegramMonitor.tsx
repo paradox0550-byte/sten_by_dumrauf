@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MessageSquareText, RefreshCw, Search, Link2, AlertCircle, CheckCircle2, Building2 } from 'lucide-react';
+import { MessageSquareText, RefreshCw, Search, Link2, AlertCircle, CheckCircle2, Building2, Sparkles, Play } from 'lucide-react';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import TelegramBotControl from '../features/telegram/TelegramBotControl';
@@ -29,6 +29,7 @@ type TelegramMessage = {
 type Restaurant = { id: string; name: string };
 type ChatResponse = { chats: TelegramChat[]; canBind: boolean };
 type MessageResponse = { messages: TelegramMessage[] };
+type TelegramAnalysisBatch = { scanned: number; analyzed: number; skipped: number; failed: number };
 
 // Personal workspace limit is centralized so it can be raised without changing UI logic.
 const MAX_MANAGED_RESTAURANTS = 3;
@@ -83,6 +84,9 @@ export default function TelegramMonitor() {
   const [bindingChat, setBindingChat] = useState('');
   const [restaurantId, setRestaurantId] = useState('');
   const [binding, setBinding] = useState(false);
+  const [analysisRunning, setAnalysisRunning] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<TelegramAnalysisBatch | null>(null);
+  const [analysisError, setAnalysisError] = useState('');
   const chatRequest = useRef(0);
   const messageRequest = useRef(0);
 
@@ -219,6 +223,22 @@ export default function TelegramMonitor() {
     return () => window.clearTimeout(timer);
   }, [feedScope, selectedChat, selected, search, loadMessages, loadAllMessages]);
 
+  const runAnalysis = async () => {
+    setAnalysisRunning(true);
+    setAnalysisError('');
+    setAnalysisResult(null);
+    try {
+      const response = await api.post<{ analysis: TelegramAnalysisBatch }>('/api/telegram-monitor/analyze', { limit: 20 });
+      setAnalysisResult(response.analysis);
+    } catch (e) {
+      setAnalysisError(e instanceof ApiError ? e.message : 'Не удалось запустить AI-анализ переписки.');
+    } finally {
+      setAnalysisRunning(false);
+    }
+  };
+
+  const canRunAnalysis = ['super_admin', 'owner', 'admin', 'director'].includes(String(user?.role || '').toLowerCase());
+
   const bindChat = async () => {
     if (!bindingChat || !restaurantId || !user?.organizationId) {
       setError('Выберите чат и ресторан.');
@@ -261,6 +281,36 @@ export default function TelegramMonitor() {
     </header>
 
     <TelegramBotControl />
+
+    <section className="telegram-analysis-panel" aria-labelledby="telegram-analysis-title">
+      <div className="telegram-analysis-panel__head">
+        <div>
+          <span className="telegram-analysis-panel__eyebrow"><Sparkles size={14} /> АНАЛИЗ ПЕРЕПИСКИ</span>
+          <h2 id="telegram-analysis-title">AI-анализ рабочих сообщений</h2>
+          <p>Сервер ежедневно анализирует накопившиеся сообщения. Ручной запуск обрабатывает до 20 новых сообщений в рабочем контуре.</p>
+        </div>
+        <span className="telegram-analysis-panel__schedule">Ежедневно · сервер</span>
+      </div>
+      <div className="telegram-analysis-panel__actions">
+        {canRunAnalysis
+          ? <button type="button" className="secondary-button" onClick={() => void runAnalysis()} disabled={analysisRunning}>
+              <Play size={15} aria-hidden="true" /> {analysisRunning ? 'Анализируем…' : 'Запустить анализ'}
+            </button>
+          : <span className="telegram-analysis-panel__permission">Ручной запуск доступен владельцу, администратору или директору.</span>}
+        <span className="telegram-analysis-panel__note">История запусков и отдельный список AI-находок пока не предоставляются API.</span>
+      </div>
+      {analysisError && <p className="telegram-analysis-panel__message is-error" role="alert">{analysisError}</p>}
+      {analysisResult && <div className="telegram-analysis-result" role="status" aria-live="polite">
+        <strong>Результат последнего ручного запуска</strong>
+        <div className="telegram-analysis-result__metrics">
+          <span><b>{analysisResult.scanned}</b><small>Проверено</small></span>
+          <span><b>{analysisResult.analyzed}</b><small>Проанализировано</small></span>
+          <span><b>{analysisResult.skipped}</b><small>Пропущено</small></span>
+          <span><b>{analysisResult.failed}</b><small>Ошибки</small></span>
+        </div>
+        <small>Счётчики относятся только к этому запуску. Они не являются количеством активных проблем или поручений.</small>
+      </div>}
+    </section>
 
     {error && <div className="dashboard-note" role="alert"><AlertCircle size={16} />{error}</div>}
     {notice && <div className="dashboard-note" role="status"><CheckCircle2 size={16} />{notice}</div>}
@@ -352,7 +402,7 @@ export default function TelegramMonitor() {
             <p>{message.message_text || 'Сообщение без текста'}</p>
             {message.edited_at && <small>Изменено: {dateTime(message.edited_at)}</small>}
           </article>)}</div>}
-        <div className="telegram-monitor-footnote">{feedScope === 'all' ? 'Общая лента загружает последние 30 сообщений из каждого привязанного чата. ' : ''}Здесь отображаются сохранённые сообщения Telegram. Они не изменяют P&amp;L и другие финансовые данные автоматически.</div>
+        <div className="telegram-monitor-footnote">{feedScope === 'all' ? 'Общая лента загружает последние 30 сообщений из каждого привязанного чата. ' : ''}Здесь отображаются сохранённые сообщения Telegram. Они не изменяют P&amp;L и другие финансовые данные автоматически. Отдельный статус webhook и история доставки через текущий API не доступны.</div>
       </section>
     </div>
   </div>;
