@@ -170,6 +170,11 @@ async function persistTelegramUpdate(query, update) {
         USING upserted_message m
         WHERE a.chat_id=$3 AND a.message_id=m.message_id
         RETURNING a.message_id
+     ), invalidated_pending_proposals AS (
+       DELETE FROM telegram_action_proposals p
+        USING upserted_message m
+        WHERE p.chat_id=$3 AND p.message_id=m.message_id AND p.status='pending'
+        RETURNING p.id
      )
      SELECT EXISTS(SELECT 1 FROM inserted_update) AS is_new,
             EXISTS(SELECT 1 FROM upserted_message) AS message_stored`,
