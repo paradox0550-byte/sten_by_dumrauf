@@ -9,7 +9,7 @@ const routes = [
   ['manager-plan', '/plan'], ['pnl', '/pnl'], ['pnl-import', '/pnl/import'],
   ['finances', '/finances'], ['budget', '/budget'], ['analytics', '/analytics'],
   ['team-fot', '/staff'], ['documents', '/documents'], ['memory', '/memory'],
-  ['settings', '/settings'], ['telegram-monitor', '/telegram-monitor'], ['ai-quality', '/ai-quality'], ['organizations', '/admin/organizations'], ['legal', '/legal'], ['login', '/unlock'],
+  ['settings', '/settings'], ['telegram-monitor', '/telegram-monitor'], ['ai-quality', '/ai-quality'], ['organizations', '/admin/organizations'], ['legal', '/legal'],
 ];
 const viewports = [{ width: 390, height: 844 }, { width: 1440, height: 900 }];
 const themes = ['dark', 'light'];
@@ -119,6 +119,50 @@ try {
         }
       }
       await context.close();
+
+      const loginContext = await browser.newContext({ viewport, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' });
+      await loginContext.addInitScript(({ initialTheme }) => {
+        localStorage.setItem('sten_theme_v5', initialTheme);
+        localStorage.setItem('sten_reduce_motion_v1', 'true');
+        localStorage.setItem('sten_cookie_consent_v2', JSON.stringify({
+          accepted: true, at: new Date().toISOString(), policyVersion: '3',
+        }));
+      }, { initialTheme: theme });
+      const loginPage = await loginContext.newPage();
+      await loginPage.route('**/*', async route => {
+        const url = new URL(route.request().url());
+        const path = url.pathname;
+        if (url.hostname.includes('googleapis.com') || url.hostname.includes('gstatic.com')) {
+          await route.abort();
+          return;
+        }
+        if (path.endsWith('/auth/me')) {
+          await route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: { message: 'Не авторизован.' } }) });
+          return;
+        }
+        if (path.includes('/api/') || path.includes('/auth/') || url.origin !== new URL(baseUrl).origin) {
+          await route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: { message: 'Нет данных в тестовом контуре.' } }) });
+          return;
+        }
+        await route.continue();
+      });
+      try {
+        await loginPage.goto(`${baseUrl}/#/unlock`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await loginPage.waitForSelector('.login-screen', { state: 'visible', timeout: 8000 });
+        await loginPage.addScriptTag({ content: axeSource });
+        const loginResult = await loginPage.evaluate(async () => window.axe.run(document, {
+          runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'] },
+        }));
+        const loginSevere = loginResult.violations.filter(v => v.impact === 'critical' || v.impact === 'serious');
+        for (const violation of loginSevere) {
+          const nodes = violation.nodes.slice(0, 4).map(node => `${node.target.join(', ')} — ${node.failureSummary?.replace(/\\s+/g, ' ').slice(0, 180)}`);
+          failures.push(`${theme}/${viewport.width}/login: ${violation.id} [${violation.impact}] ${violation.help}; ${nodes.join(' | ')}`);
+        }
+        console.log(`[a11y] ${theme} ${viewport.width}px login: ${loginResult.violations.length} violations (${loginSevere.length} serious/critical)`);
+      } catch (error) {
+        failures.push(`${theme}/${viewport.width}/login: audit failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      await loginContext.close();
     }
   }
 } finally {
