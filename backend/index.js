@@ -4044,26 +4044,12 @@ app.post('/api/telegram/webhook', async (req, res) => {
     if (!ENV.DB_HOST) return res.status(200).json({ ok: false, error: 'database_not_configured' });
     const stored = await persistTelegramUpdate(query, req.body);
     if (!stored.kind || !Number.isSafeInteger(req.body?.update_id)) {
-      return res.status(200).json({ ok: true, ...stored, operational: false });
+      return res.status(200).json({ ok: true, ...stored });
     }
     const claim = await claimTelegramUpdate(query, req.body.update_id);
-    if (claim.processed || !claim.claimed) {
-      return res.status(200).json({ ok: true, duplicate: Boolean(claim.processed), queued: Boolean(claim.busy), processed: Boolean(claim.processed) });
-    }
-    try {
-      let operational = false;
-      if (stored.kind === 'callback_query' || (stored.kind === 'message' && !req.body?.edited_message)) {
-        const result = await handleOperationalTelegramUpdate(req.body);
-        operational = Boolean(result.handled);
-      }
-      await completeTelegramUpdate(query, req.body.update_id, claim.attempts);
-      return res.status(200).json({ ok: true, ...stored, operational, processed: true });
-    } catch (processingError) {
-      try { await failTelegramUpdate(query, req.body.update_id, claim.attempts, processingError); }
-      catch (releaseError) { console.error('[sten] monitor webhook update release failed:', releaseError?.code || releaseError?.message || 'UNKNOWN'); }
-      console.error('[sten] monitor webhook processing deferred:', processingError?.code || processingError?.message || 'UNKNOWN');
-      return res.status(200).json({ ok: false, ...stored, deferred: true });
-    }
+    if (claim.processed) return res.status(200).json({ ok: true, duplicate: true, processed: true, ...stored });
+    if (claim.claimed) await completeTelegramUpdate(query, req.body.update_id, claim.attempts);
+    return res.status(200).json({ ok: true, ...stored, persisted: true, processed: Boolean(claim.claimed) });
   } catch (error) {
     console.error('[sten] monitor webhook failed:', error?.code || error?.message || 'UNKNOWN');
     return res.status(200).json({ ok: false, error: 'telegram_monitor_processing_failed' });
