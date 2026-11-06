@@ -79,7 +79,7 @@
 .login-card .legal-footer { margin-top: 30px; padding-top: 17px; border-top: 1px solid #1E2536; }
 .login-card .legal-footer__identity { justify-content: center; gap: 7px; flex-wrap: wrap; }
 .login-card .legal-footer__brand { color: #C8CED9; }
-.login-card .legal-footer__copyright, .login-card .legal-footer__links a { color: #6B7280; }
+.login-card .legal-footer__copyright, .login-card .legal-footer__links a { color: #9FB0B8; }
 .login-card .legal-footer__links { margin-top: 9px; text-align: center; }
 .login-card .legal-footer__links a { font-size: 11px; }
 .login-card .legal-footer__links a:hover { color: #FFFFFF; }
