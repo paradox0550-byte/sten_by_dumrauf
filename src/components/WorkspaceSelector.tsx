@@ -244,7 +244,7 @@ export default function WorkspaceSelector({
         {open && (
           <>
             <button className="workspace-popover-backdrop" aria-label="Закрыть" onClick={() => setOpen(false)} />
-            <div className="workspace-popover" id="workspace-popover" role="dialog" aria-modal="true" aria-label="Выбор рабочего контура">
+            <div className="workspace-popover" id="workspace-popover" role="region" aria-label="Выбор рабочего контура">
               <div className="workspace-popover-head">
                 <b>Рабочий контур</b>
                 <button className="icon-button compact" onClick={() => setOpen(false)} aria-label="Закрыть"><X size={14} /></button>
