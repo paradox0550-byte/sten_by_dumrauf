@@ -299,7 +299,7 @@ button, a, [role='button'] { -webkit-tap-highlight-color: transparent; }
 .page .primary-button, .primary-button {
   border: 1px solid var(--color-brand) !important;
   background: var(--color-brand) !important;
-  color: #0B0F19 !important;
+  color: var(--text-on-accent) !important;
   font-weight: 700 !important;
   box-shadow: none !important;
 }
@@ -386,9 +386,9 @@ button, a, [role='button'] { -webkit-tap-highlight-color: transparent; }
 .mobile-bottom-nav a.active, .mobile-bottom-nav a[aria-current='page'] {
   border-radius: 999px;
   background: var(--color-brand) !important;
-  color: #0B0F19 !important;
+  color: var(--text-on-accent) !important;
 }
-.mobile-bottom-nav a.active svg, .mobile-bottom-nav a[aria-current='page'] svg { color: #0B0F19 !important; }
+.mobile-bottom-nav a.active svg, .mobile-bottom-nav a[aria-current='page'] svg { color: var(--text-on-accent) !important; }
 .sten-floating-ai { z-index: 90; }
 .sten-system-status { z-index: 110; }
 .cookie-banner { z-index: 120; max-width: min(900px, calc(100vw - 24px)); }
