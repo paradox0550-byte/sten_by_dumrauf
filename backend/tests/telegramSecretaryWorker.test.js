@@ -30,6 +30,8 @@ test('worker analyzes only messages from chats bound to a restaurant and stores 
   assert.match(promptSeen, /Тверская/u);
   assert.match(calls[0].sql, /telegram_chat_bindings/u);
   assert.match(calls[2].sql, /ON CONFLICT\(chat_id,message_id\) DO NOTHING/u);
+  assert.match(calls[3].sql, /INSERT INTO telegram_action_proposals/u);
+  assert.equal(calls[3].params[4], '55');
   assert.equal(calls[2].params[4], '7001');
 });
 
