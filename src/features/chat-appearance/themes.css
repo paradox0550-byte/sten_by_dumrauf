@@ -1,13 +1,13 @@
 /* Canonical chat palette and appearance controls. Workspace layout: src/styles/chat.css. Message/avatar layout: avatars.css. */
 
 .sten-ai-page {
-  --chat-accent: var(--color-brand, #126b67);
+  --chat-accent: var(--color-brand, #5FB3A1);
 }
 
 .sten-ai-page .chat {
   --chat-bg: #0B1015;
   --chat-panel: #141B22;
-  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126B67) 14%, #141B22);
+  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #5FB3A1) 14%, #141B22);
   --chat-bubble-ai: #1A232C;
   --chat-text: #F3F6F8;
   --chat-muted: #9AA8B4;
@@ -25,7 +25,7 @@
 .sten-ai-page.theme-midnight .chat {
   --chat-bg: #05070D;
   --chat-panel: #0A0E16;
-  --chat-bubble-user: color-mix(in srgb, var(--color-brand-strong, #0f5d59) 15%, #0E131F);
+  --chat-bubble-user: color-mix(in srgb, var(--color-brand-strong, #397F73) 15%, #0E131F);
   --chat-bubble-ai: #0E131F;
   --chat-text: #F3F6F8;
   --chat-muted: #8995A8;
@@ -38,7 +38,7 @@
 .sten-ai-page.theme-slate .chat {
   --chat-bg: #12171F;
   --chat-panel: #171D26;
-  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126b67) 12%, #171D26);
+  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #5FB3A1) 12%, #171D26);
   --chat-bubble-ai: #1A2029;
   --chat-text: #F2F5F8;
   --chat-muted: #A0A9B8;
@@ -51,7 +51,7 @@
 .sten-ai-page.theme-paper .chat {
   --chat-bg: #F3F5F7;
   --chat-panel: #FFFFFF;
-  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #126B67) 9%, #FFFFFF);
+  --chat-bubble-user: color-mix(in srgb, var(--color-brand, #5FB3A1) 9%, #FFFFFF);
   --chat-bubble-ai: #FFFFFF;
   --chat-text: #17212B;
   --chat-muted: #64748B;
