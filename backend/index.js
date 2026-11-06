@@ -3522,7 +3522,7 @@ app.post('/api/telegram-monitor/findings/:findingId/approve', requireAuth, requi
            (id,organization_id,restaurant_id,checkpoint_key,checkpoint_title,status,note,reporter_id,reporter_name,source_chat_id,source_message_id)
          SELECT $3::uuid, f.organization_id, f.restaurant_id, 'ai_finding',
                 'AI: ' || COALESCE(NULLIF(f.analysis_json->>'summary',''),'Обнаружено отклонение'),
-                'problem', left(concat_ws(E'\\n',f.analysis_json->>'summary',f.analysis_json->>'details'),1000),
+                'problem', left(concat_ws(E'\\n',f.analysis_json->>'summary',f.analysis_json->>'details',COALESCE(f.source_message_text,m.message_text)),1000),
                 'ai:' || f.sender_id, 'Dumrauf AI', m.chat_id, m.message_id
            FROM locked_finding f
            JOIN telegram_messages m ON m.chat_id=f.chat_id AND m.message_id=f.message_id
