@@ -390,6 +390,7 @@ export default function TelegramOperationalWorkflow({ selectedChatId }: { select
           {' · '}{dateTime(item.checked_at)}
           {item.details_json.bot_status ? ' · бот: ' + String(item.details_json.bot_status) : ''}
           {item.details_json.can_read_all_group_messages === true ? ' · читает все сообщения' : item.details_json.can_read_all_group_messages === false ? ' · ограничен режимом приватности' : ''}
+          {item.details_json.can_send_messages === true ? ' · отправка разрешена' : item.details_json.can_send_messages === false ? ' · нет права отправки' : ''}
           {item.details_json.error_code ? ' · ' + String(item.details_json.error_code) : ''}
         </p>)}
       </div>}
