@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
-  BarChart3, Bot, Menu, Moon, PanelLeft, PanelLeftClose, MessageSquareText,
+  BarChart3, Bot, Menu, Moon, PanelLeft, PanelLeftClose, MessageSquareText, Sparkles,
   LogOut, Sun, X, ClipboardList, Gauge, Monitor, Users, Settings2, FileText,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -115,6 +115,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     ['/staff', 'Команда и ФОТ'],
     ['/pnl', 'Финансы'],
     ['/telegram-monitor', 'Мониторинг Telegram'],
+    ['/telegram-findings', 'Найдено AI'],
     ['/settings', 'Настройки'],
   ] as const, []);
 
@@ -196,6 +197,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <MessageSquareText size={17} aria-hidden="true" />
               <span>Мониторинг Telegram</span>
             </NavLink>
+            <div className="nav-subsection" aria-label="Telegram AI">
+              <NavLink to="/telegram-findings" onClick={() => setMobileMenu(false)}><Sparkles size={15} aria-hidden="true" /><span>Найдено AI</span></NavLink>
+            </div>
 
             <div className="nav-section-label nav-system-label">УПРАВЛЕНИЕ</div>
             <NavLink to="/settings" onClick={() => setMobileMenu(false)}>
