@@ -224,6 +224,18 @@ servers:
       security:
         - BearerAuth: []
 
+  /api/telegram/webhook:
+    post:
+      operationId: post-api-telegram-webhook
+      responses:
+        '200':
+          description: Telegram update accepted or already processed
+        '403':
+          description: Invalid Telegram webhook secret
+        '503':
+          description: Processing unavailable; Telegram may retry
+      security: []
+
 components:
   securitySchemes:
     BearerAuth:
