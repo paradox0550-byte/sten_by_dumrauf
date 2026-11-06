@@ -31,7 +31,7 @@ type ChatResponse = { chats: TelegramChat[]; canBind: boolean };
 type MessageResponse = { messages: TelegramMessage[] };
 type TelegramAnalysisBatch = { scanned: number; analyzed: number; skipped: number; failed: number };
 
-// Personal workspace limit is centralized so it can be raised without changing UI logic.
+// Mirrors the server-enforced maximum of three managed restaurants per organization.
 const MAX_MANAGED_RESTAURANTS = 3;
 
 const dateTime = (value?: string | null) => {
@@ -245,7 +245,7 @@ export default function TelegramMonitor() {
       return;
     }
     if (!canAddRestaurant) {
-      setError('Для личного контура можно подключить не более трёх ресторанов. Сначала отвяжите чат от другого ресторана.');
+      setError('Для организации можно подключить не более трёх ресторанов. Сначала отвяжите чат от другого ресторана.');
       return;
     }
     setBinding(true);
@@ -369,7 +369,7 @@ export default function TelegramMonitor() {
             <option value="">{loadingRestaurants ? 'Загружаем рестораны…' : 'Выберите ресторан'}</option>
             {restaurants.map(restaurant => <option key={restaurant.id} value={restaurant.id}>{restaurant.name}</option>)}
           </select></label>
-          <small className="telegram-bind-limit">{managedRestaurantCount >= MAX_MANAGED_RESTAURANTS ? 'Лимит трёх ресторанов достигнут. Можно подключать дополнительные чаты к уже используемым ресторанам.' : 'Личный контур: до трёх ресторанов.'}</small>
+          <small className="telegram-bind-limit">{managedRestaurantCount >= MAX_MANAGED_RESTAURANTS ? 'Лимит трёх ресторанов достигнут. Можно подключать дополнительные чаты к уже используемым ресторанам.' : 'Лимит организации: до трёх ресторанов.'}</small>
           <button className="primary-button" type="button" onClick={() => void bindChat()} disabled={binding || !bindingChat || !restaurantId || !canAddRestaurant}>
             {binding ? 'Привязываем…' : 'Привязать к ресторану'}
           </button>
