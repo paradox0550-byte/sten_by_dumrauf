@@ -141,3 +141,8 @@
 .telegram-bot-control__filter-note {
   margin-top: 12px;
 }
+
+.telegram-bot-control__config-state.is-error {
+  border-left-color: var(--color-danger);
+  color: var(--color-danger);
+}
