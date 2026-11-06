@@ -4042,6 +4042,49 @@ async function handleOperationalTelegramUpdate(update) {
   return { handled: false };
 }
 
+async function processTelegramWebhookUpdate(update) {
+  if (!ENV.DB_HOST) throw httpError(503, 'База данных не настроена.', 'DB_NOT_CONFIGURED');
+  const updateId = update?.update_id;
+  const stored = await persistTelegramUpdate(query, update);
+  if (!stored.kind || !Number.isSafeInteger(updateId)) {
+    return { stored, operational: false, processed: false };
+  }
+
+  const claim = await claimTelegramUpdate(query, updateId);
+  if (claim.processed) {
+    return { stored, operational: false, processed: true, duplicate: true };
+  }
+  if (!claim.claimed) {
+    throw httpError(503, 'Telegram-событие уже обрабатывается. Повторите доставку.', 'TELEGRAM_UPDATE_NOT_CLAIMED');
+  }
+
+  try {
+    let operational = false;
+    if (stored.kind === 'callback_query' || (stored.kind === 'message' && !update?.edited_message)) {
+      const result = await handleOperationalTelegramUpdate(update);
+      operational = Boolean(result.handled);
+    }
+    if (stored.kind === 'callback_query' && update?.callback_query?.id) {
+      try {
+        await telegramBotRequest('answerCallbackQuery', {
+          callback_query_id: String(update.callback_query.id),
+        });
+      } catch (callbackError) {
+        log('telegram callback acknowledgement failed:', callbackError?.code || callbackError?.message || 'UNKNOWN');
+      }
+    }
+    await completeTelegramUpdate(query, updateId, claim.attempts);
+    return { stored, operational, processed: true };
+  } catch (processingError) {
+    try {
+      await failTelegramUpdate(query, updateId, claim.attempts, processingError);
+    } catch (releaseError) {
+      console.error('[dumrauf] telegram update release failed:', releaseError?.code || releaseError?.message || 'UNKNOWN');
+    }
+    throw processingError;
+  }
+}
+
 app.post('/api/telegram/webhook', async (req, res) => {
   const expected = String(process.env.TELEGRAM_MONITOR_SECRET || '');
   const provided = String(req.headers['x-telegram-bot-api-secret-token'] || '');
@@ -4052,18 +4095,11 @@ app.post('/api/telegram/webhook', async (req, res) => {
     return res.status(403).json({ ok: false, error: 'forbidden' });
   }
   try {
-    if (!ENV.DB_HOST) return res.status(200).json({ ok: false, error: 'database_not_configured' });
-    const stored = await persistTelegramUpdate(query, req.body);
-    if (!stored.kind || !Number.isSafeInteger(req.body?.update_id)) {
-      return res.status(200).json({ ok: true, ...stored });
-    }
-    const claim = await claimTelegramUpdate(query, req.body.update_id);
-    if (claim.processed) return res.status(200).json({ ok: true, duplicate: true, processed: true, ...stored });
-    if (claim.claimed) await completeTelegramUpdate(query, req.body.update_id, claim.attempts);
-    return res.status(200).json({ ok: true, ...stored, persisted: true, processed: Boolean(claim.claimed) });
+    const result = await processTelegramWebhookUpdate(req.body);
+    return res.status(200).json({ ok: true, ...result.stored, operational: result.operational, processed: result.processed, duplicate: Boolean(result.duplicate) });
   } catch (error) {
-    console.error('[sten] monitor webhook failed:', error?.code || error?.message || 'UNKNOWN');
-    return res.status(200).json({ ok: false, error: 'telegram_monitor_processing_failed' });
+    console.error('[dumrauf] telegram monitor webhook failed:', error?.code || error?.message || 'UNKNOWN');
+    return res.status(503).json({ ok: false, error: 'telegram_monitor_processing_failed' });
   }
 });
 
@@ -4076,34 +4112,11 @@ const provided = String(req.headers['x-telegram-bot-api-secret-token'] || '');
 if (!expected) return res.status(503).json({ ok: false, error: 'webhook_secret_not_configured' });
 const a = Buffer.from(provided), b = Buffer.from(expected);
 if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.status(403).json({ ok: false, error: 'forbidden' });
-if (!ENV.DB_HOST) return res.status(503).json({ ok: false, error: 'database_not_configured' });
 try {
-  const stored = await persistTelegramUpdate(query, req.body);
-  if (!stored.kind || !Number.isSafeInteger(req.body?.update_id)) {
-    return res.status(200).json({ ok: true, ...stored, operational: false });
-  }
-  const claim = await claimTelegramUpdate(query, req.body.update_id);
-  if (claim.processed) {
-    return res.status(200).json({ ok: true, duplicate: true, processed: true, operational: false });
-  }
-  if (!claim.claimed) {
-    return res.status(503).json({ ok: false, error: claim.busy ? 'telegram_update_in_progress' : 'telegram_update_not_claimed' });
-  }
-  try {
-    let operational = false;
-    if (stored.kind === 'callback_query' || (stored.kind === 'message' && !req.body?.edited_message)) {
-      const result = await handleOperationalTelegramUpdate(req.body);
-      operational = Boolean(result.handled);
-    }
-    await completeTelegramUpdate(query, req.body.update_id, claim.attempts);
-    return res.status(200).json({ ok: true, ...stored, operational, processed: true });
-  } catch (processingError) {
-    try { await failTelegramUpdate(query, req.body.update_id, claim.attempts, processingError); }
-    catch (releaseError) { console.error('[sten] telegram update release failed:', releaseError?.code || releaseError?.message || 'UNKNOWN'); }
-    throw processingError;
-  }
+  const result = await processTelegramWebhookUpdate(req.body);
+  return res.status(200).json({ ok: true, ...result.stored, operational: result.operational, processed: result.processed, duplicate: Boolean(result.duplicate) });
 } catch (e) {
-  console.error('[sten] telegram ingest failed:', e?.code || e?.message || 'UNKNOWN');
+  console.error('[dumrauf] telegram ingest failed:', e?.code || e?.message || 'UNKNOWN');
   return res.status(503).json({ ok: false, error: 'telegram_processing_failed' });
 }
 }
