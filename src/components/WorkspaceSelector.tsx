@@ -260,8 +260,8 @@ export default function WorkspaceSelector({
                     <option value="">{projects.length ? 'Не выбрано' : 'Нет данных'}</option>
                     {projects.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
                   </select>
-                  <button type="button" className="icon-button compact" aria-label="Создать проект" title="Создать" onClick={() => openAdd('project') disabled={loading || saving}><Plus size={13} /></button>
-                  <button type="button" className="icon-button compact" aria-label="Удалить проект" title="Удалить" onClick={() => void removeNode('project') disabled={!value.projectId || loading || saving}><Trash2 size={13} /></button>
+                  <button type="button" className="icon-button compact" aria-label="Создать проект" title="Создать" onClick={() => openAdd('project')} disabled={loading || saving}><Plus size={13} /></button>
+                  <button type="button" className="icon-button compact" aria-label="Удалить проект" title="Удалить" onClick={() => void removeNode('project')} disabled={!value.projectId || loading || saving}><Trash2 size={13} /></button>
                 </div>
               </label>
               <label className="settings-field workspace-select">
@@ -271,8 +271,8 @@ export default function WorkspaceSelector({
                     <option value="">{branches.length ? 'Не выбрано' : 'Нет данных'}</option>
                     {branches.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
                   </select>
-                  <button type="button" className="icon-button compact" aria-label="Создать филиал" title="Создать" onClick={() => openAdd('branch') disabled={loading || saving}><Plus size={13} /></button>
-                  <button type="button" className="icon-button compact" aria-label="Удалить филиал" title="Удалить" onClick={() => void removeNode('branch') disabled={!value.branchId || loading || saving}><Trash2 size={13} /></button>
+                  <button type="button" className="icon-button compact" aria-label="Создать филиал" title="Создать" onClick={() => openAdd('branch')} disabled={loading || saving}><Plus size={13} /></button>
+                  <button type="button" className="icon-button compact" aria-label="Удалить филиал" title="Удалить" onClick={() => void removeNode('branch')} disabled={!value.branchId || loading || saving}><Trash2 size={13} /></button>
                 </div>
               </label>
               <label className="settings-field workspace-select">
@@ -282,8 +282,8 @@ export default function WorkspaceSelector({
                     <option value="">{restaurants.length ? 'Не выбрано' : 'Нет данных'}</option>
                     {restaurants.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
                   </select>
-                  <button type="button" className="icon-button compact" aria-label="Создать ресторан" title="Создать" onClick={() => openAdd('restaurant') disabled={loading || saving}><Plus size={13} /></button>
-                  <button type="button" className="icon-button compact" aria-label="Удалить ресторан" title="Удалить" onClick={() => void removeNode('restaurant') disabled={!value.restaurantId || loading || saving}><Trash2 size={13} /></button>
+                  <button type="button" className="icon-button compact" aria-label="Создать ресторан" title="Создать" onClick={() => openAdd('restaurant')} disabled={loading || saving}><Plus size={13} /></button>
+                  <button type="button" className="icon-button compact" aria-label="Удалить ресторан" title="Удалить" onClick={() => void removeNode('restaurant')} disabled={!value.restaurantId || loading || saving}><Trash2 size={13} /></button>
                 </div>
               </label>
               <label className="settings-field workspace-select">
@@ -293,8 +293,8 @@ export default function WorkspaceSelector({
                     <option value="">{departments.length ? 'Не выбрано' : 'Нет данных'}</option>
                     {departments.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
                   </select>
-                  <button type="button" className="icon-button compact" aria-label="Создать отдел" title="Создать" onClick={() => openAdd('department') disabled={loading || saving}><Plus size={13} /></button>
-                  <button type="button" className="icon-button compact" aria-label="Удалить отдел" title="Удалить" onClick={() => void removeNode('department') disabled={!value.departmentId || loading || saving}><Trash2 size={13} /></button>
+                  <button type="button" className="icon-button compact" aria-label="Создать отдел" title="Создать" onClick={() => openAdd('department')} disabled={loading || saving}><Plus size={13} /></button>
+                  <button type="button" className="icon-button compact" aria-label="Удалить отдел" title="Удалить" onClick={() => void removeNode('department')} disabled={!value.departmentId || loading || saving}><Trash2 size={13} /></button>
                 </div>
               </label>
               {error && <div className="pnl-message warn" role="alert">{error}</div>}
