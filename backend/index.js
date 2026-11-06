@@ -3555,6 +3555,26 @@ app.post('/api/telegram-monitor/findings/:findingId/reject', requireAuth, requir
   } catch (e) { next(e); }
 });
 
+app.get('/api/telegram-monitor/findings/:findingId/events', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.findingId)) throw httpError(400, 'Некорректный id AI-находки.', 'BAD_ID');
+    const finding = await strictQuery(
+      'SELECT restaurant_id FROM telegram_message_analyses WHERE id=$1::uuid AND organization_id=$2::uuid LIMIT 1',
+      [req.params.findingId, req.user.organizationId], { orgId: req.user.organizationId }
+    );
+    if (!finding[0]) throw httpError(404, 'AI-находка не найдена.', 'FINDING_NOT_FOUND');
+    await assertOperationalRestaurant(req.user, finding[0].restaurant_id);
+    const events = await strictQuery(
+      `SELECT id,event_type,from_status,to_status,actor_id,action_id,payload_json,created_at
+         FROM telegram_ai_finding_events
+        WHERE finding_id=$1::uuid AND organization_id=$2::uuid
+        ORDER BY created_at ASC LIMIT 100`,
+      [req.params.findingId, req.user.organizationId], { orgId: req.user.organizationId }
+    );
+    ok(res, { events });
+  } catch (e) { next(e); }
+});
+
 app.get('/api/operational-control/actions/:id/events', requireAuth, requireOrg, async (req, res, next) => {
   try {
     if (!UUID_RE.test(req.params.id)) throw httpError(400, 'Некорректный id задачи.', 'BAD_ID');
