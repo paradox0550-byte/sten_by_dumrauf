@@ -438,7 +438,7 @@ await query(`CREATE TABLE IF NOT EXISTS telegram_outbox (
   idempotency_key TEXT NOT NULL UNIQUE,
   message_text TEXT NOT NULL DEFAULT '',
   scheduled_for TIMESTAMPTZ NOT NULL DEFAULT now(),
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('building','pending','sent','failed')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('building','pending','sending','sent','failed')),
   attempts INTEGER NOT NULL DEFAULT 0,
   last_error TEXT,
   sent_at TIMESTAMPTZ,
@@ -2030,8 +2030,8 @@ if(metrics.ebitda)lines.push('📊 EBITDA: '+fmtRub(p.ebitda)+(p.ebitdaMargin!==
 if(metrics.deviation)lines.push('⚠️ Отклонение от плана: '+(Number.isFinite(deviation)?fmtPct(deviation):'Нет данных'));
 return lines.join('\n');
 }
-async function sendTelegram(chatId,textBody){
-await telegramBotRequest('sendMessage',{chat_id:chatId,text:textBody});
+async function sendTelegram(chatId,textBody,organizationId=null,restaurantId=null){
+await telegramBotRequest('sendMessage',{chat_id:chatId,text:textBody},{organizationId,restaurantId});
 return {provider:'telegram',sent:true};
 }
 async function sendWhatsApp(phone,textBody){
@@ -2305,7 +2305,7 @@ await assertScopeAccess(req.user,scope);
 const data=await loadReportMetrics(req.user,b.date,scope);
 const restaurant=scope.restaurant_id||data.values.restaurant||null;
 const textBody=reportText(b.date,restaurant,data.values,data.pnlData,metrics);
-const result=provider==='telegram'?await sendTelegram(recipient,textBody):await sendWhatsApp(recipient,textBody);
+const result=provider==='telegram'?await sendTelegram(recipient,textBody,req.user.organizationId,scope.restaurant_id || null):await sendWhatsApp(recipient,textBody);
 await audit(req.user,'report.sent','daily_reports',b.date,{provider,metrics});
 ok(res,{...result,date:b.date,preview:textBody});
 }catch(e){next(e)}});
@@ -3794,7 +3794,7 @@ if (token && String(req.query['hub.verify_token'] || '') === token) return res.s
 return res.status(403).json({ error: { message: 'Webhook verification failed', code: 'WEBHOOK_VERIFY_FAILED' } });
 });
 
-async function recordTelegramDelivery(chatId, method, status, telegramMessageId, error) {
+async function recordTelegramDelivery(chatId, method, status, telegramMessageId, error, context = {}) {
   try {
     const bindings = await safeQuery(
       'SELECT organization_id, restaurant_id FROM telegram_chat_bindings WHERE chat_id=$1 LIMIT 1',
@@ -3805,7 +3805,7 @@ async function recordTelegramDelivery(chatId, method, status, telegramMessageId,
       `INSERT INTO telegram_deliveries
         (organization_id,restaurant_id,chat_id,method,status,telegram_message_id,error_code,error_message)
        VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8)`,
-      [binding.organization_id || null, binding.restaurant_id || null, String(chatId), String(method),
+      [binding.organization_id || context.organizationId || null, binding.restaurant_id || context.restaurantId || null, String(chatId), String(method),
        status, telegramMessageId ? String(telegramMessageId) : null,
        error?.code || null, error ? String(error.message || error).slice(0, 500) : null],
       binding.organization_id ? { orgId: binding.organization_id } : {}
@@ -3814,9 +3814,13 @@ async function recordTelegramDelivery(chatId, method, status, telegramMessageId,
     log('telegram delivery log failed:', logError?.code || logError?.message || 'UNKNOWN');
   }
 }
-async function telegramBotRequest(method, payload) {
+async function telegramBotRequest(method, payload, context = {}) {
   const token = process.env.TELEGRAM_MONITOR_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) throw httpError(503, 'Монитор-бот Telegram не настроен', 'TELEGRAM_MONITOR_NOT_CONFIGURED');
+  if (!token) {
+    const error = httpError(503, 'Монитор-бот Telegram не настроен', 'TELEGRAM_MONITOR_NOT_CONFIGURED');
+    if (method === 'sendMessage' && payload?.chat_id !== undefined) await recordTelegramDelivery(payload.chat_id, method, 'failed', null, error, context);
+    throw error;
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 4500);
   try {
@@ -3829,7 +3833,7 @@ async function telegramBotRequest(method, payload) {
     const result = await response.json().catch(() => ({}));
     if (!response.ok || result.ok === false) throw httpError(502, 'Telegram Bot API отклонил запрос', 'TELEGRAM_UPSTREAM_ERROR');
     if (method === 'sendMessage' && payload?.chat_id !== undefined) {
-      await recordTelegramDelivery(payload.chat_id, method, 'sent', result.result?.message_id, null);
+      await recordTelegramDelivery(payload.chat_id, method, 'sent', result.result?.message_id, null, context);
     }
     return result.result;
   } catch (error) {
@@ -3837,7 +3841,7 @@ async function telegramBotRequest(method, payload) {
       ? httpError(504, 'Telegram Bot API не ответил вовремя', 'TELEGRAM_TIMEOUT')
       : error;
     if (method === 'sendMessage' && payload?.chat_id !== undefined) {
-      await recordTelegramDelivery(payload.chat_id, method, 'failed', null, normalized);
+      await recordTelegramDelivery(payload.chat_id, method, 'failed', null, normalized, context);
     }
     throw normalized;
   } finally {
