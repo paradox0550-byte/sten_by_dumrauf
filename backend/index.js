@@ -4535,7 +4535,7 @@ const analysisClaim = await queryWithRetry(
   `INSERT INTO telegram_worker_runs(worker_key,run_date,status,started_at)
    VALUES('daily_ai_analysis',CURRENT_DATE,'running',now())
    ON CONFLICT(worker_key,run_date) DO UPDATE SET status='running',started_at=now()
-    WHERE telegram_worker_runs.status='failed'
+    WHERE telegram_worker_runs.status='failed' OR telegram_worker_runs.started_at < now()-interval '2 hours'
    RETURNING worker_key`,
   [], {}
 );
