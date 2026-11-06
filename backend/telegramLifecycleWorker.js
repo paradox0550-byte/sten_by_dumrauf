@@ -35,7 +35,7 @@ async function claimDelivery(queryWithRetry, eventKey, organizationId, restauran
      ON CONFLICT(event_key) DO UPDATE
        SET status='sending',attempts=telegram_delivery_log.attempts+1,
            payload_text=EXCLUDED.payload_text,last_error=NULL,updated_at=now()
-       WHERE telegram_delivery_log.status='failed'
+       WHERE telegram_delivery_log.status IN ('failed','sending')
          AND telegram_delivery_log.updated_at < now() - interval '5 minutes'
      RETURNING id`,
     [organizationId, restaurantId, chatId, eventKey, type, text],
