@@ -9,7 +9,7 @@ const routes = [
   ['manager-plan', '/plan'], ['pnl', '/pnl'], ['pnl-import', '/pnl/import'],
   ['finances', '/finances'], ['budget', '/budget'], ['analytics', '/analytics'],
   ['team-fot', '/staff'], ['documents', '/documents'], ['memory', '/memory'],
-  ['settings', '/settings'], ['telegram-monitor', '/telegram-monitor'], ['ai-quality', '/ai-quality'], ['organizations', '/admin/organizations'], ['legal', '/legal'],
+  ['settings', '/settings'], ['telegram-monitor', '/telegram-monitor'], ['ai-quality', '/ai-quality'], ['organizations', '/admin/organizations'], ['legal', '/legal'], ['login', '/unlock'],
 ];
 const viewports = [{ width: 390, height: 844 }, { width: 1440, height: 900 }];
 const themes = ['dark', 'light'];
