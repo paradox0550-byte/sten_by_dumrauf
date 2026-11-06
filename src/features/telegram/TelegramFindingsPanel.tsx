@@ -197,7 +197,7 @@ export default function TelegramFindingsPanel({ chats }: { chats: Chat[] }) {
     try {
       const response = await api.get<{ events: EventRow[] }>('/api/operational-control/actions/' + encodeURIComponent(actionId) + '/events');
       setEvents(Array.isArray(response.events) ? response.events : []);
-    } catch (caught) {
+    } catch {
       setEvents([{ id: 'unavailable', actor_id: '', event_type: 'history_unavailable', details: {}, created_at: new Date().toISOString() }]);
     } finally { setEventsLoading(false); }
   };
