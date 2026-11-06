@@ -89,6 +89,8 @@ export default function Settings() {
   const [messengerMessage, setMessengerMessage] = useState('');
   const [messengerMessageKind, setMessengerMessageKind] = useState<'ok' | 'error'>('ok');
   const [messengerSaving, setMessengerSaving] = useState(false);
+  const [messengerLoading, setMessengerLoading] = useState(false);
+  const [messengerLoadFailed, setMessengerLoadFailed] = useState(false);
 
   const {
     settings: analytics,
@@ -138,6 +140,8 @@ export default function Settings() {
 
   useEffect(() => {
     void (async () => {
+      setMessengerLoading(true);
+      setMessengerLoadFailed(false);
       try {
         const response = await api.get<MessengerSettingsResponse>('/api/messenger/settings');
         const settings = response?.settings;
@@ -147,7 +151,9 @@ export default function Settings() {
           setReportRecipientId(normalizeProfileText(String(settings.telegram_chat_id || '')));
         }
       } catch {
-        // Optional messenger settings should not block the settings page.
+        setMessengerLoadFailed(true);
+      } finally {
+        setMessengerLoading(false);
       }
     })();
   }, [user?.telegramChatId]);
@@ -238,6 +244,7 @@ export default function Settings() {
   };
 
   const saveMessenger = async () => {
+    if (messengerLoading || messengerLoadFailed) return;
     const recipientId = normalizeProfileText(reportRecipientId);
     if (recipientId && !isValidTelegramChatId(recipientId)) {
       setMessengerMessageKind('error');
@@ -447,25 +454,27 @@ export default function Settings() {
         <section className="panel messenger-settings" id="settings-reports">
           <h2>Отчёты в Telegram</h2>
           <p className="muted">Получатель отчётов настраивается отдельно от личного Telegram ID в профиле, который используется для идентификации сотрудника. Время и состав отчёта сохраняются, но автоматическая отправка по расписанию пока не выполняется; кнопки ручной отправки в интерфейсе нет.</p>
+          {messengerLoading && <small className="muted" role="status">Загружаем сохранённые настройки отчётов…</small>}
+          {messengerLoadFailed && <small className="field-error" role="alert">Не удалось загрузить сохранённые настройки. Сохранение заблокировано, чтобы не перезаписать неизвестные значения.</small>}
           <label className="settings-field">
             <span>Telegram ID получателя отчётов</span>
-            <input inputMode="text" value={reportRecipientId} onChange={(event) => setReportRecipientId(normalizeProfileText(event.target.value))} placeholder="Личный чат или ID группы" />
+            <input inputMode="text" value={reportRecipientId} onChange={(event) => { setReportRecipientId(normalizeProfileText(event.target.value)); setMessengerMessage(''); }} placeholder="Личный чат или ID группы" disabled={messengerLoading || messengerLoadFailed} />
             <small className="muted">Для группы укажите её chat ID. Отрицательный ID допустим.</small>
           </label>
           <label className="settings-field">
             <span>Предпочтительное время отчёта</span>
-            <input type="time" value={sendTime} onChange={(event) => setSendTime(event.target.value)} />
+            <input type="time" value={sendTime} onChange={(event) => setSendTime(event.target.value)} disabled={messengerLoading || messengerLoadFailed} />
           </label>
           <div className="messenger-metrics">
             {(Object.keys(labels) as Array<keyof Metrics>).map((key) => (
               <label className="toggle-row" key={key}>
                 <span><b>{labels[key]}</b></span>
-                <input type="checkbox" checked={metrics[key]} onChange={() => toggleMetric(key)} />
+                <input type="checkbox" checked={metrics[key]} onChange={() => toggleMetric(key)} disabled={messengerLoading || messengerLoadFailed} />
                 <i />
               </label>
             ))}
           </div>
-          <button className="primary-button" disabled={messengerSaving} onClick={() => void saveMessenger()}>
+          <button className="primary-button" disabled={messengerSaving || messengerLoading || messengerLoadFailed} onClick={() => void saveMessenger()}>
             <Save size={16} />
             {messengerSaving ? 'Сохраняем…' : 'Сохранить отчёты'}
           </button>
