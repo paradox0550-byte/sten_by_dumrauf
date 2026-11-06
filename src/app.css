@@ -2,9 +2,9 @@
 
 @layer legacy {
 /* ============================================================================
-   STEN Design System — Swiss Hospitality Canon
-   Smart Tracking & Economic Navigator
-   HoReCa-first B2B Financial Interface
+   DUMRAUF compatibility layer for legacy module selectors.
+   Shared application visuals live in dumrauf-experience.css.
+   Semantic colors and theme modes live in styles/visual-system/tokens.css.
    ============================================================================ */
 
 /* === Design Tokens === */
