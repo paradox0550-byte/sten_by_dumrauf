@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, Clock3, ExternalLink, History, RefreshCw, ShieldCheck, Sparkles, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
+import '../../styles/telegram-findings.css';
 import '../../styles/telegram-findings.css';
 
 type Chat = { chat_id: string; title: string | null; restaurant_id: string | null; restaurant_name: string | null; organization_id: string | null };
@@ -51,6 +53,8 @@ const eventLabel: Record<string, string> = { created: 'Задача создан
 
 export default function TelegramFindingsPanel({ chats }: { chats: Chat[] }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canApprove = ['super_admin','owner','admin','director'].includes(String(user?.role || '').toLowerCase());
   const scheduleRequest = useRef(0);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [status, setStatus] = useState<FindingStatus>('all');
@@ -77,6 +81,7 @@ export default function TelegramFindingsPanel({ chats }: { chats: Chat[] }) {
   const [botSettings, setBotSettings] = useState<BotSettings>(defaultBotSettings);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [scheduleLoadFailed, setScheduleLoadFailed] = useState(false);
   const [scheduleError, setScheduleError] = useState('');
   const [scheduleNotice, setScheduleNotice] = useState('');
   const selectedChatInfo = useMemo(() => boundChats.find(chat => chat.chat_id === selectedChat), [boundChats, selectedChat]);
@@ -126,10 +131,10 @@ export default function TelegramFindingsPanel({ chats }: { chats: Chat[] }) {
   useEffect(() => {
     const request = ++scheduleRequest.current;
     if (!selectedChat) { setBotSettings(defaultBotSettings); setScheduleLoading(false); return; }
-    setScheduleLoading(true); setScheduleError(''); setScheduleNotice('');
+    setScheduleLoading(true); setScheduleError(''); setScheduleNotice(''); setScheduleLoadFailed(false);
     api.get<{ settings: BotSettings | null }>('/api/telegram-bot/settings?chat_id=' + encodeURIComponent(selectedChat))
       .then(response => { if (request === scheduleRequest.current) setBotSettings({ ...defaultBotSettings, ...(response.settings || {}) }); })
-      .catch(caught => { if (request === scheduleRequest.current) setScheduleError(caught instanceof ApiError ? caught.message : 'Не удалось загрузить расписание группы.'); })
+      .catch(caught => { if (request === scheduleRequest.current) { setScheduleLoadFailed(true); setScheduleError(caught instanceof ApiError ? caught.message : 'Не удалось загрузить расписание группы.'); } })
       .finally(() => { if (request === scheduleRequest.current) setScheduleLoading(false); });
   }, [selectedChat]);
 
@@ -229,7 +234,7 @@ export default function TelegramFindingsPanel({ chats }: { chats: Chat[] }) {
             {finding.action_id && <button type="button" className="telegram-findings__text-button" onClick={() => navigate('/ops')}><ExternalLink size={14} /> Открыть задачи</button>}
           </div>
           {finding.action_id && expandedEvents === finding.action_id && <div className="telegram-finding__history">{eventsLoading ? <span>Загружаем историю…</span> : events.length === 0 ? <span>История событий пока пуста.</span> : events.map(event => <div key={event.id}><strong>{eventLabel[event.event_type] || event.event_type}</strong><time>{dateTime(event.created_at)}</time></div>)}</div>}
-          {pending && <div className="telegram-finding__actions">
+          {pending && canApprove && <div className="telegram-finding__actions">
             {!active ? <button type="button" className="primary-button" onClick={() => void openApproval(finding)}><ShieldCheck size={15} /> Подтвердить и назначить</button>
               : <div className="telegram-finding__approval-form">
                   <label>Исполнитель<select value={assigneeId} onChange={event => setAssigneeId(event.target.value)} disabled={employeesLoading || employees.length === 0}><option value="">{employeesLoading ? 'Загружаем сотрудников…' : 'Выберите сотрудника'}</option>{employees.map(employee => <option key={employee.id} value={employee.id}>{[employee.first_name,employee.last_name].filter(Boolean).join(' ')}{employee.position ? ' · ' + employee.position : ''}</option>)}</select></label>
@@ -239,6 +244,7 @@ export default function TelegramFindingsPanel({ chats }: { chats: Chat[] }) {
                 </div>}
             <button type="button" className="telegram-findings__reject" onClick={() => void submitDecision(finding,'reject')} disabled={savingDecision || active}><XCircle size={15} /> Отклонить</button>
           </div>}
+          {pending && !canApprove && <p className="telegram-finding__assigned">Ожидает решения руководителя. Подтверждение доступно владельцу, администратору или директору.</p>}
           {finding.proposal_status === 'approved' && finding.action_id && <p className="telegram-finding__assigned">Назначено: {finding.assignee_name || 'Исполнитель указан'} · срок {dateTime(finding.due_at)}. Отметка выполнения и независимая проверка ведутся в операционном контроле.</p>}
           {finding.proposal_status === 'rejected' && finding.review_reason && <p className="telegram-finding__assigned">Причина: {finding.review_reason}</p>}
         </article>;
@@ -269,7 +275,7 @@ export default function TelegramFindingsPanel({ chats }: { chats: Chat[] }) {
           </div>
           {scheduleError && <p className="telegram-findings__error" role="alert">{scheduleError}</p>}
           {scheduleNotice && <p className="telegram-findings__notice" role="status">{scheduleNotice}</p>}
-          <button type="button" className="primary-button" onClick={() => void saveSchedule()} disabled={scheduleSaving || !selectedChat}><Clock3 size={15} /> {scheduleSaving ? 'Сохраняем…' : 'Сохранить расписание'}</button>
+          <button type="button" className="primary-button" onClick={() => void saveSchedule()} disabled={scheduleSaving || scheduleLoading || scheduleLoadFailed || !selectedChat}><Clock3 size={15} /> {scheduleSaving ? 'Сохраняем…' : 'Сохранить расписание'}</button>
         </>}
       </div>
       <div className="telegram-findings__group-check">
