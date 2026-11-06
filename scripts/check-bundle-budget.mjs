@@ -5,7 +5,7 @@ import path from 'node:path';
 const manifestPath = path.resolve('dist/.vite/manifest.json');
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 const entries = Object.entries(manifest);
-const entry = entries.find(([, value]) => value.src === 'src/main.tsx');
+const entry = entries.find(([, value]) => value.src === 'src/main.tsx') ?? entries.find(([key, value]) => key === 'index.html' && value.isEntry);
 if (!entry) throw new Error('Vite manifest has no src/main.tsx entry.');
 
 const visited = new Set();
